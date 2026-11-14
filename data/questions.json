@@ -1,0 +1,1763 @@
+{
+  "easy": [
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Fundamentals",
+      "q": "Which component carries out the instructions of a program?",
+      "choices": [
+        "Hard drive",
+        "CPU",
+        "RAM",
+        "Monitor"
+      ],
+      "answer": 1,
+      "explain": "The CPU (Central Processing Unit) fetches and executes instructions. RAM only holds data temporarily while programs run."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Number Systems",
+      "q": "What is the decimal value of binary 1010?",
+      "choices": [
+        "8",
+        "10",
+        "12",
+        "14"
+      ],
+      "answer": 1,
+      "explain": "1010 = 1x8 + 0x4 + 1x2 + 0x1 = 10."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Networking",
+      "q": "Which protocol is mainly used to load web pages?",
+      "choices": [
+        "FTP",
+        "SMTP",
+        "HTTP",
+        "SSH"
+      ],
+      "answer": 2,
+      "explain": "HTTP (and its secure form, HTTPS) carries requests and responses between browsers and web servers."
+    },
+    {
+      "category": "Programming",
+      "topic": "Programming",
+      "q": "Which keyword declares a constant in JavaScript?",
+      "choices": [
+        "var",
+        "let",
+        "const",
+        "static"
+      ],
+      "answer": 2,
+      "explain": "const creates a binding that cannot be reassigned. let allows reassignment, and var is the older form."
+    },
+    {
+      "category": "Database",
+      "topic": "Databases",
+      "q": "What is a primary key in a relational table?",
+      "choices": [
+        "A column that may repeat values",
+        "A unique identifier for each row",
+        "A copy of another table",
+        "A password for the database"
+      ],
+      "answer": 1,
+      "explain": "A primary key uniquely identifies each row. Its values must be unique and cannot be empty."
+    },
+    {
+      "category": "Database",
+      "topic": "SQL Queries",
+      "q": "Which SQL command retrieves rows from a table?",
+      "choices": [
+        "SELECT",
+        "UPDATE",
+        "INSERT",
+        "DROP"
+      ],
+      "answer": 0,
+      "explain": "SELECT reads data from one or more tables without changing the stored rows."
+    },
+    {
+      "category": "Database",
+      "topic": "SQL Queries",
+      "q": "Which SQL clause keeps only rows that match a condition?",
+      "choices": [
+        "ORDER BY",
+        "WHERE",
+        "VALUES",
+        "CREATE"
+      ],
+      "answer": 1,
+      "explain": "WHERE filters rows according to a condition, such as a matching city or a minimum price."
+    },
+    {
+      "category": "Database",
+      "topic": "SQL Queries",
+      "q": "Which clause sorts query results by a column?",
+      "choices": [
+        "GROUP BY",
+        "HAVING",
+        "ORDER BY",
+        "JOIN"
+      ],
+      "answer": 2,
+      "explain": "ORDER BY sorts the returned rows; use ASC or DESC to choose the direction."
+    },
+    {
+      "category": "Database",
+      "topic": "Data Modeling & Normalization",
+      "q": "In a relational database, what does a row usually represent?",
+      "choices": [
+        "One record of an entity",
+        "A query condition",
+        "A database connection",
+        "A whole database"
+      ],
+      "answer": 0,
+      "explain": "A row stores one record, such as one customer, with values for the table’s attributes."
+    },
+    {
+      "category": "Database",
+      "topic": "Data Modeling & Normalization",
+      "q": "What does a foreign key usually reference?",
+      "choices": [
+        "A column in another table, often its primary key",
+        "A file on disk",
+        "A SQL keyword",
+        "A database password"
+      ],
+      "answer": 0,
+      "explain": "A foreign key links rows by referencing a key in another table and can enforce referential integrity."
+    },
+    {
+      "category": "Database",
+      "topic": "Data Modeling & Normalization",
+      "q": "A customer can place many orders, and each order belongs to one customer. What relationship is this?",
+      "choices": [
+        "One-to-one",
+        "One-to-many",
+        "Many-to-many",
+        "No relationship"
+      ],
+      "answer": 1,
+      "explain": "One customer may be related to many orders, while each order refers to one customer."
+    },
+    {
+      "category": "Database",
+      "topic": "Transactions & Concurrency",
+      "q": "Which SQL command makes a transaction’s changes permanent?",
+      "choices": [
+        "ROLLBACK",
+        "COMMIT",
+        "SAVEPOINT",
+        "SELECT"
+      ],
+      "answer": 1,
+      "explain": "COMMIT completes a transaction and makes its changes durable according to the database system."
+    },
+    {
+      "category": "Database",
+      "topic": "Transactions & Concurrency",
+      "q": "Which ACID property means a transaction happens completely or not at all?",
+      "choices": [
+        "Atomicity",
+        "Consistency",
+        "Isolation",
+        "Durability"
+      ],
+      "answer": 0,
+      "explain": "Atomicity prevents a transaction from being only partly applied if it fails."
+    },
+    {
+      "category": "Database",
+      "topic": "Transactions & Concurrency",
+      "q": "What does ROLLBACK do to an uncommitted transaction?",
+      "choices": [
+        "Undoes its changes",
+        "Sorts its rows",
+        "Creates an index",
+        "Copies its data"
+      ],
+      "answer": 0,
+      "explain": "ROLLBACK cancels the current transaction’s uncommitted changes."
+    },
+    {
+      "category": "Database",
+      "topic": "Indexing & Performance",
+      "q": "What is a common purpose of a database index?",
+      "choices": [
+        "Speed up finding rows",
+        "Replace every table",
+        "Encrypt all columns",
+        "Guarantee every query is fast"
+      ],
+      "answer": 0,
+      "explain": "An index can help the database locate matching rows without scanning the entire table."
+    },
+    {
+      "category": "Database",
+      "topic": "Indexing & Performance",
+      "q": "What is one tradeoff of adding indexes to a table?",
+      "choices": [
+        "Writes may take more work and storage",
+        "The table can no longer be queried",
+        "Rows lose their values",
+        "All duplicates are removed automatically"
+      ],
+      "answer": 0,
+      "explain": "Indexes use storage and must be maintained when rows are inserted, updated, or deleted."
+    },
+    {
+      "category": "Database",
+      "topic": "Indexing & Performance",
+      "q": "What does a unique index help enforce?",
+      "choices": [
+        "No duplicate indexed key values",
+        "Every row has the same value",
+        "All queries return in sorted order",
+        "A table has no nulls in any column"
+      ],
+      "answer": 0,
+      "explain": "A unique index rejects duplicate key values for the indexed column or column combination, subject to the database’s NULL rules."
+    },
+    {
+      "category": "Programming",
+      "topic": "Data Structures",
+      "q": "Which structure follows Last In, First Out (LIFO)?",
+      "choices": [
+        "Queue",
+        "Stack",
+        "Array",
+        "Linked list"
+      ],
+      "answer": 1,
+      "explain": "A stack adds and removes items at the same end, so the last item pushed is the first one popped."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Fundamentals",
+      "q": "What does RAM stand for?",
+      "choices": [
+        "Rapid Application Module",
+        "Real Allocation Matrix",
+        "Read Access Memory",
+        "Random Access Memory"
+      ],
+      "answer": 3,
+      "explain": "RAM is Random Access Memory. It holds data and programs that are in use and loses its contents when the power is off."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Fundamentals",
+      "q": "Which part of a computer keeps your files when the power is switched off?",
+      "choices": [
+        "Cache",
+        "CPU register",
+        "RAM",
+        "Storage drive (SSD or HDD)"
+      ],
+      "answer": 3,
+      "explain": "SSDs and HDDs store data without power. RAM, cache, and registers are volatile and lose their contents when the power goes off."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Number Systems",
+      "q": "What is the decimal value of binary 1111?",
+      "choices": [
+        "31",
+        "16",
+        "14",
+        "15"
+      ],
+      "answer": 3,
+      "explain": "1111 = 8 + 4 + 2 + 1 = 15."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Number Systems",
+      "q": "Which number system uses the digits 0 to 9 and the letters A to F?",
+      "choices": [
+        "Binary",
+        "Decimal",
+        "Hexadecimal",
+        "Octal"
+      ],
+      "answer": 2,
+      "explain": "Hexadecimal is base 16. Binary uses 0 and 1, octal uses 0 to 7, and decimal uses 0 to 9."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Networking",
+      "q": "What does DNS do?",
+      "choices": [
+        "Encrypts web traffic",
+        "Translates domain names into IP addresses",
+        "Blocks malicious emails",
+        "Stores website files"
+      ],
+      "answer": 1,
+      "explain": "The Domain Name System maps names such as example.com to IP addresses so devices can find each other."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Networking",
+      "q": "Which default port does HTTPS use?",
+      "choices": [
+        "80",
+        "443",
+        "21",
+        "25"
+      ],
+      "answer": 1,
+      "explain": "HTTPS uses port 443. HTTP uses 80, FTP uses 21, and SMTP uses 25."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Information Security",
+      "q": "Which of these is the strongest choice for a password?",
+      "choices": [
+        "A long, unique passphrase",
+        "Your pet's name",
+        "Your birthday",
+        "password123"
+      ],
+      "answer": 0,
+      "explain": "Long, unique passphrases resist guessing and dictionary attacks. A password manager lets you use a different one for every account."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Information Security",
+      "q": "What is phishing?",
+      "choices": [
+        "Breaking into a locked computer physically",
+        "Scanning a network for open ports",
+        "Tricking people into revealing information through fake messages or sites",
+        "Overloading a server with traffic"
+      ],
+      "answer": 2,
+      "explain": "Phishing uses deceptive emails, texts, or websites to steal login details or personal data."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Information Security",
+      "q": "What does two-factor authentication add to a login?",
+      "choices": [
+        "Faster loading times",
+        "A second password for the same account",
+        "A second, independent proof of identity",
+        "A longer username"
+      ],
+      "answer": 2,
+      "explain": "It requires something besides your password, such as a code from your phone or a hardware security key."
+    },
+    {
+      "category": "Programming",
+      "topic": "Programming",
+      "q": "Which keyword declares a variable in JavaScript that can be reassigned?",
+      "choices": [
+        "let",
+        "const",
+        "constant",
+        "final"
+      ],
+      "answer": 0,
+      "explain": "let creates a block-scoped variable that can be reassigned. const cannot be reassigned."
+    },
+    {
+      "category": "Programming",
+      "topic": "Programming",
+      "q": "What is the main benefit of a function?",
+      "choices": [
+        "It connects to a database",
+        "It groups reusable code under one name",
+        "It stores data permanently",
+        "It displays images on screen"
+      ],
+      "answer": 1,
+      "explain": "Functions let you write code once and call it many times, which keeps programs organized."
+    },
+    {
+      "category": "Database",
+      "topic": "Databases",
+      "q": "What is a database table made of?",
+      "choices": [
+        "Only pictures",
+        "Rows and columns",
+        "Only plain text",
+        "Folders and files"
+      ],
+      "answer": 1,
+      "explain": "Each row is a record, and each column is an attribute with a data type."
+    },
+    {
+      "category": "Database",
+      "topic": "Databases",
+      "q": "What does a primary key do?",
+      "choices": [
+        "Stores the database password",
+        "Makes network connections faster",
+        "Uniquely identifies each row in a table",
+        "Encrypts the whole table"
+      ],
+      "answer": 2,
+      "explain": "A primary key has unique, non-null values, so every row can be referenced reliably."
+    },
+    {
+      "category": "Programming",
+      "topic": "Data Structures",
+      "q": "Which data structure follows last-in, first-out (LIFO) order?",
+      "choices": [
+        "Queue",
+        "Linked list",
+        "Stack",
+        "Binary tree"
+      ],
+      "answer": 2,
+      "explain": "A stack adds and removes items at the same end, like a stack of plates."
+    },
+    {
+      "category": "Programming",
+      "topic": "Data Structures",
+      "q": "Which data structure follows first-in, first-out (FIFO) order?",
+      "choices": [
+        "Stack",
+        "Hash table",
+        "Heap",
+        "Queue"
+      ],
+      "answer": 3,
+      "explain": "A queue serves items in the order they arrived, like a line at a checkout."
+    },
+    {
+      "category": "Programming",
+      "topic": "Object-Oriented Programming",
+      "q": "What is a class in object-oriented programming?",
+      "choices": [
+        "A file stored on disk",
+        "A blueprint for creating objects",
+        "A single value stored in memory",
+        "A loop that repeats methods"
+      ],
+      "answer": 1,
+      "explain": "A class defines the data and behavior that its objects will have."
+    },
+    {
+      "category": "Programming",
+      "topic": "Object-Oriented Programming",
+      "q": "What is an object?",
+      "choices": [
+        "A type of loop",
+        "A database table",
+        "A keyboard shortcut",
+        "An instance of a class with its own data and behavior"
+      ],
+      "answer": 3,
+      "explain": "Each object is created from a class and holds its own copy of the class's fields."
+    },
+    {
+      "category": "Programming",
+      "topic": "Object-Oriented Programming",
+      "q": "What does encapsulation mean?",
+      "choices": [
+        "Copying a class into another file",
+        "Running several threads at once",
+        "Hiding internal details and exposing a controlled interface",
+        "Deleting unused variables"
+      ],
+      "answer": 2,
+      "explain": "Encapsulation protects data by letting other code interact through methods instead of touching the fields directly."
+    },
+    {
+      "category": "Programming",
+      "topic": "Algorithms",
+      "q": "What is the worst-case time complexity of linear search?",
+      "choices": [
+        "O(1)",
+        "O(log n)",
+        "O(n squared)",
+        "O(n)"
+      ],
+      "answer": 3,
+      "explain": "In the worst case, linear search checks all n elements one by one."
+    },
+    {
+      "category": "Programming",
+      "topic": "Algorithms",
+      "q": "Which sorting algorithm repeatedly swaps adjacent elements that are out of order?",
+      "choices": [
+        "Binary search",
+        "Bubble sort",
+        "Dijkstra's algorithm",
+        "Breadth-first search"
+      ],
+      "answer": 1,
+      "explain": "Bubble sort makes repeated passes, swapping neighbors until the list is sorted. Binary search and Dijkstra's algorithm are not sorting algorithms."
+    },
+    {
+      "category": "Programming",
+      "topic": "Algorithms",
+      "q": "What must be true of the data before binary search can be used?",
+      "choices": [
+        "It must contain only numbers",
+        "It must be stored in a tree",
+        "It must be sorted",
+        "It must be encrypted"
+      ],
+      "answer": 2,
+      "explain": "Binary search repeatedly halves the range it is searching, which only works when the values are in order."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Operating Systems",
+      "q": "What is the main job of an operating system?",
+      "choices": [
+        "Compiling source code only",
+        "Managing hardware and providing services to applications",
+        "Designing web pages",
+        "Storing user documents forever"
+      ],
+      "answer": 1,
+      "explain": "The OS schedules tasks, manages memory and devices, and gives programs a common set of services."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Operating Systems",
+      "q": "What is a process?",
+      "choices": [
+        "A running program with its own memory and resources",
+        "A single line of code",
+        "A type of file permission",
+        "A network packet"
+      ],
+      "answer": 0,
+      "explain": "A process is a program in execution, and the OS manages its memory and resources."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Operating Systems",
+      "q": "What is virtual memory?",
+      "choices": [
+        "Memory built into the CPU",
+        "Memory reserved only for graphics",
+        "A cloud storage service",
+        "Using disk space to extend the apparent amount of RAM"
+      ],
+      "answer": 3,
+      "explain": "The OS moves less-used pages to disk so programs can use more memory than is physically installed."
+    },
+    {
+      "category": "Programming",
+      "topic": "Concurrency",
+      "q": "Why can two threads that update the same variable without a lock produce a wrong result?",
+      "choices": [
+        "The program always runs faster",
+        "Their updates can interleave, so one update is lost",
+        "The variable is locked automatically",
+        "Threads never share memory"
+      ],
+      "answer": 1,
+      "explain": "Two threads can read the same old value, each add to it, and write back, so one of the updates is overwritten."
+    },
+    {
+      "category": "Programming",
+      "topic": "Concurrency",
+      "q": "What does a mutex do?",
+      "choices": [
+        "Sends messages between servers",
+        "Lets only one thread enter a critical section at a time",
+        "Doubles the speed of a thread",
+        "Encrypts data in memory"
+      ],
+      "answer": 1,
+      "explain": "A mutex (mutual exclusion lock) makes other threads wait until the lock is released."
+    },
+    {
+      "category": "Programming",
+      "topic": "Concurrency",
+      "q": "What is a thread?",
+      "choices": [
+        "A type of network cable",
+        "A lightweight unit of execution inside a process",
+        "A compiled binary file",
+        "A database index"
+      ],
+      "answer": 1,
+      "explain": "Threads let one process do several things at once while sharing the same memory."
+    }
+  ],
+  "medium": [
+    {
+      "category": "Programming",
+      "topic": "Data Structures",
+      "q": "What is the average time to look up a key in a hash table?",
+      "choices": [
+        "O(n)",
+        "O(log n)",
+        "O(1)",
+        "O(n log n)"
+      ],
+      "answer": 2,
+      "explain": "A good hash function sends each key straight to its bucket, so lookups are O(1) on average."
+    },
+    {
+      "category": "Database",
+      "topic": "Databases",
+      "q": "Which SQL clause filters groups after GROUP BY is applied?",
+      "choices": [
+        "WHERE",
+        "HAVING",
+        "ORDER BY",
+        "LIMIT"
+      ],
+      "answer": 1,
+      "explain": "WHERE filters rows before grouping. HAVING filters the grouped results, often using aggregates like COUNT."
+    },
+    {
+      "category": "Database",
+      "topic": "SQL Queries",
+      "q": "Which join returns rows with matching keys in both tables?",
+      "choices": [
+        "INNER JOIN",
+        "CROSS JOIN",
+        "LEFT JOIN",
+        "FULL OUTER JOIN"
+      ],
+      "answer": 0,
+      "explain": "INNER JOIN keeps rows that satisfy the join condition in both tables."
+    },
+    {
+      "category": "Database",
+      "topic": "SQL Queries",
+      "q": "Which aggregate function returns the number of rows in each group?",
+      "choices": [
+        "COUNT(*)",
+        "LOWER(*)",
+        "ORDER(*)",
+        "MATCH(*)"
+      ],
+      "answer": 0,
+      "explain": "COUNT(*) counts the rows in each group, including rows where individual columns contain NULL."
+    },
+    {
+      "category": "Database",
+      "topic": "SQL Queries",
+      "q": "Which clause is used to combine rows into groups for aggregate calculations?",
+      "choices": [
+        "GROUP BY",
+        "ORDER BY",
+        "VALUES",
+        "DISTINCT BY"
+      ],
+      "answer": 0,
+      "explain": "GROUP BY forms groups with matching values so aggregates such as SUM or COUNT can be calculated per group."
+    },
+    {
+      "category": "Database",
+      "topic": "Data Modeling & Normalization",
+      "q": "Which design best satisfies first normal form (1NF)?",
+      "choices": [
+        "Each field stores one value rather than a list of values",
+        "Every table must have exactly one column",
+        "All tables must be merged together",
+        "Every column must contain unique values"
+      ],
+      "answer": 0,
+      "explain": "1NF requires each row-column intersection to contain a single value rather than a repeating group or list."
+    },
+    {
+      "category": "Database",
+      "topic": "Data Modeling & Normalization",
+      "q": "A table stores order IDs and product IDs, with many products per order and many orders per product. What is a common relational design?",
+      "choices": [
+        "A junction table with one row per order-product pair",
+        "One text field containing every product name",
+        "A separate database for each product",
+        "A single column that overwrites the previous product"
+      ],
+      "answer": 0,
+      "explain": "A junction table represents a many-to-many relationship by storing pairs of foreign keys, often as a composite key."
+    },
+    {
+      "category": "Database",
+      "topic": "Data Modeling & Normalization",
+      "q": "In a table whose key is (OrderID, ProductID), a product description depends only on ProductID. Which issue does this illustrate?",
+      "choices": [
+        "A partial dependency",
+        "A network loop",
+        "A dirty read",
+        "A hash collision"
+      ],
+      "answer": 0,
+      "explain": "A non-key attribute depending on only part of a composite key is a partial dependency, which 2NF addresses."
+    },
+    {
+      "category": "Database",
+      "topic": "Transactions & Concurrency",
+      "q": "A transaction reads a value written by another transaction that has not committed. What is this called?",
+      "choices": [
+        "A dirty read",
+        "A phantom key",
+        "A lost index",
+        "A schema migration"
+      ],
+      "answer": 0,
+      "explain": "A dirty read exposes uncommitted data that may later be rolled back."
+    },
+    {
+      "category": "Database",
+      "topic": "Transactions & Concurrency",
+      "q": "Which ACID property keeps concurrent transactions from interfering as if they ran together in an allowed order?",
+      "choices": [
+        "Isolation",
+        "Atomicity",
+        "Durability",
+        "Availability"
+      ],
+      "answer": 0,
+      "explain": "Isolation controls how concurrent transactions observe one another; the exact guarantees depend on the isolation level."
+    },
+    {
+      "category": "Database",
+      "topic": "Transactions & Concurrency",
+      "q": "What is a savepoint commonly used for inside a transaction?",
+      "choices": [
+        "To roll back part of the transaction while keeping earlier work",
+        "To permanently commit the whole transaction",
+        "To create a new database user",
+        "To speed up every SELECT"
+      ],
+      "answer": 0,
+      "explain": "A savepoint marks a position within a transaction that can be used as a partial rollback target."
+    },
+    {
+      "category": "Database",
+      "topic": "Indexing & Performance",
+      "q": "A composite index is defined on (last_name, first_name). Which lookup most directly matches its leading column?",
+      "choices": [
+        "Filter by last_name",
+        "Filter only by an unrelated age column",
+        "Filter only by a column not in the index",
+        "Filter by the table name"
+      ],
+      "answer": 0,
+      "explain": "Many database engines can use a composite B-tree index for its leading column; exact behavior depends on the optimizer and index type."
+    },
+    {
+      "category": "Database",
+      "topic": "Indexing & Performance",
+      "q": "What is a covering index for a particular query?",
+      "choices": [
+        "An index containing all columns that query needs",
+        "An index that duplicates every table row",
+        "An index that prevents table updates",
+        "An index used only to count tables"
+      ],
+      "answer": 0,
+      "explain": "When an index contains the query’s filter and output columns, the engine may answer it from the index without fetching base-table rows."
+    },
+    {
+      "category": "Database",
+      "topic": "Indexing & Performance",
+      "q": "Why can a query using a range condition often benefit from a B-tree index?",
+      "choices": [
+        "Ordered keys can help locate the range and scan nearby entries",
+        "B-trees store every possible query result",
+        "Range conditions always avoid reading data",
+        "B-trees automatically compress every table"
+      ],
+      "answer": 0,
+      "explain": "B-tree keys are ordered, so the engine can seek to a range boundary and scan relevant index entries."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Networking",
+      "q": "What is the default port number for HTTPS?",
+      "choices": [
+        "21",
+        "22",
+        "80",
+        "443"
+      ],
+      "answer": 3,
+      "explain": "HTTPS uses port 443. HTTP uses 80, FTP uses 21, and SSH uses 22."
+    },
+    {
+      "category": "Programming",
+      "topic": "Object-Oriented Programming",
+      "q": "Which principle bundles data and the methods that act on it into one unit?",
+      "choices": [
+        "Inheritance",
+        "Encapsulation",
+        "Polymorphism",
+        "Compilation"
+      ],
+      "answer": 1,
+      "explain": "Encapsulation groups state and behavior together and limits direct access to internal data."
+    },
+    {
+      "category": "Programming",
+      "topic": "Algorithms",
+      "q": "Which sorting algorithm runs in O(n) time on an already-sorted array?",
+      "choices": [
+        "Selection sort",
+        "Merge sort",
+        "Insertion sort",
+        "Heap sort"
+      ],
+      "answer": 2,
+      "explain": "Insertion sort makes one pass with no shifts when the data is already in order. The other three need at least O(n log n) time in the best case."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Operating Systems",
+      "q": "What is a deadlock?",
+      "choices": [
+        "A process running too slowly",
+        "Processes waiting forever for resources held by each other",
+        "A full hard drive",
+        "A virus spreading over the network"
+      ],
+      "answer": 1,
+      "explain": "Deadlock needs circular waiting, mutual exclusion, hold-and-wait, and no preemption. Breaking any one of them prevents it."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Fundamentals",
+      "q": "What is the main purpose of the CPU cache?",
+      "choices": [
+        "To store the operating system permanently",
+        "To convert analog signals into digital ones",
+        "To keep frequently used data close to the processor for faster access",
+        "To connect the CPU to the network"
+      ],
+      "answer": 2,
+      "explain": "A cache is a small, fast memory next to the CPU. It keeps copies of recently or frequently used data so the CPU does not wait on slower RAM."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Fundamentals",
+      "q": "In the fetch-decode-execute cycle, what happens during decode?",
+      "choices": [
+        "The CPU writes the result to the hard drive",
+        "The CPU works out what the fetched instruction means",
+        "The CPU reads the next instruction from memory",
+        "The CPU sends output to the monitor"
+      ],
+      "answer": 1,
+      "explain": "Fetch loads the instruction, decode interprets it, and execute performs the operation."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Fundamentals",
+      "q": "What is the role of the motherboard?",
+      "choices": [
+        "It connects the CPU, memory, storage, and other parts so they can communicate",
+        "It provides the internet connection",
+        "It stores all of your files",
+        "It renders graphics on the screen"
+      ],
+      "answer": 0,
+      "explain": "The motherboard is the main circuit board. It links the components together so they can exchange data."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Number Systems",
+      "q": "Convert the decimal number 13 to binary.",
+      "choices": [
+        "1100",
+        "1011",
+        "1110",
+        "1101"
+      ],
+      "answer": 3,
+      "explain": "13 = 8 + 4 + 1, so the bits are 1101."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Number Systems",
+      "q": "What is the decimal value of the hexadecimal number FF?",
+      "choices": [
+        "15",
+        "255",
+        "256",
+        "240"
+      ],
+      "answer": 1,
+      "explain": "FF = 15 x 16 + 15 = 255, the largest value an 8-bit byte can hold."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Number Systems",
+      "q": "How many different values can 8 bits represent?",
+      "choices": [
+        "64",
+        "128",
+        "8",
+        "256"
+      ],
+      "answer": 3,
+      "explain": "2 to the power of 8 is 256 combinations, from 0 to 255 when unsigned."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Networking",
+      "q": "What is the main difference between TCP and UDP?",
+      "choices": [
+        "UDP encrypts all data by default",
+        "TCP is faster but unreliable; UDP is slower but reliable",
+        "TCP works only on wireless networks",
+        "TCP is connection-oriented and reliable; UDP is connectionless and faster"
+      ],
+      "answer": 3,
+      "explain": "TCP sets up a connection and resends lost data. UDP skips that overhead, which suits streaming and online games."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Networking",
+      "q": "What is an IP address?",
+      "choices": [
+        "A password for a router",
+        "A logical address that identifies a device on a network",
+        "A type of network cable",
+        "A physical address burned into a network card"
+      ],
+      "answer": 1,
+      "explain": "An IP address is logical and is used for routing. The MAC address is the physical identifier of a network interface."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Information Security",
+      "q": "What is the difference between encryption and hashing?",
+      "choices": [
+        "Encryption can be reversed with the right key; hashing is one-way",
+        "They are the same process with different names",
+        "Both can only be reversed with a password",
+        "Hashing can be reversed with a key; encryption cannot"
+      ],
+      "answer": 0,
+      "explain": "Encryption is meant to be decrypted by someone who has the key. A hash is a fixed digest that cannot be turned back into the original data."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Information Security",
+      "q": "What is a SQL injection attack?",
+      "choices": [
+        "Inserting malicious SQL through user input so the database runs unintended queries",
+        "Injecting a virus into a SQL installer",
+        "Copying a database without permission",
+        "Flooding a database with requests"
+      ],
+      "answer": 0,
+      "explain": "It happens when user input is pasted straight into a query. Parameterized queries prevent it."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Information Security",
+      "q": "Which control best protects data on a stolen laptop?",
+      "choices": [
+        "Full-disk encryption",
+        "Antivirus software",
+        "Automatic software updates",
+        "A PIN on the login screen alone"
+      ],
+      "answer": 0,
+      "explain": "With full-disk encryption, the data stays unreadable without the key, even if the drive is removed from the machine."
+    },
+    {
+      "category": "Programming",
+      "topic": "Programming",
+      "q": "What does typeof [] return in JavaScript?",
+      "choices": [
+        "undefined",
+        "list",
+        "object",
+        "array"
+      ],
+      "answer": 2,
+      "explain": "Arrays are objects in JavaScript, so typeof returns object. Use Array.isArray() to check for arrays."
+    },
+    {
+      "category": "Programming",
+      "topic": "Programming",
+      "q": "In Python, what does x = [1, 2, 3] create?",
+      "choices": [
+        "A dictionary",
+        "A tuple",
+        "A list",
+        "A set"
+      ],
+      "answer": 2,
+      "explain": "Square brackets create a mutable list. Tuples use parentheses, and dictionaries store key-value pairs."
+    },
+    {
+      "category": "Programming",
+      "topic": "Programming",
+      "q": "What is a loop used for?",
+      "choices": [
+        "Handling a network error",
+        "Repeating a block of code while a condition holds or for each item",
+        "Declaring a class",
+        "Importing a library"
+      ],
+      "answer": 1,
+      "explain": "Loops such as for and while run the same code repeatedly, which is useful when processing collections of data."
+    },
+    {
+      "category": "Database",
+      "topic": "Databases",
+      "q": "What is a database schema?",
+      "choices": [
+        "A user interface for writing queries",
+        "A type of index",
+        "A backup copy of the data",
+        "The structure of tables, columns, data types, and relationships"
+      ],
+      "answer": 3,
+      "explain": "The schema defines how the data is organized. The actual data lives in the tables."
+    },
+    {
+      "category": "Database",
+      "topic": "Databases",
+      "q": "Which SQL statement removes rows from a table but keeps the table itself?",
+      "choices": [
+        "DROP TABLE",
+        "CREATE TABLE",
+        "ALTER TABLE",
+        "DELETE FROM"
+      ],
+      "answer": 3,
+      "explain": "DELETE removes matching rows. DROP TABLE removes the whole table, including its structure."
+    },
+    {
+      "category": "Programming",
+      "topic": "Data Structures",
+      "q": "What is the average time complexity of a lookup in a hash table?",
+      "choices": [
+        "O(n squared)",
+        "O(n)",
+        "O(1)",
+        "O(log n)"
+      ],
+      "answer": 2,
+      "explain": "With a good hash function and few collisions, a lookup takes about the same time no matter how many items are stored."
+    },
+    {
+      "category": "Programming",
+      "topic": "Data Structures",
+      "q": "What is a key advantage of an array over a linked list?",
+      "choices": [
+        "Built-in sorting that is always faster",
+        "Fast access to any element by its index",
+        "Growing without any copying",
+        "Faster insertion at the front"
+      ],
+      "answer": 1,
+      "explain": "Arrays give constant-time access by index. A linked list has to be walked node by node to reach a position."
+    },
+    {
+      "category": "Programming",
+      "topic": "Object-Oriented Programming",
+      "q": "What is inheritance?",
+      "choices": [
+        "Storing objects in a database",
+        "Creating a copy of an object",
+        "Passing data between two files",
+        "A class acquiring the fields and methods of another class"
+      ],
+      "answer": 3,
+      "explain": "A subclass inherits from a parent class and can reuse or override its behavior."
+    },
+    {
+      "category": "Programming",
+      "topic": "Object-Oriented Programming",
+      "q": "What is polymorphism?",
+      "choices": [
+        "Having many variables with the same name",
+        "Storing objects in a single array",
+        "One interface with many implementations, so the same call behaves differently per object",
+        "Converting objects into strings"
+      ],
+      "answer": 2,
+      "explain": "For example, Dog and Cat can both implement speak(), and calling speak() gives a different result for each one."
+    },
+    {
+      "category": "Programming",
+      "topic": "Algorithms",
+      "q": "What is the average time complexity of merge sort?",
+      "choices": [
+        "O(n)",
+        "O(n log n)",
+        "O(n squared)",
+        "O(log n)"
+      ],
+      "answer": 1,
+      "explain": "Merge sort splits the list in half about log n times and does O(n) merging work at each level."
+    },
+    {
+      "category": "Programming",
+      "topic": "Algorithms",
+      "q": "Which search explores a graph level by level using a queue?",
+      "choices": [
+        "Depth-first search",
+        "Binary search",
+        "Breadth-first search",
+        "Linear search"
+      ],
+      "answer": 2,
+      "explain": "Breadth-first search visits all neighbors of a node before going deeper, and it finds shortest paths in unweighted graphs."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Operating Systems",
+      "q": "Which of these is NOT one of the four conditions needed for a deadlock?",
+      "choices": [
+        "Mutual exclusion",
+        "Circular wait",
+        "Hold and wait",
+        "Time slicing"
+      ],
+      "answer": 3,
+      "explain": "A deadlock needs mutual exclusion, hold and wait, no preemption, and circular wait. Time slicing is a scheduling technique, not one of the conditions."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Operating Systems",
+      "q": "What is the difference between a thread and a process?",
+      "choices": [
+        "Threads cannot run concurrently",
+        "Processes share memory, and threads do not",
+        "Threads only exist on Windows",
+        "Threads share their process's memory, while processes have separate memory"
+      ],
+      "answer": 3,
+      "explain": "Threads within a process share its address space, which makes communication cheaper but needs careful synchronization."
+    },
+    {
+      "category": "Programming",
+      "topic": "Concurrency",
+      "q": "What is a semaphore?",
+      "choices": [
+        "A type of graphics buffer",
+        "A counter that limits how many threads can use a resource at once",
+        "A sorting method for arrays",
+        "A key used for encryption"
+      ],
+      "answer": 1,
+      "explain": "A semaphore keeps a count of available permits. A thread waits until a permit is free."
+    },
+    {
+      "category": "Programming",
+      "topic": "Concurrency",
+      "q": "What is the difference between concurrency and parallelism?",
+      "choices": [
+        "Concurrency needs separate computers",
+        "They are identical terms",
+        "Parallelism works only on one core",
+        "Concurrency manages many tasks over time; parallelism runs tasks at the same instant"
+      ],
+      "answer": 3,
+      "explain": "You can have concurrency on one core by switching between tasks. Parallelism needs multiple cores or processors."
+    },
+    {
+      "category": "Programming",
+      "topic": "Concurrency",
+      "q": "How can two locks cause a deadlock?",
+      "choices": [
+        "Threads run one after another",
+        "Two threads take the locks in opposite orders and wait for each other",
+        "Each thread uses only one lock",
+        "Locks are never released after use"
+      ],
+      "answer": 1,
+      "explain": "If thread A holds lock 1 and waits for lock 2 while thread B holds lock 2 and waits for lock 1, neither can continue. Taking locks in a fixed order prevents this."
+    }
+  ],
+  "hard": [
+    {
+      "category": "Programming",
+      "topic": "Algorithms",
+      "q": "What is the worst-case time of Quick Sort with a first-element pivot on an already-sorted array?",
+      "choices": [
+        "O(n log n)",
+        "O(n²)",
+        "O(n)",
+        "O(log n)"
+      ],
+      "answer": 1,
+      "explain": "Each partition splits off only one element, so recursion goes n levels deep, giving O(n²) time."
+    },
+    {
+      "category": "Database",
+      "topic": "Databases",
+      "q": "Which normal form removes transitive dependencies between non-key attributes?",
+      "choices": [
+        "1NF",
+        "2NF",
+        "3NF",
+        "BCNF"
+      ],
+      "answer": 2,
+      "explain": "3NF requires non-key attributes to depend only on the primary key, not on other non-key attributes."
+    },
+    {
+      "category": "Database",
+      "topic": "SQL Queries",
+      "q": "What does ROW_NUMBER() commonly provide when used as a window function?",
+      "choices": [
+        "A sequential number for rows within its window ordering",
+        "A permanent ID stored in the table",
+        "A count of every database in the server",
+        "A lock on the current row"
+      ],
+      "answer": 0,
+      "explain": "ROW_NUMBER() assigns a sequential number within a window partition according to its ORDER BY; it does not change stored data."
+    },
+    {
+      "category": "Database",
+      "topic": "SQL Queries",
+      "q": "What is a key distinction between a window function and GROUP BY aggregation?",
+      "choices": [
+        "A window function can calculate across related rows while retaining each input row",
+        "A window function always deletes duplicate rows",
+        "GROUP BY can only sort rows",
+        "Window functions can only be used in INSERT statements"
+      ],
+      "answer": 0,
+      "explain": "Window functions calculate over a related set of rows but generally keep each row in the result, unlike grouping which combines rows."
+    },
+    {
+      "category": "Database",
+      "topic": "SQL Queries",
+      "q": "What is a common purpose of a recursive common table expression (CTE)?",
+      "choices": [
+        "Query hierarchical or recursively related data",
+        "Encrypt a database backup",
+        "Create an index automatically",
+        "Prevent all transaction conflicts"
+      ],
+      "answer": 0,
+      "explain": "A recursive CTE repeatedly applies a query to prior results, which is useful for traversing hierarchies such as reporting trees."
+    },
+    {
+      "category": "Database",
+      "topic": "Data Modeling & Normalization",
+      "q": "What dependency does third normal form (3NF) primarily remove?",
+      "choices": [
+        "Transitive dependencies of non-key attributes on a key",
+        "All foreign keys",
+        "Every relationship between tables",
+        "All candidate keys"
+      ],
+      "answer": 0,
+      "explain": "3NF addresses transitive dependencies where a non-key attribute depends on another non-key attribute rather than directly on a key."
+    },
+    {
+      "category": "Database",
+      "topic": "Data Modeling & Normalization",
+      "q": "Which statement characterizes Boyce-Codd normal form (BCNF)?",
+      "choices": [
+        "Every determinant is a superkey",
+        "Every table has exactly two keys",
+        "Every attribute is a foreign key",
+        "Every relation must contain a repeating group"
+      ],
+      "answer": 0,
+      "explain": "A relation is in BCNF when every non-trivial functional dependency has a determinant that is a superkey."
+    },
+    {
+      "category": "Database",
+      "topic": "Data Modeling & Normalization",
+      "q": "What does a lossless decomposition guarantee when a relation is split into tables?",
+      "choices": [
+        "Joining the decomposed tables can recover the original relation without spurious rows",
+        "Every query becomes faster",
+        "No table needs a key",
+        "All redundancy is eliminated in every case"
+      ],
+      "answer": 0,
+      "explain": "A lossless decomposition preserves the original relation when the resulting tables are joined, without introducing spurious tuples."
+    },
+    {
+      "category": "Database",
+      "topic": "Transactions & Concurrency",
+      "q": "What anomaly can serializable isolation prevent compared with weaker isolation levels?",
+      "choices": [
+        "A non-serializable outcome from interleaved transactions",
+        "A disk failure",
+        "A missing foreign-key definition",
+        "A slow network connection"
+      ],
+      "answer": 0,
+      "explain": "Serializable isolation aims for outcomes equivalent to some serial transaction order, though implementations and performance costs vary."
+    },
+    {
+      "category": "Database",
+      "topic": "Transactions & Concurrency",
+      "q": "Two transactions each read the same set of rows and then update different rows based on that shared condition. Which anomaly can snapshot-style isolation permit in some systems?",
+      "choices": [
+        "Write skew",
+        "Dirty schema",
+        "Index fragmentation",
+        "Cartesian product"
+      ],
+      "answer": 0,
+      "explain": "Write skew can occur when concurrent transactions read overlapping state but write different rows, jointly violating a constraint; behavior depends on the database and isolation mode."
+    },
+    {
+      "category": "Database",
+      "topic": "Transactions & Concurrency",
+      "q": "What typically happens when two transactions deadlock?",
+      "choices": [
+        "The database detects the cycle and aborts one transaction so the other can proceed",
+        "Both transactions commit twice",
+        "All indexes are deleted",
+        "The database converts them into read-only queries"
+      ],
+      "answer": 0,
+      "explain": "A deadlock involves a cycle of waiting. Database systems commonly detect it and abort a victim transaction to break the cycle."
+    },
+    {
+      "category": "Database",
+      "topic": "Indexing & Performance",
+      "q": "Why might an optimizer avoid using an index on a low-selectivity column?",
+      "choices": [
+        "The matching rows may cover so much of the table that a scan costs less",
+        "Indexes cannot contain low-selectivity values",
+        "The column becomes immutable",
+        "The index forces a transaction rollback"
+      ],
+      "answer": 0,
+      "explain": "If a predicate matches a large fraction of rows, reading the index and then fetching many table rows can cost more than a sequential scan."
+    },
+    {
+      "category": "Database",
+      "topic": "Indexing & Performance",
+      "q": "Why can applying a function to an indexed column make a conventional index less useful for a predicate?",
+      "choices": [
+        "The expression may not match the stored index ordering unless the engine has a matching expression index or rewrite",
+        "Functions always remove the index from disk",
+        "The query becomes a transaction",
+        "Indexes cannot store text values"
+      ],
+      "answer": 0,
+      "explain": "A predicate such as LOWER(email) may not match a plain email index’s ordering; expression indexes or optimizer transformations can enable index use."
+    },
+    {
+      "category": "Database",
+      "topic": "Indexing & Performance",
+      "q": "What is a common cost of maintaining many indexes on a write-heavy table?",
+      "choices": [
+        "Additional work for inserts, updates, and deletes",
+        "A guarantee that writes become faster",
+        "Loss of primary-key constraints",
+        "Inability to run range queries"
+      ],
+      "answer": 0,
+      "explain": "Each affected index may need updates during writes, increasing storage use and write cost; the tradeoff depends on workload and engine."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Networking",
+      "q": "Which OSI layer is responsible for routing packets between networks?",
+      "choices": [
+        "Transport",
+        "Network",
+        "Data Link",
+        "Session"
+      ],
+      "answer": 1,
+      "explain": "The Network layer (layer 3) handles logical addressing such as IP and chooses routes between networks."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Information Security",
+      "q": "Which attack injects malicious SQL through user input?",
+      "choices": [
+        "Cross-site scripting",
+        "CSRF",
+        "SQL injection",
+        "Denial of service"
+      ],
+      "answer": 2,
+      "explain": "SQL injection happens when input is concatenated into a query. Parameterized queries prevent it."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Operating Systems",
+      "q": "Which page replacement algorithm is optimal but impractical, since it needs future knowledge?",
+      "choices": [
+        "FIFO",
+        "LRU",
+        "Optimal (OPT)",
+        "Random"
+      ],
+      "answer": 2,
+      "explain": "OPT evicts the page that will be used farthest in the future. It serves as a benchmark for real algorithms."
+    },
+    {
+      "category": "Programming",
+      "topic": "Concurrency",
+      "q": "What is a race condition?",
+      "choices": [
+        "Two programs competing for the same CPU",
+        "Output depends on the timing of concurrent operations on shared data",
+        "A thread that never stops",
+        "A compiler optimization"
+      ],
+      "answer": 1,
+      "explain": "Race conditions are prevented with locks, atomic operations, or other synchronization."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Fundamentals",
+      "q": "What does a 3 GHz clock speed measure?",
+      "choices": [
+        "Three billion clock cycles per second",
+        "Three billion bytes of RAM",
+        "Three cores running at once",
+        "Three billion instructions stored in memory"
+      ],
+      "answer": 0,
+      "explain": "GHz means billions of cycles per second. The amount of work done per cycle varies, so clock speed alone does not measure performance."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Fundamentals",
+      "q": "Why do modern CPUs include multiple cores?",
+      "choices": [
+        "To store more data on the hard drive",
+        "To increase the amount of RAM available",
+        "To replace the need for a motherboard",
+        "To run several tasks or threads in parallel"
+      ],
+      "answer": 3,
+      "explain": "Each core can execute its own instruction stream, so several tasks can run at the same time."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Fundamentals",
+      "q": "What is pipelining in a CPU?",
+      "choices": [
+        "Storing instructions in a queue on disk",
+        "Sending data across a network cable",
+        "Overlapping the stages of several instructions so more run at once",
+        "Compressing files before saving them"
+      ],
+      "answer": 2,
+      "explain": "In a pipeline, one instruction can be decoded while another is being fetched, which increases the number of instructions completed per second."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Number Systems",
+      "q": "What is -1 written in 8-bit two's complement?",
+      "choices": [
+        "10000001",
+        "11111111",
+        "11111110",
+        "01111111"
+      ],
+      "answer": 1,
+      "explain": "Start with 00000001, invert the bits to get 11111110, then add 1 to get 11111111."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Number Systems",
+      "q": "What is the decimal value of hexadecimal 1A?",
+      "choices": [
+        "26",
+        "10",
+        "18",
+        "27"
+      ],
+      "answer": 0,
+      "explain": "1A = 1 x 16 + 10 = 26."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Number Systems",
+      "q": "What is the largest positive value in an 8-bit signed two's complement number?",
+      "choices": [
+        "256",
+        "255",
+        "128",
+        "127"
+      ],
+      "answer": 3,
+      "explain": "One bit is the sign, which leaves 7 bits for the magnitude: 2 to the power of 7, minus 1, is 127."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Networking",
+      "q": "Which device forwards frames using MAC addresses at Layer 2 of the OSI model?",
+      "choices": [
+        "Switch",
+        "Router",
+        "Hub",
+        "Modem"
+      ],
+      "answer": 0,
+      "explain": "Switches learn which MAC address is reachable on which port. Routers work at Layer 3 and forward packets by IP address."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Networking",
+      "q": "What does a subnet mask do?",
+      "choices": [
+        "Assigns MAC addresses to devices",
+        "Separates the network part of an IP address from the host part",
+        "Limits the bandwidth of a connection",
+        "Encrypts packets in transit"
+      ],
+      "answer": 1,
+      "explain": "The mask shows which bits of an IP address identify the network and which identify the individual host."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Information Security",
+      "q": "What is the principle of least privilege?",
+      "choices": [
+        "Restricting internet use to office hours",
+        "Giving users only the access they need for their job",
+        "Limiting how many passwords a user may have",
+        "Giving every user administrator rights"
+      ],
+      "answer": 1,
+      "explain": "Limiting access reduces the damage that a compromised account or an honest mistake can cause."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Information Security",
+      "q": "What does a man-in-the-middle attack do?",
+      "choices": [
+        "Guesses passwords from a dictionary",
+        "Secretly intercepts or changes communication between two parties",
+        "Installs ransomware on a workstation",
+        "Crashes a server with traffic"
+      ],
+      "answer": 1,
+      "explain": "The attacker sits between the two parties. TLS with proper certificate validation helps prevent this."
+    },
+    {
+      "category": "Programming",
+      "topic": "Programming",
+      "q": "In JavaScript, what does this print? let a = 5; let b = a; b = 10; console.log(a);",
+      "choices": [
+        "5",
+        "10",
+        "Error",
+        "undefined"
+      ],
+      "answer": 0,
+      "explain": "Numbers are copied by value, so changing b does not change a."
+    },
+    {
+      "category": "Programming",
+      "topic": "Programming",
+      "q": "What is recursion?",
+      "choices": [
+        "A function that calls itself until a base case is reached",
+        "A loop that never ends",
+        "Copying a file several times",
+        "A function with no return value"
+      ],
+      "answer": 0,
+      "explain": "Recursion needs a base case to stop. Without one, the calls never end."
+    },
+    {
+      "category": "Programming",
+      "topic": "Programming",
+      "q": "Which statement describes a pure function?",
+      "choices": [
+        "It cannot take parameters",
+        "It can only be written in Python",
+        "Same inputs always give the same output, with no side effects",
+        "It always changes global variables"
+      ],
+      "answer": 2,
+      "explain": "Pure functions depend only on their inputs and change nothing outside themselves, which makes them easier to test."
+    },
+    {
+      "category": "Database",
+      "topic": "Databases",
+      "q": "How does a candidate key differ from a primary key?",
+      "choices": [
+        "A primary key can contain duplicate values",
+        "A candidate key can be null, a primary key cannot",
+        "They are identical",
+        "Any candidate key could identify rows; the primary key is the one chosen for that role"
+      ],
+      "answer": 3,
+      "explain": "A table can have several candidate keys, but only one of them is designated as the primary key."
+    },
+    {
+      "category": "Database",
+      "topic": "Databases",
+      "q": "What does a LEFT JOIN return?",
+      "choices": [
+        "All rows from the left table, plus matching rows from the right (NULL where none match)",
+        "Only rows that match in both tables",
+        "Only rows from the right table",
+        "All rows from both tables with no matching"
+      ],
+      "answer": 0,
+      "explain": "LEFT JOIN keeps every left-side row even when there is no matching row on the right."
+    },
+    {
+      "category": "Programming",
+      "topic": "Data Structures",
+      "q": "What is the worst-case search time in a binary search tree that has degenerated into a chain?",
+      "choices": [
+        "O(1)",
+        "O(n log n)",
+        "O(n)",
+        "O(log n)"
+      ],
+      "answer": 2,
+      "explain": "Every node may have to be visited. Balancing the tree keeps its height at O(log n)."
+    },
+    {
+      "category": "Programming",
+      "topic": "Data Structures",
+      "q": "Which structure is commonly used to build a priority queue?",
+      "choices": [
+        "Binary heap",
+        "Plain linked list",
+        "Stack",
+        "Circular buffer"
+      ],
+      "answer": 0,
+      "explain": "A binary heap gives O(log n) insertion and removal of the highest-priority item."
+    },
+    {
+      "category": "Programming",
+      "topic": "Data Structures",
+      "q": "Which binary tree traversal visits the left subtree, then the node, then the right subtree?",
+      "choices": [
+        "Breadth-first",
+        "Inorder",
+        "Postorder",
+        "Preorder"
+      ],
+      "answer": 1,
+      "explain": "Inorder traversal of a binary search tree returns the values in sorted order."
+    },
+    {
+      "category": "Programming",
+      "topic": "Object-Oriented Programming",
+      "q": "Which SOLID principle says a class should have only one reason to change?",
+      "choices": [
+        "Liskov Substitution Principle",
+        "Open/Closed Principle",
+        "Dependency Inversion Principle",
+        "Single Responsibility Principle"
+      ],
+      "answer": 3,
+      "explain": "A class should do one job, so changes for one reason do not force changes elsewhere."
+    },
+    {
+      "category": "Programming",
+      "topic": "Object-Oriented Programming",
+      "q": "What does the Liskov Substitution Principle require?",
+      "choices": [
+        "Classes must never inherit from other classes",
+        "All objects must share one global state",
+        "Every method must be static",
+        "Subclasses can replace their base class without breaking the program"
+      ],
+      "answer": 3,
+      "explain": "If code works with a base type, it should also work with any subclass of that type."
+    },
+    {
+      "category": "Programming",
+      "topic": "Object-Oriented Programming",
+      "q": "Why is composition often preferred over inheritance?",
+      "choices": [
+        "It reduces tight coupling and rigid class hierarchies",
+        "Composition makes classes impossible to test",
+        "Inheritance is no longer supported in modern languages",
+        "Inheritance cannot be combined with interfaces"
+      ],
+      "answer": 0,
+      "explain": "Composition builds behavior from smaller parts, which is easier to change than a deep inheritance tree."
+    },
+    {
+      "category": "Programming",
+      "topic": "Algorithms",
+      "q": "What do dynamic programming solutions rely on?",
+      "choices": [
+        "Storing answers to overlapping subproblems to avoid recomputation",
+        "Splitting work into unrelated tasks only",
+        "Sorting the input before every step",
+        "Random sampling of the input"
+      ],
+      "answer": 0,
+      "explain": "Memoization or tabulation saves each subproblem's answer so it is solved only once."
+    },
+    {
+      "category": "Programming",
+      "topic": "Algorithms",
+      "q": "Dijkstra's algorithm finds shortest paths from one source. What restriction does it have?",
+      "choices": [
+        "The graph must be a tree",
+        "Edge weights must be non-negative",
+        "Weights must all be equal",
+        "Weights must be integers"
+      ],
+      "answer": 1,
+      "explain": "Negative edge weights can break Dijkstra's algorithm. Bellman-Ford handles them."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Operating Systems",
+      "q": "Which CPU scheduling algorithm can starve long jobs?",
+      "choices": [
+        "Time slicing with a fixed quantum",
+        "Round robin",
+        "First come, first served",
+        "Shortest job first"
+      ],
+      "answer": 3,
+      "explain": "Short jobs can keep being picked ahead of long ones. Aging, which gradually raises the priority of waiting jobs, is a common fix."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Operating Systems",
+      "q": "Which page replacement policy evicts the page that has gone unused for the longest time?",
+      "choices": [
+        "Least frequently used (LFU)",
+        "Least recently used (LRU)",
+        "Random replacement",
+        "First in, first out (FIFO)"
+      ],
+      "answer": 1,
+      "explain": "LRU assumes that pages used recently are likely to be used again soon."
+    },
+    {
+      "category": "Programming",
+      "topic": "Concurrency",
+      "q": "What is a critical section?",
+      "choices": [
+        "Code that accesses shared resources and must not run in several threads at once",
+        "Code that runs only at startup",
+        "Code that only prints errors",
+        "The first line of a program"
+      ],
+      "answer": 0,
+      "explain": "Protecting critical sections with locks or atomic operations prevents corrupted data."
+    },
+    {
+      "category": "Programming",
+      "topic": "Concurrency",
+      "q": "Which mechanism lets a thread wait until a condition becomes true without busy-waiting?",
+      "choices": [
+        "Global variable",
+        "Condition variable",
+        "Recursion",
+        "A fixed sleep call"
+      ],
+      "answer": 1,
+      "explain": "A condition variable lets a thread sleep and be woken when its condition may have changed."
+    }
+  ]
+}
