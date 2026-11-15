@@ -353,9 +353,9 @@ function countSpecializedSkills(key) {
   return SKILL_TREES[key].skills.filter((skill) => skillProgress[key].ranks[skill.id] > 0).length;
 }
 
-function isSpecializationGateOpen() {
+function canSwitchSkillSet() {
   return !activeSkillSpecialization ||
-    countSpecializedSkills(activeSkillSpecialization) >= SKILLS_TO_SPECIALIZE(activeSkillSpecialization);
+    countSpecializedSkills(activeSkillSpecialization) < SKILLS_TO_SPECIALIZE(activeSkillSpecialization);
 }
 
 function skillRequirements(skill) {
@@ -369,7 +369,7 @@ function canUpgradeSkill(key, skill) {
     skillPointsAvailable(key) > 0 &&
     progress.ranks[skill.id] < SKILL_MAX_RANK &&
     skillRequirements(skill).every((id) => progress.ranks[id] > 0) &&
-    (!activeSkillSpecialization || activeSkillSpecialization === key || isSpecializationGateOpen())
+    (!activeSkillSpecialization || activeSkillSpecialization === key || canSwitchSkillSet())
   );
 }
 

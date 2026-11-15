@@ -1721,13 +1721,13 @@ function skillTreeDetailMarkup() {
     const selectedBranchLocked = Boolean(
       activeSkillSpecialization &&
       activeSkillSpecialization !== selectedSkillNode.treeKey &&
-      !isSpecializationGateOpen()
+      !canSwitchSkillSet()
     )
     const canPurchase = canUpgradeSkill(selectedSkillNode.treeKey, selectedSkill)
     let availability = ''
     if (selectedRank >= SKILL_MAX_RANK) availability = 'This skill is at maximum rank.'
     else if (selectedBranchLocked) {
-      availability = `Focus on ${SKILL_TREES[activeSkillSpecialization].name} until ${SKILLS_TO_SPECIALIZE(activeSkillSpecialization)} of its 6 skills are learned.`
+      availability = `Other skill sets are locked because ${SKILL_TREES[activeSkillSpecialization].name} has reached ${SKILLS_TO_SPECIALIZE(activeSkillSpecialization)} of its 6 skills.`
     } else if (skillPointsAvailable(selectedSkillNode.treeKey) === 0) {
       const remainder = selectedProgress.correct % SKILL_POINT_INTERVAL
       availability = `No ${selectedTree.name} point available. ${SKILL_POINT_INTERVAL - remainder} more correct ${SKILL_POINT_INTERVAL - remainder === 1 ? 'answer' : 'answers'} earns one.`
@@ -1778,7 +1778,7 @@ function renderSkillTree() {
       </div>
       <div class="skill-points-topics">${pointsByTree}</div>
     </div>
-    <p class="skill-points-hint">Earn 1 point per 5 correct answers in that topic. Points stay in their own skill set. · Focus: ${esc(specialization)} · Learn 3 of 6 skills in a set to switch focus.</p>`
+    <p class="skill-points-hint">Earn 1 point per 5 correct answers in that topic. Points stay in their own skill set. · Focus: ${esc(specialization)} · Other skill sets stay open until your focus learns 3 of 6 skills.</p>`
 
   const mapWidth = 1800
   const mapHeight = 1380
@@ -1866,7 +1866,7 @@ function renderSkillTree() {
     const progress = skillProgress[key]
     const rank = progress.ranks[skill.id]
     const available = skillPointsAvailable(key)
-    const branchLocked = Boolean(activeSkillSpecialization && activeSkillSpecialization !== key && !isSpecializationGateOpen())
+    const branchLocked = Boolean(activeSkillSpecialization && activeSkillSpecialization !== key && !canSwitchSkillSet())
     const selected = selectedSkillNode?.treeKey === key && selectedSkillNode.skillId === skill.id
     const nodeClass = [
       'skill-map-node',
