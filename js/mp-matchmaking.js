@@ -91,6 +91,8 @@
       this.moveListeners = new Set();
       this.connection = { connected: false, mode: 'offline' };
       this.isBusy = false;
+      this.lastLaunchedMatchId = null;
+      this.pendingSyncPromise = null;
 
       this.bindNetworkEvents();
     }
@@ -231,6 +233,9 @@
         }
 
         if (type === 'match_start' && this.currentRoom && roomCode === this.currentRoom.code) {
+          const incomingId = payload?.matchConfig?.matchId || null;
+          if (incomingId && incomingId === this.lastLaunchedMatchId) return;
+          if (incomingId) this.lastLaunchedMatchId = incomingId;
           if (payload?.room) {
             this.currentRoom = payload.room;
             this.network.activeRoomSnapshot = this.currentRoom;
@@ -487,9 +492,17 @@
       if (!slot) return;
       slot.ready = !slot.ready;
       this.notifyChange();
-      await this.network.sendReady(room.code, slot.ready);
-      if (isHost) {
-        await this.network.syncRoomSnapshot(room);
+      const syncWork = (async () => {
+        await this.network.sendReady(room.code, slot.ready);
+        if (isHost) {
+          await this.network.syncRoomSnapshot(room);
+        }
+      })();
+      this.pendingSyncPromise = syncWork;
+      try {
+        await syncWork;
+      } finally {
+        if (this.pendingSyncPromise === syncWork) this.pendingSyncPromise = null;
       }
     }
 
@@ -526,6 +539,9 @@
     }
 
     async startMatch() {
+      if (this.pendingSyncPromise) {
+        try { await this.pendingSyncPromise; } catch {}
+      }
       if (!this.canStartMatch()) {
         const error = 'Both players must be connected and Ready before starting.';
         this.setNotification('error', error);
@@ -554,6 +570,7 @@
         return res;
       }
 
+      this.lastLaunchedMatchId = matchConfig.matchId;
       this.notifyChange();
       for (const fn of this.matchListeners) fn(matchConfig);
       return { ok: true, matchConfig };
