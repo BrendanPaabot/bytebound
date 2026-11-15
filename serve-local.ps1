@@ -122,7 +122,7 @@ function Remove-PlayerFromMp([string]$cid, [string]$reason, [int64]$nowMs) {
 function Prune-MpState([int64]$nowMs) {
   $stalePlayerIds = @()
   foreach ($entry in $script:mpPlayers.GetEnumerator()) {
-    if (($nowMs - [int64]$entry.Value.lastSeenMs) -gt 9500) {
+    if (($nowMs - [int64]$entry.Value.lastSeenMs) -gt 45000) {
       $stalePlayerIds += $entry.Key
     }
   }
@@ -242,6 +242,10 @@ try {
         $code = ([string]$body.roomCode).Trim().ToUpperInvariant()
         $payload = if ($body.ContainsKey('payload') -and $null -ne $body.payload) { $body.payload } else { @{} }
 
+        if ($cid -and $script:mpPlayers.ContainsKey($cid) -and $type -ne 'leave_mp') {
+          $script:mpPlayers[$cid].lastSeenMs = $nowMs
+        }
+
         if ($type -eq 'presence') {
           $script:mpPlayers[$cid] = @{
             clientId = $cid
@@ -257,6 +261,13 @@ try {
 
         if ($type -eq 'leave_mp') {
           Remove-PlayerFromMp $cid 'Host closed the room.' $nowMs
+          Send-JsonResponse $context.Response 200 @{ ok = $true; seq = $script:mpSeq }
+          continue
+        }
+
+        if ($type -eq 'invite_player') {
+          $targetClientId = if ($payload.ContainsKey('targetClientId') -and -not [string]::IsNullOrWhiteSpace([string]$payload.targetClientId)) { [string]$payload.targetClientId } else { $null }
+          Add-MpEvent 'room_invite' $code $targetClientId $payload
           Send-JsonResponse $context.Response 200 @{ ok = $true; seq = $script:mpSeq }
           continue
         }

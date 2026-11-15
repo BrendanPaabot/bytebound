@@ -1,11 +1,24 @@
 // Pixel-art avatar renderer, L4D-inspired 1v1 Multiplayer Lobby UI, and 1v1 Match coordinator hooks.
 (function (global) {
   const AVATAR_PALETTES = {
-    gold: { label: 'Gold Knight', helm: '#f2bb61', trim: '#bb8537', visor: '#24292c', cloak: '#61765b', eye: '#bff0fa' },
-    emerald: { label: 'Jade Warden', helm: '#7fd49a', trim: '#3e7a56', visor: '#1c2623', cloak: '#354f46', eye: '#fff3c4' },
-    cyan: { label: 'Cyber Paladin', helm: '#6fe3e8', trim: '#3a7f91', visor: '#18242b', cloak: '#2c4857', eye: '#f2bb61' },
-    crimson: { label: 'Crimson Guard', helm: '#e8706a', trim: '#94322e', visor: '#261315', cloak: '#5c2324', eye: '#ffd27a' },
+    cpu: { label: 'Silicon Architect (CPU)', bg: '#171d1f', frame: '#f2bb61', light: '#ffe0a0', core: '#6fe3e8', dark: '#24292c' },
+    terminal: { label: 'Root SysAdmin (Terminal)', bg: '#121b18', frame: '#7fd49a', light: '#b7ffce', core: '#3e7a56', dark: '#0d1412' },
+    shield: { label: 'SecOps Analyst (Firewall)', bg: '#131d22', frame: '#6fe3e8', light: '#effcff', core: '#f2bb61', dark: '#1e3844' },
+    database: { label: 'Cloud DBA (Server Rack)', bg: '#1d1517', frame: '#e8706a', light: '#ffd27a', core: '#7fd49a', dark: '#2f1d20' },
   };
+
+  const LEGACY_AVATAR_MAP = {
+    gold: 'cpu',
+    emerald: 'terminal',
+    cyan: 'shield',
+    crimson: 'database',
+  };
+
+  function resolveAvatarKey(key) {
+    if (AVATAR_PALETTES[key]) return key;
+    if (LEGACY_AVATAR_MAP[key]) return LEGACY_AVATAR_MAP[key];
+    return 'cpu';
+  }
 
   function avatarKeyForName(name) {
     const keys = Object.keys(AVATAR_PALETTES);
@@ -17,18 +30,72 @@
     return keys[hash % keys.length];
   }
 
-  function renderPixelAvatar(key, size = 40) {
-    const pal = AVATAR_PALETTES[key] || AVATAR_PALETTES.gold;
+  function renderPixelAvatar(rawKey, size = 40) {
+    const key = resolveAvatarKey(rawKey);
+    const pal = AVATAR_PALETTES[key];
+    if (key === 'terminal') {
+      return `<svg class="mp-avatar-svg" width="${size}" height="${size}" viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true">
+        <rect width="8" height="8" fill="${pal.bg}"/>
+        <rect x="0" y="1" width="8" height="6" fill="${pal.frame}"/>
+        <rect x="1" y="2" width="6" height="4" fill="${pal.dark}"/>
+        <rect x="1" y="2" width="1" height="1" fill="${pal.light}"/>
+        <rect x="2" y="3" width="1" height="1" fill="${pal.light}"/>
+        <rect x="1" y="4" width="1" height="1" fill="${pal.light}"/>
+        <rect x="4" y="4" width="2" height="1" fill="${pal.frame}"/>
+      </svg>`;
+    }
+    if (key === 'shield') {
+      return `<svg class="mp-avatar-svg" width="${size}" height="${size}" viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true">
+        <rect width="8" height="8" fill="${pal.bg}"/>
+        <rect x="1" y="1" width="6" height="4" fill="${pal.frame}"/>
+        <rect x="2" y="5" width="4" height="1" fill="${pal.frame}"/>
+        <rect x="3" y="6" width="2" height="1" fill="${pal.light}"/>
+        <rect x="2" y="2" width="4" height="3" fill="${pal.dark}"/>
+        <rect x="3" y="2" width="2" height="1" fill="${pal.core}"/>
+        <rect x="3" y="3" width="2" height="2" fill="${pal.core}"/>
+      </svg>`;
+    }
+    if (key === 'database') {
+      return `<svg class="mp-avatar-svg" width="${size}" height="${size}" viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true">
+        <rect width="8" height="8" fill="${pal.bg}"/>
+        <rect x="1" y="1" width="6" height="1" fill="${pal.frame}"/>
+        <rect x="1" y="2" width="6" height="1" fill="${pal.dark}"/>
+        <rect x="5" y="1" width="1" height="1" fill="${pal.core}"/>
+        <rect x="1" y="3" width="6" height="1" fill="${pal.frame}"/>
+        <rect x="1" y="4" width="6" height="1" fill="${pal.dark}"/>
+        <rect x="5" y="3" width="1" height="1" fill="${pal.light}"/>
+        <rect x="1" y="5" width="6" height="1" fill="${pal.frame}"/>
+        <rect x="1" y="6" width="6" height="1" fill="${pal.dark}"/>
+        <rect x="5" y="5" width="1" height="1" fill="${pal.core}"/>
+      </svg>`;
+    }
+    // Default: 'cpu' microchip
     return `<svg class="mp-avatar-svg" width="${size}" height="${size}" viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true">
-      <rect width="8" height="8" fill="#171d1f"/>
-      <rect x="2" y="1" width="4" height="1" fill="${pal.trim}"/>
-      <rect x="1" y="2" width="6" height="2" fill="${pal.helm}"/>
-      <rect x="1" y="4" width="6" height="1" fill="${pal.visor}"/>
-      <rect x="2" y="4" width="1" height="1" fill="${pal.eye}"/>
-      <rect x="5" y="4" width="1" height="1" fill="${pal.eye}"/>
-      <rect x="2" y="5" width="4" height="1" fill="${pal.helm}"/>
-      <rect x="1" y="6" width="6" height="2" fill="${pal.cloak}"/>
-      <rect x="3" y="6" width="2" height="2" fill="${pal.trim}"/>
+      <rect width="8" height="8" fill="${pal.bg}"/>
+      <rect x="2" y="0" width="1" height="1" fill="${pal.frame}"/>
+      <rect x="5" y="0" width="1" height="1" fill="${pal.frame}"/>
+      <rect x="2" y="7" width="1" height="1" fill="${pal.frame}"/>
+      <rect x="5" y="7" width="1" height="1" fill="${pal.frame}"/>
+      <rect x="0" y="2" width="1" height="1" fill="${pal.frame}"/>
+      <rect x="0" y="5" width="1" height="1" fill="${pal.frame}"/>
+      <rect x="7" y="2" width="1" height="1" fill="${pal.frame}"/>
+      <rect x="7" y="5" width="1" height="1" fill="${pal.frame}"/>
+      <rect x="1" y="1" width="6" height="6" fill="${pal.frame}"/>
+      <rect x="2" y="2" width="4" height="4" fill="${pal.dark}"/>
+      <rect x="3" y="3" width="2" height="2" fill="${pal.core}"/>
+      <rect x="2" y="2" width="1" height="1" fill="${pal.light}"/>
+    </svg>`;
+  }
+
+  function renderNetworkNodeIcon(size = 40) {
+    return `<svg class="mp-avatar-svg" width="${size}" height="${size}" viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true">
+      <rect width="8" height="8" fill="#13191a"/>
+      <rect x="3" y="1" width="2" height="1" fill="#6fe3e8"/>
+      <rect x="2" y="2" width="1" height="1" fill="#6fe3e8"/>
+      <rect x="5" y="2" width="1" height="1" fill="#6fe3e8"/>
+      <rect x="3" y="3" width="2" height="2" fill="#f2bb61"/>
+      <rect x="2" y="6" width="4" height="1" fill="#4f6466"/>
+      <rect x="3" y="5" width="2" height="1" fill="#9ba39a"/>
     </svg>`;
   }
 
@@ -64,7 +131,7 @@
       this.joinError = '';
       this.copyFeedback = false;
       this.copyTimer = 0;
-      this.selectedAvatar = 'gold';
+      this.selectedAvatar = 'cpu';
       this.snapshot = this.matchmaking.getSnapshot();
 
       this.matchmaking.subscribe((snap) => {
@@ -95,7 +162,7 @@
           return null;
         }
       })();
-      this.selectedAvatar = AVATAR_PALETTES[storedAvatar] ? storedAvatar : avatarKeyForName(username);
+      this.selectedAvatar = storedAvatar ? resolveAvatarKey(storedAvatar) : avatarKeyForName(username);
       return this.matchmaking.initPlayer({
         username: username || 'Knight',
         avatar: this.selectedAvatar,
@@ -138,7 +205,7 @@
       if (!this.overlay) return;
 
       this.overlay.addEventListener('click', async (event) => {
-        const target = event.target.closest('button, [data-mp-nav], [data-mp-act], [data-mp-join-public], [data-mp-visibility], [data-mp-avatar]');
+        const target = event.target.closest('button, [data-mp-nav], [data-mp-act], [data-mp-join-public], [data-mp-visibility], [data-mp-avatar], [data-mp-invite]');
         if (!target) return;
 
         if (target.dataset.mpNav) {
@@ -180,11 +247,30 @@
           return;
         }
 
+        if (target.dataset.mpInvite) {
+          this.joinError = '';
+          const res = await this.matchmaking.invitePlayer(target.dataset.mpInvite);
+          if (!res.ok && res.error) {
+            this.matchmaking.setNotification('warn', res.error);
+          }
+          return;
+        }
+
         const act = target.dataset.mpAct;
         if (!act) return;
 
         if (act === 'back') {
           await this.closeAndReturnToMenu();
+        } else if (act === 'accept-invite') {
+          this.joinError = '';
+          const res = await this.matchmaking.acceptInvite();
+          if (!res.ok) {
+            this.joinError = res.error || 'Could not join invited room.';
+            this.matchmaking.setNotification('error', this.joinError);
+            this.render();
+          }
+        } else if (act === 'decline-invite') {
+          this.matchmaking.declineInvite();
         } else if (act === 'dismiss-note') {
           this.matchmaking.clearNotification();
         } else if (act === 'refresh') {
@@ -292,8 +378,8 @@
             </div>
           </div>
           <div class="mp-header-tools">
-            <div class="mp-avatar-picker" aria-label="Select pixel avatar">
-              <span class="mp-avatar-label">KNIGHT CREST</span>
+            <div class="mp-avatar-picker" aria-label="Select IT specialization icon">
+              <span class="mp-avatar-label">IT SPECIALIZATION</span>
               <div class="mp-avatar-choices">${avatarButtons}</div>
             </div>
             <div class="mp-header-actions">
@@ -320,8 +406,30 @@
       `;
     }
 
+    renderInviteBanner() {
+      const inv = this.snapshot.incomingInvite;
+      if (!inv) return '';
+      return `
+        <div class="mp-invite-banner" role="alert" aria-live="assertive">
+          <div class="mp-invite-banner-info">
+            ${renderPixelAvatar(inv.hostAvatar, 34)}
+            <div>
+              <strong>Match Invitation from ${escHtml(inv.hostName || 'Host')}</strong>
+              <small>${escHtml(inv.arenaName || 'Cyber Arena')} · ${inv.visibility === 'private' ? 'Private' : 'Public'} Room ${escHtml(inv.roomCode)}</small>
+            </div>
+          </div>
+          <div class="mp-invite-banner-actions">
+            <button type="button" class="mp-btn is-green" data-mp-act="accept-invite">Accept &amp; Join</button>
+            <button type="button" class="mp-btn is-danger" data-mp-act="decline-invite">Decline</button>
+          </div>
+        </div>
+      `;
+    }
+
     renderBrowserView() {
       const { players, publicRooms } = this.snapshot;
+      const invitedSet = new Set(this.snapshot.invitedClientIds || []);
+      const waitingPlayers = players.filter((p) => !p.isSelf && (p.status || 'Available') === 'Available');
 
       const roomsHtml = publicRooms.length
         ? publicRooms.map((r) => `
@@ -348,18 +456,25 @@
         `;
 
       const playersHtml = players.length
-        ? players.map((p) => `
-          <div class="mp-player-row ${p.isSelf ? 'is-self' : ''}">
-            <div class="mp-player-id">
-              ${renderPixelAvatar(p.avatar, 32)}
-              <div>
-                <strong>${escHtml(p.username)}${p.isSelf ? ' <small>(YOU)</small>' : ''}</strong>
-                <small>${p.roomCode ? `Room ${escHtml(p.roomCode)}` : 'Lobby Browser'}</small>
+        ? players.map((p) => {
+            const isAvailable = !p.isSelf && (p.status || 'Available') === 'Available';
+            const alreadyInvited = invitedSet.has(p.clientId);
+            return `
+              <div class="mp-player-row ${p.isSelf ? 'is-self' : ''}">
+                <div class="mp-player-id">
+                  ${renderPixelAvatar(p.avatar, 32)}
+                  <div>
+                    <strong>${escHtml(p.username)}${p.isSelf ? ' <small>(YOU)</small>' : ''}</strong>
+                    <small>${p.roomCode ? `Room ${escHtml(p.roomCode)}` : 'Lobby Browser'}</small>
+                  </div>
+                </div>
+                <div class="mp-player-actions">
+                  ${isAvailable ? `<button type="button" class="mp-btn is-gold mp-btn-sm" data-mp-invite="${escHtml(p.clientId)}">${alreadyInvited ? 'Re-Invite' : 'Invite'}</button>` : ''}
+                  <span class="mp-status-badge ${statusClass(p.status)}">${escHtml(p.status || 'Available')}</span>
+                </div>
               </div>
-            </div>
-            <span class="mp-status-badge ${statusClass(p.status)}">${escHtml(p.status || 'Available')}</span>
-          </div>
-        `).join('')
+            `;
+          }).join('')
         : '<p class="mp-empty-inline">Waiting for player presence…</p>';
 
       return `
@@ -381,6 +496,7 @@
                 <span class="eyebrow">Connected Roster</span>
                 <h2>Players Online (${players.length})</h2>
               </div>
+              ${waitingPlayers.length ? `<button type="button" class="mp-btn is-blue mp-btn-sm" data-mp-invite="all">Invite Waiting (${waitingPlayers.length})</button>` : ''}
             </div>
             <div class="mp-players-list">${playersHtml}</div>
           </section>
@@ -515,9 +631,9 @@
           return `
             <article class="mp-slot-card is-empty" aria-label="${escHtml(slotTitle)} empty">
               <span class="mp-slot-role">${escHtml(slotTitle)}</span>
-              <div class="mp-slot-empty-avatar" aria-hidden="true">?</div>
+              <div class="mp-slot-empty-avatar" aria-hidden="true">${renderNetworkNodeIcon(42)}</div>
               <strong class="mp-slot-name">${escHtml(emptyLabel)}</strong>
-              <small class="mp-slot-conn">Share code ${escHtml(room.code)} or wait for a player</small>
+              <small class="mp-slot-conn">Share code ${escHtml(room.code)} or invite a lobby player</small>
               <span class="mp-ready-pill is-waiting">OPEN SLOT</span>
             </article>
           `;
@@ -589,6 +705,30 @@
             ${renderSlot(room.guest, 'SLOT 2 · CHALLENGER', 'Waiting for Player')}
           </div>
 
+          ${!room.guest ? (() => {
+            const invitedSet = new Set(this.snapshot.invitedClientIds || []);
+            const waitingPlayers = (this.snapshot.players || []).filter((p) => !p.isSelf && (p.status || 'Available') === 'Available');
+            return `
+              <div class="mp-room-invite-strip" aria-label="Invite waiting lobby players">
+                <div class="mp-room-invite-head">
+                  <span>WAITING IN LOBBY (${waitingPlayers.length})</span>
+                  ${waitingPlayers.length ? `<button type="button" class="mp-btn is-blue mp-btn-sm" data-mp-invite="all">Invite All Waiting</button>` : ''}
+                </div>
+                ${waitingPlayers.length
+                  ? `<div class="mp-room-invite-list">
+                      ${waitingPlayers.map((p) => `
+                        <div class="mp-room-invite-chip">
+                          ${renderPixelAvatar(p.avatar, 24)}
+                          <span>${escHtml(p.username)}</span>
+                          <button type="button" class="mp-btn is-gold mp-btn-sm" data-mp-invite="${escHtml(p.clientId)}">${invitedSet.has(p.clientId) ? 'Re-Invite' : 'Invite'}</button>
+                        </div>
+                      `).join('')}
+                    </div>`
+                  : '<p class="mp-room-invite-empty">No other players are currently waiting in the lobby browser. Share your invitation code or wait for a challenger.</p>'}
+              </div>
+            `;
+          })() : ''}
+
           <div class="mp-room-footer">
             <p class="mp-room-hint">${escHtml(hostHint)}</p>
             <div class="mp-room-controls">
@@ -625,6 +765,7 @@
       this.overlay.innerHTML = `
         <div class="mp-shell" role="dialog" aria-modal="true" aria-labelledby="mpOverlayTitle">
           ${this.renderHeader()}
+          ${this.renderInviteBanner()}
           ${this.renderNotification()}
           <div class="mp-body">${body}</div>
         </div>

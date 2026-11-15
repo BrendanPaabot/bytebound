@@ -3243,17 +3243,6 @@ if (multiplayerMenuBtn) {
     syncAnimationLoop()
   })
 }
-const settingsMenuBtn = document.getElementById('settingsMenuButton')
-if (settingsMenuBtn) {
-  settingsMenuBtn.addEventListener('click', () => {
-    setNavMenuOpen(false)
-    if (playViewActive) showDashboard('settings')
-    else {
-      dashboardView = 'settings'
-      renderDashboard()
-    }
-  })
-}
 const exitGameBtn = document.getElementById('exitGameButton')
 if (exitGameBtn) {
   exitGameBtn.addEventListener('click', () => {

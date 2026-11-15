@@ -83,6 +83,8 @@
       this.currentRoom = null;
       this.role = null; // 'host' | 'guest' | null
       this.notification = null;
+      this.incomingInvite = null;
+      this.invitedClientIds = new Set();
       this.listeners = new Set();
       this.matchListeners = new Set();
       this.forfeitListeners = new Set();
@@ -151,6 +153,8 @@
         currentRoom: this.currentRoom,
         role: this.role,
         notification: this.notification,
+        incomingInvite: this.incomingInvite,
+        invitedClientIds: [...this.invitedClientIds],
         canStartMatch: this.canStartMatch(),
         isBusy: this.isBusy,
         selfClientId: this.network.clientId,
@@ -204,6 +208,18 @@
       this.network.on('net_event', async (ev) => {
         const { source, type, roomCode, payload } = ev;
 
+        if (type === 'room_invite' && payload?.roomCode) {
+          if (payload.hostClientId === this.network.clientId) return;
+          if (this.currentRoom && this.currentRoom.code === payload.roomCode) return;
+          if (this.currentRoom && this.currentRoom.status === 'in_match') return;
+          this.incomingInvite = { ...payload, receivedAt: Date.now() };
+          if (global.Sound && typeof global.Sound.play === 'function') {
+            try { global.Sound.play('pick'); } catch {}
+          }
+          this.notifyChange();
+          return;
+        }
+
         if (type === 'match_move' && this.currentRoom && roomCode === this.currentRoom.code) {
           for (const fn of this.moveListeners) fn(payload);
           return;
@@ -228,6 +244,9 @@
         }
 
         if (type === 'room_closed') {
+          if (this.incomingInvite && this.incomingInvite.roomCode === roomCode) {
+            this.incomingInvite = null;
+          }
           if (this.currentRoom && this.currentRoom.code === roomCode) {
             const wasHost = this.role === 'host';
             this.currentRoom = null;
@@ -549,6 +568,7 @@
       const code = room.code;
       this.currentRoom = null;
       this.role = null;
+      this.invitedClientIds.clear();
       if (wasHost) {
         await this.network.closeRoom(code, `${room.host.username} closed the room.`);
         this.setNotification('info', `Room ${code} closed.`);
@@ -556,6 +576,60 @@
         await this.network.leaveRoom(code, `${room.guest?.username || 'Challenger'} left the room.`);
         this.setNotification('info', `Left room ${code}.`);
       }
+    }
+
+    async invitePlayer(targetClientId) {
+      if (!this.currentRoom) {
+        const created = await this.createRoom({ visibility: 'public', arenaId: 'arena', category: 'ALL' });
+        if (!created?.ok) return created || { ok: false, error: 'Could not create room to send invite.' };
+      }
+      const room = this.currentRoom;
+      if (!room || room.guest) {
+        return { ok: false, error: 'Room already has 2 players.' };
+      }
+      const invitePayload = {
+        roomCode: room.code,
+        visibility: room.visibility,
+        hostClientId: this.network.clientId,
+        hostName: this.network.localProfile.username,
+        hostAvatar: this.network.localProfile.avatar,
+        arenaName: room.arenaName,
+        category: room.category,
+      };
+      if (targetClientId === 'all') {
+        const waiting = this.players.filter((p) => !p.isSelf && (p.status || 'Available') === 'Available');
+        if (!waiting.length) {
+          this.setNotification('warn', 'No available waiting players in the lobby right now.');
+          return { ok: false, error: 'No available waiting players in the lobby.' };
+        }
+        for (const p of waiting) {
+          this.invitedClientIds.add(p.clientId);
+          await this.network.sendRoomInvite(p.clientId, invitePayload);
+        }
+        this.setNotification('info', `Invited ${waiting.length} waiting player${waiting.length === 1 ? '' : 's'} to Room ${room.code}.`);
+        return { ok: true, count: waiting.length };
+      }
+      const target = this.players.find((p) => p.clientId === targetClientId);
+      this.invitedClientIds.add(targetClientId);
+      await this.network.sendRoomInvite(targetClientId, invitePayload);
+      this.setNotification('info', `Invited ${target?.username || 'player'} to Room ${room.code}.`);
+      return { ok: true };
+    }
+
+    async acceptInvite() {
+      const inv = this.incomingInvite;
+      if (!inv || !inv.roomCode) return { ok: false, error: 'Invitation has expired.' };
+      this.incomingInvite = null;
+      if (this.currentRoom) {
+        if (this.currentRoom.code === inv.roomCode) return { ok: true, room: this.currentRoom };
+        await this.leaveCurrentRoom();
+      }
+      return await this.joinRoomByCode(inv.roomCode);
+    }
+
+    declineInvite() {
+      this.incomingInvite = null;
+      this.notifyChange();
     }
 
     async sendMatchMove(movePayload) {

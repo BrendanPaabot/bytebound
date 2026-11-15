@@ -39,7 +39,7 @@
     constructor() {
       this.clientId = getSessionClientId();
       this.handlers = new Map();
-      this.localProfile = { username: 'Player', avatar: 'gold', status: 'Available', roomCode: null };
+      this.localProfile = { username: 'Player', avatar: 'cpu', status: 'Available', roomCode: null };
       this.activeRoomSnapshot = null;
 
       this.connected = false;
@@ -70,7 +70,46 @@
       this.serverAllRooms = {};
       this.supabasePlayers = [];
       this.supabasePublicRooms = new Map();
+      this.disconnectTimers = new Map();
+      this.lastSeenByClient = new Map();
       this.beforeUnloadBound = false;
+    }
+
+    recordPeerSeen(clientId) {
+      if (!clientId || clientId === this.clientId) return;
+      this.lastSeenByClient.set(clientId, Date.now());
+      const existingTimer = this.disconnectTimers.get(clientId);
+      if (existingTimer) {
+        global.clearTimeout(existingTimer);
+        this.disconnectTimers.delete(clientId);
+      }
+    }
+
+    isPeerAlive(clientId) {
+      if (!clientId) return false;
+      if (clientId === this.clientId) return true;
+      const now = Date.now();
+      const lobbyState = this.sbLobbyChannel?.presenceState?.();
+      if (lobbyState && Array.isArray(lobbyState[clientId]) && lobbyState[clientId].length > 0) return true;
+      const roomState = this.sbRoomChannel?.presenceState?.();
+      if (roomState && Array.isArray(roomState[clientId]) && roomState[clientId].length > 0) return true;
+      if (this.serverPlayers.some((p) => p.clientId === clientId && (now - p.receivedAt) < 40000)) return true;
+      const bcPeer = this.bcPeers.get(clientId);
+      if (bcPeer && (now - bcPeer.receivedAt) < 40000) return true;
+      const lastSeen = this.lastSeenByClient.get(clientId) || 0;
+      return (now - lastSeen) < 4000;
+    }
+
+    scheduleDisconnectVerification(clientId, roomCode = null, source = 'presence', delayMs = 4500) {
+      if (!clientId || clientId === this.clientId) return;
+      if (this.isPeerAlive(clientId) && source !== 'bye') return;
+      if (this.disconnectTimers.has(clientId)) return;
+      const timer = global.setTimeout(() => {
+        this.disconnectTimers.delete(clientId);
+        if (this.isPeerAlive(clientId)) return;
+        this.emit('peer_disconnected', { clientId, roomCode, source });
+      }, delayMs);
+      this.disconnectTimers.set(clientId, timer);
     }
 
     on(event, fn) {
@@ -179,6 +218,21 @@
       };
       global.addEventListener('pagehide', onExit);
       global.addEventListener('beforeunload', onExit);
+      const onResume = () => {
+        if (document.visibilityState === 'hidden') return;
+        const payload = this.buildPresencePayload();
+        if (this.localServerAvailable) {
+          this.postLocalEvent('presence', this.localProfile.roomCode, payload);
+        }
+        if (this.bc) {
+          this.postBroadcast('bc_presence', null, payload);
+        }
+        if (this.sbLobbyChannel && this.sbConnected) {
+          try { this.sbLobbyChannel.track(payload); } catch {}
+        }
+      };
+      document.addEventListener('visibilitychange', onResume);
+      global.addEventListener('focus', onResume);
     }
 
     // ===== Local Server (/api/mp/*) =====
@@ -253,7 +307,10 @@
         this.localSeq = Math.max(this.localSeq, data.seq);
       }
       this.serverPlayers = Array.isArray(data.players)
-        ? data.players.map((p) => ({ ...p, receivedAt: Date.now() - (p.ageMs || 0), source: 'local' }))
+        ? data.players.map((p) => {
+            if (p.ageMs < 15000) this.recordPeerSeen(p.clientId);
+            return { ...p, receivedAt: Date.now() - (p.ageMs || 0), source: 'local' };
+          })
         : [];
       this.serverPublicRooms = Array.isArray(data.publicRooms) ? data.publicRooms : [];
       this.serverAllRooms = (data.rooms && typeof data.rooms === 'object') ? data.rooms : {};
@@ -288,6 +345,7 @@
           if (msg.targetClientId && msg.targetClientId !== this.clientId) return;
 
           if (msg.type === 'bc_presence') {
+            this.recordPeerSeen(msg.senderId);
             this.bcPeers.set(msg.senderId, {
               ...msg.payload,
               clientId: msg.senderId,
@@ -313,10 +371,12 @@
             for (const [code, room] of this.bcPublicRooms.entries()) {
               if (room.hostClientId === msg.senderId) this.bcPublicRooms.delete(code);
             }
-            this.emit('peer_disconnected', { clientId: msg.senderId, roomCode: msg.roomCode || null });
+            this.scheduleDisconnectVerification(msg.senderId, msg.roomCode || null, 'bye', 1600);
             this.emitMergedState();
             return;
           }
+
+          this.recordPeerSeen(msg.senderId);
 
           if (msg.type === 'room_probe') {
             if (this.activeRoomSnapshot && this.activeRoomSnapshot.code === msg.roomCode &&
@@ -411,16 +471,19 @@
         channel
           .on('presence', { event: 'sync' }, () => this.syncSupabasePresence())
           .on('presence', { event: 'join' }, () => this.syncSupabasePresence())
-          .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+          .on('presence', { event: 'leave' }, ({ key, currentPresences, leftPresences }) => {
             const leftId = key || leftPresences?.[0]?.clientId;
             this.syncSupabasePresence();
-            if (leftId && leftId !== this.clientId) {
-              this.emit('peer_disconnected', { clientId: leftId, source: 'supabase' });
-            }
+            if (!leftId || leftId === this.clientId) return;
+            if (Array.isArray(currentPresences) && currentPresences.length > 0) return;
+            const state = channel.presenceState?.() || {};
+            if (Array.isArray(state[leftId]) && state[leftId].length > 0) return;
+            this.scheduleDisconnectVerification(leftId, null, 'supabase');
           })
           .on('broadcast', { event: 'lobby_event' }, ({ payload }) => {
             if (!payload || payload.senderId === this.clientId) return;
             if (payload.msgId && this.markSeen(payload.msgId)) return;
+            this.recordPeerSeen(payload.senderId);
             if (payload.type === 'public_room_remove') {
               this.supabasePublicRooms.delete(payload.roomCode);
               this.emitMergedState();
@@ -431,6 +494,15 @@
               this.closedCodes.add(String(payload.roomCode || '').toUpperCase());
               this.supabasePublicRooms.delete(payload.roomCode);
               this.emitMergedState();
+            } else if (payload.type === 'room_invite' && payload.invite) {
+              if (payload.targetClientId && payload.targetClientId !== this.clientId) return;
+              this.emit('net_event', {
+                source: 'supabase',
+                senderId: payload.senderId,
+                type: 'room_invite',
+                roomCode: payload.roomCode,
+                payload: payload.invite,
+              });
             }
           });
 
@@ -467,10 +539,12 @@
       for (const [key, metas] of Object.entries(state || {})) {
         const meta = Array.isArray(metas) && metas.length ? metas[metas.length - 1] : null;
         if (!meta || !meta.clientId) continue;
+        const cid = meta.clientId || key;
+        this.recordPeerSeen(cid);
         players.push({
-          clientId: meta.clientId || key,
+          clientId: cid,
           username: meta.username || 'Player',
-          avatar: meta.avatar || 'gold',
+          avatar: meta.avatar || 'cpu',
           status: meta.status || 'Available',
           roomCode: meta.roomCode || null,
           receivedAt: Date.now(),
@@ -500,16 +574,19 @@
       this.sbRoomChannel = channel;
 
       channel
-        .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        .on('presence', { event: 'leave' }, ({ key, currentPresences, leftPresences }) => {
           const leftId = key || leftPresences?.[0]?.clientId;
-          if (leftId && leftId !== this.clientId) {
-            this.emit('peer_disconnected', { clientId: leftId, roomCode: code, source: 'supabase' });
-          }
+          if (!leftId || leftId === this.clientId) return;
+          if (Array.isArray(currentPresences) && currentPresences.length > 0) return;
+          const state = channel.presenceState?.() || {};
+          if (Array.isArray(state[leftId]) && state[leftId].length > 0) return;
+          this.scheduleDisconnectVerification(leftId, code, 'supabase');
         })
         .on('broadcast', { event: 'room_msg' }, ({ payload }) => {
           if (!payload || payload.senderId === this.clientId) return;
           if (payload.msgId && this.markSeen(payload.msgId)) return;
           if (payload.targetClientId && payload.targetClientId !== this.clientId) return;
+          this.recordPeerSeen(payload.senderId);
           if (payload.type === 'room_closed') {
             this.closedCodes.add(String(code).toUpperCase());
           }
@@ -578,7 +655,7 @@
       } catch {}
     }
 
-    async sendSupabaseLobbyBroadcast(type, roomCode, room = null) {
+    async sendSupabaseLobbyBroadcast(type, roomCode, room = null, extra = {}) {
       if (!this.sbLobbyChannel || !this.sbConnected) return;
       try {
         await this.sbLobbyChannel.send({
@@ -590,9 +667,27 @@
             type,
             roomCode,
             room,
+            ...extra,
           },
         });
       } catch {}
+    }
+
+    async sendRoomInvite(targetClientId, invitePayload) {
+      const code = invitePayload?.roomCode || this.localProfile.roomCode || '';
+      const payload = {
+        ...invitePayload,
+        roomCode: code,
+        targetClientId: targetClientId || null,
+      };
+      if (this.localServerAvailable) {
+        await this.postLocalEvent('invite_player', code, payload);
+      }
+      this.postBroadcast('room_invite', code, invitePayload, targetClientId || null);
+      await this.sendSupabaseLobbyBroadcast('room_invite', code, null, {
+        targetClientId: targetClientId || null,
+        invite: invitePayload,
+      });
     }
 
     // Optional SQL persistence in public.multiplayer_rooms (fails gracefully if schema not yet applied)
@@ -687,15 +782,17 @@
       if (this.heartbeatTimer) return;
       this.heartbeatTimer = global.setInterval(() => {
         const now = Date.now();
-        // Prune stale BroadcastChannel peers (> 9.5s without heartbeat)
+        // Prune stale BroadcastChannel peers (> 45s without heartbeat; tolerates background tab throttling)
         let bcChanged = false;
         for (const [id, peer] of this.bcPeers.entries()) {
-          if (now - peer.receivedAt > 9500) {
+          if (now - peer.receivedAt > 45000) {
             this.bcPeers.delete(id);
             for (const [code, r] of this.bcPublicRooms.entries()) {
               if (r.hostClientId === id) this.bcPublicRooms.delete(code);
             }
-            this.emit('peer_disconnected', { clientId: id, roomCode: peer.roomCode || null, source: 'channel' });
+            if (!this.isPeerAlive(id)) {
+              this.scheduleDisconnectVerification(id, peer.roomCode || null, 'channel');
+            }
             bcChanged = true;
           }
         }
@@ -726,7 +823,7 @@
       const now = Date.now();
       for (const p of [...this.serverPlayers, ...this.supabasePlayers, ...this.bcPeers.values()]) {
         if (!p || !p.clientId || p.clientId === this.clientId) continue;
-        if (p.source === 'channel' && now - p.receivedAt > 9500) continue;
+        if (p.source === 'channel' && now - p.receivedAt > 45000) continue;
         const existing = playerMap.get(p.clientId);
         if (!existing || (p.source === 'supabase' && existing.source !== 'supabase')) {
           playerMap.set(p.clientId, { ...p, isSelf: false });
