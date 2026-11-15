@@ -1616,10 +1616,14 @@ function drawChargeMeter(cx, progress) {
   c.restore()
 }
 
-function drawDefendEffect(cx, heroTop) {
-  const progress = 1 - battle.defendEffectT / DEFEND_EFFECT_FRAMES
-  const alpha = Math.min(1, battle.defendEffectT / 6)
-  const shieldX = Math.round(cx + 52)
+function drawDefendEffect(cx, heroTop, options = {}) {
+  const timer = options.timer ?? battle.defendEffectT
+  if (timer <= 0) return
+  const facingLeft = Boolean(options.facingLeft)
+  const labelText = options.text || 'BLOCKED!'
+  const progress = 1 - timer / DEFEND_EFFECT_FRAMES
+  const alpha = Math.min(1, timer / 6)
+  const shieldX = Math.round(cx + (facingLeft ? -52 : 52))
   const shieldY = Math.round(heroTop + 43)
   const scale = progress < 0.2
     ? 0.76 + progress * 1.2
@@ -1662,7 +1666,7 @@ function drawDefendEffect(cx, heroTop) {
   c.save()
   const textProgress = Math.min(1, progress * 2.5)
   const textScale = 1 + 0.22 * Math.max(0, 1 - textProgress * 5)
-  c.globalAlpha = Math.min(1, battle.defendEffectT / 8)
+  c.globalAlpha = Math.min(1, timer / 8)
   c.translate(cx, heroTop - 78 - textProgress * 18)
   c.scale(textScale, textScale)
   c.textAlign = 'center'
@@ -1670,9 +1674,9 @@ function drawDefendEffect(cx, heroTop) {
   c.font = '11px "Press Start 2P", monospace'
   c.lineWidth = 4
   c.strokeStyle = '#143a55'
-  c.strokeText('BLOCKED!', 0, 0)
+  c.strokeText(labelText, 0, 0)
   c.fillStyle = '#effcff'
-  c.fillText('BLOCKED!', 0, 0)
+  c.fillText(labelText, 0, 0)
   c.restore()
   c.textAlign = 'left'
   c.textBaseline = 'alphabetic'
@@ -1746,33 +1750,94 @@ function drawAttackProjectile() {
   }
 }
 
-function drawImpactRings() {
-  if (battle.impactRingT <= 0) return
-  const progress = 1 - battle.impactRingT
+function drawEnemyProjectile() {
+  const b = battle
+  if (b.enemyProjectileT < 0) return
+  const charged = b.enemyProjectileCharged
+  const progress = Math.min(1, b.enemyProjectileT)
+  const startX = FOE_SPOT.x - 70
+  const endX = HERO_SPOT.x + 18
+  const startY = FOE_SPOT.y - 100
+  const endY = HERO_SPOT.y - 82
+  const color = charged ? '#ff9659' : '#ffd27a'
+  const size = charged ? 13 : 7
   c.save()
-  if (battle.projectileCharged && progress < 0.45) {
-    c.globalAlpha = 1 - progress / 0.45
-    c.lineCap = 'square'
-    c.strokeStyle = '#ff9659'
-    c.lineWidth = 12 * (1 - progress)
-    c.beginPath()
-    c.moveTo(FOE_SPOT.x - 42, FOE_SPOT.y - 128)
-    c.lineTo(FOE_SPOT.x + 42, FOE_SPOT.y - 24)
-    c.stroke()
-    c.strokeStyle = '#fff3c4'
-    c.lineWidth = 3
-    c.stroke()
-  }
-  for (let i = 0; i < 3; i++) {
-    const radius = 12 + progress * (72 + i * 12)
-    c.globalAlpha = Math.max(0, 0.82 * (1 - progress))
-    c.strokeStyle = i === 2 ? '#f2bb61' : '#6fe3e8'
-    c.lineWidth = 3 - i * 0.5
-    c.beginPath()
-    c.arc(FOE_SPOT.x, FOE_SPOT.y - 70, radius, 0, Math.PI * 2)
-    c.stroke()
+  c.globalCompositeOperation = 'lighter'
+  c.shadowColor = color
+  c.shadowBlur = charged ? 18 : 10
+  for (let i = charged ? 4 : 2; i >= 0; i--) {
+    const trailProgress = Math.max(0, progress - i * (charged ? 0.035 : 0.05))
+    const trailEase = 1 - Math.pow(1 - trailProgress, 2)
+    const trailX = startX + (endX - startX) * trailEase
+    const trailY = startY + (endY - startY) * trailEase - (charged ? Math.sin(trailProgress * Math.PI) * 34 : 0)
+    c.globalAlpha = 1 - i * 0.16
+    c.fillStyle = i ? color : '#fff3c4'
+    c.fillRect(Math.round(trailX - size / 2), Math.round(trailY - size / 2), size, size)
   }
   c.restore()
+  b.enemyProjectileT += charged ? 0.055 : 0.1
+  if (b.enemyProjectileT >= 1) {
+    b.enemyProjectileT = -1
+    b.enemyProjectileCharged = false
+    emitFx(HERO_SPOT.x, HERO_SPOT.y - 74, '#ff9659', 18, 3.8)
+  }
+}
+
+function drawImpactRings() {
+  if (battle.impactRingT > 0) {
+    const progress = 1 - battle.impactRingT
+    c.save()
+    if (battle.projectileCharged && progress < 0.45) {
+      c.globalAlpha = 1 - progress / 0.45
+      c.lineCap = 'square'
+      c.strokeStyle = '#ff9659'
+      c.lineWidth = 12 * (1 - progress)
+      c.beginPath()
+      c.moveTo(FOE_SPOT.x - 42, FOE_SPOT.y - 128)
+      c.lineTo(FOE_SPOT.x + 42, FOE_SPOT.y - 24)
+      c.stroke()
+      c.strokeStyle = '#fff3c4'
+      c.lineWidth = 3
+      c.stroke()
+    }
+    for (let i = 0; i < 3; i++) {
+      const radius = 12 + progress * (72 + i * 12)
+      c.globalAlpha = Math.max(0, 0.82 * (1 - progress))
+      c.strokeStyle = i === 2 ? '#f2bb61' : '#6fe3e8'
+      c.lineWidth = 3 - i * 0.5
+      c.beginPath()
+      c.arc(FOE_SPOT.x, FOE_SPOT.y - 70, radius, 0, Math.PI * 2)
+      c.stroke()
+    }
+    c.restore()
+  }
+  if (battle.enemyImpactRingT > 0) {
+    const progress = 1 - battle.enemyImpactRingT
+    c.save()
+    if (progress < 0.45) {
+      c.globalAlpha = 1 - progress / 0.45
+      c.lineCap = 'square'
+      c.strokeStyle = '#ff9659'
+      c.lineWidth = 12 * (1 - progress)
+      c.beginPath()
+      c.moveTo(HERO_SPOT.x + 42, HERO_SPOT.y - 128)
+      c.lineTo(HERO_SPOT.x - 42, HERO_SPOT.y - 24)
+      c.stroke()
+      c.strokeStyle = '#fff3c4'
+      c.lineWidth = 3
+      c.stroke()
+    }
+    for (let i = 0; i < 3; i++) {
+      const radius = 12 + progress * (72 + i * 12)
+      c.globalAlpha = Math.max(0, 0.82 * (1 - progress))
+      c.strokeStyle = i === 2 ? '#f2bb61' : '#ff9659'
+      c.lineWidth = 3 - i * 0.5
+      c.beginPath()
+      c.arc(HERO_SPOT.x, HERO_SPOT.y - 70, radius, 0, Math.PI * 2)
+      c.stroke()
+    }
+    c.restore()
+  }
 }
 
 // Draws the king and the current enemy, plus shadows, shield and heavy-attack warning.
@@ -1988,6 +2053,50 @@ function drawCombatants(heroX, foeX, shake) {
         drawFoeSprite(fx - hitProgress * 9, 0.24, true)
       }
       drawFoeSprite(fx)
+      if (foe.isMultiplayerPlayer) {
+        const oppH = opponentKing.destinationSize.height * hs
+        if (b.enemyChargeT > 0) {
+          c.save()
+          c.globalCompositeOperation = 'lighter'
+          c.globalAlpha = Math.min(0.6, b.enemyChargeT / 24)
+          c.strokeStyle = '#ff9659'
+          c.lineWidth = 3
+          c.beginPath()
+          c.arc(fx, fy - oppH * 0.5, 42 + Math.sin(arenaT * 0.3) * 4, 0, Math.PI * 2)
+          c.stroke()
+          c.restore()
+        }
+        if (b.enemyHealTintT > 0) {
+          c.save()
+          c.globalCompositeOperation = 'lighter'
+          c.globalAlpha = Math.min(0.45, b.enemyHealTintT / 18)
+          c.fillStyle = '#7fd49a'
+          c.beginPath()
+          c.arc(fx, fy - oppH * 0.45, 36, 0, Math.PI * 2)
+          c.fill()
+          c.restore()
+        }
+        if (typeof mpState !== 'undefined' && mpState?.fighters) {
+          const oppRole = mpState.role === 'host' ? 'guest' : 'host'
+          if ((mpState.fighters[oppRole]?.block || 0) > 0) {
+            c.save()
+            c.strokeStyle = '#6fe3e8'
+            c.lineWidth = 3
+            c.globalAlpha = 0.72
+            c.beginPath()
+            c.arc(fx - 20, fy - oppH * 0.48, 38, Math.PI * 0.65, Math.PI * 1.35)
+            c.stroke()
+            c.restore()
+          }
+        }
+        if (b.enemyDefendEffectT > 0) {
+          drawDefendEffect(fx, fy - oppH, {
+            facingLeft: true,
+            timer: b.enemyDefendEffectT,
+            text: 'GUARD UP!',
+          })
+        }
+      }
       const foeHeight = foe.isMultiplayerPlayer
         ? opponentKing.destinationSize.height * hs
         : (foe.isBoss ? BOSS_BATTLE_HEIGHT : 36 * foeScale)
@@ -2050,6 +2159,7 @@ function drawBattle() {
   drawArena()
   drawCombatants(HERO_SPOT.x, FOE_SPOT.x, shake)
   drawAttackProjectile()
+  drawEnemyProjectile()
   drawImpactRings()
   drawFx()
   drawPopups()
@@ -2083,6 +2193,9 @@ function drawBattle() {
   if (b.heroHealFlashT > 0) b.heroHealFlashT--
   if (b.heroHealTintT > 0) b.heroHealTintT--
   if (b.defendEffectT > 0) b.defendEffectT--
+  if (b.enemyDefendEffectT > 0) b.enemyDefendEffectT--
+  if (b.enemyHealTintT > 0) b.enemyHealTintT--
+  if (b.enemyChargeT > 0) b.enemyChargeT--
   if (b.heroKnockbackT >= 0) {
     if (b.heroKnockbackT >= HERO_KNOCKBACK_TICKS) b.heroKnockbackT = -1
     else b.heroKnockbackT++
@@ -2090,6 +2203,7 @@ function drawBattle() {
   if (b.enemyInvertT > 0) b.enemyInvertT--
   if (b.cameraShakeT > 0) b.cameraShakeT = Math.max(0, b.cameraShakeT - 0.16)
   if (b.impactRingT > 0) b.impactRingT = Math.max(0, b.impactRingT - 0.08)
+  if (b.enemyImpactRingT > 0) b.enemyImpactRingT = Math.max(0, b.enemyImpactRingT - 0.08)
   if (b.enemyDefeatT >= 0 && b.enemyDefeatT < 1) {
     b.enemyDefeatT = Math.min(1, b.enemyDefeatT + 0.02)
   }

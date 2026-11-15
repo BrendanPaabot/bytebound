@@ -1005,6 +1005,8 @@ function startBattle(enemy) {
   Object.assign(battle, {
     enemy, phase: 'intro', card: null, question: null, block: 0, popups: [], tempDefense: 0,
     defendCooldownTurns: 0, defendUsedThisTurn: false, defendEffectT: 0,
+    enemyDefendEffectT: 0, enemyHealTintT: 0, enemyChargeT: 0,
+    enemyProjectileT: -1, enemyProjectileCharged: false, enemyImpactRingT: 0, enemyPreviewCard: null,
     heroHealFlashT: 0, heroHealTintT: 0,
     lungeT: 0, heroAttackT: 0, bossAttackT: 0, enemyLungeT: 0, enemyLungeDistance: 0,
     chargeCard: false, chargeStartedAt: 0, chargeReady: false, chargeMaxT: 0, chargeSparks: [],
@@ -1060,6 +1062,16 @@ function chooseCard(index) {
     battle.question = mpGetQuestionForRound(mpState.round);
     battle.fromReview = false;
     mpState.questionStartedAt = performance.now();
+    if (window.mpUI?.matchmaking) {
+      window.mpUI.matchmaking.sendMatchMove({
+        kind: 'preview',
+        matchId: mpState.matchId,
+        round: mpState.round,
+        role: mpState.role,
+        clientId: mpState.selfClientId,
+        cardId: id,
+      });
+    }
   } else {
     battle.question = adaptive.nextQuestion();
     battle.fromReview = adaptive.fromReview;
@@ -1513,6 +1525,8 @@ function startMultiplayerMatch(matchConfig, role, selfClientId) {
   Object.assign(battle, {
     enemy: foe, phase: 'intro', card: null, question: null, block: 0, popups: [], tempDefense: 0,
     defendCooldownTurns: 0, defendUsedThisTurn: false, defendEffectT: 0,
+    enemyDefendEffectT: 0, enemyHealTintT: 0, enemyChargeT: 0,
+    enemyProjectileT: -1, enemyProjectileCharged: false, enemyImpactRingT: 0, enemyPreviewCard: null,
     heroHealFlashT: 0, heroHealTintT: 0,
     lungeT: 0, heroAttackT: 0, bossAttackT: 0, enemyLungeT: 0, enemyLungeDistance: 0,
     chargeCard: false, chargeStartedAt: 0, chargeReady: false, chargeMaxT: 0, chargeSparks: [],
@@ -1537,10 +1551,14 @@ function startMultiplayerMatch(matchConfig, role, selfClientId) {
 
 function renderMultiplayerWaiting() {
   battle.phase = 'mp_waiting';
+  const previewCard = battle.enemyPreviewCard && CARD_LIBRARY[battle.enemyPreviewCard];
+  const detailText = previewCard
+    ? `${esc(mpState.opponentName)} selected <strong>${esc(previewCard.name)}</strong> and is answering their question...`
+    : `Wait for ${esc(mpState.opponentName)} to choose an action and answer their question.`;
   setPanel(`<div class="battle-feedback-row">
     <div class="battle-feedback-copy">
       <p><span class="mp-turn-pill is-theirs">OPPONENT'S TURN</span> <strong>Turn ${mpState.round + 1}: ${esc(mpState.opponentName)} is acting...</strong></p>
-      <p class="log">Wait for ${esc(mpState.opponentName)} to choose an action and answer their question.</p>
+      <p class="log">${detailText}</p>
     </div>
     <button type="button" class="mp-inline-forfeit" data-act="mp-forfeit">Forfeit Match</button>
   </div>`);
@@ -1584,6 +1602,20 @@ function mpReceiveRemoteMove(payload) {
   const turn = Number(payload.round);
   if (!Number.isFinite(turn)) return;
   if (mpActiveRole(turn) !== moveRole) return;
+
+  if (payload.kind === 'preview') {
+    if (turn === mpState.round && battle.phase === 'mp_waiting') {
+      battle.enemyPreviewCard = payload.cardId || null;
+      if (payload.cardId === 'power' || payload.cardId === 'overclock') {
+        battle.enemyChargeT = 48;
+        emitFx(FOE_SPOT.x, FOE_SPOT.y - 76, '#ff9659', 10, 2.6);
+      } else if (payload.cardId === 'defend') {
+        emitFx(FOE_SPOT.x - 42, FOE_SPOT.y - 82, '#6fe3e8', 8, 2.2);
+      }
+      renderMultiplayerWaiting();
+    }
+    return;
+  }
 
   if (!mpState.movesByRound[turn]) mpState.movesByRound[turn] = {};
   mpState.movesByRound[turn][moveRole] = payload;
@@ -1689,17 +1721,49 @@ function mpResolveTurn(turn, move) {
       emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#e8706a', 14, 3.2);
     }
   } else {
+    battle.enemyPreviewCard = null;
+    battle.enemyChargeT = 0;
     if (healAmt > 0) {
+      if (card.kind === 'heal') {
+        battle.enemyHealTintT = 18;
+        Sound.play('heal');
+      }
       popup('enemy', `+${healAmt} HP`, '#7fd49a');
       emitFx(FOE_SPOT.x, FOE_SPOT.y - 80, '#7fd49a', 14, 2.5);
     }
+    if (move.cardId === 'defend') {
+      battle.enemyDefendEffectT = move.correct ? DEFEND_EFFECT_FRAMES : Math.round(DEFEND_EFFECT_FRAMES * 0.6);
+      emitFx(FOE_SPOT.x - 52, FOE_SPOT.y - 82, '#e8fbff', 14, 3.6);
+      emitFx(FOE_SPOT.x - 52, FOE_SPOT.y - 82, '#6fe3e8', 10, 2.8);
+      Sound.play('block');
+      popup('enemy', move.correct ? 'SHIELD UP!' : 'WEAK GUARD', '#8beaff');
+    } else if (move.cardId === 'charge' || move.cardId === 'mana') {
+      emitFx(FOE_SPOT.x, FOE_SPOT.y - 78, '#8fd0dc', 14, 3.0);
+      Sound.play('charge');
+      popup('enemy', '+MANA', '#8fd0dc');
+    } else if (move.cardId === 'buff') {
+      emitFx(FOE_SPOT.x, FOE_SPOT.y - 78, '#c9b6ff', 14, 3.0);
+      Sound.play('block');
+      popup('enemy', '+DEF', '#c9b6ff');
+    }
     if (dmgDealt > 0) {
-      battle.enemyLungeT = 1;
-      battle.enemyLungeDistance = 195;
+      if (move.cardId === 'power' || move.cardId === 'overclock') {
+        battle.enemyProjectileT = 0;
+        battle.enemyProjectileCharged = true;
+        battle.enemyImpactRingT = 1;
+        if (!document.body.classList.contains('reduce-motion')) {
+          battle.cameraShakeT = Math.max(battle.cameraShakeT, 1.0);
+        }
+        Sound.play('heavy');
+        popup('enemy', 'POWER STRIKE!', '#ff9659');
+      } else {
+        battle.enemyLungeT = 1;
+        battle.enemyLungeDistance = 195;
+        Sound.play('enemy');
+      }
       battle.flash.hero = 12;
       battle.heroHitTintT = HERO_HIT_TINT_TICKS;
       battle.heroKnockbackT = 0;
-      Sound.play('enemy');
       popup('hero', `-${dmgDealt}`, '#e8706a');
       emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#e8706a', 14, 3.2);
     }
