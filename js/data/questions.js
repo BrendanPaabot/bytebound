@@ -587,6 +587,461 @@ const QUESTION_BANK = {
       ],
       "answer": 1,
       "explain": "Threads let one process do several things at once while sharing the same memory."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Fundamentals",
+      "q": "Which type of memory loses its stored data as soon as power is turned off?",
+      "choices": [
+        "SSD",
+        "ROM",
+        "RAM",
+        "Flash drive"
+      ],
+      "answer": 2,
+      "explain": "RAM (Random Access Memory) is volatile memory, so its contents clear when the system loses power."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Number Systems",
+      "q": "What is the hexadecimal representation of decimal 15?",
+      "choices": [
+        "E",
+        "F",
+        "10",
+        "A"
+      ],
+      "answer": 1,
+      "explain": "Hexadecimal digits run from 0 to 9 and then A (10) through F (15)."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Operating Systems",
+      "q": "Which part of the operating system stays in memory and manages hardware resources directly?",
+      "choices": [
+        "Text editor",
+        "Kernel",
+        "Web browser",
+        "Spreadsheet"
+      ],
+      "answer": 1,
+      "explain": "The kernel is the core of the operating system that controls CPU scheduling, memory, and devices."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Architecture",
+      "q": "Which part of the CPU performs arithmetic and logical comparisons?",
+      "choices": [
+        "ALU (Arithmetic Logic Unit)",
+        "Power Supply Unit",
+        "Network Interface Card",
+        "Hard Disk Controller"
+      ],
+      "answer": 0,
+      "explain": "The ALU executes addition, subtraction, bitwise operations, and comparisons inside the processor."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Architecture",
+      "q": "What are the small, ultra-fast storage locations directly inside the CPU called?",
+      "choices": [
+        "Optical sectors",
+        "Registers",
+        "Swap files",
+        "Database tables"
+      ],
+      "answer": 1,
+      "explain": "Registers hold instructions, addresses, and operands that the CPU is actively processing right now."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Architecture",
+      "q": "What is the repeating sequence of Fetch, Decode, and Execute in a processor called?",
+      "choices": [
+        "Instruction cycle",
+        "Page fault",
+        "Network handshake",
+        "Garbage collection"
+      ],
+      "answer": 0,
+      "explain": "The CPU continuously fetches an instruction from memory, decodes it, and executes it during the instruction cycle."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Architecture",
+      "q": "Which hardware pathway carries data and addresses between the CPU, memory, and I/O devices?",
+      "choices": [
+        "System bus",
+        "Firewall",
+        "Compiler",
+        "Hypervisor"
+      ],
+      "answer": 0,
+      "explain": "The system bus consists of address, data, and control lines that connect major hardware components."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Memory & Storage Systems",
+      "q": "Which type of high-speed memory sits between the CPU registers and main RAM?",
+      "choices": [
+        "Magnetic tape",
+        "CPU cache",
+        "Optical disc",
+        "USB flash drive"
+      ],
+      "answer": 1,
+      "explain": "CPU cache (L1/L2/L3) stores frequently used data close to the processor so it does not have to wait for slower RAM."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Memory & Storage Systems",
+      "q": "Why is an SSD faster at random reads than a traditional HDD?",
+      "choices": [
+        "It uses flash memory with no moving read/write heads",
+        "It spins its magnetic platters twice as fast",
+        "It only stores text files",
+        "It connects through the audio port"
+      ],
+      "answer": 0,
+      "explain": "Solid-state drives access data electronically in flash cells rather than waiting for mechanical platters and heads to move."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Memory & Storage Systems",
+      "q": "How many bytes are in 1 Kilobyte (binary KiB) of memory?",
+      "choices": [
+        "512 bytes",
+        "1000 bytes",
+        "1024 bytes",
+        "2048 bytes"
+      ],
+      "answer": 2,
+      "explain": "In binary addressing, 2^10 equals 1024 bytes."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Memory & Storage Systems",
+      "q": "What is non-volatile firmware memory on a motherboard commonly stored in?",
+      "choices": [
+        "ROM / Flash EEPROM",
+        "L1 Cache",
+        "CPU Register",
+        "DRAM"
+      ],
+      "answer": 0,
+      "explain": "Motherboard UEFI/BIOS firmware is kept in non-volatile ROM or Flash memory so the computer can boot when powered on."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Networking",
+      "q": "Which device forwards packets between different computer networks using IP addresses?",
+      "choices": [
+        "Router",
+        "Unpowered hub",
+        "Passive cable",
+        "CRT monitor"
+      ],
+      "answer": 0,
+      "explain": "A router inspects destination IP addresses and forwards packets between separate networks."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Information Security",
+      "q": "What does the 'C' in the CIA security triad stand for?",
+      "choices": [
+        "Compression",
+        "Confidentiality",
+        "Caching",
+        "Compilation"
+      ],
+      "answer": 1,
+      "explain": "The CIA triad stands for Confidentiality, Integrity, and Availability."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Models & Protocols",
+      "q": "Which protocol automatically assigns an IP address to a device joining a network?",
+      "choices": [
+        "DHCP",
+        "SMTP",
+        "IMAP",
+        "FTP"
+      ],
+      "answer": 0,
+      "explain": "DHCP (Dynamic Host Configuration Protocol) leases IP addresses, subnet masks, and default gateways to clients."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Models & Protocols",
+      "q": "How many layers are in the standard OSI networking model?",
+      "choices": [
+        "4",
+        "5",
+        "7",
+        "10"
+      ],
+      "answer": 2,
+      "explain": "The OSI model has 7 layers: Physical, Data Link, Network, Transport, Session, Presentation, and Application."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Models & Protocols",
+      "q": "Which transport protocol is connectionless and prioritizes low latency over guaranteed delivery?",
+      "choices": [
+        "TCP",
+        "UDP",
+        "HTTPS",
+        "SSH"
+      ],
+      "answer": 1,
+      "explain": "UDP sends datagrams without setting up a connection or retransmitting lost packets, making it fast for gaming and streaming."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Models & Protocols",
+      "q": "Which tool sends ICMP Echo Request packets to test if a remote host is reachable?",
+      "choices": [
+        "ping",
+        "mkdir",
+        "chmod",
+        "grep"
+      ],
+      "answer": 0,
+      "explain": "The ping utility measures round-trip reachability using ICMP Echo Request and Echo Reply messages."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Cryptography & Authentication",
+      "q": "What is converting readable plaintext into unreadable ciphertext called?",
+      "choices": [
+        "Encryption",
+        "Defragmentation",
+        "Normalization",
+        "Pagination"
+      ],
+      "answer": 0,
+      "explain": "Encryption scrambles plaintext using an algorithm and key so unauthorized parties cannot read it."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Cryptography & Authentication",
+      "q": "What is Multi-Factor Authentication (MFA)?",
+      "choices": [
+        "Logging in with two or more independent verification factors",
+        "Typing the same password twice",
+        "Sharing one password across multiple accounts",
+        "Using a longer username"
+      ],
+      "answer": 0,
+      "explain": "MFA combines two or more different factor types, such as something you know (password) and something you have (authenticator token)."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Cryptography & Authentication",
+      "q": "Which property is true of a cryptographic hash function like SHA-256?",
+      "choices": [
+        "It is a one-way function that produces a fixed-size digest",
+        "It can be decrypted with a public key",
+        "It doubles the size of every file",
+        "It only works on numbers"
+      ],
+      "answer": 0,
+      "explain": "Cryptographic hashes map arbitrary input to a fixed-length digest and are designed to be infeasible to invert."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Cryptography & Authentication",
+      "q": "In public-key cryptography, which key is shared openly with everyone?",
+      "choices": [
+        "Public key",
+        "Private key",
+        "Master password",
+        "Session PIN"
+      ],
+      "answer": 0,
+      "explain": "The public key can be distributed freely, while the private key must remain secret with its owner."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Defense & Firewalls",
+      "q": "What is the main purpose of a network firewall?",
+      "choices": [
+        "Filter incoming and outgoing network traffic based on security rules",
+        "Increase CPU clock speed",
+        "Cool down server hardware",
+        "Format hard drives"
+      ],
+      "answer": 0,
+      "explain": "A firewall inspects network traffic and allows or blocks packets according to configured security policies."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Defense & Firewalls",
+      "q": "What does a VPN (Virtual Private Network) create across a public network?",
+      "choices": [
+        "An encrypted tunnel for network traffic",
+        "A faster physical fiber cable",
+        "A public Wi-Fi hotspot",
+        "A backup power supply"
+      ],
+      "answer": 0,
+      "explain": "A VPN encrypts traffic between the client and the VPN server, protecting confidentiality on untrusted networks."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Defense & Firewalls",
+      "q": "What type of cyberattack floods a server with traffic so legitimate users cannot reach it?",
+      "choices": [
+        "DoS / DDoS attack",
+        "SQL normalization",
+        "Binary search",
+        "Deadlock prevention"
+      ],
+      "answer": 0,
+      "explain": "A Denial-of-Service (DoS) or Distributed DoS attack overwhelms bandwidth or server resources to disrupt availability."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Defense & Firewalls",
+      "q": "Why should software security patches and updates be applied regularly?",
+      "choices": [
+        "They fix known vulnerabilities that attackers could exploit",
+        "They delete old user documents",
+        "They replace RAM with ROM",
+        "They disable network encryption"
+      ],
+      "answer": 0,
+      "explain": "Unpatched software often contains publicly known security flaws that automated exploits target."
+    },
+    {
+      "category": "Programming",
+      "topic": "Programming",
+      "q": "What is the result of the boolean expression (true && false) in most programming languages?",
+      "choices": [
+        "true",
+        "false",
+        "1",
+        "null"
+      ],
+      "answer": 1,
+      "explain": "The logical AND operator (&&) evaluates to true only when both operands are true."
+    },
+    {
+      "category": "Programming",
+      "topic": "Data Structures",
+      "q": "In an array with zero-based indexing, what is the index of the first element?",
+      "choices": [
+        "-1",
+        "0",
+        "1",
+        "2"
+      ],
+      "answer": 1,
+      "explain": "Zero-based arrays start counting indices at 0, so the first element is at index 0."
+    },
+    {
+      "category": "Programming",
+      "topic": "Object-Oriented Programming",
+      "q": "What special method is automatically called when a new object instance is created from a class?",
+      "choices": [
+        "Constructor",
+        "Destructor",
+        "Compiler",
+        "Iterator"
+      ],
+      "answer": 0,
+      "explain": "A constructor initializes the new object's fields and state when the class is instantiated."
+    },
+    {
+      "category": "Programming",
+      "topic": "Algorithms",
+      "q": "Which search algorithm checks each element of a list one by one from start to finish?",
+      "choices": [
+        "Linear search",
+        "Binary search",
+        "Merge sort",
+        "Dijkstra's algorithm"
+      ],
+      "answer": 0,
+      "explain": "Linear search scans elements sequentially and works even when the list is unsorted."
+    },
+    {
+      "category": "Programming",
+      "topic": "Concurrency",
+      "q": "What do we call a task that runs in the background without blocking the main user interface thread?",
+      "choices": [
+        "Asynchronous task",
+        "Syntax error",
+        "Infinite loop",
+        "Static variable"
+      ],
+      "answer": 0,
+      "explain": "Asynchronous execution allows slow operations like network requests to run without freezing the main thread."
+    },
+    {
+      "category": "Database",
+      "topic": "Databases",
+      "q": "What does NULL represent in a relational database column?",
+      "choices": [
+        "The number zero",
+        "A missing or unknown value",
+        "An empty table",
+        "A primary key"
+      ],
+      "answer": 1,
+      "explain": "NULL is a marker for a missing, unknown, or inapplicable value, which is distinct from 0 or an empty string."
+    },
+    {
+      "category": "Database",
+      "topic": "SQL Queries",
+      "q": "Which SQL keyword removes duplicate rows from a SELECT query's result set?",
+      "choices": [
+        "DISTINCT",
+        "ALL",
+        "CASCADE",
+        "DEFAULT"
+      ],
+      "answer": 0,
+      "explain": "SELECT DISTINCT returns only unique rows from the selected columns."
+    },
+    {
+      "category": "Database",
+      "topic": "Data Modeling & Normalization",
+      "q": "In an Entity-Relationship (ER) diagram, what does an entity typically become in a relational database?",
+      "choices": [
+        "A table",
+        "A network port",
+        "A CPU register",
+        "A firewall rule"
+      ],
+      "answer": 0,
+      "explain": "Entities in a conceptual ER model map to tables (relations), while their attributes map to columns."
+    },
+    {
+      "category": "Database",
+      "topic": "Transactions & Concurrency",
+      "q": "What does the 'A' in ACID database transactions stand for?",
+      "choices": [
+        "Atomicity",
+        "Availability",
+        "Authentication",
+        "Aggregation"
+      ],
+      "answer": 0,
+      "explain": "ACID stands for Atomicity, Consistency, Isolation, and Durability."
+    },
+    {
+      "category": "Database",
+      "topic": "Indexing & Performance",
+      "q": "Which column is almost always indexed automatically when you create a relational table?",
+      "choices": [
+        "The primary key column",
+        "Every text column",
+        "Only nullable columns",
+        "No columns are ever indexed"
+      ],
+      "answer": 0,
+      "explain": "Database engines automatically build a unique index on the primary key to enforce uniqueness and speed up lookups."
     }
   ],
   "medium": [
@@ -1174,6 +1629,461 @@ const QUESTION_BANK = {
       ],
       "answer": 1,
       "explain": "If thread A holds lock 1 and waits for lock 2 while thread B holds lock 2 and waits for lock 1, neither can continue. Taking locks in a fixed order prevents this."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Fundamentals",
+      "q": "How does Direct Memory Access (DMA) improve overall system performance?",
+      "choices": [
+        "It lets I/O devices transfer data directly to and from RAM without tying up the CPU for every byte",
+        "It doubles the clock speed of the ALU",
+        "It converts magnetic disks into solid-state drives",
+        "It eliminates the need for an operating system"
+      ],
+      "answer": 0,
+      "explain": "With DMA, a controller handles bulk transfers between devices and memory and interrupts the CPU only when the block transfer completes."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Number Systems",
+      "q": "Using 8-bit two's complement representation, what is the binary form of -5?",
+      "choices": [
+        "11111011",
+        "10000101",
+        "11111010",
+        "00000101"
+      ],
+      "answer": 0,
+      "explain": "Start with +5 (00000101), invert all bits (11111010), and add 1 to get 11111011."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Operating Systems",
+      "q": "What happens during a CPU context switch between two processes?",
+      "choices": [
+        "The OS saves the current process's CPU registers and loads the saved state of the next process",
+        "The hard drive is reformatted",
+        "All network connections are reset",
+        "The computer reboots into BIOS"
+      ],
+      "answer": 0,
+      "explain": "To switch processes safely, the kernel stores the running process's program counter and registers in its PCB and restores the next process's state."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Architecture",
+      "q": "Which register holds the memory address of the next instruction to be fetched by the CPU?",
+      "choices": [
+        "Program Counter (PC)",
+        "Accumulator",
+        "Status Register",
+        "Stack Limiter"
+      ],
+      "answer": 0,
+      "explain": "The Program Counter (or Instruction Pointer) tracks the address of the next instruction in memory."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Architecture",
+      "q": "What is the key difference between Harvard architecture and Von Neumann architecture?",
+      "choices": [
+        "Harvard uses separate memory pathways for instructions and data; Von Neumann shares one memory space",
+        "Harvard cannot use registers",
+        "Von Neumann only works with optical disks",
+        "Harvard processors do not have an ALU"
+      ],
+      "answer": 0,
+      "explain": "Von Neumann stores instructions and data in the same memory, whereas Harvard separates instruction memory and data memory."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Architecture",
+      "q": "How does instruction pipelining increase CPU instruction throughput?",
+      "choices": [
+        "By overlapping the Fetch, Decode, and Execute stages of multiple instructions at the same time",
+        "By skipping the Decode stage for arithmetic instructions",
+        "By running instructions without a clock signal",
+        "By storing all instructions on the hard drive"
+      ],
+      "answer": 0,
+      "explain": "Like an assembly line, pipelining works on different stages of several instructions simultaneously."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Architecture",
+      "q": "How do RISC (Reduced Instruction Set Computer) architectures generally differ from CISC?",
+      "choices": [
+        "RISC uses simple, fixed-length instructions that execute in a single clock cycle, relying heavily on registers",
+        "RISC has no hardware registers at all",
+        "RISC instructions each take dozens of clock cycles",
+        "RISC processors cannot run operating systems"
+      ],
+      "answer": 0,
+      "explain": "RISC favors a streamlined set of load/store and register-to-register instructions optimized for pipelining."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Memory & Storage Systems",
+      "q": "What is the difference between temporal locality and spatial locality in memory caching?",
+      "choices": [
+        "Temporal reuses the same address soon; spatial accesses nearby addresses soon",
+        "Temporal applies only to hard drives; spatial applies only to RAM",
+        "Temporal means sequential array scans; spatial means loops",
+        "They mean the exact same thing"
+      ],
+      "answer": 0,
+      "explain": "Temporal locality means recently accessed data is likely to be accessed again soon; spatial locality means data near that address is likely to be needed soon."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Memory & Storage Systems",
+      "q": "Why is SRAM used for CPU caches while DRAM is used for main system memory?",
+      "choices": [
+        "SRAM is much faster and needs no refresh cycles, while DRAM is denser and cheaper per gigabyte",
+        "DRAM is faster than SRAM but costs more",
+        "SRAM is non-volatile while DRAM is volatile",
+        "DRAM cannot be read by a 64-bit CPU"
+      ],
+      "answer": 0,
+      "explain": "SRAM uses flip-flop latches for speed, whereas DRAM uses tiny capacitors that pack tightly at lower cost."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Memory & Storage Systems",
+      "q": "Which RAID level stripes data across disks for speed but provides zero fault tolerance if a drive fails?",
+      "choices": [
+        "RAID 0",
+        "RAID 1",
+        "RAID 5",
+        "RAID 10"
+      ],
+      "answer": 0,
+      "explain": "RAID 0 splits data across drives without parity or mirroring, so losing any single drive loses the array's data."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Memory & Storage Systems",
+      "q": "What happens when the CPU looks for data in the cache and encounters a cache miss?",
+      "choices": [
+        "The data must be fetched from a slower lower level of memory (such as L2/L3 or main RAM) and placed into cache",
+        "The program immediately crashes",
+        "The CPU skips the instruction",
+        "The operating system deletes the process"
+      ],
+      "answer": 0,
+      "explain": "On a cache miss, the memory hierarchy stalls briefly while fetching the block from the next memory level."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Networking",
+      "q": "In a /26 IPv4 subnet (subnet mask 255.255.255.192), how many usable host IP addresses are available?",
+      "choices": [
+        "62",
+        "64",
+        "126",
+        "254"
+      ],
+      "answer": 0,
+      "explain": "A /26 leaves 6 host bits: 2^6 = 64 total addresses, minus 2 (network and broadcast) = 62 usable hosts."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Information Security",
+      "q": "What does the Principle of Least Privilege state?",
+      "choices": [
+        "Users and processes should be granted only the minimum permissions needed to perform their tasks",
+        "Every developer should have root access on production servers",
+        "Guest accounts should share administrator passwords",
+        "Security rules apply only to external users"
+      ],
+      "answer": 0,
+      "explain": "Limiting permissions contains the blast radius if an account or service is compromised."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Models & Protocols",
+      "q": "What is the purpose of ARP (Address Resolution Protocol) in a local IPv4 network?",
+      "choices": [
+        "Map a known IPv4 address to a hardware MAC address on the local link",
+        "Translate domain names into IP addresses",
+        "Encrypt web traffic between browsers",
+        "Assign IP addresses to new routers"
+      ],
+      "answer": 0,
+      "explain": "Before sending an Ethernet frame on a LAN, a host uses ARP to discover the destination MAC address for a local IP."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Models & Protocols",
+      "q": "What is the sequence of packets in TCP's three-way handshake to establish a connection?",
+      "choices": [
+        "SYN -> SYN-ACK -> ACK",
+        "ACK -> SYN -> FIN",
+        "GET -> POST -> PUT",
+        "PING -> PONG -> DONE"
+      ],
+      "answer": 0,
+      "explain": "The client sends SYN, the server replies with SYN-ACK, and the client confirms with ACK to synchronize sequence numbers."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Models & Protocols",
+      "q": "At which OSI layer do Ethernet switches primarily forward frames using MAC addresses?",
+      "choices": [
+        "Layer 2 (Data Link Layer)",
+        "Layer 1 (Physical Layer)",
+        "Layer 3 (Network Layer)",
+        "Layer 7 (Application Layer)"
+      ],
+      "answer": 0,
+      "explain": "Layer 2 switches learn and forward Ethernet frames based on hardware MAC address tables."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Models & Protocols",
+      "q": "Why do home and enterprise routers use NAT (Network Address Translation)?",
+      "choices": [
+        "To let multiple devices with private IPv4 addresses share a single public IPv4 address on the internet",
+        "To convert TCP packets into UDP datagrams",
+        "To replace DNS servers",
+        "To boost Wi-Fi radio frequency"
+      ],
+      "answer": 0,
+      "explain": "NAT rewrites private source IP/port pairs to the router's public IP, conserving public IPv4 addresses."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Cryptography & Authentication",
+      "q": "How do symmetric encryption (e.g., AES) and asymmetric encryption (e.g., RSA) differ?",
+      "choices": [
+        "Symmetric uses the same secret key to encrypt and decrypt; asymmetric uses a public/private key pair",
+        "Symmetric is much slower than asymmetric",
+        "Asymmetric cannot be used over the internet",
+        "Symmetric does not use keys"
+      ],
+      "answer": 0,
+      "explain": "Symmetric encryption shares one key for fast bulk encryption, whereas asymmetric uses mathematically linked public and private keys."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Cryptography & Authentication",
+      "q": "How is a digital signature created and verified using asymmetric cryptography?",
+      "choices": [
+        "The sender signs a hash with their private key, and anyone verifies it using the sender's public key",
+        "The sender encrypts the file with the receiver's private key",
+        "Both parties use the same password",
+        "The server compresses the file with ZIP"
+      ],
+      "answer": 0,
+      "explain": "Because only the sender holds the private key, a signature verified by the sender's public key proves authenticity and integrity."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Cryptography & Authentication",
+      "q": "What role does a Certificate Authority (CA) play in HTTPS / TLS?",
+      "choices": [
+        "It digitally signs certificates to bind a domain's identity to its public key",
+        "It stores every user's plaintext password",
+        "It hosts all websites on the internet",
+        "It assigns MAC addresses to network cards"
+      ],
+      "answer": 0,
+      "explain": "Browsers trust a CA's signature on a server's TLS certificate to verify that the public key genuinely belongs to that domain."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Cryptography & Authentication",
+      "q": "In OAuth 2.0 / token-based authentication, what is the purpose of a short-lived access token?",
+      "choices": [
+        "Authorize API requests on behalf of a user without sending their password on every request",
+        "Permanently replace the database primary key",
+        "Encrypt the computer's hard drive",
+        "Configure the router's subnet mask"
+      ],
+      "answer": 0,
+      "explain": "Access tokens carry scoped, time-limited authorization claims so clients don't repeatedly transmit raw credentials."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Defense & Firewalls",
+      "q": "What is the key difference between an IDS (Intrusion Detection System) and an IPS (Intrusion Prevention System)?",
+      "choices": [
+        "An IDS monitors and alerts on suspicious traffic, whereas an inline IPS can actively block or drop malicious packets",
+        "An IDS blocks traffic while an IPS only logs it",
+        "An IDS works only on Wi-Fi while an IPS works only on Ethernet",
+        "They are both database engines"
+      ],
+      "answer": 0,
+      "explain": "IDS passively analyzes traffic copies and raises alerts; IPS sits inline and drops detected threats in real time."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Defense & Firewalls",
+      "q": "How does a stateful firewall differ from a simple stateless packet filter?",
+      "choices": [
+        "A stateful firewall tracks active connection states and allows return traffic belonging to established sessions",
+        "A stateful firewall only checks MAC addresses",
+        "A stateless firewall remembers every past TCP handshake",
+        "A stateful firewall cannot filter UDP or TCP ports"
+      ],
+      "answer": 0,
+      "explain": "Stateful inspection maintains a connection table so packets are evaluated in the context of an active flow, not just in isolation."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Defense & Firewalls",
+      "q": "Why do organizations place public-facing web servers inside a DMZ (Demilitarized Zone) subnet?",
+      "choices": [
+        "To isolate public servers so that if one is compromised, attackers cannot directly reach the internal private LAN",
+        "To disable all firewall rules for internal databases",
+        "To give external visitors direct access to employee workstations",
+        "To speed up CPU caching"
+      ],
+      "answer": 0,
+      "explain": "A DMZ acts as a buffer zone between the untrusted internet and the sensitive internal corporate network."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Defense & Firewalls",
+      "q": "How does segmenting a network with VLANs (Virtual LANs) improve security?",
+      "choices": [
+        "It separates broadcast domains and restricts lateral movement between departments without router/firewall approval",
+        "It encrypts all hard drives automatically",
+        "It doubles internet bandwidth from the ISP",
+        "It replaces the need for passwords"
+      ],
+      "answer": 0,
+      "explain": "VLANs logically isolate groups of hosts on the same physical switch so traffic between segments must pass through policy enforcement."
+    },
+    {
+      "category": "Programming",
+      "topic": "Programming",
+      "q": "What happens when a recursive function is called without a reachable base case?",
+      "choices": [
+        "It keeps calling itself until the call stack overflows",
+        "It automatically converts into a for-loop",
+        "It returns 0 immediately",
+        "It frees all system memory"
+      ],
+      "answer": 0,
+      "explain": "Each recursive call pushes a new frame onto the call stack; without a base case, the stack eventually runs out of space."
+    },
+    {
+      "category": "Programming",
+      "topic": "Data Structures",
+      "q": "What is the main advantage of a doubly linked list over a singly linked list?",
+      "choices": [
+        "Nodes can be traversed in both directions and deleted in O(1) time when given a pointer to the node",
+        "It uses half as much memory per node",
+        "It allows O(1) random access by numeric index",
+        "It requires contiguous memory like a static array"
+      ],
+      "answer": 0,
+      "explain": "Each node stores both `next` and `prev` pointers, enabling backward traversal and direct neighbor updates during deletion."
+    },
+    {
+      "category": "Programming",
+      "topic": "Object-Oriented Programming",
+      "q": "What is the difference between method overriding and method overloading?",
+      "choices": [
+        "Overriding redefines an inherited method with the same signature in a subclass; overloading defines methods with the same name but different parameter lists",
+        "Overloading only happens across subclasses; overriding happens in one line",
+        "Overriding changes variable types; overloading deletes classes",
+        "They are identical in every language"
+      ],
+      "answer": 0,
+      "explain": "Overriding provides runtime polymorphism in a subclass, while overloading resolves methods by parameter types/arity."
+    },
+    {
+      "category": "Programming",
+      "topic": "Algorithms",
+      "q": "In Breadth-First Search (BFS) on an unweighted graph, which data structure is used to visit nodes level by level?",
+      "choices": [
+        "A FIFO Queue",
+        "A LIFO Stack",
+        "A Binary Search Tree",
+        "A Min-Heap"
+      ],
+      "answer": 0,
+      "explain": "A queue processes vertices in First-In, First-Out order, guaranteeing that nodes at distance d are visited before distance d+1."
+    },
+    {
+      "category": "Programming",
+      "topic": "Concurrency",
+      "q": "How does a counting semaphore differ from a binary mutex?",
+      "choices": [
+        "A semaphore can allow up to N threads to access a pool of resources concurrently, not just one",
+        "A semaphore can only be used in single-threaded programs",
+        "A mutex allows unlimited threads into a critical section",
+        "A semaphore automatically sorts arrays"
+      ],
+      "answer": 0,
+      "explain": "A counting semaphore maintains a counter of available permits, making it ideal for bounding access to a fixed-size resource pool."
+    },
+    {
+      "category": "Database",
+      "topic": "Databases",
+      "q": "What happens when a foreign key is defined with ON DELETE CASCADE and a parent row is deleted?",
+      "choices": [
+        "All matching child rows referencing that parent row are automatically deleted as well",
+        "The database refuses to delete any row ever",
+        "The parent table is dropped",
+        "The foreign key becomes a primary key"
+      ],
+      "answer": 0,
+      "explain": "ON DELETE CASCADE maintains referential integrity by automatically removing dependent child records when the parent record is deleted."
+    },
+    {
+      "category": "Database",
+      "topic": "SQL Queries",
+      "q": "How does UNION differ from UNION ALL in SQL?",
+      "choices": [
+        "UNION removes duplicate rows between the combined result sets, while UNION ALL keeps all rows including duplicates",
+        "UNION ALL sorts the table alphabetically while UNION does not",
+        "UNION works only on numbers",
+        "UNION ALL deletes rows from the first table"
+      ],
+      "answer": 0,
+      "explain": "UNION performs a deduplication step across the combined results, whereas UNION ALL simply concatenates them and is faster."
+    },
+    {
+      "category": "Database",
+      "topic": "Data Modeling & Normalization",
+      "q": "Why do database designers sometimes choose a surrogate key (such as an auto-incrementing ID) over a natural key?",
+      "choices": [
+        "It stays compact, immutable, and independent of changing real-world business attributes",
+        "It removes the need for any other columns in the table",
+        "It allows duplicate primary keys",
+        "It prevents the table from being joined"
+      ],
+      "answer": 0,
+      "explain": "Natural keys (like email or phone number) can change over time; a surrogate key never needs to change and keeps foreign keys small."
+    },
+    {
+      "category": "Database",
+      "topic": "Transactions & Concurrency",
+      "q": "What is a 'dirty read' in concurrent database transactions?",
+      "choices": [
+        "One transaction reads uncommitted changes made by another transaction that might still roll back",
+        "Reading a row from a disk sector with bad hardware",
+        "Running a SELECT query without a WHERE clause",
+        "Reading data from a backup file"
+      ],
+      "answer": 0,
+      "explain": "If Transaction A reads uncommitted data from Transaction B and B rolls back, A has acted on data that never officially existed."
+    },
+    {
+      "category": "Database",
+      "topic": "Indexing & Performance",
+      "q": "For a composite index on (department_id, last_name), which query predicate can use the index most effectively?",
+      "choices": [
+        "WHERE department_id = 10 AND last_name = 'Santos'",
+        "WHERE last_name LIKE '%Santos'",
+        "WHERE salary > 50000",
+        "WHERE LOWER(last_name) = 'santos' (with no department_id filter)"
+      ],
+      "answer": 0,
+      "explain": "B-tree composite indexes follow the leftmost-prefix rule, so filtering by the leading column (`department_id`) and `last_name` uses the index directly."
     }
   ],
   "hard": [
@@ -1761,6 +2671,461 @@ const QUESTION_BANK = {
       ],
       "answer": 1,
       "explain": "A condition variable lets a thread sleep and be woken when its condition may have changed."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Fundamentals",
+      "q": "According to Amdahl's Law, if 50% of a program is strictly serial and 50% is parallelizable, what is the theoretical maximum speedup with infinite CPU cores?",
+      "choices": [
+        "2x",
+        "4x",
+        "10x",
+        "Infinite"
+      ],
+      "answer": 0,
+      "explain": "Speedup = 1 / ((1 - P) + P/N). As N approaches infinity, 1 / (1 - 0.5) = 2x maximum speedup."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Number Systems",
+      "q": "Why does `(0.1 + 0.2 === 0.3)` evaluate to `false` in standard IEEE 754 binary floating-point arithmetic?",
+      "choices": [
+        "0.1 and 0.2 have repeating representations in base-2, causing tiny rounding errors when added",
+        "IEEE 754 only supports integers",
+        "The CPU ALU skips the last decimal digit",
+        "Floating-point numbers use base-16 instead of base-2"
+      ],
+      "answer": 0,
+      "explain": "Just as 1/3 is 0.333... in base 10, 1/10 (0.1) is a non-terminating repeating fraction in base 2, so rounding to 53 mantissa bits introduces a tiny discrepancy."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Operating Systems",
+      "q": "What is Belady's Anomaly in operating system page replacement?",
+      "choices": [
+        "Increasing the number of physical page frames can sometimes increase the number of page faults under FIFO replacement",
+        "LRU always causes more page faults than random replacement",
+        "A process uses more CPU time when given less memory",
+        "Swap space becomes faster than L1 cache"
+      ],
+      "answer": 0,
+      "explain": "Under non-stack algorithms like FIFO, giving a process more RAM frames can counterintuitively cause more page faults for certain reference strings."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Architecture",
+      "q": "In a pipelined processor, what is a Read-After-Write (RAW) data hazard and how is it commonly mitigated without stalling?",
+      "choices": [
+        "An instruction needs a result not yet written back to a register; mitigated by operand forwarding (bypassing) from an execution stage",
+        "Two instructions write to the hard disk at once; mitigated by rebooting",
+        "The instruction cache is empty; mitigated by lowering clock frequency",
+        "A branch jumps backward; mitigated by disabling registers"
+      ],
+      "answer": 0,
+      "explain": "Operand forwarding routes the computed ALU output directly to the next instruction's ALU input before the register file write-back stage finishes."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Architecture",
+      "q": "What occurs when a CPU's branch predictor guesses the wrong direction of a conditional jump in an out-of-order pipeline?",
+      "choices": [
+        "Speculatively fetched instructions in the pipeline must be flushed and execution restarts at the correct branch target",
+        "The CPU permanently disables branch prediction",
+        "The operating system terminates the program with a segmentation fault",
+        "The wrong branch result is committed to memory anyway"
+      ],
+      "answer": 0,
+      "explain": "Branch misprediction incurs a pipeline flush penalty because speculative instructions after the branch must be discarded before architectural state is updated."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Architecture",
+      "q": "How does Superscalar execution differ from simple 5-stage instruction pipelining?",
+      "choices": [
+        "A superscalar CPU has multiple parallel execution units and can issue and complete more than one instruction per clock cycle",
+        "A superscalar CPU executes only one instruction every five clock cycles",
+        "Superscalar CPUs do not use an instruction cache",
+        "Superscalar execution requires writing all programs in assembly"
+      ],
+      "answer": 0,
+      "explain": "By duplicating fetch/decode width and functional units (ALUs, FPUs), a superscalar core achieves Instruction-Level Parallelism (ILP) > 1 IPC."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Computer Architecture",
+      "q": "In multicore processor caches, what problem does the MESI (Modified, Exclusive, Shared, Invalid) protocol solve?",
+      "choices": [
+        "Cache coherence—ensuring cores do not read stale data when another core modifies a shared cache line",
+        "Disk fragmentation on external USB drives",
+        "IP address conflicts on a local network",
+        "SQL query optimization"
+      ],
+      "answer": 0,
+      "explain": "MESI tracks the state of every cache line across cores, invalidating or updating copies when a core writes to shared memory."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Memory & Storage Systems",
+      "q": "What is the role of the Translation Lookaside Buffer (TLB) in virtual memory hardware?",
+      "choices": [
+        "It caches recent virtual-to-physical page address translations inside the MMU to avoid slow multi-level page table walks in RAM",
+        "It compresses files before writing them to an SSD",
+        "It encrypts network packets leaving the NIC",
+        "It schedules threads across CPU cores"
+      ],
+      "answer": 0,
+      "explain": "Without a TLB hit, every memory access would require reading several page table levels in main memory before accessing the actual data."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Memory & Storage Systems",
+      "q": "How does a Write-Back cache policy differ from a Write-Through cache policy?",
+      "choices": [
+        "Write-Back updates only the cache line (marking it dirty) and writes to main RAM later upon eviction; Write-Through updates both immediately",
+        "Write-Back deletes the cache line on every write",
+        "Write-Through never writes data to main RAM",
+        "Write-Back works only on read-only memory"
+      ],
+      "answer": 0,
+      "explain": "Write-Back reduces memory bus traffic by absorbing repeated writes to the same cache line and flushing to RAM only when the dirty line is replaced."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Memory & Storage Systems",
+      "q": "In a 4-way set-associative CPU cache, where can a specific main memory block be placed?",
+      "choices": [
+        "In any of the 4 cache lines belonging to the specific set determined by the address index bits",
+        "Only in one single cache line in the entire cache",
+        "In any cache line anywhere in the cache without restriction",
+        "Only in the CPU's general-purpose registers"
+      ],
+      "answer": 0,
+      "explain": "Set-associative caches balance conflict misses and hardware cost by mapping each memory address to one set containing N (here 4) ways."
+    },
+    {
+      "category": "Computer Systems",
+      "topic": "Memory & Storage Systems",
+      "q": "Why do NAND flash SSDs require Wear Leveling and TRIM / garbage collection?",
+      "choices": [
+        "Flash blocks must be erased before rewriting and can endure only a limited number of program-erase cycles",
+        "SSDs have magnetic platters that must be aligned",
+        "Flash memory loses data if not refreshed every 64 milliseconds",
+        "TRIM increases the physical size of the SSD"
+      ],
+      "answer": 0,
+      "explain": "Wear leveling spreads writes evenly across flash blocks so no single block wears out prematurely, and TRIM lets the controller pre-erase unused blocks."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Networking",
+      "q": "What is the primary distinction between interior routing protocols like OSPF and exterior routing protocols like BGP?",
+      "choices": [
+        "OSPF finds shortest paths within a single Autonomous System (AS) using link states, while BGP exchanges reachability and policy routes between different ASes across the internet",
+        "BGP only works inside a home Wi-Fi network",
+        "OSPF uses MAC addresses instead of IP addresses",
+        "BGP cannot route IPv6 traffic"
+      ],
+      "answer": 0,
+      "explain": "OSPF is an Interior Gateway Protocol (IGP) using Dijkstra's algorithm, whereas BGP is the path-vector Exterior Gateway Protocol (EGP) binding the global internet."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Information Security",
+      "q": "Why is an anti-CSRF (Cross-Site Request Forgery) token or `SameSite` cookie attribute necessary even when a site uses HTTPS?",
+      "choices": [
+        "Browsers automatically attach session cookies to cross-origin requests triggered by a malicious page unless protected by CSRF tokens or SameSite policies",
+        "HTTPS sends cookies in plaintext",
+        "CSRF tokens encrypt the database",
+        "SameSite cookies prevent SQL injection"
+      ],
+      "answer": 0,
+      "explain": "HTTPS protects traffic in transit, but CSRF exploits the browser's automatic inclusion of ambient credentials (cookies) on forged cross-site requests."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Models & Protocols",
+      "q": "When TCP encounters packet loss and triple duplicate ACKs, how does Congestion Avoidance / Fast Recovery react?",
+      "choices": [
+        "It halves the congestion window (cwnd) and retransmits the missing segment without resetting cwnd all the way to 1 MSS",
+        "It immediately closes the TCP connection",
+        "It switches the connection from TCP to UDP",
+        "It doubles the transmission rate"
+      ],
+      "answer": 0,
+      "explain": "Triple duplicate ACKs indicate mild congestion (packets are still arriving), so TCP performs Fast Retransmit and multiplicative decrease rather than a full slow-start reset."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Models & Protocols",
+      "q": "What catastrophe does the Spanning Tree Protocol (STP / IEEE 802.1D) prevent in redundant Layer 2 Ethernet topologies?",
+      "choices": [
+        "Broadcast storms and MAC table instability caused by switching loops",
+        "IP address exhaustion in DHCP",
+        "DNS cache poisoning",
+        "TLS certificate expiration"
+      ],
+      "answer": 0,
+      "explain": "Without a TTL field at Layer 2, a physical loop between switches causes broadcast frames to circulate and multiply infinitely; STP blocks redundant loop ports."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Models & Protocols",
+      "q": "During a TCP connection teardown, why does the side initiating the active close enter the `TIME_WAIT` state (typically 2×MSL)?",
+      "choices": [
+        "To ensure the final ACK is received by the peer and to let any delayed packets from the old connection expire from the network",
+        "To keep the CPU busy",
+        "To download the rest of the web page",
+        "To renew the DHCP lease"
+      ],
+      "answer": 0,
+      "explain": "TIME_WAIT prevents delayed segments from an old incarnation of a (source IP, source port, dest IP, dest port) tuple from corrupting a new connection."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Models & Protocols",
+      "q": "How does CIDR route aggregation (supernetting) reduce the size of internet backbone routing tables?",
+      "choices": [
+        "It combines multiple contiguous IP prefixes into a single shorter prefix advertisement",
+        "It deletes unused IPv4 addresses",
+        "It converts all IPv4 addresses into MAC addresses",
+        "It requires every router to store every host's individual IP"
+      ],
+      "answer": 0,
+      "explain": "For example, four contiguous /24 networks can be summarized and advertised upstream as a single /22 prefix."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Cryptography & Authentication",
+      "q": "What security guarantee does Ephemeral Diffie-Hellman (ECDHE) provide in TLS 1.3?",
+      "choices": [
+        "Forward Secrecy—compromising the server's long-term private key in the future cannot decrypt past recorded sessions",
+        "It eliminates the need for any encryption during the session",
+        "It allows the server to skip certificate verification",
+        "It compresses all HTTP headers to zero bytes"
+      ],
+      "answer": 0,
+      "explain": "Because each session generates temporary Diffie-Hellman key pairs that are destroyed after use, past session keys cannot be reconstructed later."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Cryptography & Authentication",
+      "q": "Why should passwords be hashed with a slow, memory-hard KDF like Argon2id or bcrypt with a unique salt rather than a single fast SHA-256 hash?",
+      "choices": [
+        "Unique salts defeat precomputed rainbow tables, and tunable work/memory costs drastically slow down GPU/ASIC brute-force cracking",
+        "SHA-256 produces output that is too long to store in SQL",
+        "Argon2id allows the server to decrypt the user's password later",
+        "Salts make the hash shorter"
+      ],
+      "answer": 0,
+      "explain": "General-purpose hashes like SHA-256 are designed to run billions of times per second on GPUs; password hashes intentionally add salt and computational cost."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Cryptography & Authentication",
+      "q": "Why is AES-GCM (Galois/Counter Mode) preferred over raw AES-CBC without a MAC?",
+      "choices": [
+        "AES-GCM is an Authenticated Encryption with Associated Data (AEAD) mode that provides both confidentiality and integrity, preventing padding-oracle and tampering attacks",
+        "AES-GCM does not require an initialization vector (IV/nonce)",
+        "AES-CBC can only encrypt 16 bytes total",
+        "AES-GCM uses no secret key"
+      ],
+      "answer": 0,
+      "explain": "Unauthenticated encryption modes like raw CBC are vulnerable to ciphertext manipulation (such as padding oracle attacks), whereas AEAD verifies an authentication tag."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Cryptography & Authentication",
+      "q": "What is the critical vulnerability of trusting the `alg` header field in an unverified JSON Web Token (JWT)?",
+      "choices": [
+        "An attacker may set `\"alg\": \"none\"` or switch RS256 to HS256 (signing with the public key) to forge valid tokens if the server does not enforce the expected algorithm",
+        "The JWT will automatically expire in 1 second",
+        "The browser will refuse to send the HTTP request",
+        "It causes a buffer overflow in TCP"
+      ],
+      "answer": 0,
+      "explain": "JWT verifiers must strictly whitelist the expected signing algorithm rather than letting the untrusted token header dictate how it is verified."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Defense & Firewalls",
+      "q": "How do TCP SYN Cookies help a server survive a SYN Flood DDoS attack?",
+      "choices": [
+        "The server encodes connection state into the SYN-ACK sequence number and allocates backlog memory only after receiving a valid final ACK",
+        "The server sends browser cookies over HTTP before TCP connects",
+        "The firewall blocks all incoming SYN packets from every user",
+        "The server switches all ports to UDP"
+      ],
+      "answer": 0,
+      "explain": "SYN floods try to exhaust the half-open connection queue; SYN cookies avoid storing state until the client proves reachability by completing the handshake."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Defense & Firewalls",
+      "q": "How does Dynamic ARP Inspection (DAI) with DHCP Snooping prevent ARP spoofing (man-in-the-middle) attacks on a LAN?",
+      "choices": [
+        "The switch validates ARP packets against a trusted IP-to-MAC-to-port binding table built from legitimate DHCP leases",
+        "It disables ARP completely on all computers",
+        "It encrypts Ethernet cables with RSA",
+        "It assigns every computer the same MAC address"
+      ],
+      "answer": 0,
+      "explain": "DAI drops gratuitous or forged ARP replies that claim an IP address not bound to that switch port in the DHCP snooping database."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Defense & Firewalls",
+      "q": "What is the core principle of a Zero Trust Network Architecture (ZTNA)?",
+      "choices": [
+        "Never trust based on network location alone; continuously authenticate, authorize, and encrypt every request regardless of whether it comes from inside or outside the perimeter",
+        "Trust all devices inside the corporate office LAN without authentication",
+        "Block all employees from accessing any server",
+        "Use a single perimeter firewall with no internal access controls"
+      ],
+      "answer": 0,
+      "explain": "Zero Trust assumes the network may already be breached and verifies identity, device posture, and least-privilege access on every request."
+    },
+    {
+      "category": "Networking & Security",
+      "topic": "Network Defense & Firewalls",
+      "q": "Why can a Web Application Firewall (WAF) operating at Layer 7 stop attacks that pass right through a traditional Layer 3/4 stateful firewall?",
+      "choices": [
+        "A WAF inspects HTTP/HTTPS payloads, headers, and query parameters for application-layer exploits like SQLi and XSS over allowed ports (80/443)",
+        "A Layer 3/4 firewall cannot see IP addresses",
+        "A WAF replaces the web server's CPU",
+        "A WAF blocks all traffic on port 443"
+      ],
+      "answer": 0,
+      "explain": "To a Layer 3/4 firewall, an SQL injection over HTTPS on port 443 looks like normal permitted TCP traffic; a WAF inspects the decrypted HTTP request."
+    },
+    {
+      "category": "Programming",
+      "topic": "Programming",
+      "q": "What does a lexical closure capture in languages like JavaScript or Python?",
+      "choices": [
+        "A function bundled together with references to the variables in its outer lexical scope, even after the outer function has returned",
+        "A snapshot of the operating system kernel",
+        "Only global variables declared at the top of the file",
+        "A copy of the compiled machine code on disk"
+      ],
+      "answer": 0,
+      "explain": "Closures retain live bindings to variables from their enclosing lexical environment after the outer function finishes executing."
+    },
+    {
+      "category": "Programming",
+      "topic": "Data Structures",
+      "q": "Although appending to a dynamic array (like `std::vector` or `ArrayList`) occasionally takes O(n) time when resizing, why is a sequence of n appends O(1) amortized time per append?",
+      "choices": [
+        "Doubling capacity on resize means copying happens at powers of 2, so total copy work across n appends sums to less than 2n",
+        "The array never actually copies elements when resizing",
+        "The operating system moves memory in O(0) time",
+        "Dynamic arrays use linked lists internally"
+      ],
+      "answer": 0,
+      "explain": "With geometric growth (2x), the cost of copying 1 + 2 + 4 + ... + n elements is bounded by 2n, averaging O(1) per insertion."
+    },
+    {
+      "category": "Programming",
+      "topic": "Object-Oriented Programming",
+      "q": "What does the Liskov Substitution Principle (the 'L' in SOLID) require of a subclass?",
+      "choices": [
+        "Objects of a superclass should be replaceable with objects of a subclass without breaking the correctness or contracts expected by the caller",
+        "Every class must inherit from at least two parent classes",
+        "Subclasses must make all parent methods private",
+        "Classes should never use interfaces"
+      ],
+      "answer": 0,
+      "explain": "A subtype must honor the behavioral contract (preconditions, postconditions, and invariants) of its base type."
+    },
+    {
+      "category": "Programming",
+      "topic": "Algorithms",
+      "q": "What two properties must a problem have for Dynamic Programming (memoization or tabulation) to be effective?",
+      "choices": [
+        "Optimal substructure and overlapping subproblems",
+        "Sorted input and constant space",
+        "Negative edge weights and a bipartite graph",
+        "Tail recursion and a hash table"
+      ],
+      "answer": 0,
+      "explain": "Optimal substructure lets optimal solutions be built from optimal sub-solutions, and overlapping subproblems make caching those sub-results worthwhile."
+    },
+    {
+      "category": "Programming",
+      "topic": "Concurrency",
+      "q": "How do lock-free data structures update shared state safely without using mutexes?",
+      "choices": [
+        "They use hardware atomic instructions such as Compare-And-Swap (CAS) in a retry loop",
+        "They disable interrupts on all CPU cores from user space",
+        "They ignore race conditions and hope they rarely happen",
+        "They write data to disk before every read"
+      ],
+      "answer": 0,
+      "explain": "Atomic Compare-And-Swap (`CAS`) updates a memory location only if it still holds the expected old value, allowing threads to detect contention and retry."
+    },
+    {
+      "category": "Database",
+      "topic": "Databases",
+      "q": "According to the CAP theorem, when a network partition (P) occurs in a distributed database, what trade-off must the system make?",
+      "choices": [
+        "Choose between Consistency (returning the most recent write or an error) and Availability (every non-failing node returns a response, even if potentially stale)",
+        "Choose between using SQL or using RAM",
+        "Choose between encryption and indexing",
+        "Delete half of the database tables"
+      ],
+      "answer": 0,
+      "explain": "During a network split between nodes, a distributed store cannot guarantee both linearizable consistency and 100% availability simultaneously."
+    },
+    {
+      "category": "Database",
+      "topic": "SQL Queries",
+      "q": "Why can `WHERE col NOT IN (SELECT nullable_col FROM other_table)` unexpectedly return zero rows in SQL?",
+      "choices": [
+        "If the subquery returns even a single NULL, `col <> NULL` evaluates to UNKNOWN under three-valued logic, filtering out every row",
+        "NOT IN is a syntax error in standard SQL",
+        "Subqueries can only return a maximum of one row",
+        "NOT IN automatically deletes the table"
+      ],
+      "answer": 0,
+      "explain": "`x NOT IN (a, NULL)` expands to `x <> a AND x <> NULL`. Because `x <> NULL` is UNKNOWN, the entire WHERE predicate is never TRUE; `NOT EXISTS` avoids this trap."
+    },
+    {
+      "category": "Database",
+      "topic": "Data Modeling & Normalization",
+      "q": "Which normal form specifically eliminates non-trivial multi-valued dependencies (where two independent 1:N attributes are mixed in one table)?",
+      "choices": [
+        "Fourth Normal Form (4NF)",
+        "First Normal Form (1NF)",
+        "Second Normal Form (2NF)",
+        "Third Normal Form (3NF)"
+      ],
+      "answer": 0,
+      "explain": "A table in BCNF that still stores two independent multi-valued facts about a key (causing a Cartesian product of rows) violates 4NF."
+    },
+    {
+      "category": "Database",
+      "topic": "Transactions & Concurrency",
+      "q": "Under Snapshot Isolation (MVCC), what is the 'write skew' anomaly?",
+      "choices": [
+        "Two concurrent transactions read the same snapshot, make disjoint updates that individually seem valid, and both commit—violating a cross-row invariant",
+        "Two transactions update the exact same row and both changes are lost",
+        "A transaction reads uncommitted data from a rolled-back transaction",
+        "The Write-Ahead Log runs out of disk space"
+      ],
+      "answer": 0,
+      "explain": "Because each transaction modifies a different row, row-level write locks don't conflict under Snapshot Isolation; true Serializable (e.g., SSI) is needed to detect write skew."
+    },
+    {
+      "category": "Database",
+      "topic": "Indexing & Performance",
+      "q": "When is a Hash Index inferior to a B+Tree Index in a relational database?",
+      "choices": [
+        "When executing range queries (`BETWEEN`, `<`, `>`), prefix scans, or `ORDER BY` sorting",
+        "When testing exact equality (`=`) on a single key",
+        "When the table has fewer than 10 columns",
+        "When the primary key is an integer"
+      ],
+      "answer": 0,
+      "explain": "Hash indexes scatter keys uniformly across buckets with no ordering, so they only support equality lookups, whereas B+Trees maintain sorted leaf pages for range scans."
     }
   ]
 };

@@ -1,15 +1,30 @@
 // ===== Battle arena =====
-const HERO_SPOT = { x: 300, y: 470 };
-const FOE_SPOT = { x: 760, y: 470 };
+const HERO_SPOT = { x: 300, y: 418 };
+const FOE_SPOT = { x: 760, y: 418 };
 const motes = Array.from({ length: 28 }, () => ({ x: Math.random() * 1024, y: Math.random() * 576, s: 0.3 + Math.random() * 0.7 }));
 const fxParticles = [];
+const ARENA_THEMES = {
+  arena: './img/map/pcbattlearena.jpg',
+  storeroom: './img/map/backgroundLevel1.jpg?v=clean-room',
+  hall: './img/map/backgroundLevel2.jpg',
+  throne: './img/map/backgroundLevel3.jpg',
+  server: './img/map/backgroundLevel5.jpg?v=1',
+};
+let currentArenaTheme = 'arena';
 const arenaBackground = new Image();
 let arenaT = 0;
 
 arenaBackground.addEventListener('error', () => {
-  console.error('Failed to load battle arena background: ./img/map/pcbattlearena.jpg');
-}, { once: true });
-arenaBackground.src = './img/map/pcbattlearena.jpg';
+  console.error('Failed to load battle arena background:', arenaBackground.src);
+});
+arenaBackground.src = ARENA_THEMES.arena;
+
+function setArenaTheme(themeId) {
+  const nextId = ARENA_THEMES[themeId] ? themeId : 'arena';
+  if (currentArenaTheme === nextId && arenaBackground.src) return;
+  currentArenaTheme = nextId;
+  arenaBackground.src = ARENA_THEMES[nextId];
+}
 
 function drawArenaBackground() {
   const W = canvas.width, H = canvas.height;

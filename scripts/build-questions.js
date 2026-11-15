@@ -6,7 +6,7 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const source = JSON.parse(fs.readFileSync(path.join(root, 'data', 'questions.json'), 'utf8'));
 const LEVELS = ['easy', 'medium', 'hard'];
-const MIN_PER_LEVEL = 3;
+const MIN_PER_LEVEL = 4;
 
 const errors = [];
 const warnings = [];

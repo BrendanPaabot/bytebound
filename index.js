@@ -14,22 +14,52 @@ const storedReduceMotion = localStorage.getItem(REDUCE_MOTION_STORAGE_KEY)
 let currentTheme = storedTheme === 'dark' ? 'dark' : 'light'
 let reduceMotion = storedReduceMotion === 'true'
 let activePlayerName = ''
+window.activePlayerName = activePlayerName
 let activeAchievementStorageKey = ACHIEVEMENT_STORAGE_KEY
 let achievementProgress = { kills: 0, bestStreak: 0, upgrades: 0, bosses: 0 }
 let unlockedAchievements = {}
 let achievementToastQueue = []
 let achievementToastTimer = 0
 let achievementToastActive = false
+const SUPERSEDED_RUNS_STORAGE_KEY = 'kings-pigs-superseded-runs-v1'
 let leaderboardEntries = []
 let leaderboardState = 'idle'
 let leaderboardError = ''
 let leaderboardRequestId = 0
 let leaderboardRunId = createLeaderboardRunId()
 let leaderboardRunSubmitted = false
+let leaderboardLastSubmittedSnapshot = ''
+let leaderboardSubmitPromise = null
+let leaderboardSubmitQueued = false
+let leaderboardSyncTimer = 0
+let supersededRunIds = loadSupersededRunIds()
+let userSyncState = 'idle'
+let userSyncError = ''
+let userSyncTimer = 0
 let practiceReturnState = null
+
+function loadSupersededRunIds() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SUPERSEDED_RUNS_STORAGE_KEY) || '[]')
+    return new Set(Array.isArray(saved) ? saved.filter((id) => typeof id === 'string') : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function markRunIdSuperseded(runId) {
+  if (!runId) return
+  supersededRunIds.add(runId)
+  try {
+    localStorage.setItem(SUPERSEDED_RUNS_STORAGE_KEY, JSON.stringify([...supersededRunIds].slice(-200)))
+  } catch (error) {
+    console.warn('Unable to save superseded run IDs.', error)
+  }
+}
 document.documentElement.dataset.theme = currentTheme
 document.body.classList.toggle('reduce-motion', reduceMotion)
 
+let themeTransitionTimer = null
 function setTheme(theme) {
   const applyTheme = () => {
     currentTheme = theme === 'dark' ? 'dark' : 'light'
@@ -39,9 +69,17 @@ function setTheme(theme) {
       toggle.checked = currentTheme === 'dark'
     })
   }
-  const loginScreen = document.getElementById('loginScreen')
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  if (loginScreen.getClientRects().length && !reducedMotion && typeof document.startViewTransition === 'function') {
+  const prefersReduced = reduceMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (prefersReduced) {
+    applyTheme()
+    return
+  }
+  document.documentElement.classList.add('is-theme-transitioning')
+  clearTimeout(themeTransitionTimer)
+  themeTransitionTimer = setTimeout(() => {
+    document.documentElement.classList.remove('is-theme-transitioning')
+  }, 480)
+  if (typeof document.startViewTransition === 'function') {
     document.startViewTransition(applyTheme)
   } else {
     applyTheme()
@@ -91,7 +129,48 @@ async function supabaseRequest(path, options = {}) {
   return response
 }
 
-async function loadLeaderboard() {
+function getRecordableGameplayStats() {
+  if (practiceRunActive || !activePlayerName) return null
+  const runKills = Math.max(0, stats.kills || 0)
+  const runCorrect = Math.max(0, stats.correct || 0)
+  const runTotal = Math.max(0, stats.total || 0)
+  if (runTotal > 0 || runKills > 0) {
+    const kills = Math.min(200, runKills)
+    const correctAnswers = runCorrect
+    const totalAnswers = Math.max(runTotal, kills, correctAnswers)
+    const accuracy = totalAnswers ? Math.floor((100 * correctAnswers) / totalAnswers) : 0
+    const score = kills * 100 + correctAnswers * 10 + accuracy
+    return { kills, correctAnswers, totalAnswers, accuracy, score }
+  }
+  const metrics = getAchievementMetrics()
+  const profileKills = Math.max(0, metrics.kills || 0)
+  const profileCorrect = Math.max(0, metrics.correct || 0)
+  const profileTotal = Math.max(0, metrics.attempts || 0)
+  if (profileTotal > 0 || profileKills > 0) {
+    const kills = Math.min(200, profileKills)
+    const correctAnswers = profileCorrect
+    const totalAnswers = Math.max(profileTotal, kills, correctAnswers)
+    const accuracy = totalAnswers ? Math.floor((100 * correctAnswers) / totalAnswers) : 0
+    const score = kills * 100 + correctAnswers * 10 + accuracy
+    return { kills, correctAnswers, totalAnswers, accuracy, score }
+  }
+  return null
+}
+
+function hasRecordableGameplayRun() {
+  return Boolean(getRecordableGameplayStats())
+}
+
+function scheduleLeaderboardRunSync(delayMs = 500) {
+  if (practiceRunActive || !activePlayerName || !supabaseCredentials()) return
+  window.clearTimeout(leaderboardSyncTimer)
+  leaderboardSyncTimer = window.setTimeout(() => {
+    leaderboardSyncTimer = 0
+    submitLeaderboardRun()
+  }, delayMs)
+}
+
+async function loadLeaderboard(options = {}) {
   const requestId = ++leaderboardRequestId
   if (!supabaseCredentials()) {
     leaderboardState = 'unconfigured'
@@ -103,17 +182,69 @@ async function loadLeaderboard() {
   leaderboardError = ''
   renderDashboard()
   try {
+    if (!options.skipSubmit && hasRecordableGameplayRun()) {
+      await submitLeaderboardRun({ skipReload: true })
+    } else if (leaderboardSubmitPromise) {
+      await leaderboardSubmitPromise
+    }
     const query = new URLSearchParams({
-      select: 'id,player_name,kills,correct_answers,total_answers,accuracy,score,submitted_at',
+      select: 'id,run_id,player_name,kills,correct_answers,total_answers,accuracy,score,submitted_at',
       order: 'score.desc,correct_answers.desc,kills.desc,submitted_at.asc',
-      limit: '20',
+      limit: '60',
     })
     const response = await supabaseRequest(`leaderboard_entries?${query}`)
-    const entries = await response.json()
-    if (!Array.isArray(entries)) throw new Error('Supabase returned an invalid leaderboard response.')
+    const rawEntries = await response.json()
+    if (!Array.isArray(rawEntries)) throw new Error('Supabase returned an invalid leaderboard response.')
     if (requestId !== leaderboardRequestId) return
-    leaderboardEntries = entries
-    leaderboardState = 'ready'
+
+    // Deduplicate by player_name so each user appears only once on the leaderboard (with their best score)
+    const bestEntryByPlayer = new Map()
+    for (const entry of rawEntries) {
+      if (entry?.run_id && supersededRunIds.has(entry.run_id)) continue
+      const key = String(entry.player_name || '').trim().toLowerCase()
+      if (!key) continue
+      const existing = bestEntryByPlayer.get(key)
+      if (
+        !existing ||
+        (entry.score || 0) > (existing.score || 0) ||
+        ((entry.score || 0) === (existing.score || 0) && (entry.correct_answers || 0) > (existing.correct_answers || 0)) ||
+        ((entry.score || 0) === (existing.score || 0) && (entry.kills || 0) > (existing.kills || 0))
+      ) {
+        bestEntryByPlayer.set(key, entry)
+      }
+    }
+
+    const localRecord = getRecordableGameplayStats()
+    if (localRecord && activePlayerName) {
+      const activeKey = activePlayerName.trim().toLowerCase()
+      const existing = bestEntryByPlayer.get(activeKey)
+      if (!existing || localRecord.score > (existing.score || 0)) {
+        bestEntryByPlayer.set(activeKey, {
+          id: existing?.id || 0,
+          run_id: leaderboardRunId,
+          player_name: activePlayerName,
+          kills: localRecord.kills,
+          correct_answers: localRecord.correctAnswers,
+          total_answers: localRecord.totalAnswers,
+          accuracy: localRecord.accuracy,
+          score: localRecord.score,
+          submitted_at: new Date().toISOString(),
+        })
+      }
+    }
+
+    const filteredEntries = [...bestEntryByPlayer.values()]
+      .sort((a, b) =>
+        (b.score || 0) - (a.score || 0) ||
+        (b.correct_answers || 0) - (a.correct_answers || 0) ||
+        (b.kills || 0) - (a.kills || 0)
+      )
+      .slice(0, 20)
+
+    leaderboardEntries = filteredEntries
+    if (leaderboardState !== 'submit-error') {
+      leaderboardState = 'ready'
+    }
     renderDashboard()
   } catch (error) {
     if (requestId !== leaderboardRequestId) return
@@ -124,31 +255,330 @@ async function loadLeaderboard() {
   }
 }
 
-async function submitLeaderboardRun() {
-  if (practiceRunActive || leaderboardRunSubmitted || !supabaseCredentials()) return
-  try {
+async function performLeaderboardRunSubmit(options = {}) {
+  const record = getRecordableGameplayStats()
+  if (!record) return false
+  const { kills, correctAnswers, totalAnswers } = record
+
+  const snapshot = `${leaderboardRunId}:${activePlayerName}:${kills}:${correctAnswers}:${totalAnswers}`
+  if (!options.force && snapshot === leaderboardLastSubmittedSnapshot) {
+    return true
+  }
+
+  const wasSubmittedBefore = leaderboardRunSubmitted
+  const submittedRunId = leaderboardRunId
+
+  const postRun = async (runId) => {
     const response = await supabaseRequest('rpc/submit_leaderboard_run', {
       method: 'POST',
       body: JSON.stringify({
-        p_run_id: leaderboardRunId,
+        p_run_id: runId,
         p_player_name: activePlayerName,
-        p_kills: stats.kills,
-        p_correct_answers: stats.correct,
-        p_total_answers: stats.total,
+        p_kills: kills,
+        p_correct_answers: correctAnswers,
+        p_total_answers: totalAnswers,
       }),
     })
     await response.text()
-    leaderboardRunSubmitted = true
-    leaderboardState = 'ready'
-    leaderboardError = ''
-  } catch (error) {
-    console.error('Unable to submit completed run to leaderboard.', error)
-    leaderboardState = 'submit-error'
-    leaderboardError = error.message
   }
-  if (dashboardView === 'leaderboards' && !playViewActive) {
-    if (leaderboardRunSubmitted) await loadLeaderboard()
-    else renderDashboard()
+
+  await postRun(submittedRunId)
+
+  // Verify whether the database updated the row in-place.
+  // If the Supabase project still has the old ON CONFLICT (run_id) DO NOTHING function,
+  // an existing row for submittedRunId will still have older/lower numbers; rotate run_id so the new stats are saved.
+  if (wasSubmittedBefore) {
+    try {
+      const verifyQuery = new URLSearchParams({
+        select: 'kills,correct_answers,total_answers',
+        run_id: `eq.${submittedRunId}`,
+        limit: '1',
+      })
+      const verifyRes = await supabaseRequest(`leaderboard_entries?${verifyQuery}`)
+      const verifyRows = await verifyRes.json()
+      const savedRow = Array.isArray(verifyRows) ? verifyRows[0] : null
+      if (
+        savedRow &&
+        (savedRow.kills < kills || savedRow.correct_answers < correctAnswers || savedRow.total_answers < totalAnswers)
+      ) {
+        markRunIdSuperseded(submittedRunId)
+        leaderboardRunId = createLeaderboardRunId()
+        await postRun(leaderboardRunId)
+      }
+    } catch (verifyError) {
+      console.warn('Could not verify leaderboard row update.', verifyError)
+    }
+  }
+
+  leaderboardLastSubmittedSnapshot = `${leaderboardRunId}:${activePlayerName}:${kills}:${correctAnswers}:${totalAnswers}`
+  leaderboardRunSubmitted = true
+  leaderboardState = 'ready'
+  leaderboardError = ''
+  return true
+}
+
+async function submitLeaderboardRun(options = {}) {
+  window.clearTimeout(leaderboardSyncTimer)
+  leaderboardSyncTimer = 0
+  if (practiceRunActive || !activePlayerName || !supabaseCredentials()) return false
+
+  if (leaderboardSubmitPromise) {
+    leaderboardSubmitQueued = true
+    return leaderboardSubmitPromise
+  }
+
+  leaderboardSubmitPromise = (async () => {
+    let succeeded = false
+    try {
+      do {
+        leaderboardSubmitQueued = false
+        succeeded = await performLeaderboardRunSubmit(options)
+      } while (leaderboardSubmitQueued && !practiceRunActive && activePlayerName)
+    } catch (error) {
+      console.error('Unable to submit gameplay run to leaderboard.', error)
+      leaderboardState = 'submit-error'
+      leaderboardError = error.message
+      succeeded = false
+    } finally {
+      leaderboardSubmitPromise = null
+    }
+
+    if (dashboardView === 'leaderboards' && !playViewActive && !options.skipReload) {
+      if (succeeded) await loadLeaderboard({ skipSubmit: true })
+      else renderDashboard()
+    }
+    return succeeded
+  })()
+
+  return leaderboardSubmitPromise
+}
+
+function buildUserProfilePayload() {
+  return {
+    topicProgress,
+    skillProgress: {
+      ...skillProgress,
+      specialization: { activeTree: activeSkillSpecialization },
+    },
+    reviewStore: {
+      queue: reviewQueue,
+      counter: answerCount,
+    },
+    achievements: {
+      progress: achievementProgress,
+      unlocked: unlockedAchievements,
+    },
+  }
+}
+
+function mergeAndApplyCloudUserProfile(profileId, cloudUser) {
+  if (!cloudUser || typeof cloudUser !== 'object') return false
+  let updatedLocal = false
+
+  // 1. Merge topic tracker progress
+  const cloudTopics = cloudUser.topic_progress
+  if (cloudTopics && typeof cloudTopics === 'object') {
+    for (const [category, topics] of Object.entries(topicProgress)) {
+      for (const [topicName, localTopic] of Object.entries(topics)) {
+        const source = cloudTopics?.[category]?.[topicName]
+        if (!source || typeof source !== 'object') continue
+        const cloudAttempted = Number.isSafeInteger(source.attempted) && source.attempted >= 0 ? source.attempted : 0
+        const cloudCorrect = Number.isSafeInteger(source.correct) && source.correct >= 0
+          ? Math.min(source.correct, cloudAttempted)
+          : 0
+        if (cloudAttempted > localTopic.attempted || (cloudAttempted === localTopic.attempted && cloudCorrect > localTopic.correct)) {
+          localTopic.attempted = cloudAttempted
+          localTopic.correct = cloudCorrect
+          if (Number.isSafeInteger(source.baselineAttempted) && source.baselineAttempted >= 0) {
+            localTopic.baselineAttempted = Math.min(BASELINE_ATTEMPTS, source.baselineAttempted, cloudAttempted)
+            localTopic.baselineCorrect = Number.isSafeInteger(source.baselineCorrect)
+              ? Math.min(source.baselineCorrect, localTopic.baselineAttempted)
+              : 0
+          }
+          if (Number.isSafeInteger(source.streak) && source.streak >= 0) {
+            localTopic.streak = source.streak
+          }
+          updatedLocal = true
+        }
+      }
+    }
+  }
+
+  // 2. Merge skill tree progress
+  const cloudSkills = cloudUser.skill_progress
+  if (cloudSkills && typeof cloudSkills === 'object') {
+    for (const key of SKILL_TREE_KEYS) {
+      const source = cloudSkills?.[key]
+      if (!source || typeof source !== 'object') continue
+      if (Number.isSafeInteger(source.correct) && source.correct > skillProgress[key].correct) {
+        skillProgress[key].correct = source.correct
+        updatedLocal = true
+      }
+      for (const skill of SKILL_TREES[key].skills) {
+        const rank = source.ranks?.[skill.id]
+        if (Number.isInteger(rank) && rank >= 0 && rank <= SKILL_MAX_RANK && rank > skillProgress[key].ranks[skill.id]) {
+          skillProgress[key].ranks[skill.id] = rank
+          updatedLocal = true
+        }
+      }
+    }
+    if (!activeSkillSpecialization && SKILL_TREE_KEYS.includes(cloudSkills?.specialization?.activeTree)) {
+      activeSkillSpecialization = cloudSkills.specialization.activeTree
+      updatedLocal = true
+    }
+  }
+
+  // 3. Merge spaced-repetition review queue
+  const cloudReview = cloudUser.review_store
+  if (cloudReview && typeof cloudReview === 'object') {
+    const cloudCounter = Number.isSafeInteger(cloudReview.counter) && cloudReview.counter >= 0 ? cloudReview.counter : 0
+    if (cloudCounter > answerCount) {
+      answerCount = cloudCounter
+      if (Array.isArray(cloudReview.queue)) {
+        reviewQueue = cloudReview.queue.filter(
+          (entry) => entry && typeof entry.text === 'string' && QUESTION_DIFFICULTY.has(entry.text) && Number.isFinite(entry.due)
+        )
+      }
+      updatedLocal = true
+    }
+  }
+
+  // 4. Merge achievements
+  const cloudAch = cloudUser.achievements
+  if (cloudAch && typeof cloudAch === 'object') {
+    for (const key of Object.keys(achievementProgress)) {
+      const val = cloudAch?.progress?.[key]
+      if (Number.isSafeInteger(val) && val > achievementProgress[key]) {
+        achievementProgress[key] = val
+        updatedLocal = true
+      }
+    }
+    if (cloudAch?.unlocked && typeof cloudAch.unlocked === 'object' && !Array.isArray(cloudAch.unlocked)) {
+      for (const achievement of ACHIEVEMENTS) {
+        const unlockedAt = cloudAch.unlocked[achievement.id]
+        if (typeof unlockedAt === 'string' && Number.isFinite(Date.parse(unlockedAt))) {
+          if (!unlockedAchievements[achievement.id] || Date.parse(unlockedAt) < Date.parse(unlockedAchievements[achievement.id])) {
+            unlockedAchievements[achievement.id] = unlockedAt
+            updatedLocal = true
+          }
+        }
+      }
+    }
+  }
+
+  if (updatedLocal) {
+    try {
+      const profileKey = encodeURIComponent(profileId)
+      localStorage.setItem(`kings-pigs-topic-tracker-v1:${profileKey}`, JSON.stringify(topicProgress))
+      localStorage.setItem(`kings-pigs-skill-tree-v1:${profileKey}`, JSON.stringify({
+        ...skillProgress,
+        specialization: { activeTree: activeSkillSpecialization },
+      }))
+      localStorage.setItem(`kings-pigs-review-v1:${profileKey}`, JSON.stringify({
+        queue: reviewQueue,
+        counter: answerCount,
+      }))
+      localStorage.setItem(`${ACHIEVEMENT_STORAGE_KEY}:${profileKey}`, JSON.stringify({
+        progress: achievementProgress,
+        unlocked: unlockedAchievements,
+      }))
+    } catch (error) {
+      console.error('Unable to cache cloud user profile locally.', error)
+    }
+    adaptive.calibrateFromProgress()
+    refreshAchievements()
+    if (mode === 'menu' && !playViewActive) resetRun()
+  }
+  return updatedLocal
+}
+
+async function pushUserProfileToSupabase() {
+  window.clearTimeout(userSyncTimer)
+  userSyncTimer = 0
+  if (practiceRunActive || !activePlayerName || !supabaseCredentials()) return false
+  const payload = buildUserProfilePayload()
+  try {
+    await supabaseRequest('rpc/upsert_user_profile', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_username: activePlayerName,
+        p_topic_progress: payload.topicProgress,
+        p_skill_progress: payload.skillProgress,
+        p_review_store: payload.reviewStore,
+        p_achievements: payload.achievements,
+      }),
+    })
+    userSyncState = 'synced'
+    userSyncError = ''
+    if (dashboardView === 'settings' && !playViewActive) renderDashboard()
+    return true
+  } catch (error) {
+    console.warn('Unable to sync user profile to Supabase.', error)
+    userSyncState = 'error'
+    userSyncError = error.message
+    if (dashboardView === 'settings' && !playViewActive) renderDashboard()
+    return false
+  }
+}
+
+function scheduleUserProfileSync(delayMs = 1000) {
+  if (practiceRunActive || !activePlayerName || !supabaseCredentials()) return
+  window.clearTimeout(userSyncTimer)
+  userSyncTimer = window.setTimeout(() => {
+    userSyncTimer = 0
+    pushUserProfileToSupabase()
+  }, delayMs)
+}
+
+async function syncUserOnLogin(displayName, profileId) {
+  if (!supabaseCredentials()) {
+    userSyncState = 'unconfigured'
+    userSyncError = ''
+    renderDashboard()
+    return
+  }
+  userSyncState = 'syncing'
+  userSyncError = ''
+  renderDashboard()
+  try {
+    const response = await supabaseRequest('rpc/upsert_user_profile', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_username: displayName,
+      }),
+    })
+    const cloudUser = await response.json()
+    if (activePlayerName.toLowerCase() !== profileId) return
+    mergeAndApplyCloudUserProfile(profileId, cloudUser)
+    await pushUserProfileToSupabase()
+    if (hasRecordableGameplayRun()) {
+      await submitLeaderboardRun({ skipReload: true })
+    }
+    renderDashboard()
+  } catch (error) {
+    if (activePlayerName.toLowerCase() !== profileId) return
+    console.warn('Unable to load or register cloud user profile on login.', error)
+    userSyncState = 'error'
+    userSyncError = error.message
+    renderDashboard()
+  }
+}
+
+async function resetUserProfileInSupabase(displayName) {
+  if (!displayName || !supabaseCredentials()) return
+  try {
+    await supabaseRequest('rpc/reset_user_profile', {
+      method: 'POST',
+      body: JSON.stringify({ p_username: displayName }),
+    })
+    userSyncState = 'synced'
+    userSyncError = ''
+    if (dashboardView === 'settings' && !playViewActive) renderDashboard()
+  } catch (error) {
+    console.warn('Unable to reset cloud user profile in Supabase.', error)
+    userSyncState = 'error'
+    userSyncError = error.message
+    if (dashboardView === 'settings' && !playViewActive) renderDashboard()
   }
 }
 
@@ -250,6 +680,7 @@ function saveAchievementProgress() {
       progress: achievementProgress,
       unlocked: unlockedAchievements,
     }))
+    scheduleUserProfileSync()
     return true
   } catch (error) {
     console.error('Unable to save achievement progress.', error)
@@ -366,30 +797,31 @@ function renderLeaderboard() {
   } else if (leaderboardState === 'submit-error') {
     message = `<p class="leaderboard-message is-error">Run submission failed: ${esc(leaderboardError)}</p>`
   } else if (!leaderboardEntries.length) {
-    message = '<p class="leaderboard-message">No completed runs yet. Finish the kingdom to claim the first place.</p>'
+    message = '<p class="leaderboard-message">No gameplay runs recorded yet. Start a game and battle viruses to appear on the leaderboard.</p>'
   }
-  const rows = leaderboardEntries.map((entry, index) => `<tr>
-    <td>${index + 1}</td>
-    <th scope="row">${esc(entry.player_name)}</th>
-    <td>${entry.score}</td>
-    <td>${entry.kills}</td>
-    <td>${entry.correct_answers} / ${entry.total_answers}</td>
-    <td>${entry.accuracy}%</td>
-  </tr>`).join('')
-  const retryRun = leaderboardState === 'submit-error' && !leaderboardRunSubmitted
-    ? '<button type="button" class="leaderboard-action" data-leaderboard-submit>Retry completed run</button>'
-    : ''
+  const activeKey = String(activePlayerName || '').trim().toLowerCase()
+  const rows = leaderboardEntries.map((entry, index) => {
+    const isCurrentUser = activeKey && String(entry.player_name || '').trim().toLowerCase() === activeKey
+    return `<tr>
+      <td>${index + 1}</td>
+      <th scope="row">${esc(entry.player_name)}${isCurrentUser ? ' <small>(You)</small>' : ''}</th>
+      <td>${entry.score}</td>
+      <td>${entry.kills}</td>
+      <td>${entry.correct_answers} / ${entry.total_answers}</td>
+      <td>${entry.accuracy}%</td>
+    </tr>`
+  }).join('')
   return `<span class="eyebrow">Leaderboard / global rankings</span>
     <div class="leaderboard-heading">
-      <div><h2>Top adventurers</h2><p>Best completed kingdom runs, ranked by score.</p></div>
+      <div><h2>Top adventurers</h2><p>Live and completed adventure runs, ranked by score.</p></div>
       <button type="button" class="leaderboard-action" data-leaderboard-refresh ${leaderboardState === 'loading' ? 'disabled' : ''}>${leaderboardState === 'loading' ? 'Loading…' : 'Refresh'}</button>
     </div>
-    ${retryRun}${message}
+    ${message}
     ${leaderboardEntries.length ? `<div class="leaderboard-table-wrap"><table class="leaderboard-table">
       <thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Score</th><th scope="col">Viruses</th><th scope="col">Correct</th><th scope="col">Accuracy</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>` : ''}
-    <p class="leaderboard-score-note">Score = 100 per virus + 10 per correct answer + accuracy. Rankings are based on browser-submitted run data.</p>`
+    <p class="leaderboard-score-note">Score = 100 per virus + 10 per correct answer + accuracy. Ongoing and completed gameplays are recorded automatically as you play.</p>`
 }
 
 
@@ -593,6 +1025,55 @@ const battleKing = new Sprite({
   frameCrop: { x: 35, y: 40, width: 190, height: 180 },
   destinationSize: { width: 76, height: 72 },
 })
+const battleKingDeath = new Sprite({
+  position: { x: 0, y: 0 },
+  imageSrc: './img/player/player1-death.png',
+  frameRate: 6,
+  frameBuffer: 10,
+  loop: false,
+  autoplay: false,
+  frameRects: [
+    { x: 0, y: 0, width: 150, height: 164 },
+    { x: 150, y: 0, width: 150, height: 164 },
+    { x: 300, y: 0, width: 150, height: 164 },
+    { x: 450, y: 0, width: 150, height: 164 },
+    { x: 0, y: 166, width: 150, height: 164 },
+    { x: 150, y: 166, width: 150, height: 164 },
+  ],
+  frameCount: 6,
+  destinationSize: { width: 70, height: 76 },
+})
+const opponentKing = new Sprite({
+  position: { x: 0, y: 0 },
+  imageSrc: './img/player/player1-idle-trimmed.png',
+  frameRate: 12,
+  frameBuffer: IDLE_TICKS,
+  sourceFrameSize: { width: 256, height: 256 },
+  frameColumns: 5,
+  frameCount: 12,
+  frameCrop: { x: 35, y: 40, width: 190, height: 180 },
+  destinationSize: { width: 76, height: 72 },
+  flipX: true,
+})
+const opponentKingDeath = new Sprite({
+  position: { x: 0, y: 0 },
+  imageSrc: './img/player/player1-death.png',
+  frameRate: 6,
+  frameBuffer: 10,
+  loop: false,
+  autoplay: false,
+  frameRects: [
+    { x: 0, y: 0, width: 150, height: 164 },
+    { x: 150, y: 0, width: 150, height: 164 },
+    { x: 300, y: 0, width: 150, height: 164 },
+    { x: 450, y: 0, width: 150, height: 164 },
+    { x: 0, y: 166, width: 150, height: 164 },
+    { x: 150, y: 166, width: 150, height: 164 },
+  ],
+  frameCount: 6,
+  destinationSize: { width: 70, height: 76 },
+  flipX: true,
+})
 
 const BATTLE_ATTACK_JUMP_OFFSETS = [0, -12, -42, -27, -8, 0, 0, 0]
 // The hero's attack hop steps through one offset every BATTLE_ATTACK_FRAME_BUFFER ticks.
@@ -756,6 +1237,11 @@ function spawnEnemies(cfg, floorRun, scaleX, scaleY) {
 }
 
 function loadLevel(n) {
+  const go = document.getElementById('gameOverOverlay')
+  if (go) {
+    go.hidden = true
+    go.innerHTML = ''
+  }
   const cfg = levelConfig(n)
   level = n
   currentRoom = cfg
@@ -839,15 +1325,20 @@ function loadLevel(n) {
 }
 
 function newGame() {
+  if (!practiceRunActive && hasRecordableGameplayRun()) {
+    submitLeaderboardRun({ skipReload: true })
+  }
   resetRun()
   leaderboardRunId = createLeaderboardRunId()
   leaderboardRunSubmitted = false
+  leaderboardLastSubmittedSnapshot = ''
   leaderboardState = supabaseCredentials() ? 'idle' : 'unconfigured'
   leaderboardError = ''
   loadLevel(1)
 }
 
 function nextLevel() {
+  submitLeaderboardRun({ skipReload: true })
   const followingLevel = level + 1
   if (!RUN_LENGTH || followingLevel <= RUN_LENGTH) {
     loadLevel(followingLevel)
@@ -922,17 +1413,17 @@ function drawExplore() {
 function drawSheet(sp, x, y, s, advance = true, context = c) {
   if (!sp.loaded) return
   const frame = sp.getSourceFrame()
-  context.drawImage(
-    sp.image,
-    frame.x,
-    frame.y,
-    frame.width,
-    frame.height,
-    x,
-    y,
-    (sp.frameRects ? frame.width : sp.destinationSize?.width || sp.width) * s,
-    (sp.frameRects ? frame.height : sp.destinationSize?.height || sp.height) * s
-  )
+  const dw = (sp.destinationSize?.width || (sp.frameRects ? frame.width : sp.width)) * s
+  const dh = (sp.destinationSize?.height || (sp.frameRects ? frame.height : sp.height)) * s
+  if (sp.flipX) {
+    context.save()
+    context.translate(x + dw, y)
+    context.scale(-1, 1)
+    context.drawImage(sp.image, frame.x, frame.y, frame.width, frame.height, 0, 0, dw, dh)
+    context.restore()
+  } else {
+    context.drawImage(sp.image, frame.x, frame.y, frame.width, frame.height, x, y, dw, dh)
+  }
   if (advance) sp.updateFrames()
 }
 
@@ -981,7 +1472,12 @@ function drawIntro() {
   drawArena()
   drawCombatants(HERO_SPOT.x - (1 - ease) * 320, FOE_SPOT.x + (1 - ease) * 320, 0)
   c.restore()
-  drawBanner(battle.enemy.isBoss ? `${battle.enemy.name} blocks the way!` : `A wild ${battle.enemy.name} appears!`, (t - INTRO_BANNER) / 21)
+  const bannerText = battle.enemy.isMultiplayerPlayer
+    ? `VS ${battle.enemy.name}!`
+    : battle.enemy.isBoss
+      ? `${battle.enemy.name} blocks the way!`
+      : `A wild ${battle.enemy.name} appears!`
+  drawBanner(bannerText, (t - INTRO_BANNER) / 21)
 
   if (t >= INTRO_END) {
     snapshot = null
@@ -1013,7 +1509,11 @@ function drawBanner(text, k) {
 // Floating, semi-transparent stat tag drawn above a fighter (only exists during battle).
 function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana) {
   const hasMana = mana !== undefined
-  const w = 210
+  c.save()
+  c.font = '10px "Press Start 2P", monospace'
+  const hpLabel = `${hp}/${maxHp}`
+  const neededWidth = Math.ceil(c.measureText(String(name || '')).width + c.measureText(hpLabel).width + 32)
+  const w = Math.max(210, neededWidth)
   const h = hasMana ? 62 : 46
   const x = cx - w / 2
   const y = bottom - h
@@ -1023,18 +1523,16 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana) {
     c.fillStyle = color
     c.fillRect(x + 8, by, (w - 16) * Math.max(0, Math.min(1, ratio)), bh)
   }
-  c.save()
   c.globalAlpha = 0.85
   c.fillStyle = 'rgba(8, 6, 16, 0.4)'
   c.fillRect(x, y, w, h)
   c.textBaseline = 'middle'
-  c.font = '10px "Press Start 2P", monospace'
   c.textAlign = 'left'
   c.fillStyle = nameColor
   c.fillText(name, x + 8, y + 12)
   c.textAlign = 'right'
   c.fillStyle = '#f1eddd'
-  c.fillText(`${hp}/${maxHp}`, x + w - 8, y + 12)
+  c.fillText(hpLabel, x + w - 8, y + 12)
   bar(y + 22, hp / maxHp, hasMana ? '#e0735c' : '#e894a2', 8)
   if (hasMana) {
     c.font = '8px "Press Start 2P", monospace'
@@ -1178,7 +1676,10 @@ function drawDefendEffect(cx, heroTop) {
 
 function triggerEnemyImpact() {
   const charged = battle.projectileCharged
-  battle.enemy.hp = Math.max(0, battle.enemy.hp - battle.projectileDamage)
+  const isMp = typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive
+  if (!isMp) {
+    battle.enemy.hp = Math.max(0, battle.enemy.hp - battle.projectileDamage)
+  }
   battle.pendingAttack = false
   battle.hitT = 1
   battle.enemyInvertT = charged ? 12 : 8
@@ -1186,13 +1687,23 @@ function triggerEnemyImpact() {
   battle.cameraPushDistance = charged ? 26 : 18
   battle.cameraShakeT = 1
   battle.impactRingT = 1
-  if (battle.enemy.hp <= 0) battle.enemyDefeatT = 0
+  if (!isMp && battle.enemy.hp <= 0) battle.enemyDefeatT = 0
+  if (isMp && typeof mpState !== 'undefined' && mpState.outcome) {
+    emitFx(FOE_SPOT.x, FOE_SPOT.y - 70, charged ? '#ff9659' : '#ffd27a', charged ? 32 : 20, charged ? 5.2 : 4.2)
+    emitFx(FOE_SPOT.x, FOE_SPOT.y - 70, '#fff3c4', charged ? 18 : 10, 3.6)
+    emitFx(FOE_SPOT.x, FOE_SPOT.y - 70, '#6fe3e8', charged ? 16 : 8, 3.2)
+    Sound.play('hit')
+    mpTriggerFinishSequence()
+    return
+  }
   const continueButton = panel.querySelector('[data-act="continue"]')
   if (continueButton) {
     continueButton.disabled = false
     continueButton.innerHTML = 'Continue<span class="keyhint"> (Enter)</span>'
   }
-  popup('enemy', `-${battle.projectileDamage}`, '#ffd27a')
+  if (!isMp) {
+    popup('enemy', `-${battle.projectileDamage}`, '#ffd27a')
+  }
   emitFx(FOE_SPOT.x, FOE_SPOT.y - 70, charged ? '#ff9659' : '#ffd27a', charged ? 32 : 20, charged ? 5.2 : 4.2)
   emitFx(FOE_SPOT.x, FOE_SPOT.y - 70, '#fff3c4', charged ? 18 : 10, 3.6)
   emitFx(FOE_SPOT.x, FOE_SPOT.y - 70, '#6fe3e8', charged ? 16 : 8, 3.2)
@@ -1357,7 +1868,19 @@ function drawCombatants(heroX, foeX, shake) {
     }
     c.restore()
   }
-  if (b.heroAttackT > 0) {
+  if (hero.hp <= 0 || b.phase === 'dying' || b.phase === 'lost') {
+    const deathWidth = battleKingDeath.destinationSize.width * hs
+    const deathHeight = battleKingDeath.destinationSize.height * hs
+    const floorDrop = battleKingDeath.currentFrame >= 4
+      ? Math.round(14 * (battleKingDeath.destinationSize.height / 164) * hs)
+      : 0
+    drawSheet(
+      battleKingDeath,
+      HERO_SPOT.x - deathWidth / 2,
+      HERO_SPOT.y - deathHeight + floorDrop,
+      hs
+    )
+  } else if (b.heroAttackT > 0) {
     drawHero(
       battleKing,
       hx - (battleKing.destinationSize.width / 2) * heroScale,
@@ -1374,24 +1897,30 @@ function drawCombatants(heroX, foeX, shake) {
       hs
     )
   }
-  drawStatTag(hx, hy - heroDrawHeight - 6, 'KNIGHT', hero.hp, hero.maxHp, '#f2bb61', hero.mana, hero.maxMana)
+  drawStatTag(hx, hy - heroDrawHeight - 6, activePlayerName || 'PLAYER', hero.hp, hero.maxHp, '#f2bb61', hero.mana, hero.maxMana)
   if (charging || b.chargeMaxT > 0) {
     drawChargeMeter(hx, charging ? chargeProgress : 1)
   }
   if (b.defendEffectT > 0) drawDefendEffect(hx, hy - heroDrawHeight)
 
-  if (foe.hp > 0 || b.hitT > 0 || b.projectileT >= 0 || b.projectileQueued || charging || defeating) {
+  if (foe.hp > 0 || foe.isMultiplayerPlayer || b.hitT > 0 || b.projectileT >= 0 || b.projectileQueued || charging || defeating) {
     const flash = b.flash.enemy > 0 && b.flash.enemy % 4 >= 2
     const invert = b.enemyInvertT > 0 && !flash
-    const heavy = isHeavy() && b.phase === 'choose'
-    const label = `${heavy ? '! ' : ''}${foe.name}`
-    const labelColor = heavy ? '#e8706a' : '#ffd1dc'
+    const heavy = !foe.isMultiplayerPlayer && isHeavy() && b.phase === 'choose'
+    const label = foe.isMultiplayerPlayer ? foe.name : `${heavy ? '! ' : ''}${foe.name}`
+    const labelColor = foe.isMultiplayerPlayer ? '#8fd0dc' : (heavy ? '#e8706a' : '#ffd1dc')
     const drawFoeSprite = (x, alpha = 1, afterimage = false, ghost = false, feetY = fy) => {
       c.save()
       c.globalAlpha *= alpha
       if (ghost) c.filter = 'brightness(0) invert(0.82)'
       else if (afterimage) c.filter = 'hue-rotate(135deg) saturate(1.6)'
-      if (foe.isBoss) {
+      if (foe.isMultiplayerPlayer) {
+        const oppW = opponentKing.destinationSize.width * hs
+        const oppH = opponentKing.destinationSize.height * hs
+        if (flash) c.filter = 'brightness(1.85)'
+        else if (invert) c.filter = 'brightness(0) invert(1)'
+        drawSheet(opponentKing, x - oppW / 2, feetY - oppH, hs, mode === 'battle' && !ghost && !afterimage)
+      } else if (foe.isBoss) {
         drawBossArt(c, foe, x, feetY, BOSS_BATTLE_HEIGHT, {
           attacking: b.bossAttackT > 0,
           attackElapsed: BOSS_ATTACK_FRAMES * BOSS_ATTACK_BUFFER - b.bossAttackT,
@@ -1421,10 +1950,18 @@ function drawCombatants(heroX, foeX, shake) {
       c.translate(-fx, -shadowY)
     }
     c.beginPath()
-    c.ellipse(fx, shadowY, foe.isBoss ? 120 : 80, foe.isBoss ? 16 : 13, 0, 0, Math.PI * 2)
+    c.ellipse(fx, shadowY, foe.isBoss ? 120 : (foe.isMultiplayerPlayer ? 70 : 80), foe.isBoss ? 16 : 13, 0, 0, Math.PI * 2)
     c.fill()
     c.restore()
-    if (defeating) {
+    if (foe.isMultiplayerPlayer && foe.hp <= 0) {
+      const oppDeathW = opponentKingDeath.destinationSize.width * hs
+      const oppDeathH = opponentKingDeath.destinationSize.height * hs
+      const floorDrop = opponentKingDeath.currentFrame >= 4
+        ? Math.round(14 * (opponentKingDeath.destinationSize.height / 164) * hs)
+        : 0
+      drawSheet(opponentKingDeath, FOE_SPOT.x - oppDeathW / 2, FOE_SPOT.y - oppDeathH + floorDrop, hs)
+      drawStatTag(fx, fy - oppDeathH - 6, label, foe.hp, foe.maxHp, labelColor, foe.mana, foe.maxMana)
+    } else if (defeating) {
       const flatten = Math.min(1, defeatProgress / 0.4)
       const bodyAlpha = Math.max(0, 1 - defeatProgress / 0.42)
       if (bodyAlpha > 0.02) {
@@ -1447,8 +1984,10 @@ function drawCombatants(heroX, foeX, shake) {
         drawFoeSprite(fx - hitProgress * 9, 0.24, true)
       }
       drawFoeSprite(fx)
-      const foeHeight = foe.isBoss ? BOSS_BATTLE_HEIGHT : 36 * foeScale
-      drawStatTag(fx, fy - foeHeight - 6, label, foe.hp, foe.maxHp, labelColor)
+      const foeHeight = foe.isMultiplayerPlayer
+        ? opponentKing.destinationSize.height * hs
+        : (foe.isBoss ? BOSS_BATTLE_HEIGHT : 36 * foeScale)
+      drawStatTag(fx, fy - foeHeight - 6, label, foe.hp, foe.maxHp, labelColor, foe.mana, foe.maxMana)
     }
     if (foe.isBoss && b.bossAttackT > 0) b.bossAttackT--
   }
@@ -1532,6 +2071,18 @@ function drawBattle() {
   if (b.chargeMaxT > 0 && !b.chargeCard) b.chargeMaxT--
   if (b.flash.hero > 0) b.flash.hero--
   if (b.flash.enemy > 0) b.flash.enemy--
+  if (b.phase === 'dying') {
+    b.deathTimer = (b.deathTimer || 0) + 1
+    if (b.deathTimer >= 85) {
+      b.phase = 'lost'
+      renderLose()
+    }
+  } else if (b.phase === 'mp_dying' && typeof mpState !== 'undefined') {
+    mpState.deathCountdown = Math.max(0, (mpState.deathCountdown || 0) - 1)
+    if (mpState.deathCountdown <= 0) {
+      renderMultiplayerResult()
+    }
+  }
 }
 
 function drawMenu() {
@@ -1597,6 +2148,9 @@ function capturePracticeReturnState() {
       mediumStreak: adaptive.mediumStreak,
       used: clonePracticeData(adaptive.used),
       fromReview: adaptive.fromReview,
+      focusCategory: adaptive.focusCategory,
+      categoryState: clonePracticeData(adaptive.categoryState),
+      lastSelection: clonePracticeData(adaptive.lastSelection),
     },
     topicProgress: clonePracticeData(topicProgress),
     skillProgress: clonePracticeData(skillProgress),
@@ -1610,6 +2164,7 @@ function capturePracticeReturnState() {
     skillMapPan: clonePracticeData(skillMapPan),
     leaderboardRunId,
     leaderboardRunSubmitted,
+    leaderboardLastSubmittedSnapshot,
     leaderboardState,
     leaderboardError,
     panelContent: panel.innerHTML,
@@ -1664,6 +2219,7 @@ function restorePracticeReturnState() {
   skillMapPan = saved.skillMapPan
   leaderboardRunId = saved.leaderboardRunId
   leaderboardRunSubmitted = saved.leaderboardRunSubmitted
+  leaderboardLastSubmittedSnapshot = saved.leaderboardLastSubmittedSnapshot || ''
   leaderboardState = saved.leaderboardState
   leaderboardError = saved.leaderboardError
   panel.innerHTML = saved.panelContent
@@ -1694,10 +2250,58 @@ function updateNavigation() {
   })
 }
 
-function showDashboard() {
+function resetDeadRunToMenu() {
+  if (hero.hp <= 0 || (mode === 'battle' && (battle.phase === 'dying' || battle.phase === 'lost'))) {
+    mode = 'menu'
+    battle.phase = 'choose'
+    battle.deathTimer = 0
+    battle.enemy = null
+    battleKingDeath.autoplay = false
+    battleKingDeath.currentFrame = 0
+    battleKingDeath.elapsedFrames = 0
+    resetRun()
+    setPanel('')
+  }
+}
+
+function showPlayView() {
   if (skillTreeOpen) closeSkillTree()
-  if (practiceRunActive) restorePracticeReturnState()
+  playViewActive = true
+  Sound.ensure()
+  gsap.killTweensOf(overlay)
+  gsap.fromTo(overlay, { opacity: 1 }, { opacity: 0, duration: 0.6 })
+  renderDashboard()
+  syncAnimationLoop()
+}
+
+function showDashboard(nextView) {
+  if (typeof nextView === 'string' && nextView && nextView !== 'play') {
+    dashboardView = nextView
+  }
+  if (skillTreeOpen) closeSkillTree()
+  if (typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive) {
+    if (typeof mpState !== 'undefined' && !mpState.outcome) {
+      window.mpUI?.matchmaking?.forfeitMatch(`${activePlayerName || 'Player'} exited the match.`)
+    }
+    if (typeof endMultiplayerMatchState === 'function') endMultiplayerMatchState()
+    mode = 'menu'
+    battle.phase = 'choose'
+    battle.enemy = null
+    setPanel('')
+  }
+  if (practiceRunActive) {
+    restorePracticeReturnState()
+  } else if (playViewActive) {
+    submitLeaderboardRun({ skipReload: true })
+    pushUserProfileToSupabase()
+    resetDeadRunToMenu()
+  }
   playViewActive = false
+  const go = document.getElementById('gameOverOverlay')
+  if (go) {
+    go.hidden = true
+    go.innerHTML = ''
+  }
   Sound.music('dashboard')
   keys.w.pressed = false
   keys.a.pressed = false
@@ -2123,11 +2727,14 @@ function renderDashboard() {
   )
   $('exitPlayButton').title = practiceRunActive ? 'Exit Practice (Esc)' : 'Pause (Esc)'
   $('app').classList.toggle('has-run', mode !== 'menu')
-  $('playHint').textContent = {
-    explore: 'A / D move  ·  W jump / door  ·  Space jump  ·  Up door  ·  U skills  ·  Esc menu',
-    battle: 'Press 1-4 to choose  ·  Enter to continue  ·  U skills  ·  Esc menu',
-    end: 'Esc for the menu',
-  }[mode] || ''
+  const isMp = typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive
+  $('playHint').textContent = isMp
+    ? '1v1 Arena: Press 1-4 to pick card & answer · Enter next round · Esc exit'
+    : ({
+      explore: 'A / D move  ·  W jump / door  ·  Space jump  ·  Up door  ·  U skills  ·  Esc menu',
+      battle: 'Press 1-4 to choose  ·  Enter to continue  ·  U skills  ·  Esc menu',
+      end: 'Esc for the menu',
+    }[mode] || '')
   document.querySelector('canvas').setAttribute(
     'aria-label',
     playViewActive ? 'Gameplay arena' : 'Game scene preview'
@@ -2135,26 +2742,30 @@ function renderDashboard() {
   updateNavigation()
   $('playerBadge').textContent = activePlayerName || 'KNIGHT'
   $('playPlayerName').textContent = activePlayerName || 'KNIGHT'
-  $('welcomeEyebrow').textContent = dashboardView === 'tracker'
-    ? 'Topic tracker / your progress'
-    : 'Quest hub / your next adventure'
+  $('welcomeEyebrow').textContent = 'Quest hub / your next adventure'
   $('welcomeTitle').textContent = mode === 'menu' ? `Welcome, ${activePlayerName || 'Knight'}` : mode === 'end' ? `Kingdom cleared, ${activePlayerName || 'Knight'}` : 'Adventure in progress'
   $('welcomeSubtitle').textContent = mode === 'menu'
     ? 'Sharpen your mind. Ready your sword.'
-    : `Your next challenge: ${room.name}.`
-  $('welcomeLevel').textContent = String(level).padStart(2, '0')
-  $('welcomeQuest').textContent = mode === 'end' ? `${room.name} complete` : room.name
-  $('welcomeProgress').textContent = `${defeated} / ${totalPigs}`
-  $('welcomeProgressNote').textContent = remaining
-    ? `${remaining} ${remaining === 1 ? 'virus' : 'viruses'} remaining`
-    : 'Room cleared'
-  $('welcomeNextAction').textContent = remaining
-    ? 'Find a virus'
-    : mode === 'end' ? 'Run complete' : 'Find the exit'
-  $('welcomeNextNote').textContent = remaining
-    ? 'Touch one to start a battle'
-    : mode === 'end' ? 'All room foes defeated' : 'Enter the open door'
-  $('roomTxt').textContent = room.name
+    : isMp ? `1v1 Match in ${mpState.arenaName || 'Cyber Arena'}.` : `Current room: ${room.name}.`
+  if ($('welcomeLevel')) $('welcomeLevel').textContent = String(level).padStart(2, '0')
+  if ($('welcomeQuest')) $('welcomeQuest').textContent = mode === 'end' ? `${room.name} complete` : room.name
+  if ($('welcomeProgress')) $('welcomeProgress').textContent = `${defeated} / ${totalPigs}`
+  if ($('welcomeProgressNote')) {
+    $('welcomeProgressNote').textContent = remaining
+      ? `${remaining} ${remaining === 1 ? 'virus' : 'viruses'} remaining`
+      : 'Room cleared'
+  }
+  if ($('welcomeNextAction')) {
+    $('welcomeNextAction').textContent = remaining
+      ? 'Find a virus'
+      : mode === 'end' ? 'Run complete' : 'Find the exit'
+  }
+  if ($('welcomeNextNote')) {
+    $('welcomeNextNote').textContent = remaining
+      ? 'Touch one to start a battle'
+      : mode === 'end' ? 'All room foes defeated' : 'Enter the open door'
+  }
+  $('roomTxt').textContent = isMp ? (mpState.arenaName || '1v1 Arena') : room.name
   $('roomTag').textContent = `ROOM ${String(level).padStart(2, '0')}`
   $('previewStatus').textContent = status
   $('previewHeading').textContent = mode === 'menu'
@@ -2166,9 +2777,9 @@ function renderDashboard() {
     : mode === 'battle' || mode === 'intro' ? 'Choose your move, then answer the question.'
     : `${remaining} ${remaining === 1 ? 'virus' : 'viruses'} remain. Defeat them to unlock the door.`
   $('accuracyNote').textContent = stats.total ? `${stats.correct} of ${stats.total} correct` : 'No battles yet'
-  $('playRoomTag').textContent = `ROOM ${String(level).padStart(2, '0')}`
-  $('playRoomName').textContent = room.name
-  $('playModeStatus').textContent = status
+  $('playRoomTag').textContent = isMp ? '1V1 DUEL' : `ROOM ${String(level).padStart(2, '0')}`
+  $('playRoomName').textContent = isMp ? `${mpState.arenaName || 'Cyber Arena'} (${mpState.roomCode || 'LIVE'})` : room.name
+  $('playModeStatus').textContent = isMp ? 'ONLINE DUEL' : status
   $('playPlayerHpText').textContent = `${hero.hp} / ${hero.maxHp}`
   updatePlayerHpMeter(Math.max(0, Math.min(100, (100 * hero.hp) / hero.maxHp)))
   $('playPlayerManaText').textContent = `${hero.mana} / ${hero.maxMana}`
@@ -2176,7 +2787,15 @@ function renderDashboard() {
   $('playPlayerMeta').textContent = `ATK ${hero.attack} · DEF ${hero.defense}`
   const activeEnemy = (mode === 'battle' || mode === 'intro') ? battle.enemy : null
   const remainingEnemies = enemies.filter((enemy) => enemy.alive).length
-  if (activeEnemy) {
+  if (activeEnemy && activeEnemy.isMultiplayerPlayer) {
+    const oppMana = activeEnemy.mana ?? 100
+    $('playEnemyName').textContent = activeEnemy.name.toUpperCase()
+    $('playEnemyHpText').textContent = `ROUND ${(typeof mpState !== 'undefined' ? mpState.round : 0) + 1}`
+    $('playEnemyLabel').textContent = 'Challenger health'
+    $('playEnemyHpValue').textContent = `${activeEnemy.hp} / ${activeEnemy.maxHp}`
+    $('playEnemyHpFill').style.width = `${Math.max(0, Math.min(100, (100 * activeEnemy.hp) / activeEnemy.maxHp))}%`
+    $('playEnemyMeta').textContent = `${oppMana} MP · ATK ${activeEnemy.attack} · DEF ${activeEnemy.defense}`
+  } else if (activeEnemy) {
     $('playEnemyName').textContent = activeEnemy.name.toUpperCase()
     $('playEnemyHpText').textContent = `${activeEnemy.turns} TURNS`
     $('playEnemyLabel').textContent = 'Enemy health'
@@ -2203,67 +2822,95 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
   if (view === 'rewards') return renderAchievements()
   if (view === 'leaderboards') return renderLeaderboard()
   if (view === 'settings') {
+    const syncText = !supabaseCredentials() || userSyncState === 'unconfigured'
+      ? 'Saved in this browser'
+      : userSyncState === 'syncing'
+        ? 'Syncing with cloud…'
+        : userSyncState === 'error'
+          ? 'Saved locally (cloud sync pending)'
+          : `Synced (${esc(activePlayerName || 'Player')})`
     return `<span class="eyebrow">Settings</span>
-      <h2>Make it yours</h2>
-      <p>Customize how the adventure looks and review your controls.</p>
-      <details class="settings-section settings-dropdown" open>
-        <summary>Appearance</summary>
-        <div class="settings-content">
-          <p>Use one theme for both the login screen and dashboard.</p>
-          <label class="theme-toggle theme-toggle-setting">
-            <span>Dark mode</span>
-            <input type="checkbox" role="switch" aria-label="Dark mode" data-theme-toggle ${currentTheme === 'dark' ? 'checked' : ''} />
-            <span class="theme-switch-track" aria-hidden="true"></span>
-          </label>
-          <label class="setting-row"><input id="reduceMotionToggle" type="checkbox" ${reduceMotion ? 'checked' : ''} /> Reduce animation and motion</label>
-        </div>
-      </details>
-      <details class="settings-section settings-dropdown" open>
-        <summary>Sound</summary>
-        <div class="settings-content">
-          <label class="setting-row"><input id="soundToggle" type="checkbox" ${Sound.enabled ? 'checked' : ''} /> Sound effects and music</label>
-          <div class="volume-control">
-            <div class="volume-control-heading">
-              <label for="musicVolumeSlider">Music volume</label>
-              <output id="musicVolumeValue" for="musicVolumeSlider">${Math.round(Sound.musicVolume * 100)}%</output>
-            </div>
-            <input id="musicVolumeSlider" type="range" min="0" max="100" step="1" value="${Math.round(Sound.musicVolume * 100)}" aria-describedby="musicVolumeHint" />
-            <small id="musicVolumeHint">Controls the dashboard and gameplay music.</small>
+      <h2>Game &amp; Profile Settings</h2>
+      <p class="achievement-summary">Adjust appearance, audio, controls, and your player profile.</p>
+      <div class="settings-grid">
+        <section class="settings-card tone-gold" aria-label="Appearance settings">
+          <header class="settings-card-head">
+            <span class="eyebrow">Display</span>
+            <h3>Appearance</h3>
+          </header>
+          <div class="settings-content">
+            <label class="theme-toggle theme-toggle-setting">
+              <span>Dark mode</span>
+              <input type="checkbox" role="switch" aria-label="Dark mode" data-theme-toggle ${currentTheme === 'dark' ? 'checked' : ''} />
+              <span class="theme-switch-track" aria-hidden="true"></span>
+            </label>
+            <label class="setting-row">
+              <span>Reduce animation &amp; motion</span>
+              <input id="reduceMotionToggle" type="checkbox" ${reduceMotion ? 'checked' : ''} />
+            </label>
           </div>
-          <div class="volume-control">
-            <div class="volume-control-heading">
-              <label for="soundEffectVolumeSlider">Sound effects volume</label>
-              <output id="soundEffectVolumeValue" for="soundEffectVolumeSlider">${Math.round(Sound.soundEffectVolume * 100)}%</output>
+        </section>
+
+        <section class="settings-card tone-blue" aria-label="Sound settings">
+          <header class="settings-card-head">
+            <span class="eyebrow">Audio</span>
+            <h3>Sound &amp; Volume</h3>
+          </header>
+          <div class="settings-content">
+            <label class="setting-row">
+              <span>Sound effects &amp; music</span>
+              <input id="soundToggle" type="checkbox" ${Sound.enabled ? 'checked' : ''} />
+            </label>
+            <div class="volume-control">
+              <div class="volume-control-heading">
+                <label for="musicVolumeSlider">Music volume</label>
+                <output id="musicVolumeValue" for="musicVolumeSlider">${Math.round(Sound.musicVolume * 100)}%</output>
+              </div>
+              <input id="musicVolumeSlider" type="range" min="0" max="100" step="1" value="${Math.round(Sound.musicVolume * 100)}" />
             </div>
-            <input id="soundEffectVolumeSlider" type="range" min="0" max="100" step="1" value="${Math.round(Sound.soundEffectVolume * 100)}" aria-describedby="soundEffectVolumeHint" />
-            <small id="soundEffectVolumeHint">Controls hover, click, and other sound effects.</small>
+            <div class="volume-control">
+              <div class="volume-control-heading">
+                <label for="soundEffectVolumeSlider">Sound effects volume</label>
+                <output id="soundEffectVolumeValue" for="soundEffectVolumeSlider">${Math.round(Sound.soundEffectVolume * 100)}%</output>
+              </div>
+              <input id="soundEffectVolumeSlider" type="range" min="0" max="100" step="1" value="${Math.round(Sound.soundEffectVolume * 100)}" />
+            </div>
           </div>
-        </div>
-      </details>
-      <details class="settings-section settings-dropdown">
-        <summary>Controls</summary>
-        <div class="settings-content">
-          <p><strong>Move:</strong> A / D &nbsp; <strong>Jump:</strong> W or Space</p>
-          <p><strong>Enter a door:</strong> Up or W nearby &nbsp; <strong>Battle cards and answers:</strong> 1-4</p>
-          <p><strong>Continue:</strong> Enter &nbsp; <strong>Pause / menu:</strong> Esc</p>
-          <p>On-screen controls appear on touch devices.</p>
-        </div>
-      </details>
-      <details class="settings-section settings-dropdown">
-        <summary>Profile settings</summary>
-        <div class="settings-content">
-          <p>Switch to another player profile without clearing its saved progress.</p>
-          <button class="leaderboard-action settings-profile-switch" id="switchProfileButton" type="button">Change player</button>
-          <p>Clear ${esc(activePlayerName || 'this player')}'s saved topic progress, skills, achievements, and current run. Other profiles and shared leaderboard entries will not be deleted.</p>
-          <button class="leaderboard-action settings-reset" id="resetProfileDataButton" type="button">Reset this profile's data</button>
-        </div>
-      </details>
-      <details class="settings-section settings-dropdown">
-        <summary>About CITCS Quest</summary>
-        <div class="settings-content">
-          <p>Learn to fight. Fight to learn. Answer questions, defeat viruses, and build your mastery across four disciplines.</p>
-        </div>
-      </details>`
+        </section>
+
+        <section class="settings-card tone-green" aria-label="Controls guide">
+          <header class="settings-card-head">
+            <span class="eyebrow">Keybinds</span>
+            <h3>Controls</h3>
+          </header>
+          <div class="settings-content">
+            <div class="settings-keybind-list">
+              <div class="settings-keybind-row"><span>Move left / right</span><span class="settings-keys"><kbd>A</kbd><kbd>D</kbd></span></div>
+              <div class="settings-keybind-row"><span>Jump</span><span class="settings-keys"><kbd>W</kbd><kbd>Space</kbd></span></div>
+              <div class="settings-keybind-row"><span>Enter door</span><span class="settings-keys"><kbd>Up</kbd><kbd>W</kbd></span></div>
+              <div class="settings-keybind-row"><span>Battle cards &amp; answers</span><span class="settings-keys"><kbd>1–4</kbd></span></div>
+              <div class="settings-keybind-row"><span>Continue / Menu</span><span class="settings-keys"><kbd>Enter</kbd><kbd>Esc</kbd></span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-card tone-red" aria-label="Player profile settings">
+          <header class="settings-card-head">
+            <span class="eyebrow">Account</span>
+            <h3>Player Profile</h3>
+          </header>
+          <div class="settings-content">
+            <div class="settings-profile-box">
+              <div class="settings-profile-row"><span>Active player</span><strong>${esc(activePlayerName || 'Knight')}</strong></div>
+              <div class="settings-profile-row"><span>Sync status</span><strong>${syncText}</strong></div>
+            </div>
+            <div class="settings-actions-row">
+              <button class="leaderboard-action settings-profile-switch" id="switchProfileButton" type="button">Switch Player</button>
+              <button class="leaderboard-action settings-reset" id="resetProfileDataButton" type="button">Reset Progress</button>
+            </div>
+          </div>
+        </section>
+      </div>`
   }
   const questTitle = mode === 'end' ? 'Kingdom cleared' : `Clear the ${room.name}`
   const step = remaining === totalPigs ? 1 : remaining > 0 ? 2 : 3
@@ -2292,6 +2939,10 @@ function resetCurrentProfileData() {
   if (!window.confirm(`Reset saved progress for ${activePlayerName}? This clears this profile's tracker, skills, achievements, and current run. It does not delete leaderboard entries or other profiles.`)) return
 
   try {
+    window.clearTimeout(userSyncTimer)
+    userSyncTimer = 0
+    window.clearTimeout(leaderboardSyncTimer)
+    leaderboardSyncTimer = 0
     for (const key of keysToReset) localStorage.removeItem(key)
     selectSkillProfile(profileId)
     selectAchievementProfile(profileId)
@@ -2301,10 +2952,12 @@ function resetCurrentProfileData() {
     resetRun()
     leaderboardRunId = createLeaderboardRunId()
     leaderboardRunSubmitted = false
+    leaderboardLastSubmittedSnapshot = ''
     leaderboardState = supabaseCredentials() ? 'idle' : 'unconfigured'
     leaderboardError = ''
     mode = 'menu'
     playViewActive = false
+    resetUserProfileInSupabase(activePlayerName)
     renderDashboard()
   } catch (error) {
     console.error('Unable to reset this player profile.', error)
@@ -2312,89 +2965,319 @@ function resetCurrentProfileData() {
   }
 }
 
+function getTopicBankCounts() {
+  const counts = {}
+  for (const [levelName, list] of Object.entries(QUESTION_BANK)) {
+    for (const q of list) {
+      counts[q.category] ||= { total: 0, easy: 0, medium: 0, hard: 0, topics: {} }
+      counts[q.category].total++
+      counts[q.category][levelName] = (counts[q.category][levelName] || 0) + 1
+      counts[q.category].topics[q.topic] ||= { total: 0, easy: 0, medium: 0, hard: 0 }
+      counts[q.category].topics[q.topic].total++
+      counts[q.category].topics[q.topic][levelName] = (counts[q.category].topics[q.topic][levelName] || 0) + 1
+    }
+  }
+  return counts
+}
+
+function buildCapabilityRadarSvg(disciplineMetrics) {
+  const size = 264
+  const cx = size / 2
+  const cy = size / 2
+  const maxR = 66
+  // 4 axes: Top (0), Right (1), Bottom (2), Left (3)
+  const angles = [-Math.PI / 2, 0, Math.PI / 2, Math.PI]
+  const shortLabels = ['COMP SYS', 'NET & SEC', 'PROGRAMMING', 'DATABASE']
+
+  const pointAt = (axisIndex, ratio) => {
+    const r = Math.max(0.08, Math.min(1, ratio)) * maxR
+    const a = angles[axisIndex]
+    return `${(cx + Math.cos(a) * r).toFixed(1)},${(cy + Math.sin(a) * r).toFixed(1)}`
+  }
+
+  const rings = [0.25, 0.5, 0.75, 1].map((step) => {
+    const pts = [0, 1, 2, 3].map((idx) => pointAt(idx, step)).join(' ')
+    return `<polygon class="cap-radar-grid" points="${pts}" />`
+  }).join('')
+
+  const axes = [0, 1, 2, 3].map((idx) => {
+    const end = pointAt(idx, 1)
+    const [ex, ey] = end.split(',')
+    return `<line class="cap-radar-axis" x1="${cx}" y1="${cy}" x2="${ex}" y2="${ey}" />`
+  }).join('')
+
+  const currentPoints = [0, 1, 2, 3].map((idx) => {
+    const metric = disciplineMetrics[idx]
+    const ratio = metric ? (metric.accuracyPct / 100) : 0.08
+    return pointAt(idx, ratio)
+  }).join(' ')
+
+  const dots = [0, 1, 2, 3].map((idx) => {
+    const metric = disciplineMetrics[idx]
+    const ratio = metric ? (metric.accuracyPct / 100) : 0.08
+    const [px, py] = pointAt(idx, ratio).split(',')
+    return `<rect class="cap-radar-vertex" x="${(Number(px) - 3.5).toFixed(1)}" y="${(Number(py) - 3.5).toFixed(1)}" width="7" height="7" />`
+  }).join('')
+
+  const labelCoords = [
+    { x: cx, y: 20, anchor: 'middle' },
+    { x: size - 6, y: cy + 4, anchor: 'end' },
+    { x: cx, y: size - 10, anchor: 'middle' },
+    { x: 6, y: cy + 4, anchor: 'start' },
+  ]
+  const labels = [0, 1, 2, 3].map((idx) => {
+    const metric = disciplineMetrics[idx]
+    const coord = labelCoords[idx]
+    const score = metric ? `${metric.accuracyPct}%` : '0%'
+    return `<text class="cap-radar-label" x="${coord.x}" y="${coord.y}" text-anchor="${coord.anchor}">${esc(shortLabels[idx])} (${score})</text>`
+  }).join('')
+
+  return `<svg class="cap-radar-svg" viewBox="0 0 ${size} ${size}" role="img" aria-label="Four-discipline capability radar chart">
+    ${rings}
+    ${axes}
+    <polygon class="cap-radar-area" points="${currentPoints}" />
+    ${dots}
+    ${labels}
+  </svg>`
+}
+
 function renderTopicTracker() {
   const categories = Object.entries(topicProgress).map(([category, topics]) => ({
     category,
     topics: Object.entries(topics),
   }))
+
   const totals = categories.reduce((summary, group) => {
     for (const [, result] of group.topics) {
-      summary.correct += result.correct
-      summary.attempted += result.attempted
+      summary.correct += result.correct || 0
+      summary.attempted += result.attempted || 0
+      summary.totalTopics += 1
+      const state = getTopicMasteryState(result)
+      if (state === 'mastered') summary.masteredTopics += 1
     }
     return summary
-  }, { correct: 0, attempted: 0 })
-  const overallAccuracy = totals.attempted
-    ? Math.round((100 * totals.correct) / totals.attempted)
-    : 0
+  }, {
+    correct: 0,
+    attempted: 0,
+    totalTopics: 0,
+    masteredTopics: 0,
+  })
 
-  const categoryCards = categories.map(({ category, topics }) => {
-    const categoryTotals = topics.reduce((summary, [, result]) => ({
-      correct: summary.correct + result.correct,
-      attempted: summary.attempted + result.attempted,
-    }), { correct: 0, attempted: 0 })
-    const categoryAccuracy = categoryTotals.attempted
-      ? Math.round((100 * categoryTotals.correct) / categoryTotals.attempted)
-      : 0
-    const topicRows = topics.map(([topic, result]) => {
+  const overallAccuracy = totals.attempted ? Math.round((100 * totals.correct) / totals.attempted) : 0
+  const totalKills = Math.max(stats.kills || 0, achievementProgress.kills || 0)
+
+  const disciplineColors = {
+    'Computer Systems': 'gold',
+    'Networking & Security': 'blue',
+    Programming: 'green',
+    Database: 'red',
+  }
+
+  const disciplineMetrics = categories.map(({ category, topics }) => {
+    const agg = topics.reduce((acc, [, result]) => {
+      acc.correct += result.correct || 0
+      acc.attempted += result.attempted || 0
+      const state = getTopicMasteryState(result)
+      if (state === 'mastered') acc.mastered += 1
+      return acc
+    }, { correct: 0, attempted: 0, mastered: 0 })
+
+    const accuracyPct = agg.attempted ? Math.round((100 * agg.correct) / agg.attempted) : 0
+    const adaptiveTier = adaptive.categoryDifficultyName(category).toUpperCase()
+
+    return {
+      category,
+      topics,
+      ...agg,
+      accuracyPct,
+      adaptiveTier,
+      color: disciplineColors[category] || 'gold',
+    }
+  })
+
+  const disciplineCardsHtml = disciplineMetrics.map((d) => {
+    return `<article class="cap-discipline-card tone-${esc(d.color)}">
+      <div class="cap-discipline-top">
+        <div>
+          <span class="cap-discipline-name">${esc(d.category)}</span>
+          <small class="cap-discipline-sub">${d.mastered} / ${d.topics.length} topics mastered · ${d.correct} / ${d.attempted} correct</small>
+        </div>
+        <span class="cap-tier-pill tier-${esc(d.adaptiveTier.toLowerCase())}">${esc(d.adaptiveTier)}</span>
+      </div>
+      <div class="cap-meter-row">
+        <div class="cap-score-bar" role="progressbar" aria-label="${esc(`${d.category} accuracy`)}" aria-valuenow="${d.accuracyPct}" aria-valuemin="0" aria-valuemax="100">
+          <i style="width:${d.accuracyPct}%"></i>
+        </div>
+        <strong class="cap-score-val">${d.accuracyPct}%</strong>
+      </div>
+    </article>`
+  }).join('')
+
+  const categoryCards = disciplineMetrics.map((d) => {
+    const topicRows = d.topics.map(([topic, result]) => {
       const percent = result.attempted
         ? Math.round((100 * result.correct) / result.attempted)
         : 0
-      return `<div class="tracker-topic">
-        <span class="tracker-topic-name">${esc(topic)}</span>
-        <div class="tracker-bar" role="progressbar" aria-label="${esc(`${topic} accuracy`)}" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"><i style="width:${percent}%"></i></div>
+      const capMeta = getTopicCapabilityMeta(result)
+      return `<div class="tracker-topic state-${esc(capMeta.tone)}">
+        <div class="tracker-topic-title">
+          <span class="tracker-topic-name">${esc(topic)}</span>
+          <span class="tracker-cap-badge badge-${esc(capMeta.tone)}">${esc(capMeta.label)}</span>
+        </div>
+        <div class="tracker-bar state-${esc(capMeta.tone)}" role="progressbar" aria-label="${esc(`${topic} accuracy`)}" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"><i style="width:${percent}%"></i></div>
         <span class="tracker-topic-count">${result.correct} / ${result.attempted} correct</span>
         <strong class="tracker-topic-percent">${percent}%</strong>
       </div>`
     }).join('')
-    return `<details class="tracker-category">
+    return `<details class="tracker-category" open>
       <summary class="tracker-category-header">
-        <h3>${esc(category)}</h3>
-        <span>${categoryTotals.correct} / ${categoryTotals.attempted} correct · ${categoryAccuracy}% accuracy</span>
+        <div class="tracker-cat-heading">
+          <h3>${esc(d.category)}</h3>
+          <span class="cap-tier-pill tier-${esc(d.adaptiveTier.toLowerCase())}">${esc(d.adaptiveTier)}</span>
+        </div>
+        <span>${d.mastered}/${d.topics.length} mastered · ${d.correct}/${d.attempted} correct (${d.accuracyPct}%)</span>
       </summary>
       ${topicRows}
     </details>`
   }).join('')
 
-  return `<div class="tracker-summary" aria-label="Overall quiz results">
-      <article class="tracker-stat"><span>Overall answered</span><strong>${totals.attempted}</strong></article>
-      <article class="tracker-stat"><span>Overall accuracy</span><strong>${overallAccuracy}%</strong></article>
-      <article class="tracker-stat"><span>Correct answers</span><strong>${totals.correct}</strong></article>
+  return `<span class="eyebrow">Learning Tracker</span>
+    <h2>Your Topic Progress</h2>
+    <p class="achievement-summary">Track your accuracy and mastery across all four disciplines.</p>
+    <div class="tracker-summary" aria-label="Overall quiz results">
+      <article class="tracker-stat">
+        <span>Overall Accuracy</span>
+        <strong>${overallAccuracy}%</strong>
+        <small>${totals.correct} of ${totals.attempted} correct answers</small>
+      </article>
+      <article class="tracker-stat">
+        <span>Topics Mastered</span>
+        <strong>${totals.masteredTopics} / ${totals.totalTopics}</strong>
+        <small>80%+ accuracy with 3+ answers</small>
+      </article>
+      <article class="tracker-stat">
+        <span>Viruses Defeated</span>
+        <strong>${totalKills}</strong>
+        <small>Across your adventures</small>
+      </article>
     </div>
+
+    <section class="cap-overview-grid" aria-label="Discipline capability overview">
+      <div class="cap-radar-box">
+        <div class="cap-panel-head">
+          <span class="eyebrow">Discipline radar</span>
+          <h3>Capability Shape</h3>
+        </div>
+        ${buildCapabilityRadarSvg(disciplineMetrics)}
+      </div>
+      <div class="cap-discipline-grid tracker-disciplines-overview" aria-label="Discipline overview">
+        ${disciplineCardsHtml}
+      </div>
+    </section>
+
     <header class="tracker-heading">
-      <span class="eyebrow">What you practiced</span>
-      <h2>Topic results</h2>
+      <h2>Topics by Discipline</h2>
     </header>
-    <div class="tracker-categories">${categoryCards}</div>
-    <details class="tracker-category review-queue">
-      <summary class="tracker-category-header">
-        <h3>Review queue</h3>
-        <span>${reviewQueue.length} waiting</span>
-      </summary>
-      <p class="tracker-empty">${reviewQueue.length ? 'Questions you missed come back during adaptive battles.' : 'Questions you miss will show up here so you can review them.'}</p>
-    </details>`
+    <div class="tracker-categories">${categoryCards}</div>`
 }
 
 // One entry point for every Play / Resume button.
+let navMenuOpen = false
+function setNavMenuOpen(open) {
+  navMenuOpen = Boolean(open)
+  const appEl = document.getElementById('app')
+  const toggleBtn = document.getElementById('navToggleButton')
+  if (appEl) appEl.classList.toggle('is-nav-open', navMenuOpen)
+  if (toggleBtn) toggleBtn.setAttribute('aria-expanded', String(navMenuOpen))
+}
+function toggleNavMenu() {
+  setNavMenuOpen(!navMenuOpen)
+}
+
 function enterPlay() {
-  if (mode === 'menu' || mode === 'end') startGame()
-  else {
+  setNavMenuOpen(false)
+  if (
+    mode === 'menu' ||
+    mode === 'end' ||
+    hero.hp <= 0 ||
+    (mode === 'battle' && (battle.phase === 'dying' || battle.phase === 'lost'))
+  ) {
+    startGame()
+  } else {
     playViewActive = true
     resumeMusic()
     renderDashboard()
   }
 }
 
+window.mpUI = (typeof MultiplayerUI === 'function' && document.getElementById('multiplayerOverlay'))
+  ? new MultiplayerUI(document.getElementById('multiplayerOverlay'), {
+      onBackToMenu: () => {
+        syncAnimationLoop()
+        renderDashboard()
+      },
+      onLaunchMatch: (matchConfig, role, clientId) => {
+        if (typeof startMultiplayerMatch === 'function') {
+          startMultiplayerMatch(matchConfig, role, clientId)
+        }
+        showPlayView()
+      },
+    })
+  : null
+
+if (window.mpUI?.matchmaking) {
+  window.mpUI.matchmaking.onMatchMove((payload) => {
+    if (typeof mpReceiveRemoteMove === 'function') mpReceiveRemoteMove(payload)
+  })
+  window.mpUI.matchmaking.onMatchForfeit((payload) => {
+    if (typeof mpHandleForfeit === 'function') mpHandleForfeit(payload)
+  })
+}
+
 document.getElementById('startGameButton').addEventListener('click', enterPlay)
+const multiplayerMenuBtn = document.getElementById('multiplayerMenuButton')
+if (multiplayerMenuBtn) {
+  multiplayerMenuBtn.addEventListener('click', () => {
+    setNavMenuOpen(false)
+    window.mpUI?.open('browser')
+    syncAnimationLoop()
+  })
+}
+const settingsMenuBtn = document.getElementById('settingsMenuButton')
+if (settingsMenuBtn) {
+  settingsMenuBtn.addEventListener('click', () => {
+    setNavMenuOpen(false)
+    if (playViewActive) showDashboard('settings')
+    else {
+      dashboardView = 'settings'
+      renderDashboard()
+    }
+  })
+}
+const exitGameBtn = document.getElementById('exitGameButton')
+if (exitGameBtn) {
+  exitGameBtn.addEventListener('click', () => {
+    setNavMenuOpen(false)
+    switchPlayerProfile()
+    try { window.close() } catch {}
+  })
+}
 document.getElementById('practiceModeButton').addEventListener('click', startPracticeAdventure)
-document.getElementById('exitPlayButton').addEventListener('click', showDashboard)
+document.getElementById('exitPlayButton').addEventListener('click', () => showDashboard())
 document.getElementById('dashboardAside').addEventListener('click', (event) => {
+  const focusBtn = event.target.closest('[data-adaptive-focus]')
+  if (focusBtn) {
+    const val = focusBtn.dataset.adaptiveFocus
+    adaptive.setFocusCategory(val === 'all' ? null : val)
+    renderHud()
+    return
+  }
   if (event.target.closest('#switchProfileButton')) {
     switchPlayerProfile()
+  } else if (event.target.closest('#syncProfileNowButton')) {
+    syncUserOnLogin(activePlayerName, activePlayerName.toLowerCase())
   } else if (event.target.closest('[data-leaderboard-refresh]')) {
     loadLeaderboard()
-  } else if (event.target.closest('[data-leaderboard-submit]')) {
-    submitLeaderboardRun()
   } else if (event.target.closest('#resetProfileDataButton')) {
     resetCurrentProfileData()
   }
@@ -2411,14 +3294,45 @@ fullscreenButton.addEventListener('click', toggleFullscreen)
 document.addEventListener('fullscreenchange', () => {
   fullscreenButton.textContent = document.fullscreenElement ? 'Exit full' : 'Fullscreen'
 })
+const navToggleButton = document.getElementById('navToggleButton')
+if (navToggleButton) {
+  navToggleButton.addEventListener('click', (event) => {
+    event.stopPropagation()
+    toggleNavMenu()
+  })
+}
+const navBackdropEl = document.getElementById('navBackdrop')
+if (navBackdropEl) {
+  navBackdropEl.addEventListener('click', () => {
+    setNavMenuOpen(false)
+  })
+}
+
 document.querySelectorAll('[data-view]').forEach((button) => {
   button.addEventListener('click', () => {
+    setNavMenuOpen(false)
+    if (button.dataset.view === 'multiplayer') {
+      window.mpUI?.open('browser')
+      syncAnimationLoop()
+      return
+    }
     if (button.dataset.view === 'skilltree') {
       openSkillTree()
       return
     }
     if (!playViewActive && button.dataset.view === dashboardView) return
     if (skillTreeOpen) closeSkillTree()
+    if (typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive) {
+      showDashboard(button.dataset.view)
+      return
+    }
+    if (practiceRunActive) {
+      restorePracticeReturnState()
+    } else if (playViewActive) {
+      submitLeaderboardRun({ skipReload: true })
+      pushUserProfileToSupabase()
+      resetDeadRunToMenu()
+    }
     playViewActive = false
     dashboardView = button.dataset.view
     renderDashboard()
@@ -2429,9 +3343,20 @@ document.querySelectorAll('[data-view]').forEach((button) => {
     if (dashboardView === 'leaderboards') loadLeaderboard()
   })
 })
+window.addEventListener('pagehide', () => {
+  if (!practiceRunActive && hasRecordableGameplayRun()) {
+    submitLeaderboardRun({ skipReload: true })
+  }
+})
 window.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return
-  if (skillTreeOpen) closeSkillTree()
+  if (window.mpUI?.isOpen) {
+    window.mpUI.closeAndReturnToMenu()
+    syncAnimationLoop()
+    return
+  }
+  if (navMenuOpen) setNavMenuOpen(false)
+  else if (skillTreeOpen) closeSkillTree()
   else if (playViewActive) showDashboard()
 })
 document.addEventListener('change', (event) => {
@@ -2523,6 +3448,10 @@ document.getElementById('loginForm').addEventListener('submit', (event) => {
     selectedSkillNode = null
     skillMapPan = null
     activePlayerName = profile.name
+    window.activePlayerName = activePlayerName
+    leaderboardRunId = createLeaderboardRunId()
+    leaderboardRunSubmitted = false
+    leaderboardLastSubmittedSnapshot = ''
     mode = 'menu'
     dashboardView = 'quest'
     playViewActive = false
@@ -2532,6 +3461,8 @@ document.getElementById('loginForm').addEventListener('submit', (event) => {
     app.hidden = false
     renderDashboard()
     Sound.music('dashboard')
+    syncUserOnLogin(profile.name, profile.id)
+    window.mpUI?.initIdentity(profile.name)
   } catch (error) {
     console.error('Unable to open the player profile.', error)
     loginError.textContent = 'Unable to save or load this profile in browser storage.'
@@ -2539,7 +3470,16 @@ document.getElementById('loginForm').addEventListener('submit', (event) => {
 })
 
 function switchPlayerProfile() {
+  if (!practiceRunActive && hasRecordableGameplayRun()) {
+    submitLeaderboardRun({ skipReload: true })
+  }
+  pushUserProfileToSupabase()
   if (skillTreeOpen) closeSkillTree()
+  if (window.mpUI) {
+    window.mpUI.closeOverlayOnly()
+    window.mpUI.matchmaking?.leaveCurrentRoom()
+  }
+  if (typeof endMultiplayerMatchState === 'function') endMultiplayerMatchState()
   mode = 'menu'
   playViewActive = false
   keys.w.pressed = false
@@ -2566,6 +3506,7 @@ function shouldAnimate() {
   return !app.hidden &&
     document.visibilityState === 'visible' &&
     !skillTreeOpen &&
+    !window.mpUI?.isOpen &&
     (playViewActive || mode === 'menu')
 }
 
