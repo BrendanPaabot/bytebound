@@ -488,7 +488,7 @@
       slot.ready = !slot.ready;
       this.notifyChange();
       await this.network.sendReady(room.code, slot.ready);
-      if (isHost && !this.network.localServerAvailable) {
+      if (isHost) {
         await this.network.syncRoomSnapshot(room);
       }
     }
@@ -508,9 +508,7 @@
         arenaName: room.arenaName,
         category: room.category,
       });
-      if (!this.network.localServerAvailable) {
-        await this.network.syncRoomSnapshot(room, 'Match settings updated. Ready status reset.');
-      }
+      await this.network.syncRoomSnapshot(room, 'Match settings updated. Ready status reset.');
     }
 
     canStartMatch() {
@@ -659,7 +657,7 @@
       }
       await this.network.updatePresence({ status: 'In Lobby', roomCode: room.code });
       await this.network.sendReturnToLobby(room.code);
-      if (this.role === 'host' && !this.network.localServerAvailable) {
+      if (this.role === 'host') {
         await this.network.syncRoomSnapshot(room);
       }
       this.notifyChange();

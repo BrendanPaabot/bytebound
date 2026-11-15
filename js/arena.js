@@ -1,6 +1,6 @@
 // ===== Battle arena =====
-const HERO_SPOT = { x: 300, y: 418 };
-const FOE_SPOT = { x: 760, y: 418 };
+const HERO_SPOT = { x: 300, y: 454 };
+const FOE_SPOT = { x: 760, y: 454 };
 const motes = Array.from({ length: 28 }, () => ({ x: Math.random() * 1024, y: Math.random() * 576, s: 0.3 + Math.random() * 0.7 }));
 const fxParticles = [];
 const ARENA_THEMES = {

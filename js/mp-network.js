@@ -73,6 +73,8 @@
       this.disconnectTimers = new Map();
       this.lastSeenByClient = new Map();
       this.beforeUnloadBound = false;
+      this.lastEmittedStateKey = '';
+      this.sbTickCount = 0;
     }
 
     recordPeerSeen(clientId) {
@@ -516,6 +518,11 @@
               try {
                 await channel.track(this.buildPresencePayload());
               } catch {}
+              // If user already created/joined a room before Supabase finished connecting, join its room channel now.
+              if (this.activeRoomSnapshot && this.activeRoomSnapshot.code) {
+                const asHost = this.activeRoomSnapshot.host?.clientId === this.clientId;
+                this.joinSupabaseRoomChannel(this.activeRoomSnapshot.code, asHost).catch(() => {});
+              }
               this.updateConnectionState();
               this.syncSupabasePresence();
               resolve(true);
@@ -536,10 +543,12 @@
       const state = this.sbLobbyChannel.presenceState();
       const players = [];
       const livePublic = new Map();
+      const presentIds = new Set();
       for (const [key, metas] of Object.entries(state || {})) {
         const meta = Array.isArray(metas) && metas.length ? metas[metas.length - 1] : null;
         if (!meta || !meta.clientId) continue;
         const cid = meta.clientId || key;
+        presentIds.add(cid);
         this.recordPeerSeen(cid);
         players.push({
           clientId: cid,
@@ -550,8 +559,14 @@
           receivedAt: Date.now(),
           source: 'supabase',
         });
-        if (meta.hostingPublicRoom && meta.hostingPublicRoom.code) {
+        if (meta.hostingPublicRoom && meta.hostingPublicRoom.code && !this.closedCodes.has(meta.hostingPublicRoom.code)) {
           livePublic.set(meta.hostingPublicRoom.code, meta.hostingPublicRoom);
+        }
+      }
+      // Preserve broadcast/DB rooms whose host is still present or recently seen, unless explicitly closed/removed.
+      for (const [code, room] of this.supabasePublicRooms.entries()) {
+        if (!livePublic.has(code) && !this.closedCodes.has(code) && (!room.hostClientId || presentIds.has(room.hostClientId))) {
+          livePublic.set(code, room);
         }
       }
       this.supabasePlayers = players;
@@ -805,10 +820,14 @@
         if (this.bc) {
           this.postBroadcast('bc_presence', null, payload);
         }
+        this.sbTickCount = (this.sbTickCount || 0) + 1;
+        if (this.sbLobbyChannel && this.sbConnected && this.sbTickCount % 5 === 0) {
+          try { this.sbLobbyChannel.track(payload); } catch {}
+        }
       }, 2200);
     }
 
-    emitMergedState() {
+    emitMergedState(force = false) {
       const playerMap = new Map();
       // Local self is always accurate immediately
       playerMap.set(this.clientId, {
@@ -843,10 +862,16 @@
         }
       }
 
-      this.emit('state', {
-        players: [...playerMap.values()],
-        publicRooms: [...publicRoomMap.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
+      const players = [...playerMap.values()];
+      const publicRooms = [...publicRoomMap.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      const stateKey = JSON.stringify({
+        players: players.map((p) => [p.clientId, p.username, p.avatar, p.status, p.roomCode || null, p.isSelf]),
+        rooms: publicRooms.map((r) => [r.code, r.hostName, r.hostAvatar, r.arenaId, r.category, r.status, r.playerCount]),
       });
+      if (!force && stateKey === this.lastEmittedStateKey) return;
+      this.lastEmittedStateKey = stateKey;
+
+      this.emit('state', { players, publicRooms });
     }
 
     async refresh() {

@@ -132,6 +132,8 @@
       this.copyFeedback = false;
       this.copyTimer = 0;
       this.selectedAvatar = 'cpu';
+      this.lastRenderedHtml = '';
+      this.deferredRender = false;
       this.snapshot = this.matchmaking.getSnapshot();
 
       this.matchmaking.subscribe((snap) => {
@@ -345,8 +347,21 @@
           const res = await this.matchmaking.joinRoomByCode(this.inviteCodeDraft);
           if (!res.ok) {
             this.joinError = res.error || 'Invalid invitation code.';
-            this.render();
+            this.render(true);
           }
+        }
+      });
+
+      this.overlay.addEventListener('focusout', () => {
+        if (this.deferredRender && this.isOpen) {
+          global.setTimeout(() => {
+            if (!this.isOpen) return;
+            const active = document.activeElement;
+            if (!active || !this.overlay.contains(active) || (active.tagName !== 'INPUT' && active.tagName !== 'SELECT')) {
+              this.deferredRender = false;
+              this.render(true);
+            }
+          }, 0);
         }
       });
     }
@@ -749,8 +764,15 @@
       `;
     }
 
-    render() {
+    render(force = false) {
       if (!this.overlay) return;
+      const active = document.activeElement;
+      if (!force && active && this.overlay.contains(active) && (active.tagName === 'INPUT' || active.tagName === 'SELECT')) {
+        // Avoid destroying an active input/select dropdown mid-interaction; re-render on blur/change.
+        this.deferredRender = true;
+        return;
+      }
+
       let body = '';
       if (this.snapshot.currentRoom || this.subview === 'room') {
         body = this.renderRoomView();
@@ -762,7 +784,7 @@
         body = this.renderBrowserView();
       }
 
-      this.overlay.innerHTML = `
+      const nextHtml = `
         <div class="mp-shell" role="dialog" aria-modal="true" aria-labelledby="mpOverlayTitle">
           ${this.renderHeader()}
           ${this.renderInviteBanner()}
@@ -770,6 +792,10 @@
           <div class="mp-body">${body}</div>
         </div>
       `;
+      if (!force && nextHtml === this.lastRenderedHtml) return;
+      this.lastRenderedHtml = nextHtml;
+      this.deferredRender = false;
+      this.overlay.innerHTML = nextHtml;
     }
   }
 
