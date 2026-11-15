@@ -1482,8 +1482,12 @@ function drawIntro() {
   if (t >= INTRO_END) {
     snapshot = null
     mode = 'battle'
-    battle.phase = 'choose'
-    renderBattle()
+    if (typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive && typeof mpIsMyTurn === 'function' && !mpIsMyTurn()) {
+      renderMultiplayerWaiting()
+    } else {
+      battle.phase = 'choose'
+      renderBattle()
+    }
   }
 }
 
@@ -2050,6 +2054,27 @@ function drawBattle() {
   drawFx()
   drawPopups()
   c.restore()
+  if (typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive && typeof mpState !== 'undefined' && b.phase !== 'mp_dying' && b.phase !== 'mp_won' && b.phase !== 'mp_lost') {
+    const myTurn = typeof mpIsMyTurn === 'function' && mpIsMyTurn() && b.phase !== 'mp_waiting'
+    const turnLabel = myTurn
+      ? `> YOUR TURN  //  TURN ${mpState.round + 1}`
+      : `WAIT: ${String(mpState.opponentName || 'OPPONENT').toUpperCase()}'S TURN  //  TURN ${mpState.round + 1}`
+    c.save()
+    c.font = '10px "Press Start 2P", monospace'
+    const tw = Math.max(280, c.measureText(turnLabel).width + 32)
+    const tx = Math.round((canvas.width - tw) / 2)
+    const ty = 14
+    c.fillStyle = 'rgba(13, 18, 22, 0.88)'
+    c.fillRect(tx, ty, tw, 28)
+    c.strokeStyle = myTurn ? '#f2bb61' : '#6fe3e8'
+    c.lineWidth = 2
+    c.strokeRect(tx, ty, tw, 28)
+    c.fillStyle = myTurn ? '#f2bb61' : '#6fe3e8'
+    c.textAlign = 'center'
+    c.textBaseline = 'middle'
+    c.fillText(turnLabel, canvas.width / 2, ty + 15)
+    c.restore()
+  }
   if (b.lungeT > 0) b.lungeT -= 0.04
   if (b.enemyLungeT > 0) b.enemyLungeT -= 0.04
   if (b.hitT > 0) b.hitT = Math.max(0, b.hitT - 0.065)

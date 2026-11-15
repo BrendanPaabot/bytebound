@@ -39,7 +39,7 @@
   }
 
   function buildSynchronizedQuestionPool(category) {
-    const bank = global.QUESTION_BANK || { easy: [], medium: [], hard: [] };
+    const bank = (typeof QUESTION_BANK !== 'undefined' ? QUESTION_BANK : global.QUESTION_BANK) || { easy: [], medium: [], hard: [] };
     const collect = [];
     for (const [difficulty, list] of Object.entries(bank)) {
       if (!Array.isArray(list)) continue;
@@ -72,7 +72,7 @@
         }
       }
     }
-    return shuffleArray(collect).slice(0, 40);
+    return shuffleArray(collect);
   }
 
   class MultiplayerMatchmaking {

@@ -861,8 +861,9 @@ function renderBattle() {
   }).join('');
   if (multiplayerMatchActive) {
     setPanel(`<div class="battle-bar-head">
+        <span class="mp-turn-pill is-yours">YOUR TURN</span>
         <span class="log">${esc(battle.log)}</span>
-        <span class="intent">VS ${esc(mpState.opponentName)} · Round ${mpState.round + 1}</span>
+        <span class="intent">VS ${esc(mpState.opponentName)} · Turn ${mpState.round + 1}</span>
         <span class="dim">Room: ${esc(mpState.roomCode)} · Equal Stats</span>
         <button type="button" class="mp-inline-forfeit" data-act="mp-forfeit">Forfeit</button>
       </div>
@@ -1022,6 +1023,7 @@ function startBattle(enemy) {
 
 function chooseCard(index) {
   if (battle.phase !== 'choose') return;
+  if (multiplayerMatchActive && !mpIsMyTurn()) return;
   const id = battle.hand[index];
   const card = id && CARD_LIBRARY[id];
   if (!card) return;
@@ -1251,16 +1253,25 @@ function continueBattle() {
       mpTriggerFinishSequence();
       return;
     }
-    mpState.round++;
     if (battle.defendUsedThisTurn) {
       battle.defendUsedThisTurn = false;
     } else if (battle.defendCooldownTurns > 0) {
       battle.defendCooldownTurns--;
     }
     battle.hand = [...STARTING_DECK];
-    battle.phase = 'choose';
-    battle.log = `Round ${mpState.round + 1} — Choose your move!`;
-    renderBattle();
+    const activeRole = mpActiveRole(mpState.round);
+    const queuedMove = mpState.movesByRound[mpState.round]?.[activeRole];
+    if (queuedMove) {
+      mpResolveTurn(mpState.round, queuedMove);
+      return;
+    }
+    if (mpIsMyTurn()) {
+      battle.phase = 'choose';
+      battle.log = `Turn ${mpState.round + 1} — Your turn! Choose your move.`;
+      renderBattle();
+    } else {
+      renderMultiplayerWaiting();
+    }
     return;
   }
   if (battle.enemy.hp <= 0) return winBattle();
@@ -1373,6 +1384,14 @@ function showHealFeedback(amount, options = {}) {
 }
 
 // ===== 1v1 Online Multiplayer Combat =====
+function mpActiveRole(turn = mpState.round) {
+  return turn % 2 === 0 ? 'host' : 'guest';
+}
+
+function mpIsMyTurn() {
+  return Boolean(multiplayerMatchActive && mpActiveRole(mpState.round) === mpState.role);
+}
+
 function mpGetQuestionForRound(round) {
   if (Array.isArray(mpState.questions) && mpState.questions.length > 0) {
     return mpState.questions[round % mpState.questions.length];
@@ -1503,7 +1522,9 @@ function startMultiplayerMatch(matchConfig, role, selfClientId) {
     heroHitT: 0, heroHitTintT: 0, heroKnockbackT: -1,
     deathTimer: 0, enemyAttackedThisTurn: false,
     flash: { hero: 0, enemy: 0 }, fromReview: false, newUnlocks: [],
-    log: `1v1 Duel vs ${foe.name} — Equal stats & synced questions!`,
+    log: mpState.role === 'host'
+      ? `Turn 1: YOUR TURN vs ${foe.name} — Choose your move!`
+      : `Turn 1: ${foe.name}'s turn — Waiting for opponent...`,
   });
 
   if (typeof playViewActive !== 'undefined' && !playViewActive && typeof showPlayView === 'function') {
@@ -1516,22 +1537,22 @@ function startMultiplayerMatch(matchConfig, role, selfClientId) {
 
 function renderMultiplayerWaiting() {
   battle.phase = 'mp_waiting';
-  const cardName = (CARD_LIBRARY[battle.card] && CARD_LIBRARY[battle.card].name) || 'Move';
   setPanel(`<div class="battle-feedback-row">
     <div class="battle-feedback-copy">
-      <p><strong class="ok">Round ${mpState.round + 1} locked in: ${esc(cardName)}.</strong></p>
-      <p class="log">Waiting for ${esc(mpState.opponentName)} to finish Round ${mpState.round + 1}...</p>
+      <p><span class="mp-turn-pill is-theirs">OPPONENT'S TURN</span> <strong>Turn ${mpState.round + 1}: ${esc(mpState.opponentName)} is acting...</strong></p>
+      <p class="log">Wait for ${esc(mpState.opponentName)} to choose an action and answer their question.</p>
     </div>
     <button type="button" class="mp-inline-forfeit" data-act="mp-forfeit">Forfeit Match</button>
   </div>`);
 }
 
 function mpSubmitLocalMove(correct) {
-  const round = mpState.round;
+  const turn = mpState.round;
   const role = mpState.role === 'guest' ? 'guest' : 'host';
+  if (mpActiveRole(turn) !== role) return;
   const movePayload = {
     matchId: mpState.matchId,
-    round,
+    round: turn,
     role,
     clientId: mpState.selfClientId,
     cardId: battle.card,
@@ -1540,19 +1561,14 @@ function mpSubmitLocalMove(correct) {
     elapsedMs: Math.max(0, Math.round(performance.now() - (mpState.questionStartedAt || performance.now()))),
   };
 
-  if (!mpState.movesByRound[round]) mpState.movesByRound[round] = {};
-  mpState.movesByRound[round][role] = movePayload;
+  if (!mpState.movesByRound[turn]) mpState.movesByRound[turn] = {};
+  mpState.movesByRound[turn][role] = movePayload;
 
   if (window.mpUI?.matchmaking) {
     window.mpUI.matchmaking.sendMatchMove(movePayload);
   }
 
-  const pair = mpState.movesByRound[round];
-  if (pair.host && pair.guest) {
-    mpResolveRound(round);
-  } else {
-    renderMultiplayerWaiting();
-  }
+  mpResolveTurn(turn, movePayload);
 }
 
 function mpReceiveRemoteMove(payload) {
@@ -1565,98 +1581,74 @@ function mpReceiveRemoteMove(payload) {
     : (mpState.role === 'host' ? 'guest' : 'host');
   if (moveRole === mpState.role) return;
 
-  const round = Number(payload.round);
-  if (!Number.isFinite(round)) return;
+  const turn = Number(payload.round);
+  if (!Number.isFinite(turn)) return;
+  if (mpActiveRole(turn) !== moveRole) return;
 
-  if (!mpState.movesByRound[round]) mpState.movesByRound[round] = {};
-  mpState.movesByRound[round][moveRole] = payload;
+  if (!mpState.movesByRound[turn]) mpState.movesByRound[turn] = {};
+  mpState.movesByRound[turn][moveRole] = payload;
 
-  const pair = mpState.movesByRound[round];
-  if (round === mpState.round && pair.host && pair.guest) {
-    mpResolveRound(round);
+  if (turn === mpState.round && battle.phase !== 'feedback') {
+    mpResolveTurn(turn, payload);
   }
 }
 
-function mpResolveRound(round) {
-  if (!multiplayerMatchActive || mpState.resolvedRounds.has(round)) return;
-  const pair = mpState.movesByRound[round];
-  if (!pair || !pair.host || !pair.guest) return;
-  mpState.resolvedRounds.add(round);
+function mpResolveTurn(turn, move) {
+  if (!multiplayerMatchActive || mpState.resolvedRounds.has(turn) || !move) return;
+  const actorRole = mpActiveRole(turn);
+  const defRole = actorRole === 'host' ? 'guest' : 'host';
+  if (move.role !== actorRole) return;
+  mpState.resolvedRounds.add(turn);
 
-  const fighters = mpState.fighters;
-  const roles = ['host', 'guest'];
-  const summary = { host: { heal: 0, dmgTaken: 0, dmgDealt: 0, glitch: 0 }, guest: { heal: 0, dmgTaken: 0, dmgDealt: 0, glitch: 0 } };
+  const actor = mpState.fighters[actorRole];
+  const defender = mpState.fighters[defRole];
+  const card = CARD_LIBRARY[move.cardId] || CARD_LIBRARY.strike;
 
-  // Phase A: Deterministic mana spend, block stance, streak, and heals
-  for (const r of roles) {
-    const f = fighters[r];
-    const mv = pair[r];
-    const card = CARD_LIBRARY[mv.cardId] || CARD_LIBRARY.strike;
-    f.mana = Math.max(0, f.mana - (Number(mv.cardCost) || 0));
-    f.block = 0;
+  actor.mana = Math.max(0, actor.mana - (Number(move.cardCost) || 0));
+  actor.block = 0;
 
-    let focusHeal = 0;
-    let manaGain = 0;
-    let cardHeal = 0;
-    if (mv.correct) {
-      f.streak++;
-      f.correct++;
-      focusHeal = 4 + 2 * Math.min(f.streak, 5);
-      manaGain = 5 + (card.manaOnCorrect || 0) + (card.kind === 'charge' ? 25 : 0);
-      cardHeal = card.kind === 'heal' ? card.heal : 0;
-      f.block = card.kind === 'defend' ? 0.75 : 0;
-    } else {
-      f.streak = 0;
-      manaGain = card.kind === 'charge' ? 10 : 0;
-      cardHeal = card.kind === 'heal' ? 2 : 0;
-      f.block = card.kind === 'defend' ? 0.25 : 0;
-    }
-
-    f.mana = Math.min(f.maxMana, f.mana + manaGain);
-    const hpBefore = f.hp;
-    f.hp = Math.min(f.maxHp, f.hp + focusHeal + cardHeal);
-    summary[r].heal = f.hp - hpBefore;
+  let focusHeal = 0;
+  let manaGain = 0;
+  let cardHeal = 0;
+  if (move.correct) {
+    actor.streak++;
+    actor.correct++;
+    focusHeal = 4 + 2 * Math.min(actor.streak, 5);
+    manaGain = 5 + (card.manaOnCorrect || 0) + (card.kind === 'charge' ? 25 : 0);
+    cardHeal = card.kind === 'heal' ? card.heal : 0;
+    actor.block = card.kind === 'defend' ? 0.75 : 0;
+  } else {
+    actor.streak = 0;
+    manaGain = card.kind === 'charge' ? 10 : 0;
+    cardHeal = card.kind === 'heal' ? 2 : 0;
+    actor.block = card.kind === 'defend' ? 0.25 : 0;
   }
 
-  // Phase B: Simultaneous attack resolution and wrong-answer glitch recoil
-  const combatPairs = [['host', 'guest'], ['guest', 'host']];
-  const rawAttacks = {};
-  for (const [atkRole, defRole] of combatPairs) {
-    const atk = fighters[atkRole];
-    const def = fighters[defRole];
-    const mv = pair[atkRole];
-    const card = CARD_LIBRARY[mv.cardId] || CARD_LIBRARY.strike;
-    let dmg = 0;
-    if (card.kind === 'hit' && mv.correct) {
-      const raw = Math.round(atk.attack * card.power * (card.correctMult || 1));
-      const afterDef = Math.max(1, raw - def.defense);
-      dmg = Math.max(1, Math.round(afterDef * (1 - def.block)));
-    }
-    rawAttacks[atkRole] = dmg;
+  actor.mana = Math.min(actor.maxMana, actor.mana + manaGain);
+  const hpBefore = actor.hp;
+  actor.hp = Math.min(actor.maxHp, actor.hp + focusHeal + cardHeal);
+  const healAmt = actor.hp - hpBefore;
+
+  let dmgDealt = 0;
+  if (card.kind === 'hit' && move.correct) {
+    const raw = Math.round(actor.attack * card.power * (card.correctMult || 1));
+    const afterDef = Math.max(1, raw - defender.defense);
+    dmgDealt = Math.max(1, Math.round(afterDef * (1 - (defender.block || 0))));
+    defender.block = 0;
+    defender.hp = Math.max(0, defender.hp - dmgDealt);
+    actor.damageDealt += dmgDealt;
   }
 
-  for (const [atkRole, defRole] of combatPairs) {
-    const def = fighters[defRole];
-    const defMove = pair[defRole];
-    const incoming = rawAttacks[atkRole];
-    const glitch = defMove.correct ? 0 : 5;
-    const totalDmg = incoming + glitch;
-    def.hp = Math.max(0, def.hp - totalDmg);
-    fighters[atkRole].damageDealt += incoming;
-    summary[atkRole].dmgDealt = incoming;
-    summary[defRole].dmgTaken = incoming;
-    summary[defRole].glitch = glitch;
+  const glitch = move.correct ? 0 : 5;
+  if (glitch > 0) {
+    actor.hp = Math.max(0, actor.hp - glitch);
   }
 
-  // Copy synchronized fighter states into local hero & opponent HUD objects
   const selfRole = mpState.role === 'guest' ? 'guest' : 'host';
   const oppRole = selfRole === 'host' ? 'guest' : 'host';
-  const selfFighter = fighters[selfRole];
-  const oppFighter = fighters[oppRole];
-  const selfMove = pair[selfRole];
-  const oppMove = pair[oppRole];
-  const selfSummary = summary[selfRole];
-  const oppSummary = summary[oppRole];
+  const selfFighter = mpState.fighters[selfRole];
+  const oppFighter = mpState.fighters[oppRole];
+  const isSelfActor = actorRole === selfRole;
 
   hero.hp = selfFighter.hp;
   hero.mana = selfFighter.mana;
@@ -1665,89 +1657,106 @@ function mpResolveRound(round) {
   battle.enemy.turns++;
   if (battle.enemy.hp <= 0) battle.enemy.alive = false;
 
-  // Play synchronous canvas FX without double-applying HP changes
-  if (selfSummary.heal > 0) {
-    showHealFeedback(selfSummary.heal, { offsetX: 58, y: HERO_SPOT.y - 78 });
-    emitFx(HERO_SPOT.x, HERO_SPOT.y - 80, '#7fd49a', 14, 2.5);
-  }
-  if (selfSummary.dmgDealt > 0) {
-    battle.pendingAttack = true;
-    battle.lungeT = selfMove.cardId === 'power' ? 0 : 1;
-    battle.heroAttackT = BATTLE_ATTACK_FRAME_COUNT * BATTLE_ATTACK_FRAME_BUFFER;
-    battle.projectileCharged = selfMove.cardId === 'power';
-    battle.projectileQueued = selfMove.cardId === 'power';
-    battle.projectileT = selfMove.cardId === 'power' ? -1 : 0;
-    battle.projectileDamage = 0; // Damage already applied deterministically above
-    popup('enemy', `-${selfSummary.dmgDealt}`, '#e8706a');
+  if (isSelfActor) {
+    if (healAmt > 0) {
+      showHealFeedback(healAmt, { offsetX: 58, y: HERO_SPOT.y - 78 });
+      emitFx(HERO_SPOT.x, HERO_SPOT.y - 80, '#7fd49a', 14, 2.5);
+    }
+    if (dmgDealt > 0) {
+      battle.pendingAttack = true;
+      battle.lungeT = move.cardId === 'power' ? 0 : 1;
+      battle.heroAttackT = BATTLE_ATTACK_FRAME_COUNT * BATTLE_ATTACK_FRAME_BUFFER;
+      battle.projectileCharged = move.cardId === 'power';
+      battle.projectileQueued = move.cardId === 'power';
+      battle.projectileT = move.cardId === 'power' ? -1 : 0;
+      battle.projectileDamage = 0;
+      popup('enemy', `-${dmgDealt}`, '#e8706a');
+    } else {
+      battle.chargeCard = false;
+      battle.chargeMaxT = 0;
+      battle.projectileQueued = false;
+      battle.pendingAttack = false;
+    }
+    if (move.cardId === 'defend') {
+      battle.defendEffectT = move.correct ? DEFEND_EFFECT_FRAMES : 0;
+      Sound.play('block');
+    }
+    if (glitch > 0) {
+      battle.flash.hero = 12;
+      battle.heroHitTintT = HERO_HIT_TINT_TICKS;
+      battle.heroKnockbackT = 0;
+      popup('hero', `-${glitch} GLITCH`, '#e8706a');
+      emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#e8706a', 14, 3.2);
+    }
   } else {
-    battle.chargeCard = false;
-    battle.chargeMaxT = 0;
-    battle.projectileQueued = false;
-    battle.pendingAttack = false;
-    if (oppSummary.glitch > 0) popup('enemy', `-${oppSummary.glitch} GLITCH`, '#f2bb61');
-  }
-
-  if (oppMove.cardId === 'defend') {
-    if (selfMove.cardId === 'defend' && selfMove.correct) battle.defendEffectT = DEFEND_EFFECT_FRAMES;
-  }
-  if (selfMove.cardId === 'defend') {
-    battle.defendEffectT = selfMove.correct ? DEFEND_EFFECT_FRAMES : 0;
-    Sound.play('block');
-  }
-
-  const totalSelfHit = selfSummary.dmgTaken + selfSummary.glitch;
-  if (totalSelfHit > 0) {
-    if (selfSummary.dmgTaken > 0) {
+    if (healAmt > 0) {
+      popup('enemy', `+${healAmt} HP`, '#7fd49a');
+      emitFx(FOE_SPOT.x, FOE_SPOT.y - 80, '#7fd49a', 14, 2.5);
+    }
+    if (dmgDealt > 0) {
       battle.enemyLungeT = 1;
       battle.enemyLungeDistance = 195;
+      battle.flash.hero = 12;
+      battle.heroHitTintT = HERO_HIT_TINT_TICKS;
+      battle.heroKnockbackT = 0;
       Sound.play('enemy');
+      popup('hero', `-${dmgDealt}`, '#e8706a');
+      emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#e8706a', 14, 3.2);
     }
-    battle.flash.hero = 12;
-    battle.heroHitTintT = HERO_HIT_TINT_TICKS;
-    battle.heroKnockbackT = 0;
-    popup('hero', `-${totalSelfHit}`, '#e8706a');
-    emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#e8706a', 14, 3.2);
+    if (glitch > 0) {
+      popup('enemy', `-${glitch} GLITCH`, '#f2bb61');
+      emitFx(FOE_SPOT.x, FOE_SPOT.y - 70, '#f2bb61', 12, 2.8);
+    }
   }
 
-  // Check end-of-match condition
   if (hero.hp <= 0 && battle.enemy.hp <= 0) {
     mpState.outcome = 'draw';
-    mpState.endReason = 'Double KO! Both challengers fell in the same round.';
+    mpState.endReason = 'Double KO! Both challengers fell.';
   } else if (battle.enemy.hp <= 0) {
     mpState.outcome = 'won';
-    mpState.endReason = `You defeated ${mpState.opponentName} in ${round + 1} round${round === 0 ? '' : 's'}!`;
+    mpState.endReason = `You defeated ${mpState.opponentName} on Turn ${turn + 1}!`;
   } else if (hero.hp <= 0) {
     mpState.outcome = 'lost';
-    mpState.endReason = `${mpState.opponentName} claimed victory in Round ${round + 1}.`;
+    mpState.endReason = `${mpState.opponentName} claimed victory on Turn ${turn + 1}.`;
   }
 
-  const selfCardName = CARD_LIBRARY[selfMove.cardId]?.name || 'Move';
-  const oppCardName = CARD_LIBRARY[oppMove.cardId]?.name || 'Move';
-  const notes = [
-    `You (${selfCardName}): ${selfMove.correct ? `Correct!${selfSummary.dmgDealt > 0 ? ` Dealt ${selfSummary.dmgDealt} DMG.` : ''}` : `Missed${selfSummary.glitch > 0 ? ` (-${selfSummary.glitch} glitch)` : ''}.`}`,
-    `${mpState.opponentName} (${oppCardName}): ${oppMove.correct ? `Correct!${selfSummary.dmgTaken > 0 ? ` Hit you for ${selfSummary.dmgTaken} DMG.` : ''}` : `Missed${oppSummary.glitch > 0 ? ` (-${oppSummary.glitch} glitch)` : ''}.`}`,
-  ];
-  battle.log = notes.join(' ');
-  battle.phase = 'feedback';
+  const cardName = card.name || 'Move';
+  const actionNote = move.correct
+    ? `${cardName}: Correct!${dmgDealt > 0 ? ` Dealt ${dmgDealt} DMG.` : ''}${healAmt > 0 ? ` +${healAmt} HP.` : ''}`
+    : `${cardName}: Missed (-${glitch} glitch).`;
 
-  const q = battle.question || mpGetQuestionForRound(round);
   if (mpState.outcome) {
+    battle.log = actionNote;
+    battle.phase = 'feedback';
     renderHud();
     if (!battle.pendingAttack) {
       mpTriggerFinishSequence();
       return;
     }
+    const q = battle.question || mpGetQuestionForRound(turn);
     setPanel(`<div class="battle-feedback-row">
       <div class="battle-feedback-copy">
-        <p><strong class="${selfMove.correct ? 'ok' : 'bad'}">${selfMove.correct ? 'Correct!' : 'Not quite.'}</strong> <b>Answer: ${esc(q.choices[q.answer])}.</b></p>
-        <p class="log">${esc(notes.join(' '))}</p>
+        <p><strong class="${move.correct ? 'ok' : 'bad'}">${move.correct ? 'Correct!' : 'Not quite.'}</strong> <b>Answer: ${esc(q.choices[q.answer])}.</b></p>
+        <p class="log">${esc(actionNote)}</p>
       </div>
       <button type="button" disabled>Final Blow...</button>
     </div>`);
     return;
   }
 
-  renderFeedback(Boolean(selfMove.correct), notes);
+  mpState.round = turn + 1;
+
+  if (isSelfActor) {
+    const notes = [`You (${actionNote})`, `Next: ${mpState.opponentName}'s turn.`];
+    battle.log = notes.join(' ');
+    battle.phase = 'feedback';
+    renderFeedback(Boolean(move.correct), notes);
+  } else {
+    battle.log = `${mpState.opponentName} (${actionNote}) — Your turn!`;
+    battle.hand = [...STARTING_DECK];
+    battle.phase = 'choose';
+    renderBattle();
+  }
 }
 
 function mpTriggerFinishSequence() {

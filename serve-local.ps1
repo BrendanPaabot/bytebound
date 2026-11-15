@@ -448,9 +448,9 @@ try {
           }
           $room.status = 'in_match'
           $room.updatedAtMs = $nowMs
-          foreach ($pid in @($room.host.clientId, $room.guest.clientId)) {
-            if ($script:mpPlayers.ContainsKey($pid)) {
-              $script:mpPlayers[$pid].status = 'In Match'
+          foreach ($playerCid in @($room.host.clientId, $room.guest.clientId)) {
+            if ($script:mpPlayers.ContainsKey($playerCid)) {
+              $script:mpPlayers[$playerCid].status = 'In Match'
             }
           }
           Add-MpEvent 'match_start' $code $null @{ room = $room; matchConfig = $payload.matchConfig }
@@ -468,9 +468,9 @@ try {
             } else {
               $room.status = 'waiting'
             }
-            foreach ($pid in @($room.host.clientId, $(if ($room.guest) { $room.guest.clientId } else { $null }))) {
-              if ($pid -and $script:mpPlayers.ContainsKey($pid)) {
-                $script:mpPlayers[$pid].status = 'In Lobby'
+            foreach ($playerCid in @($room.host.clientId, $(if ($room.guest) { $room.guest.clientId } else { $null }))) {
+              if ($playerCid -and $script:mpPlayers.ContainsKey($playerCid)) {
+                $script:mpPlayers[$playerCid].status = 'In Lobby'
               }
             }
             $room.updatedAtMs = $nowMs

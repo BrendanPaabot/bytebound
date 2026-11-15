@@ -5,6 +5,14 @@
   const CLIENT_ID_STORAGE_KEY = 'bytebound-mp-client-id-v1';
   const SUPABASE_CDN_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
 
+  function withTimeout(promise, ms = 1200) {
+    if (!promise || typeof promise.then !== 'function') return Promise.resolve(null);
+    return Promise.race([
+      promise.catch(() => null),
+      new Promise((resolve) => global.setTimeout(() => resolve(null), ms)),
+    ]);
+  }
+
   function generateClientId() {
     if (global.crypto && typeof global.crypto.randomUUID === 'function') {
       return global.crypto.randomUUID();
@@ -655,7 +663,7 @@
     async sendSupabaseRoomBroadcast(type, roomCode, payload, targetClientId = null) {
       if (!this.sbRoomChannel || this.sbRoomCode !== roomCode) return;
       try {
-        await this.sbRoomChannel.send({
+        await withTimeout(this.sbRoomChannel.send({
           type: 'broadcast',
           event: 'room_msg',
           payload: {
@@ -666,14 +674,14 @@
             roomCode,
             payload,
           },
-        });
+        }), 1200);
       } catch {}
     }
 
     async sendSupabaseLobbyBroadcast(type, roomCode, room = null, extra = {}) {
       if (!this.sbLobbyChannel || !this.sbConnected) return;
       try {
-        await this.sbLobbyChannel.send({
+        await withTimeout(this.sbLobbyChannel.send({
           type: 'broadcast',
           event: 'lobby_event',
           payload: {
@@ -684,7 +692,7 @@
             room,
             ...extra,
           },
-        });
+        }), 1200);
       } catch {}
     }
 
@@ -777,17 +785,17 @@
         this.postBroadcast('bc_presence', null, payload);
       }
       if (this.sbLobbyChannel && this.sbConnected) {
-        try { await this.sbLobbyChannel.track(payload); } catch {}
+        try { await withTimeout(this.sbLobbyChannel.track(payload), 1200); } catch {}
       }
       if (this.sbRoomChannel && this.sbRoomCode && this.activeRoomSnapshot?.host?.clientId === this.clientId) {
         try {
-          await this.sbRoomChannel.track({
+          await withTimeout(this.sbRoomChannel.track({
             clientId: this.clientId,
             username: this.localProfile.username,
             avatar: this.localProfile.avatar,
             role: 'host',
             roomSnapshot: this.activeRoomSnapshot,
-          });
+          }), 1200);
         } catch {}
       }
       this.emitMergedState();
@@ -862,7 +870,28 @@
         }
       }
 
-      const players = [...playerMap.values()];
+      // Deduplicate same username across stale/reloaded tabs: keep isSelf first, then newest active peer.
+      const byName = new Map();
+      for (const p of playerMap.values()) {
+        const normName = String(p.username || '').trim().toLowerCase() || p.clientId;
+        const prev = byName.get(normName);
+        if (!prev) {
+          byName.set(normName, p);
+          continue;
+        }
+        if (prev.isSelf) continue;
+        if (p.isSelf) {
+          byName.set(normName, p);
+          continue;
+        }
+        const prevScore = (prev.roomCode ? 1000000000000 : 0) + (prev.receivedAt || 0);
+        const currScore = (p.roomCode ? 1000000000000 : 0) + (p.receivedAt || 0);
+        if (currScore > prevScore) {
+          byName.set(normName, p);
+        }
+      }
+
+      const players = [...byName.values()];
       const publicRooms = [...publicRoomMap.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       const stateKey = JSON.stringify({
         players: players.map((p) => [p.clientId, p.username, p.avatar, p.status, p.roomCode || null, p.isSelf]),
@@ -933,36 +962,45 @@
       }
 
       if (this.sbClient) {
-        await this.joinSupabaseRoomChannel(room.code, true);
-        if (room.visibility === 'public') {
-          await this.sendSupabaseLobbyBroadcast('public_room_upsert', room.code, {
+        const sbSync = (async () => {
+          await this.joinSupabaseRoomChannel(room.code, true);
+          if (room.visibility === 'public') {
+            await this.sendSupabaseLobbyBroadcast('public_room_upsert', room.code, {
+              code: room.code,
+              hostClientId: room.host.clientId,
+              hostName: room.host.username,
+              hostAvatar: room.host.avatar,
+              arenaId: room.arenaId,
+              arenaName: room.arenaName,
+              category: room.category,
+              status: 'waiting',
+              playerCount: 1,
+              maxPlayers: 2,
+              createdAt: room.createdAt,
+            });
+          }
+          this.sbRestRoom('POST', '', {
             code: room.code,
-            hostClientId: room.host.clientId,
-            hostName: room.host.username,
-            hostAvatar: room.host.avatar,
-            arenaId: room.arenaId,
-            arenaName: room.arenaName,
-            category: room.category,
+            visibility: room.visibility,
             status: 'waiting',
-            playerCount: 1,
-            maxPlayers: 2,
-            createdAt: room.createdAt,
+            host_client_id: room.host.clientId,
+            host_name: room.host.username,
+            host_avatar: room.host.avatar,
+            settings: { arenaId: room.arenaId, arenaName: room.arenaName, category: room.category },
+            room_state: room,
+            updated_at: new Date().toISOString(),
           });
+        })();
+        if (!this.localServerAvailable) {
+          await sbSync;
         }
-        this.sbRestRoom('POST', '', {
-          code: room.code,
-          visibility: room.visibility,
-          status: 'waiting',
-          host_client_id: room.host.clientId,
-          host_name: room.host.username,
-          host_avatar: room.host.avatar,
-          settings: { arenaId: room.arenaId, arenaName: room.arenaName, category: room.category },
-          room_state: room,
-          updated_at: new Date().toISOString(),
-        });
       }
 
-      await this.updatePresence({ status: 'In Lobby', roomCode: room.code });
+      if (this.localServerAvailable) {
+        this.updatePresence({ status: 'In Lobby', roomCode: room.code });
+      } else {
+        await this.updatePresence({ status: 'In Lobby', roomCode: room.code });
+      }
       return { ok: true, room };
     }
 
@@ -1242,14 +1280,19 @@
         if (res && !res.ok) return res;
       }
       this.postBroadcast('match_start', code, { room, matchConfig });
-      await this.sendSupabaseRoomBroadcast('match_start', code, { room, matchConfig });
-      await this.sendSupabaseLobbyBroadcast('public_room_remove', code);
-      await this.updatePresence({ status: 'In Match', roomCode: code });
-      this.sbRestRoom('PATCH', `?code=eq.${encodeURIComponent(code)}`, {
-        status: 'in_match',
-        room_state: room,
-        updated_at: new Date().toISOString(),
-      });
+      const sbStart = (async () => {
+        await this.sendSupabaseRoomBroadcast('match_start', code, { room, matchConfig });
+        await this.sendSupabaseLobbyBroadcast('public_room_remove', code);
+        await this.updatePresence({ status: 'In Match', roomCode: code });
+        this.sbRestRoom('PATCH', `?code=eq.${encodeURIComponent(code)}`, {
+          status: 'in_match',
+          room_state: room,
+          updated_at: new Date().toISOString(),
+        });
+      })();
+      if (!this.localServerAvailable) {
+        await sbStart;
+      }
       return { ok: true };
     }
 
