@@ -2136,6 +2136,9 @@ function drawBattle() {
   if (b.chargeCard && chargeProgress >= 1) {
     b.chargeReady = true
   }
+  if (b.projectileQueued && !b.chargeReady && (!b.chargeCard || performance.now() - (b.chargeStartedAt || 0) > 1200)) {
+    b.chargeReady = true
+  }
   if (b.projectileQueued && b.chargeReady) {
     b.projectileQueued = false
     b.projectileT = 0

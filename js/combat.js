@@ -723,7 +723,10 @@ const mpState = {
   onForfeit: null,
 };
 
+let mpSyncIntervalId = null;
+
 function endMultiplayerMatchState() {
+  stopMpSyncHeartbeat();
   multiplayerMatchActive = false;
   mpState.matchId = null;
   mpState.movesByRound = {};
@@ -804,6 +807,7 @@ function hideGameOverOverlay() {
   const go = document.getElementById('gameOverOverlay');
   if (go) {
     go.hidden = true;
+    go.classList.remove('is-victory', 'is-draw');
     go.innerHTML = '';
   }
 }
@@ -1549,8 +1553,49 @@ function startMultiplayerMatch(matchConfig, role, selfClientId) {
   beginIntro();
 }
 
+function stopMpSyncHeartbeat() {
+  if (mpSyncIntervalId) {
+    clearInterval(mpSyncIntervalId);
+    mpSyncIntervalId = null;
+  }
+}
+
+function startMpSyncHeartbeat() {
+  stopMpSyncHeartbeat();
+  mpSyncIntervalId = setInterval(() => {
+    if (!multiplayerMatchActive || battle.phase !== 'mp_waiting' || mpState.outcome) {
+      stopMpSyncHeartbeat();
+      return;
+    }
+    const activeRole = mpActiveRole(mpState.round);
+    const queuedMove = mpState.movesByRound[mpState.round]?.[activeRole];
+    if (queuedMove && !mpState.resolvedRounds.has(mpState.round)) {
+      stopMpSyncHeartbeat();
+      mpResolveTurn(mpState.round, queuedMove);
+      return;
+    }
+    if (window.mpUI?.matchmaking) {
+      window.mpUI.matchmaking.sendMatchMove({
+        kind: 'sync_request',
+        matchId: mpState.matchId,
+        round: mpState.round,
+        role: mpState.role,
+        clientId: mpState.selfClientId,
+      });
+    }
+  }, 2200);
+}
+
 function renderMultiplayerWaiting() {
+  const activeRole = mpActiveRole(mpState.round);
+  const queuedMove = mpState.movesByRound[mpState.round]?.[activeRole];
+  if (queuedMove && !mpState.resolvedRounds.has(mpState.round)) {
+    stopMpSyncHeartbeat();
+    mpResolveTurn(mpState.round, queuedMove);
+    return;
+  }
   battle.phase = 'mp_waiting';
+  startMpSyncHeartbeat();
   const previewCard = battle.enemyPreviewCard && CARD_LIBRARY[battle.enemyPreviewCard];
   const detailText = previewCard
     ? `${esc(mpState.opponentName)} selected <strong>${esc(previewCard.name)}</strong> and is answering their question...`
@@ -1601,6 +1646,17 @@ function mpReceiveRemoteMove(payload) {
 
   const turn = Number(payload.round);
   if (!Number.isFinite(turn)) return;
+
+  if (payload.kind === 'sync_request') {
+    const startRound = Math.max(0, turn);
+    for (let r = startRound; r <= mpState.round; r++) {
+      if (mpActiveRole(r) === mpState.role && mpState.movesByRound[r]?.[mpState.role]) {
+        window.mpUI?.matchmaking?.sendMatchMove(mpState.movesByRound[r][mpState.role]);
+      }
+    }
+    return;
+  }
+
   if (mpActiveRole(turn) !== moveRole) return;
 
   if (payload.kind === 'preview') {
@@ -1816,6 +1872,7 @@ function mpResolveTurn(turn, move) {
     battle.phase = 'feedback';
     renderFeedback(Boolean(move.correct), notes);
   } else {
+    stopMpSyncHeartbeat();
     battle.log = `${mpState.opponentName} (${actionNote}) — Your turn!`;
     battle.hand = [...STARTING_DECK];
     battle.phase = 'choose';
@@ -1872,8 +1929,11 @@ function renderMultiplayerResult() {
     ? '1V1 ARENA DOMINATED // CHALLENGER DEFEATED'
     : (draw ? 'SIMULTANEOUS BREACH // MATCH TIED' : 'FATAL SYSTEM BREACH // DUEL LOST');
   const oppHp = battle.enemy ? battle.enemy.hp : 0;
+  const boxClass = won ? ' is-victory' : (draw ? ' is-draw' : '');
 
-  go.innerHTML = `<div class="game-over-box">
+  go.classList.toggle('is-victory', won);
+  go.classList.toggle('is-draw', draw);
+  go.innerHTML = `<div class="game-over-box${boxClass}">
     <div class="game-over-corruption">${banner}</div>
     <div class="game-over-skull" aria-hidden="true">${won ? '♛' : (draw ? '⚔' : '☠')}</div>
     <h2 class="game-over-title" id="gameOverTitle" data-text="${title}">${title}</h2>

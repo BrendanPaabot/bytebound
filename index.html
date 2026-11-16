@@ -4752,6 +4752,75 @@
       box-shadow: 1px 1px 0 rgba(0, 0, 0, .6);
     }
 
+    @keyframes victoryTitlePulse {
+      0%, 100% {
+        text-shadow: 4px 4px 0 #103229, -2px -2px 0 #1b635a, 0 0 18px rgba(111, 227, 232, .65);
+      }
+      50% {
+        text-shadow: 4px 4px 0 #103229, -2px -2px 0 #268a7c, 0 0 32px rgba(123, 245, 200, .95);
+      }
+    }
+    .is-playing .game-over-overlay.is-victory {
+      background:
+        repeating-linear-gradient(0deg, rgba(111, 227, 232, .06) 0px, rgba(111, 227, 232, .06) 2px, transparent 2px, transparent 4px),
+        radial-gradient(circle at center, rgba(22, 92, 82, .52) 0%, rgba(8, 18, 22, .80) 100%);
+    }
+    .game-over-box.is-victory {
+      border-color: #6fe3e8;
+      border-top: 6px solid #ffe07a;
+      background: linear-gradient(180deg, #102a2d 0%, #0d1c1f 100%);
+      box-shadow:
+        0 0 0 6px #184e47,
+        10px 10px 0 rgba(0, 0, 0, .82),
+        0 0 48px rgba(111, 227, 232, .48);
+    }
+    .game-over-box.is-victory .game-over-corruption {
+      border-color: #4bd196;
+      background: #0d3027;
+      color: #8bf7c7;
+    }
+    .game-over-box.is-victory .game-over-skull {
+      color: #ffe07a;
+      text-shadow: 3px 3px 0 #133b30, 0 0 18px rgba(255, 224, 122, .7);
+    }
+    .game-over-box.is-victory .game-over-title {
+      color: #7bf5c8;
+      animation: victoryTitlePulse 2.2s ease-in-out infinite;
+    }
+    .game-over-box.is-victory .game-over-killer strong {
+      color: #8bf7c7;
+    }
+    .game-over-box.is-victory .game-over-stat {
+      border-color: #245a53;
+      border-top-color: #6fe3e8;
+      background: #102427;
+    }
+    .game-over-box.is-victory .game-over-stat strong {
+      color: #7bf5c8;
+    }
+    .game-over-box.is-victory .game-over-btn.is-primary {
+      border-color: #ffe07a;
+      background: linear-gradient(180deg, #35c994 0%, #197a5b 100%);
+      color: #f6fffb;
+    }
+    .game-over-box.is-victory .game-over-btn.is-primary:hover {
+      background: linear-gradient(180deg, #47dfa7 0%, #209670 100%);
+    }
+    .game-over-box.is-victory .game-over-btn.is-secondary:hover {
+      border-color: #6fe3e8;
+      color: #6fe3e8;
+    }
+    .game-over-box.is-draw {
+      border-color: #f2bb61;
+      border-top-color: #6fe3e8;
+      background: linear-gradient(180deg, #1b2126 0%, #12171b 100%);
+      box-shadow: 0 0 0 6px #3a3420, 10px 10px 0 rgba(0, 0, 0, .82), 0 0 40px rgba(242, 187, 97, .35);
+    }
+    .game-over-box.is-draw .game-over-title {
+      color: #f2bb61;
+      text-shadow: 4px 4px 0 #1c1912, 0 0 18px rgba(242, 187, 97, .65);
+    }
+
     @media (max-width: 760px) {
       .welcome-insights { grid-template-columns: 1fr !important; }
       .tracker-topic {

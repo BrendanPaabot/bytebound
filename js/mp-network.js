@@ -674,7 +674,7 @@
             roomCode,
             payload,
           },
-        }), 1200);
+        }), 4000);
       } catch {}
     }
 
