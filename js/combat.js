@@ -1582,6 +1582,12 @@ function startMpSyncHeartbeat() {
         role: mpState.role,
         clientId: mpState.selfClientId,
       });
+      if (typeof window.mpUI.matchmaking.fetchMatchMoves === 'function') {
+        window.mpUI.matchmaking.fetchMatchMoves().then((moves) => {
+          if (!Array.isArray(moves) || !multiplayerMatchActive) return;
+          for (const mv of moves) mpReceiveRemoteMove(mv);
+        }).catch(() => {});
+      }
     }
   }, 2200);
 }
@@ -1678,6 +1684,11 @@ function mpReceiveRemoteMove(payload) {
 
   if (turn === mpState.round && battle.phase !== 'feedback') {
     mpResolveTurn(turn, payload);
+  } else if (turn === mpState.round && battle.phase === 'feedback' && !battle.pendingAttack) {
+    const continueBtn = panel.querySelector('[data-act="continue"]');
+    if (continueBtn && !continueBtn.disabled) {
+      continueBtn.innerHTML = 'Continue — Your Turn Ready<span class="keyhint"> (Enter)</span>';
+    }
   }
 }
 

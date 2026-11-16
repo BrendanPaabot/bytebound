@@ -584,7 +584,10 @@
 
     async joinSupabaseRoomChannel(code, asHost = false) {
       if (!this.sbClient || !code) return null;
-      if (this.sbRoomChannel && this.sbRoomCode === code) return this.sbRoomChannel;
+      const chState = this.sbRoomChannel?.state;
+      if (this.sbRoomChannel && this.sbRoomCode === code && (chState === 'joined' || chState === 'joining')) {
+        return this.sbRoomChannel;
+      }
       await this.leaveSupabaseRoomChannel();
 
       const channel = this.sbClient.channel(`bytebound:room:${code}`, {
@@ -661,6 +664,10 @@
     }
 
     async sendSupabaseRoomBroadcast(type, roomCode, payload, targetClientId = null) {
+      if (this.sbClient && roomCode && (!this.sbRoomChannel || this.sbRoomCode !== roomCode || (this.sbRoomChannel.state && this.sbRoomChannel.state !== 'joined' && this.sbRoomChannel.state !== 'joining'))) {
+        const asHost = this.activeRoomSnapshot?.host?.clientId === this.clientId;
+        await this.joinSupabaseRoomChannel(roomCode, asHost);
+      }
       if (!this.sbRoomChannel || this.sbRoomCode !== roomCode) return;
       try {
         await withTimeout(this.sbRoomChannel.send({
@@ -1302,6 +1309,43 @@
       }
       this.postBroadcast('match_move', code, movePayload);
       await this.sendSupabaseRoomBroadcast('match_move', code, movePayload);
+
+      // Persist committed turn moves in Supabase public.multiplayer_rooms.room_state as a reliable fallback.
+      if (this.sbClient && this.sbRoomsTableAvailable && code && movePayload && !movePayload.kind && Number.isFinite(Number(movePayload.round))) {
+        try {
+          const rows = await this.sbRestRoom('GET', `?code=eq.${encodeURIComponent(code)}&select=room_state&limit=1`);
+          const baseState = (Array.isArray(rows) && rows[0]?.room_state && typeof rows[0].room_state === 'object')
+            ? rows[0].room_state
+            : (this.activeRoomSnapshot && typeof this.activeRoomSnapshot === 'object' ? { ...this.activeRoomSnapshot } : null);
+          if (baseState) {
+            const prevMoves = (baseState.matchMoves && typeof baseState.matchMoves === 'object') ? baseState.matchMoves : {};
+            const key = `${movePayload.matchId || code}:${movePayload.round}`;
+            const nextState = {
+              ...baseState,
+              matchMoves: {
+                ...prevMoves,
+                [key]: movePayload,
+              },
+            };
+            this.sbRestRoom('PATCH', `?code=eq.${encodeURIComponent(code)}`, {
+              room_state: nextState,
+              updated_at: new Date().toISOString(),
+            });
+          }
+        } catch {}
+      }
+    }
+
+    async fetchRoomMatchMoves(code) {
+      if (!this.sbClient || !this.sbRoomsTableAvailable || !code) return [];
+      try {
+        const rows = await this.sbRestRoom('GET', `?code=eq.${encodeURIComponent(code)}&select=room_state&limit=1`);
+        const matchMoves = Array.isArray(rows) && rows[0]?.room_state?.matchMoves;
+        if (!matchMoves || typeof matchMoves !== 'object') return [];
+        return Object.values(matchMoves).filter((m) => m && typeof m === 'object');
+      } catch {
+        return [];
+      }
     }
 
     async sendMatchForfeit(code, payload) {

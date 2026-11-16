@@ -652,6 +652,11 @@
       await this.network.sendMatchMove(this.currentRoom.code, movePayload);
     }
 
+    async fetchMatchMoves() {
+      if (!this.currentRoom) return [];
+      return await this.network.fetchRoomMatchMoves(this.currentRoom.code);
+    }
+
     async forfeitMatch(reason) {
       if (!this.currentRoom) return;
       const room = this.currentRoom;
