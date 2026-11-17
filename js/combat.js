@@ -392,55 +392,64 @@ const SKILL_POINT_INTERVAL = 5;
 const SKILL_STORAGE_KEY = 'kings-pigs-skill-tree-v1';
 let activeSkillStorageKey = SKILL_STORAGE_KEY;
 let activeSkillSpecialization = null;
+let exclusiveSkillTree = null;
 const TOPIC_TRACKER_STORAGE_KEY = 'kings-pigs-topic-tracker-v1';
 let activeTopicTrackerStorageKey = TOPIC_TRACKER_STORAGE_KEY;
 const SKILL_TREES = {
   computerSystems: {
     name: 'Computer Systems',
     color: 'gold',
+    exclusiveId: 'kernelAegis',
     skills: [
       { id: 'foundation', name: 'Hardware Tuning', description: 'Tune your knight’s gear for stronger physical attacks.', effect: '+1 ATK per rank', bonus: { attack: 1 } },
       { id: 'operatingSystem', name: 'OS Stability', description: 'Harden system defenses to reduce incoming damage.', effect: '+1 DEF per rank', bonus: { defense: 1 }, requires: ['foundation'] },
-      { id: 'recovery', name: 'Recovery Protocol', description: 'Restore more health whenever you answer correctly.', effect: '+2 HP per correct answer per rank', bonus: { bonusHeal: 2 }, requires: ['foundation'] },
-      { id: 'virtualization', name: 'Virtualization', description: 'Run isolated virtual systems to expand your health reserve.', effect: '+5 max HP per rank', bonus: { maxHp: 5 }, requires: ['operatingSystem'] },
-      { id: 'thermalControl', name: 'Thermal Control', description: 'Keep hardware stable under pressure and reinforce your armor.', effect: '+2 DEF per rank', bonus: { defense: 2 }, requires: ['operatingSystem', 'recovery'] },
-      { id: 'firmwareOverclock', name: 'Firmware Overclock', description: 'Push optimized firmware beyond its standard limits.', effect: '+2 ATK and +2 max HP per rank', bonus: { attack: 2, maxHp: 2 }, requires: ['virtualization', 'thermalControl'] },
+      { id: 'kernelAegis', name: 'Kernel Aegis', description: 'EXCLUSIVE ACTIVE SKILL: Shields incoming enemy attacks for the run, restores 100% HP & +40 MP, surges +4 ATK/+3 DEF per rank, and slams for 35×Rank DMG. Careless wrong answers still drain 10 MP, trigger Aegis overload (-4 HP), and pierce on Bosses. Choosing this locks all other 3 skill sets.', effect: 'Active Card: Shield Normal Hits + Full Heal + 35/70/105 DMG (4t CD)', bonus: {}, isExclusiveActive: true, activeCardId: 'kernel_aegis', maxRank: 3, requires: ['operatingSystem'] },
+      { id: 'recovery', name: 'Recovery Protocol', description: 'Restore more health whenever you answer correctly.', effect: '+2 HP per correct answer per rank', bonus: { bonusHeal: 2 }, requires: ['kernelAegis'] },
+      { id: 'virtualization', name: 'Virtualization', description: 'Run isolated virtual systems to expand your health reserve.', effect: '+5 max HP per rank', bonus: { maxHp: 5 }, requires: ['kernelAegis'] },
+      { id: 'thermalControl', name: 'Thermal Control', description: 'Keep hardware stable under pressure and reinforce your armor.', effect: '+2 DEF per rank', bonus: { defense: 2 }, requires: ['recovery'] },
+      { id: 'firmwareOverclock', name: 'Firmware Overclock', description: 'Push optimized firmware beyond its standard limits.', effect: '+2 ATK and +2 max HP per rank', bonus: { attack: 2, maxHp: 2 }, requires: ['virtualization'] },
     ],
   },
   networkingSecurity: {
     name: 'Networking & Security',
     color: 'blue',
+    exclusiveId: 'packetLockdown',
     skills: [
       { id: 'foundation', name: 'Firewall', description: 'Filter incoming threats and strengthen your guard.', effect: '+1 DEF per rank', bonus: { defense: 1 } },
       { id: 'threatAnalysis', name: 'Threat Analysis', description: 'Identify weak points and turn threat intelligence into damage.', effect: '+1 ATK per rank', bonus: { attack: 1 }, requires: ['foundation'] },
-      { id: 'secureChannel', name: 'Secure Channel', description: 'Recover mana through safe, reliable communication.', effect: '+2 MP per correct answer per rank', bonus: { bonusMana: 2 }, requires: ['foundation'] },
-      { id: 'intrusionDetection', name: 'Intrusion Detection', description: 'Detect hostile activity early and prepare a stronger response.', effect: '+1 ATK and +1 DEF per rank', bonus: { attack: 1, defense: 1 }, requires: ['threatAnalysis', 'secureChannel'] },
+      { id: 'packetLockdown', name: 'Packet Lockdown', description: 'EXCLUSIVE ACTIVE SKILL: Stuns any enemy for 8/10/12 turns, deals 40×Rank Breach DMG, shatters armor (+50% hit DMG while stunned), and siphons +20 MP. Choosing this locks all other 3 skill sets and transfers their unspent SP here.', effect: 'Active Card: 8–12t Stun + 40/80/120 DMG + 1.5x Vulnerable (3t CD)', bonus: {}, isExclusiveActive: true, activeCardId: 'packet_lockdown', maxRank: 3, requires: ['threatAnalysis'] },
+      { id: 'secureChannel', name: 'Secure Channel', description: 'Recover mana through safe, reliable communication.', effect: '+2 MP per correct answer per rank', bonus: { bonusMana: 2 }, requires: ['packetLockdown'] },
+      { id: 'intrusionDetection', name: 'Intrusion Detection', description: 'Detect hostile activity early and prepare a stronger response.', effect: '+1 ATK and +1 DEF per rank', bonus: { attack: 1, defense: 1 }, requires: ['packetLockdown'] },
       { id: 'packetRouting', name: 'Packet Routing', description: 'Route resources efficiently to increase your mana capacity.', effect: '+5 max MP per rank', bonus: { maxMana: 5 }, requires: ['secureChannel'] },
-      { id: 'zeroTrust', name: 'Zero Trust', description: 'Verify every action and regain more health with correct answers.', effect: '+3 HP per correct answer per rank', bonus: { bonusHeal: 3 }, requires: ['intrusionDetection', 'packetRouting'] },
+      { id: 'zeroTrust', name: 'Zero Trust', description: 'Verify every action and regain more health with correct answers.', effect: '+3 HP per correct answer per rank', bonus: { bonusHeal: 3 }, requires: ['intrusionDetection'] },
     ],
   },
   programming: {
     name: 'Programming',
     color: 'green',
+    exclusiveId: 'overburnExecution',
     skills: [
       { id: 'foundation', name: 'Algorithm Efficiency', description: 'Improve attack routines with more efficient algorithms.', effect: '+1 ATK per rank', bonus: { attack: 1 } },
       { id: 'errorHandling', name: 'Error Handling', description: 'Catch mistakes early and reduce the impact of enemy attacks.', effect: '+1 DEF per rank', bonus: { defense: 1 }, requires: ['foundation'] },
-      { id: 'codeReuse', name: 'Code Reuse', description: 'Reuse reliable recovery routines to heal more on correct answers.', effect: '+2 HP per correct answer per rank', bonus: { bonusHeal: 2 }, requires: ['foundation'] },
-      { id: 'concurrency', name: 'Concurrency', description: 'Coordinate parallel tasks to restore mana more efficiently.', effect: '+2 MP per correct answer per rank', bonus: { bonusMana: 2 }, requires: ['errorHandling'] },
-      { id: 'runtimeOptimization', name: 'Runtime Optimization', description: 'Optimize execution paths for greater combat output.', effect: '+1 ATK and +1 DEF per rank', bonus: { attack: 1, defense: 1 }, requires: ['errorHandling', 'codeReuse'] },
-      { id: 'compilerMastery', name: 'Compiler Mastery', description: 'Transform advanced optimizations into a large attack increase.', effect: '+2 ATK per rank', bonus: { attack: 2 }, requires: ['concurrency', 'runtimeOptimization'] },
+      { id: 'overburnExecution', name: 'Overburn Execution', description: 'EXCLUSIVE ACTIVE SKILL: Unleashes 100/150/200 base DMG + 2× passives & buffs (1.5× Execute crit below 40% HP) plus 20×Rank Inferno Burn for 5 turns. Choosing this locks all other 3 skill sets and transfers their unspent SP here.', effect: 'Active Card: 100–200+ DMG (Execute) & 20–60 Burn/t (2t CD)', bonus: {}, isExclusiveActive: true, activeCardId: 'plasma_compile', maxRank: 3, requires: ['errorHandling'] },
+      { id: 'codeReuse', name: 'Code Reuse', description: 'Reuse reliable recovery routines to heal more on correct answers.', effect: '+2 HP per correct answer per rank', bonus: { bonusHeal: 2 }, requires: ['overburnExecution'] },
+      { id: 'concurrency', name: 'Concurrency', description: 'Coordinate parallel tasks to restore mana more efficiently.', effect: '+2 MP per correct answer per rank', bonus: { bonusMana: 2 }, requires: ['overburnExecution'] },
+      { id: 'runtimeOptimization', name: 'Runtime Optimization', description: 'Optimize execution paths for greater combat output.', effect: '+1 ATK and +1 DEF per rank', bonus: { attack: 1, defense: 1 }, requires: ['codeReuse'] },
+      { id: 'compilerMastery', name: 'Compiler Mastery', description: 'Transform advanced optimizations into a large attack increase.', effect: '+2 ATK per rank', bonus: { attack: 2 }, requires: ['concurrency'] },
     ],
   },
   database: {
     name: 'Database',
     color: 'red',
+    exclusiveId: 'necromancy',
     skills: [
       { id: 'foundation', name: 'Query Indexing', description: 'Index battle knowledge for faster, more decisive attacks.', effect: '+1 ATK per rank', bonus: { attack: 1 } },
       { id: 'transactions', name: 'Transaction Safety', description: 'Apply reliable transaction principles to improve defense.', effect: '+1 DEF per rank', bonus: { defense: 1 }, requires: ['foundation'] },
-      { id: 'queryCache', name: 'Query Cache', description: 'Cache useful results to regain mana on correct answers.', effect: '+2 MP per correct answer per rank', bonus: { bonusMana: 2 }, requires: ['foundation'] },
-      { id: 'replication', name: 'Replication', description: 'Replicate critical resources to expand your mana reserve.', effect: '+5 max MP per rank', bonus: { maxMana: 5 }, requires: ['queryCache'] },
-      { id: 'queryOptimizer', name: 'Query Optimizer', description: 'Choose efficient query plans for balanced combat improvements.', effect: '+1 ATK and +1 DEF per rank', bonus: { attack: 1, defense: 1 }, requires: ['transactions', 'queryCache'] },
-      { id: 'acidGuarantee', name: 'ACID Guarantee', description: 'Protect consistency under pressure and increase health recovery.', effect: '+3 HP per correct answer per rank', bonus: { bonusHeal: 3 }, requires: ['replication', 'queryOptimizer'] },
+      { id: 'necromancy', name: 'Necromancy', description: 'EXCLUSIVE ACTIVE SKILL: Become a Necromancer. Raise fallen enemies or bosses to fight beside you. Rank 1 allows 1 ally; upgrade Necromancy to raise up to 3 allies at once. Choosing this locks all other 3 skill sets and transfers their unspent SP here.', effect: 'Max Undead Allies: 1 per rank (up to 3)', bonus: {}, isExclusiveActive: true, activeCardId: null, isNecromancy: true, maxRank: 3, requires: ['transactions'] },
+      { id: 'queryCache', name: 'Query Cache', description: 'Cache useful results to regain mana on correct answers.', effect: '+2 MP per correct answer per rank', bonus: { bonusMana: 2 }, requires: ['necromancy'] },
+      { id: 'replication', name: 'Replication', description: 'Replicate critical resources to expand your mana reserve.', effect: '+5 max MP per rank', bonus: { maxMana: 5 }, requires: ['necromancy'] },
+      { id: 'queryOptimizer', name: 'Query Optimizer', description: 'Choose efficient query plans for balanced combat improvements.', effect: '+1 ATK and +1 DEF per rank', bonus: { attack: 1, defense: 1 }, requires: ['queryCache'] },
+      { id: 'acidGuarantee', name: 'ACID Guarantee', description: 'Protect consistency under pressure and increase health recovery.', effect: '+3 HP per correct answer per rank', bonus: { bonusHeal: 3 }, requires: ['replication'] },
     ],
   },
 };
@@ -453,6 +462,8 @@ function createSkillProgress() {
     key,
     {
       correct: 0,
+      transferredIn: 0,
+      transferredOut: 0,
       ranks: Object.fromEntries(SKILL_TREES[key].skills.map((skill) => [skill.id, 0])),
     },
   ]));
@@ -564,22 +575,34 @@ function loadSkillProgress(storageKey = activeSkillStorageKey) {
     activeSkillSpecialization = SKILL_TREE_KEYS.includes(stored?.specialization?.activeTree)
       ? stored.specialization.activeTree
       : null;
+    exclusiveSkillTree = SKILL_TREE_KEYS.includes(stored?.specialization?.exclusiveTree)
+      ? stored.specialization.exclusiveTree
+      : null;
     for (const key of SKILL_TREE_KEYS) {
       const source = stored?.[key];
       if (!source || typeof source !== 'object') continue;
       if (Number.isSafeInteger(source.correct) && source.correct >= 0) {
         progress[key].correct = source.correct;
       }
+      if (Number.isSafeInteger(source.transferredIn) && source.transferredIn >= 0) {
+        progress[key].transferredIn = source.transferredIn;
+      }
+      if (Number.isSafeInteger(source.transferredOut) && source.transferredOut >= 0) {
+        progress[key].transferredOut = source.transferredOut;
+      }
       for (const skill of SKILL_TREES[key].skills) {
         const rank = source.ranks?.[skill.id];
-        if (Number.isInteger(rank) && rank >= 0 && rank <= SKILL_MAX_RANK) {
+        const maxR = skill.maxRank || SKILL_MAX_RANK;
+        if (Number.isInteger(rank) && rank >= 0 && rank <= maxR) {
           progress[key].ranks[skill.id] = rank;
+          if (skill.isExclusiveActive && rank > 0) exclusiveSkillTree = key;
         }
       }
     }
   } catch (error) {
     console.error('Unable to load saved skill tree progress.', error);
     activeSkillSpecialization = null;
+    exclusiveSkillTree = null;
   }
   return progress;
 }
@@ -594,13 +617,14 @@ function selectSkillProfile(profileId) {
   selectTopicProfile(profileId);
 }
 
-function saveSkillProgress() {
+function saveSkillProgress({ skipSlotSave = false } = {}) {
   if (practiceRunActive) return true;
   try {
     localStorage.setItem(activeSkillStorageKey, JSON.stringify({
       ...skillProgress,
-      specialization: { activeTree: activeSkillSpecialization },
+      specialization: { activeTree: activeSkillSpecialization, exclusiveTree: exclusiveSkillTree },
     }));
+    if (!skipSlotSave && typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
     if (typeof scheduleUserProfileSync === 'function') scheduleUserProfileSync();
     return true;
   } catch (error) {
@@ -609,10 +633,61 @@ function saveSkillProgress() {
   }
 }
 
+function resetSkillTreeForNewRun() {
+  const fresh = createSkillProgress();
+  for (const key of Object.keys(skillProgress)) delete skillProgress[key];
+  Object.assign(skillProgress, fresh);
+  activeSkillSpecialization = null;
+  exclusiveSkillTree = null;
+  saveSkillProgress({ skipSlotSave: true });
+}
+
+function applyRunSkillSnapshot(savedSkillProgress, activeSpec = null, exclusiveSpec = null, { skipSlotSave = false } = {}) {
+  const base = createSkillProgress();
+  if (savedSkillProgress && typeof savedSkillProgress === 'object') {
+    for (const key of SKILL_TREE_KEYS) {
+      const src = savedSkillProgress[key];
+      if (!src || typeof src !== 'object') continue;
+      if (Number.isSafeInteger(src.correct) && src.correct >= 0) base[key].correct = src.correct;
+      if (Number.isSafeInteger(src.transferredIn) && src.transferredIn >= 0) base[key].transferredIn = src.transferredIn;
+      if (Number.isSafeInteger(src.transferredOut) && src.transferredOut >= 0) base[key].transferredOut = src.transferredOut;
+      for (const skill of SKILL_TREES[key].skills) {
+        const r = src.ranks?.[skill.id];
+        const maxR = skill.maxRank || SKILL_MAX_RANK;
+        if (Number.isSafeInteger(r) && r >= 0 && r <= maxR) base[key].ranks[skill.id] = r;
+      }
+    }
+  }
+  for (const key of Object.keys(skillProgress)) delete skillProgress[key];
+  Object.assign(skillProgress, base);
+  activeSkillSpecialization = SKILL_TREE_KEYS.includes(activeSpec) ? activeSpec : null;
+  exclusiveSkillTree = SKILL_TREE_KEYS.includes(exclusiveSpec) ? exclusiveSpec : null;
+  reconcileExclusiveSkillPoints();
+  saveSkillProgress({ skipSlotSave });
+}
+
 function skillPointsAvailable(key) {
   const progress = skillProgress[key];
+  if (!progress) return 0;
   const spent = Object.values(progress.ranks).reduce((total, rank) => total + rank, 0);
-  return Math.max(0, Math.floor(progress.correct / SKILL_POINT_INTERVAL) - spent);
+  const earned = Math.floor((progress.correct || 0) / SKILL_POINT_INTERVAL);
+  const netTransferred = (progress.transferredIn || 0) - (progress.transferredOut || 0);
+  return Math.max(0, earned + netTransferred - spent);
+}
+
+function reconcileExclusiveSkillPoints() {
+  if (!exclusiveSkillTree || !skillProgress[exclusiveSkillTree]) return false;
+  let moved = false;
+  for (const otherKey of SKILL_TREE_KEYS) {
+    if (otherKey === exclusiveSkillTree) continue;
+    const unspent = skillPointsAvailable(otherKey);
+    if (unspent > 0) {
+      skillProgress[otherKey].transferredOut = (skillProgress[otherKey].transferredOut || 0) + unspent;
+      skillProgress[exclusiveSkillTree].transferredIn = (skillProgress[exclusiveSkillTree].transferredIn || 0) + unspent;
+      moved = true;
+    }
+  }
+  return moved;
 }
 
 function applySkillBonus(bonus, multiplier = 1) {
@@ -621,9 +696,38 @@ function applySkillBonus(bonus, multiplier = 1) {
   }
 }
 
+function hasNecromancyUnlocked() {
+  return (skillProgress.database?.ranks?.necromancy || 0) > 0;
+}
+function getNecromancyMaxAllies() {
+  return skillProgress.database?.ranks?.necromancy || 0;
+}
+function getNecroAllies() {
+  if (Array.isArray(hero.necroAllies) && hero.necroAllies.length) return hero.necroAllies;
+  return hero.necroAlly ? [hero.necroAlly] : [];
+}
+
+function getUnlockedExclusiveCardId() {
+  for (const key of SKILL_TREE_KEYS) {
+    for (const skill of SKILL_TREES[key].skills) {
+      if (skill.isExclusiveActive && skill.activeCardId && (skillProgress[key]?.ranks?.[skill.id] || 0) > 0) {
+        return skill.activeCardId;
+      }
+    }
+  }
+  return null;
+}
+
+function isSkillTreeLockedOut(key) {
+  if (exclusiveSkillTree && exclusiveSkillTree !== key) return true;
+  if (activeSkillSpecialization && activeSkillSpecialization !== key && !canSwitchSkillSet()) return true;
+  return false;
+}
+
 function recordCorrectAnswer(category) {
   const key = SKILL_TREE_KEYS.find((treeKey) => SKILL_TREES[treeKey].name === category);
   if (!key) return false;
+  if (exclusiveSkillTree && key !== exclusiveSkillTree) return false;
 
   const previousPoints = Math.floor(skillProgress[key].correct / SKILL_POINT_INTERVAL);
   skillProgress[key].correct++;
@@ -636,6 +740,7 @@ function countSpecializedSkills(key) {
 }
 
 function canSwitchSkillSet() {
+  if (exclusiveSkillTree) return false;
   return !activeSkillSpecialization ||
     countSpecializedSkills(activeSkillSpecialization) < SKILLS_TO_SPECIALIZE(activeSkillSpecialization);
 }
@@ -646,12 +751,13 @@ function skillRequirements(skill) {
 
 function canUpgradeSkill(key, skill) {
   if (!SKILL_TREES[key] || !skill || !skillProgress[key]) return false;
+  if (isSkillTreeLockedOut(key)) return false;
   const progress = skillProgress[key];
+  const maxRank = skill.maxRank || SKILL_MAX_RANK;
   return (
     skillPointsAvailable(key) > 0 &&
-    progress.ranks[skill.id] < SKILL_MAX_RANK &&
-    skillRequirements(skill).every((id) => progress.ranks[id] > 0) &&
-    (!activeSkillSpecialization || activeSkillSpecialization === key || canSwitchSkillSet())
+    progress.ranks[skill.id] < maxRank &&
+    skillRequirements(skill).every((id) => progress.ranks[id] > 0)
   );
 }
 
@@ -661,6 +767,10 @@ function upgradeSkill(key, skillId) {
 
   skillProgress[key].ranks[skill.id]++;
   activeSkillSpecialization = key;
+  if (skill.isExclusiveActive) {
+    exclusiveSkillTree = key;
+    reconcileExclusiveSkillPoints();
+  }
   applySkillBonus(skill.bonus);
   saveSkillProgress();
   refreshAchievements();
@@ -680,12 +790,12 @@ const runDeck = [...STARTING_DECK];        // card ids in this run's deck; rewar
 const hero = {};
 const stats = {};
 const battle = {
-  enemy: null, phase: 'choose', card: null, question: null, block: 0, tempDefense: 0,
+  enemy: null, enemyFollower: null, phase: 'choose', card: null, question: null, block: 0, tempDefense: 0,
   defendCooldownTurns: 0, defendUsedThisTurn: false, defendEffectT: 0,
   heroHealFlashT: 0, heroHealTintT: 0,
   log: '', popups: [], hand: [], drawPile: [], discard: [], rewards: [], upgrades: [],
   fromReview: false, newUnlocks: [], pendingAttack: false,
-  lungeT: 0, heroAttackT: 0, bossAttackT: 0, enemyLungeT: 0, enemyLungeDistance: 0,
+  lungeT: 0, heroAttackT: 0, bossAttackT: 0, driusAttackT: 0, enemyLungeT: 0, enemyLungeDistance: 0,
   chargeCard: false, chargeStartedAt: 0, chargeReady: false, chargeMaxT: 0, chargeSparks: [],
   projectileT: -1, projectileQueued: false, projectileCharged: false, projectileDamage: 0,
   hitT: 0, enemyInvertT: 0, cameraPushDistance: 0, cameraShakeT: 0, impactRingT: 0, enemyDefeatT: -1,
@@ -736,12 +846,23 @@ function endMultiplayerMatchState() {
   mpState.endReason = '';
   mpState.dyingTarget = null;
   mpState.deathCountdown = 0;
+  Object.assign(stats, { kills: 0, correct: 0, total: 0, streak: 0 });
+  if (battle.enemy && battle.enemy.isMultiplayerPlayer) {
+    battle.enemy = null;
+    battle.phase = 'choose';
+    battle.pendingAttack = false;
+    battle.question = null;
+    battle.popups = [];
+  }
+  if (typeof mode !== 'undefined' && (mode === 'battle' || mode === 'intro')) {
+    mode = 'menu';
+  }
   if (typeof setArenaTheme === 'function') setArenaTheme('arena');
 }
 
 function resetRun() {
   endMultiplayerMatchState();
-  Object.assign(hero, { hp: 100, maxHp: 100, mana: 100, maxMana: 100, attack: 12, defense: 2, empowerCost: 20, bonusHeal: 0, bonusMana: 0 });
+  Object.assign(hero, { hp: 100, maxHp: 100, mana: 100, maxMana: 100, attack: 12, defense: 2, empowerCost: 20, bonusHeal: 0, bonusMana: 0, runInvincible: false, necroAlly: null, necroAllies: [], tempAttack: 0 });
   for (const key of SKILL_TREE_KEYS) {
     for (const skill of SKILL_TREES[key].skills) {
       applySkillBonus(skill.bonus, skillProgress[key].ranks[skill.id]);
@@ -788,10 +909,22 @@ function drawCardId() {
 }
 
 function fillHand() {
+  battle.hand = battle.hand.filter((id) => !CARD_LIBRARY[id]?.exclusiveActive);
   while (battle.hand.length < HAND_SIZE) {
     const id = drawCardId();
     if (!id) break;
     battle.hand.push(id);
+  }
+  if (!multiplayerMatchActive) {
+    const exId = getUnlockedExclusiveCardId();
+    if (exId) {
+      const cooling = (battle.exclusiveCooldownTurns || 0) > 0;
+      const shouldShow = cooling || (battle.exclusiveAppearTick || 0) % 2 === 0 || Math.random() < 0.65;
+      battle.exclusiveAppearTick = (battle.exclusiveAppearTick || 0) + 1;
+      if (shouldShow && !battle.hand.includes(exId)) {
+        battle.hand.push(exId);
+      }
+    }
   }
 }
 
@@ -807,7 +940,7 @@ function hideGameOverOverlay() {
   const go = document.getElementById('gameOverOverlay');
   if (go) {
     go.hidden = true;
-    go.classList.remove('is-victory', 'is-draw');
+    go.classList.remove('is-victory', 'is-draw', 'is-necromancy');
     go.innerHTML = '';
   }
 }
@@ -842,11 +975,16 @@ function renderHud() {
 function renderExplore(msg) {
   const left = enemies.filter((e) => e.alive).length;
   const boss = currentRoom.boss;
+  const aliveBoss = boss ? enemies.find((e) => e.alive) : null;
   const fallback = left
     ? (boss
-      ? 'Mini boss ahead — touch it to battle.'
-      : 'Touch a virus to battle and unlock the door.')
-    : 'Room cleared! Walk to the door to continue.';
+      ? (currentRoom.final
+        ? `${typeof FINAL_BOSS_NAME !== 'undefined' ? FINAL_BOSS_NAME : 'King Crolue'}, Lord of the Loop, awaits ahead — touch him to begin the battle.`
+        : `${aliveBoss?.name || 'Mini Boss Kor'} ahead — touch to battle.`)
+      : 'Touch a virus to battle and unlock the way.')
+    : (currentRoom.edgeExits
+      ? 'Room cleared! Walk off the left or right road to continue.'
+      : 'Room cleared! Walk to the door to continue.');
   const noun = boss ? 'boss' : (left === 1 ? 'virus' : 'viruses');
   const statusPrefix = left > 0 ? `${left} ${noun} left · ` : '';
   setPanel('');
@@ -857,11 +995,18 @@ function renderBattle() {
   const cards = battle.hand.map((id, i) => {
     const card = CARD_LIBRARY[id];
     const defendCooling = card.id === 'defend' && battle.defendCooldownTurns > 0;
-    const blocked = hero.mana < cardCost(card, hero) || defendCooling;
-    const detail = defendCooling
-      ? `CD ${battle.defendCooldownTurns}t`
+    const exclusiveCooling = card.exclusiveActive && (battle.exclusiveCooldownTurns || 0) > 0;
+    const coolingTurns = defendCooling ? battle.defendCooldownTurns : (exclusiveCooling ? battle.exclusiveCooldownTurns : 0);
+    const isCooling = defendCooling || exclusiveCooling;
+    const blocked = hero.mana < cardCost(card, hero) || isCooling;
+    const detail = isCooling
+      ? `CD ${coolingTurns}t`
       : `${esc(cardCostLabel(card, hero))} · ${esc(describeCard(card, hero))}`;
-    return `<button${defendCooling ? ' class="is-cooling-down"' : ''} data-act="card" data-val="${i}" ${blocked ? 'disabled' : ''}>${i + 1}. ${esc(card.name)}<small>${detail}</small></button>`;
+    const cls = [
+      isCooling ? 'is-cooling-down' : '',
+      card.exclusiveActive ? `is-exclusive-card card-${card.id}` : '',
+    ].filter(Boolean).join(' ');
+    return `<button${cls ? ` class="${cls}"` : ''} data-act="card" data-val="${i}" ${blocked ? 'disabled' : ''}>${i + 1}. ${esc(card.name)}${card.exclusiveActive ? ' ✦' : ''}<small>${detail}</small></button>`;
   }).join('');
   if (multiplayerMatchActive) {
     setPanel(`<div class="battle-bar-head">
@@ -874,12 +1019,34 @@ function renderBattle() {
       <div class="actions">${cards}</div>`);
     return;
   }
+  const noManaRemedial = !multiplayerMatchActive && hero.mana <= 0
+    ? `<button class="is-remedial-action" data-act="remedial">R. Remedial Surge ✦<small>0 MP Only · Answer 2–5 remedial questions for buff + HP/MP restore</small></button>`
+    : '';
+  const buffParts = [];
+  if ((hero.tempAttack || 0) > 0) buffParts.push(`+${hero.tempAttack} ATK`);
+  if ((battle.tempDefense || 0) > 0) buffParts.push(`+${battle.tempDefense} DEF`);
+  const buffBadge = buffParts.length ? `<span class="battle-buff-pill">${buffParts.join(' · ')}</span>` : '';
   setPanel(`<div class="battle-bar-head">
       <span class="log">${esc(battle.log)}</span>
       <span class="intent">${isHeavy() ? 'Next: HEAVY attack!' : 'Next: Normal attack'}</span>
+      ${buffBadge}
       <span class="dim">Deck: ${runDeck.length} (${battle.drawPile.length} left)</span>
     </div>
-    <div class="actions">${cards}</div>`);
+    <div class="actions">${cards}${noManaRemedial}</div>`);
+}
+
+function withShuffledChoices(question) {
+  if (!question || !Array.isArray(question.choices) || question.choices.length < 2) return question;
+  const order = question.choices.map((_, idx) => idx);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return {
+    ...question,
+    choices: order.map((idx) => question.choices[idx]),
+    answer: order.indexOf(question.answer),
+  };
 }
 
 function renderQuestion() {
@@ -1005,14 +1172,31 @@ function startBattle(enemy) {
   battle.drawPile = shuffle([...runDeck]);
   battle.discard = [];
   battle.hand = [];
+  battle.exclusiveCooldownTurns = 0;
+  battle.exclusiveAppearTick = 0;
+  hero.tempAttack = 0;
   fillHand();
   Object.assign(battle, {
-    enemy, phase: 'intro', card: null, question: null, block: 0, popups: [], tempDefense: 0,
+    enemy,
+    enemyFollower: (!multiplayerMatchActive && enemy.nyrmed)
+      ? {
+          name: 'Grenu',
+          grenu: true,
+          hp: 65,
+          maxHp: 65,
+          attack: Math.max(9, Math.round((enemy.attack || 15) * 0.72)),
+          lungeT: 0,
+        }
+      : null,
+    phase: 'intro', card: null, question: null, remedial: null, block: 0, popups: [], tempDefense: 0,
     defendCooldownTurns: 0, defendUsedThisTurn: false, defendEffectT: 0,
+    exclusiveCooldownTurns: 0, exclusiveUsedThisTurn: false,
+    enemyStunTurns: 0, enemyBurnTurns: 0, enemyBurnDamage: 0,
+    aegisAnimT: 0, stunAnimT: 0, burnAnimT: 0, allyAttackT: 0, allyLungeT: 0, allyAttackTs: [0, 0, 0], allyLungeTs: [0, 0, 0], allyTurnIndex: 0, necroCandidate: null,
     enemyDefendEffectT: 0, enemyHealTintT: 0, enemyChargeT: 0,
     enemyProjectileT: -1, enemyProjectileCharged: false, enemyImpactRingT: 0, enemyPreviewCard: null,
     heroHealFlashT: 0, heroHealTintT: 0,
-    lungeT: 0, heroAttackT: 0, bossAttackT: 0, enemyLungeT: 0, enemyLungeDistance: 0,
+    lungeT: 0, heroAttackT: 0, bossAttackT: 0, driusAttackT: 0, enemyLungeT: 0, enemyLungeDistance: 0,
     chargeCard: false, chargeStartedAt: 0, chargeReady: false, chargeMaxT: 0, chargeSparks: [],
     projectileT: -1, projectileQueued: false, projectileCharged: false, projectileDamage: 0,
     pendingAttack: false,
@@ -1020,7 +1204,7 @@ function startBattle(enemy) {
     heroHitT: 0, heroHitTintT: 0, heroKnockbackT: -1,
     deathTimer: 0, enemyAttackedThisTurn: false,
     flash: { hero: 0, enemy: 0 }, fromReview: false, newUnlocks: [],
-    log: enemy.isBoss ? `${enemy.name} blocks the way!` : `A wild ${enemy.name} appeared!`,
+    log: enemy.nyrmed ? `${enemy.name} & follower Grenu block the way!` : enemy.isBoss ? `${enemy.name} blocks the way!` : `A wild ${enemy.name} appeared!`,
   });
   Sound.play(enemy.isBoss ? 'bossIntro' : 'encounter');
   Sound.music(enemy.isBoss ? 'boss' : 'battle');
@@ -1034,11 +1218,16 @@ function chooseCard(index) {
   const card = id && CARD_LIBRARY[id];
   if (!card) return;
   if (id === 'defend' && battle.defendCooldownTurns > 0) return;
+  if (card.exclusiveActive && (battle.exclusiveCooldownTurns || 0) > 0) return;
   const cost = cardCost(card, hero);
   if (hero.mana < cost) return;
   if (id === 'defend') {
     battle.defendCooldownTurns = DEFEND_COOLDOWN_TURNS;
     battle.defendUsedThisTurn = true;
+  }
+  if (card.exclusiveActive) {
+    battle.exclusiveCooldownTurns = card.cooldown || 3;
+    battle.exclusiveUsedThisTurn = true;
   }
   mpState.pendingCardCost = cost;
   hero.mana -= cost;
@@ -1046,7 +1235,7 @@ function chooseCard(index) {
     battle.hand = [...STARTING_DECK];
   } else {
     battle.hand.splice(index, 1);
-    battle.discard.push(id);
+    if (!card.exclusiveActive) battle.discard.push(id);
     fillHand();
   }
   battle.card = id;
@@ -1063,7 +1252,7 @@ function chooseCard(index) {
   battle.projectileDamage = 0;
   battle.pendingAttack = false;
   if (multiplayerMatchActive) {
-    battle.question = mpGetQuestionForRound(mpState.round);
+    battle.question = withShuffledChoices(mpGetQuestionForRound(mpState.round));
     battle.fromReview = false;
     mpState.questionStartedAt = performance.now();
     if (window.mpUI?.matchmaking) {
@@ -1077,7 +1266,7 @@ function chooseCard(index) {
       });
     }
   } else {
-    battle.question = adaptive.nextQuestion();
+    battle.question = withShuffledChoices(adaptive.nextQuestion());
     battle.fromReview = adaptive.fromReview;
   }
   battle.phase = 'question';
@@ -1088,15 +1277,17 @@ function answerQuestion(index) {
   if (battle.phase !== 'question') return;
   const q = battle.question;
   const correct = index === q.answer;
-  stats.total++;
-  if (correct) stats.correct++;
-  recordTopicAnswer(q, correct);
   if (multiplayerMatchActive) {
-    stats.streak = correct ? stats.streak + 1 : 0;
+    mpState.selfTotal = (mpState.selfTotal || 0) + 1;
+    if (correct) mpState.selfCorrect = (mpState.selfCorrect || 0) + 1;
+    recordTopicAnswer(q, correct);
     Sound.play(correct ? 'correct' : 'wrong');
     mpSubmitLocalMove(correct);
     return;
   }
+  stats.total++;
+  if (correct) stats.correct++;
+  recordTopicAnswer(q, correct);
   recordReview(q, correct);
   stats.streak = correct ? stats.streak + 1 : 0;
   recordAchievementProgress('bestStreak', stats.streak);
@@ -1108,6 +1299,9 @@ function answerQuestion(index) {
     battle.enemyAttackedThisTurn = false;
     if (recordCorrectAnswer(q.category)) {
       notes.push(`${q.category} skill point earned. Press U to spend it.`);
+      if (typeof showSkillPointEarnedBanner === 'function') {
+        showSkillPointEarnedBanner(q.category);
+      }
     }
     // Performance-based recovery: a correct answer heals HP and restores mana, scaled by streak.
     const heal = 4 + 2 * Math.min(stats.streak, 5) + hero.bonusHeal;
@@ -1131,6 +1325,167 @@ function answerQuestion(index) {
   }
 }
 
+function buildRemedialQuestions(count) {
+  const picked = [];
+  const usedTexts = new Set();
+
+  // 1. Prioritize missed questions from the spaced-review queue.
+  for (const entry of reviewQueue) {
+    if (picked.length >= count) break;
+    const match = typeof findQuestionByText === 'function' ? findQuestionByText(entry.text) : null;
+    if (match && !usedTexts.has(match.q)) {
+      usedTexts.add(match.q);
+      picked.push({ ...match, difficulty: QUESTION_DIFFICULTY.get(match.q) || 'medium', remedialSource: 'REVIEW DRILL' });
+    }
+  }
+
+  // 2. Fill remaining slots with foundational (easy/medium) questions, preferring weaker topics.
+  const weakTopics = new Set(
+    Object.values(topicProgress)
+      .flatMap((cat) => Object.entries(cat))
+      .filter(([, entry]) => entry.attempted > 0 && entry.correct / entry.attempted < 0.75)
+      .map(([name]) => name)
+  );
+  const easyAndMedium = [
+    ...(QUESTION_BANK.easy || []).map((q) => ({ ...q, difficulty: 'easy' })),
+    ...(QUESTION_BANK.medium || []).map((q) => ({ ...q, difficulty: 'medium' })),
+  ];
+  const weakPool = shuffle(easyAndMedium.filter((q) => !usedTexts.has(q.q) && weakTopics.has(q.topic)));
+  for (const q of weakPool) {
+    if (picked.length >= count) break;
+    usedTexts.add(q.q);
+    picked.push({ ...q, remedialSource: 'REMEDIAL DRILL' });
+  }
+
+  const fallbackPool = shuffle(easyAndMedium.filter((q) => !usedTexts.has(q.q)));
+  for (const q of fallbackPool) {
+    if (picked.length >= count) break;
+    usedTexts.add(q.q);
+    picked.push({ ...q, remedialSource: 'REMEDIAL DRILL' });
+  }
+  return picked.map((entry) => withShuffledChoices(entry));
+}
+
+function startRemedialChallenge() {
+  if (battle.phase !== 'choose' || multiplayerMatchActive || hero.mana > 0) return;
+  const total = 2 + Math.floor(Math.random() * 4); // 2 to 5 consecutive remedial questions
+  const questions = buildRemedialQuestions(total);
+  if (!questions.length) return;
+  battle.remedial = {
+    questions,
+    index: 0,
+    results: [],
+    correctCount: 0,
+  };
+  battle.phase = 'remedial';
+  renderRemedialQuestion();
+}
+
+function renderRemedialQuestion() {
+  const rem = battle.remedial;
+  if (!rem || rem.index >= rem.questions.length) return;
+  const q = rem.questions[rem.index];
+  const total = rem.questions.length;
+  const pips = Array.from({ length: total }, (_, idx) => {
+    const done = idx < rem.results.length;
+    const cls = done ? (rem.results[idx] ? 'is-pass' : 'is-fail') : (idx === rem.index ? 'is-active' : '');
+    return `<span class="remedial-pip ${cls}">${done ? (rem.results[idx] ? '✓' : '✕') : (idx + 1)}</span>`;
+  }).join('');
+  const choices = q.choices.map((text, i) => {
+    return `<button data-act="remedial-answer" data-val="${i}">${i + 1}. ${esc(text)}</button>`;
+  }).join('');
+  setPanel(`<div class="battle-bar-head">
+      <div class="remedial-header">
+        <span class="remedial-badge">REMEDIAL SURGE · ${rem.index + 1} / ${total}</span>
+        <div class="remedial-pips" aria-label="Remedial question progress">${pips}</div>
+      </div>
+      <p class="question">${esc(q.q)}</p>
+      <span class="tag">${esc(q.category)} · ${esc(q.topic)} · ${esc(String(q.difficulty || 'easy').toUpperCase())} · <span class="adaptive-reason-tag">${esc(q.remedialSource || 'REMEDIAL DRILL')}</span></span>
+    </div>
+    <div class="choices">${choices}</div>`);
+}
+
+function answerRemedialQuestion(index) {
+  if (battle.phase !== 'remedial' || !battle.remedial) return;
+  const rem = battle.remedial;
+  const q = rem.questions[rem.index];
+  if (!q) return;
+  const correct = index === q.answer;
+  stats.total++;
+  if (correct) stats.correct++;
+  recordTopicAnswer(q, correct);
+  recordReview(q, correct);
+  stats.streak = correct ? stats.streak + 1 : 0;
+  recordAchievementProgress('bestStreak', stats.streak);
+  adaptive.record(correct);
+  Sound.play(correct ? 'correct' : 'wrong');
+
+  if (correct) {
+    rem.correctCount++;
+    if (recordCorrectAnswer(q.category) && typeof showSkillPointEarnedBanner === 'function') {
+      showSkillPointEarnedBanner(q.category);
+    }
+  }
+  rem.results.push(correct);
+  rem.index++;
+
+  if (rem.index < rem.questions.length) {
+    renderRemedialQuestion();
+    return;
+  }
+
+  // All consecutive remedial questions completed: resolve outcome tier.
+  const total = rem.questions.length;
+  const score = rem.correctCount;
+  const allCorrect = score === total;
+  const passThreshold = Math.ceil(total / 2);
+  const notes = [];
+
+  if (allCorrect) {
+    const atkBuff = 8;
+    const defBuff = 4;
+    hero.tempAttack = (hero.tempAttack || 0) + atkBuff;
+    battle.tempDefense += defBuff;
+    const mpGain = Math.max(0, hero.maxMana - hero.mana);
+    hero.mana = hero.maxMana;
+    const prevHp = hero.hp;
+    const hpGain = Math.min(hero.maxHp - hero.hp, Math.max(20, Math.round(hero.maxHp * 0.35)));
+    hero.hp += hpGain;
+    showHealFeedback(hero.hp - prevHp, { offsetX: 58, y: HERO_SPOT.y - 78 });
+    if (mpGain > 0) popup('hero', `+${mpGain} MP`, '#6fe3e8');
+    popup('hero', `+${atkBuff} ATK / +${defBuff} DEF`, '#ffe07a');
+    emitFx(HERO_SPOT.x, HERO_SPOT.y - 80, '#4be3b0', 28, 4.2);
+    Sound.play('heal');
+    notes.push(`PERFECT REMEDIAL SURGE (${score}/${total})! Restored ${hero.hp - prevHp} HP & ${mpGain} MP, plus +${atkBuff} ATK and +${defBuff} DEF for this battle!`);
+  } else if (score > 0) {
+    const ratio = score / total;
+    const mpGain = Math.min(hero.maxMana - hero.mana, Math.max(10 * score, Math.round(hero.maxMana * 0.5 * ratio)));
+    hero.mana += mpGain;
+    const prevHp = hero.hp;
+    const hpGain = Math.min(hero.maxHp - hero.hp, Math.max(5 * score, Math.round(hero.maxHp * 0.18 * ratio)));
+    hero.hp += hpGain;
+    const atkBuff = score >= passThreshold ? (score >= total - 1 ? 3 : 2) : 0;
+    if (atkBuff > 0) hero.tempAttack = (hero.tempAttack || 0) + atkBuff;
+    showHealFeedback(hero.hp - prevHp, { offsetX: 58, y: HERO_SPOT.y - 78 });
+    if (mpGain > 0) popup('hero', `+${mpGain} MP`, '#6fe3e8');
+    if (atkBuff > 0) popup('hero', `+${atkBuff} ATK`, '#ffe07a');
+    emitFx(HERO_SPOT.x, HERO_SPOT.y - 76, '#7fd49a', 16, 3);
+    Sound.play('heal');
+    notes.push(`Remedial Recovery (${score}/${total}): Restored ${hero.hp - prevHp} HP & ${mpGain} MP${atkBuff ? ` + ${atkBuff} ATK` : ''}.`);
+  } else {
+    notes.push(`Remedial Surge fizzled (${score}/${total} correct). Nothing happened — 0 HP, 0 MP, no buffs.`);
+  }
+
+  battle.remedial = null;
+  battle.question = q;
+  battle.enemyAttackedThisTurn = false;
+  battle.phase = 'feedback';
+  renderFeedback(correct, notes);
+  if (typeof scheduleLeaderboardRunSync === 'function') {
+    scheduleLeaderboardRunSync(400);
+  }
+}
+
 // Resolves the card played this turn and returns a short description of what happened.
 function resolveCard(id, correct) {
   const card = CARD_LIBRARY[id];
@@ -1141,7 +1496,8 @@ function resolveCard(id, correct) {
       battle.projectileQueued = false;
       return 'Wrong answer! Your attack missed.';
     }
-    const dmg = Math.round(hero.attack * card.power * (card.correctMult || 1));
+    const stunMult = battle.enemyStunTurns > 0 ? 1.5 : 1;
+    const dmg = Math.round((hero.attack + (hero.tempAttack || 0)) * card.power * (card.correctMult || 1) * stunMult);
     const note = card.id === 'strike' ? '' : `${card.name}! `;
     if (card.manaOnCorrect) hero.mana = Math.min(hero.maxMana, hero.mana + card.manaOnCorrect);
     battle.pendingAttack = true;
@@ -1202,6 +1558,95 @@ function resolveCard(id, correct) {
     Sound.play('block');
     return `${card.name}: +${bonus} defense for this battle.`;
   }
+  if (card.kind === 'aegis') {
+    if (!correct) {
+      return `Wrong answer! ${card.name} failed to activate.`;
+    }
+    const rank = Math.max(1, skillProgress.computerSystems?.ranks?.kernelAegis || 1);
+    const shockDmg = 35 * rank;
+    const atkSurge = 4 * rank;
+    const defSurge = 3 * rank;
+    hero.runInvincible = true;
+    const prevHp = hero.hp;
+    hero.hp = hero.maxHp;
+    const mpGain = Math.min(hero.maxMana - hero.mana, 40);
+    hero.mana += mpGain;
+    hero.tempAttack = (hero.tempAttack || 0) + atkSurge;
+    battle.tempDefense += defSurge;
+    battle.aegisAnimT = 56;
+    if (battle.enemy && battle.enemy.hp > 0) {
+      battle.enemy.hp = Math.max(0, battle.enemy.hp - shockDmg);
+      battle.flash.enemy = Math.max(battle.flash.enemy, 10);
+      battle.hitT = Math.max(battle.hitT, 0.9);
+      popup('enemy', `-${shockDmg} AEGIS`, '#ffe07a');
+      emitFx(FOE_SPOT.x, FOE_SPOT.y - 76, '#ffe07a', 22, 4);
+      if (battle.enemy.hp <= 0) battle.enemyDefeatT = 0;
+    }
+    if (!document.body.classList.contains('reduce-motion')) {
+      battle.cameraShakeT = Math.max(battle.cameraShakeT, 0.7);
+    }
+    popup('hero', 'INVINCIBLE!', '#ffe07a');
+    if (hero.hp > prevHp) showHealFeedback(hero.hp - prevHp, { offsetX: 58, y: HERO_SPOT.y - 78 });
+    popup('hero', `+${atkSurge} ATK / +${defSurge} DEF`, '#ffe07a');
+    emitFx(HERO_SPOT.x, HERO_SPOT.y - 80, '#ffe07a', 26, 4.2);
+    emitFx(HERO_SPOT.x, HERO_SPOT.y - 80, '#6fe3e8', 18, 3.2);
+    Sound.play('block');
+    return `${card.name} (R${rank})! Run Invincible + Full HP + ${mpGain} MP + ${shockDmg} Aegis DMG + ${atkSurge} ATK/${defSurge} DEF!`;
+  }
+  if (card.kind === 'stun') {
+    if (!correct) {
+      return `Wrong answer! ${card.name} missed.`;
+    }
+    const rank = Math.max(1, skillProgress.networkingSecurity?.ranks?.packetLockdown || 1);
+    const stunTurns = 8 + (rank - 1) * 2;
+    const breachDmg = 40 * rank;
+    battle.enemyStunTurns = stunTurns;
+    const mpGain = Math.min(hero.maxMana - hero.mana, 20);
+    hero.mana += mpGain;
+    battle.stunAnimT = 50;
+    battle.flash.enemy = 10;
+    if (battle.enemy && battle.enemy.hp > 0) {
+      battle.enemy.hp = Math.max(0, battle.enemy.hp - breachDmg);
+      battle.hitT = Math.max(battle.hitT, 0.9);
+      popup('enemy', `-${breachDmg} BREACH`, '#6fe3e8');
+      if (battle.enemy.hp <= 0) battle.enemyDefeatT = 0;
+    }
+    if (!document.body.classList.contains('reduce-motion')) {
+      battle.cameraShakeT = Math.max(battle.cameraShakeT, 0.75);
+    }
+    popup('enemy', `STUNNED ${battle.enemyStunTurns}t!`, '#6fe3e8');
+    if (mpGain > 0) popup('hero', `+${mpGain} MP`, '#6fe3e8');
+    emitFx(FOE_SPOT.x, FOE_SPOT.y - 80, '#6fe3e8', 28, 4.5);
+    emitFx(FOE_SPOT.x, FOE_SPOT.y - 80, '#e8fbff', 16, 3.2);
+    Sound.play('heavy');
+    return `${card.name} (R${rank}): ${breachDmg} DMG, ${battle.enemy.name} STUNNED ${battle.enemyStunTurns}t (1.5x Vulnerable) + ${mpGain} MP!`;
+  }
+  if (card.kind === 'burn_hit') {
+    if (!correct) {
+      battle.chargeCard = false;
+      battle.chargeMaxT = 0;
+      battle.projectileQueued = false;
+      return `Wrong answer! ${card.name} fizzled out.`;
+    }
+    const rank = Math.max(1, skillProgress.programming?.ranks?.overburnExecution || 1);
+    const baseDmg = 100 + (rank - 1) * 50;
+    const passiveAndBuffBonus = (Math.max(0, (hero.attack || 12) - 12) + (hero.tempAttack || 0)) * 2;
+    const isExecute = battle.enemy && battle.enemy.hp <= battle.enemy.maxHp * 0.4;
+    const dmg = Math.round((baseDmg + passiveAndBuffBonus) * (isExecute ? 1.5 : 1));
+    battle.enemyBurnTurns = 5;
+    battle.enemyBurnDamage = 20 * rank;
+    battle.burnAnimT = 52;
+    battle.pendingAttack = true;
+    battle.lungeT = 0;
+    battle.heroAttackT = BATTLE_ATTACK_FRAME_COUNT * BATTLE_ATTACK_FRAME_BUFFER;
+    battle.projectileCharged = true;
+    battle.projectileQueued = false;
+    battle.projectileT = 0;
+    battle.projectileDamage = dmg;
+    emitFx(HERO_SPOT.x + 60, HERO_SPOT.y - 90, '#ff7b47', 16, 3.4);
+    Sound.play('heavy');
+    return `${card.name} (R${rank})${isExecute ? ' [EXECUTE!]' : ''}! ${dmg} DMG + ${battle.enemyBurnDamage}/turn Burning (${battle.enemyBurnTurns}t).`;
+  }
   return 'Nothing happened.';
 }
 
@@ -1227,33 +1672,222 @@ function startHeroDeathSequence() {
   if (typeof submitLeaderboardRun === 'function') submitLeaderboardRun();
 }
 
-function performEnemyAttack({ fromWrongAnswer = false } = {}) {
-  // Enemy turn: every third turn (every second for bosses) is a telegraphed heavy attack.
-  const heavy = isHeavy();
+function performSingleAllyAttack(allyIndex = 0) {
+  const allies = getNecroAllies();
+  const ally = allies[allyIndex];
   const foe = battle.enemy;
-  let dmg = fromWrongAnswer
-    ? Math.max(24, Math.round(foe.attack * (heavy ? 2.2 : 1.8) - hero.defense - battle.tempDefense))
-    : Math.max(1, Math.round(foe.attack * (heavy ? 1.7 : 1) - hero.defense - battle.tempDefense));
-  dmg = Math.max(1, Math.round(dmg * (1 - battle.block)));
-  if (battle.heroHitT > 0) dmg = 0;
-  battle.enemyLungeT = 1;
-  battle.enemyLungeDistance = foe.isBoss ? 260 : heavy ? 235 : 185;
-  if (foe.isBoss) battle.bossAttackT = BOSS_ATTACK_FRAMES * BOSS_ATTACK_BUFFER;
+  if (!ally || !foe || foe.hp <= 0) return { killed: false, msg: '' };
+  const dmg = Math.max(6, Math.round(ally.attack || 10));
+  foe.hp = Math.max(0, foe.hp - dmg);
+  popup('enemy', `-${dmg} ${ally.name.toUpperCase()}`, '#c77dff');
+  if (!Array.isArray(battle.allyLungeTs)) battle.allyLungeTs = [0, 0, 0];
+  if (!Array.isArray(battle.allyAttackTs)) battle.allyAttackTs = [0, 0, 0];
+  battle.allyLungeTs[allyIndex] = 1;
+  battle.allyAttackTs[allyIndex] = 24;
+  battle.allyLungeT = 1;
+  battle.allyAttackT = 24;
+  battle.hitT = Math.max(battle.hitT, 0.8);
+  battle.flash.enemy = Math.max(battle.flash.enemy, 10);
+  emitFx(FOE_SPOT.x, FOE_SPOT.y - 76, '#b565ff', 18, 3.6);
+  Sound.play('hit');
+  const msg = `${ally.name} (Undead Ally ${allyIndex + 1}/${allies.length}) strikes ${foe.name} for ${dmg} DMG!`;
+  battle.log = msg;
+  if (foe.hp <= 0) {
+    battle.enemyDefeatT = 0;
+    return { killed: true, msg };
+  }
+  return { killed: false, msg };
+}
+
+function performAllyAttack() {
+  return performSingleAllyAttack(0).killed;
+}
+
+function renderAllyTurn(allyIndex, msg) {
+  const allies = getNecroAllies();
+  battle.phase = 'ally_turn';
+  setPanel(`<div class="battle-feedback-row">
+      <div class="battle-feedback-copy">
+        <p><span class="ally-turn-pill">ALLY ${allyIndex + 1} / ${allies.length} TURN</span> <strong>${esc(msg)}</strong></p>
+      </div>
+      <button data-act="ally-continue">${allyIndex + 1 < allies.length ? 'Next Ally' : 'Enemy Turn'}<span class="keyhint"> (Enter)</span></button>
+    </div>`);
+}
+
+function performEnemyFollowerAttack() {
+  const follower = battle.enemyFollower;
+  const foe = battle.enemy;
+  if (!follower || follower.hp <= 0 || !foe || foe.hp <= 0) return '';
+  let dmg = Math.max(1, Math.round((follower.attack || 11) - hero.defense - battle.tempDefense));
+  if (hero.runInvincible || battle.heroHitT > 0) dmg = 0;
+  follower.lungeT = 1;
   hero.hp = Math.max(0, hero.hp - dmg);
   if (dmg > 0) {
     battle.flash.hero = 12;
     battle.heroHitT = HERO_HIT_IFRAME_TICKS;
     battle.heroHitTintT = HERO_HIT_TINT_TICKS;
     battle.heroKnockbackT = 0;
-    popup('hero', `-${dmg}`, '#e8706a');
+    popup('hero', `-${dmg} GRENU`, '#ff9659');
+    emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#ff9659', 14, 3.5);
+  } else if (hero.runInvincible) {
+    battle.aegisAnimT = Math.max(battle.aegisAnimT, 22);
+    popup('hero', 'INVINCIBLE!', '#ffe07a');
+    emitFx(HERO_SPOT.x, HERO_SPOT.y - 75, '#ffe07a', 14, 3);
+  } else {
+    popup('hero', 'DODGE', '#f2bb61');
+  }
+  Sound.play('enemy');
+  const msg = dmg > 0
+    ? `${follower.name} (Nyrmed's Follower) strikes you for ${dmg} DMG!`
+    : hero.runInvincible
+      ? `${follower.name}'s follow-up attack bounces off your Kernel Aegis!`
+      : `${follower.name} misses while your invincibility is active.`;
+  battle.log = msg;
+  if (hero.hp <= 0) startHeroDeathSequence();
+  return msg;
+}
+
+function renderEnemyFollowerTurn(msg) {
+  battle.phase = 'enemy_follower_turn';
+  setPanel(`<div class="battle-feedback-row">
+      <div class="battle-feedback-copy">
+        <p><span class="enemy-follower-pill">EXTRA ENEMY TURN // GRENU</span> <strong>${esc(msg)}</strong></p>
+      </div>
+      <button data-act="enemy-follower-continue">Your Turn<span class="keyhint"> (Enter)</span></button>
+    </div>`);
+}
+
+function continueEnemyFollowerTurn() {
+  if (battle.phase !== 'enemy_follower_turn') return;
+  if (hero.hp <= 0 || battle.phase === 'dying') return;
+  finishChoosePhase();
+}
+
+function finishChoosePhase() {
+  if (battle.defendUsedThisTurn) {
+    battle.defendUsedThisTurn = false;
+  } else if (battle.defendCooldownTurns > 0) {
+    battle.defendCooldownTurns--;
+  }
+  if (battle.exclusiveUsedThisTurn) {
+    battle.exclusiveUsedThisTurn = false;
+  } else if ((battle.exclusiveCooldownTurns || 0) > 0) {
+    battle.exclusiveCooldownTurns--;
+  }
+  battle.phase = 'choose';
+  fillHand();
+  renderBattle();
+}
+
+function finishTurnAfterAllies() {
+  if (!battle.enemyAttackedThisTurn) {
+    performEnemyAttack({ fromWrongAnswer: false });
+    if (hero.hp <= 0 || battle.phase === 'dying') return;
+  }
+  battle.enemyAttackedThisTurn = false;
+  if (battle.enemyFollower && battle.enemyFollower.hp > 0 && battle.enemy && battle.enemy.hp > 0) {
+    const followerMsg = performEnemyFollowerAttack();
+    if (hero.hp <= 0 || battle.phase === 'dying') return;
+    renderEnemyFollowerTurn(followerMsg);
+    return;
+  }
+  finishChoosePhase();
+}
+
+function continueAllyTurn() {
+  if (battle.phase !== 'ally_turn') return;
+  if (battle.enemy.hp <= 0) return winBattle();
+  const allies = getNecroAllies();
+  battle.allyTurnIndex = (battle.allyTurnIndex || 0) + 1;
+  if (battle.allyTurnIndex < allies.length) {
+    const res = performSingleAllyAttack(battle.allyTurnIndex);
+    renderAllyTurn(battle.allyTurnIndex, res.msg);
+    return;
+  }
+  battle.allyTurnIndex = 0;
+  finishTurnAfterAllies();
+}
+
+function performEnemyAttack({ fromWrongAnswer = false } = {}) {
+  const foe = battle.enemy;
+  if (!foe || foe.hp <= 0) return;
+  if (battle.enemyStunTurns > 0) {
+    battle.enemyStunTurns--;
+    battle.stunAnimT = Math.max(battle.stunAnimT, 22);
+    popup('enemy', 'STUNNED!', '#6fe3e8');
+    emitFx(FOE_SPOT.x, FOE_SPOT.y - 80, '#6fe3e8', 10, 2.2);
+    battle.log = `${foe.name} is STUNNED and cannot attack (${battle.enemyStunTurns} turns left)!`;
+    return;
+  }
+  // Enemy turn: every third turn (every second for bosses) is a telegraphed heavy attack.
+  const heavy = isHeavy();
+  let dmg = fromWrongAnswer
+    ? Math.max(24, Math.round(foe.attack * (heavy ? 2.2 : 1.8) - hero.defense - battle.tempDefense))
+    : Math.max(1, Math.round(foe.attack * (heavy ? 1.7 : 1) - hero.defense - battle.tempDefense));
+  dmg = Math.max(1, Math.round(dmg * (1 - battle.block)));
+  let aegisBreakNote = '';
+  let aegisOverload = false;
+  if (hero.runInvincible) {
+    if (fromWrongAnswer) {
+      const mpDrain = Math.min(hero.mana, 10);
+      hero.mana = Math.max(0, hero.mana - mpDrain);
+      if (mpDrain > 0) popup('hero', `-${mpDrain} MP`, '#6fe3e8');
+      if (foe.isBoss) {
+        dmg = Math.max(6, Math.round(dmg * 0.5));
+        aegisBreakNote = `Aegis pierced by Boss breach! -${dmg} HP & -${mpDrain} MP (accuracy & streak penalized).`;
+      } else {
+        dmg = 4;
+        aegisOverload = true;
+        aegisBreakNote = `Aegis overload! Wrong answer drains ${mpDrain} MP & shocks you for 4 HP.`;
+      }
+    } else {
+      dmg = 0;
+    }
+  } else if (battle.heroHitT > 0) {
+    dmg = 0;
+  }
+  if (foe.isBoss) {
+    const isCrolue = Boolean(foe.isFinal);
+    battle.enemyLungeT = 1;
+    battle.enemyLungeDistance = isCrolue ? 55 : 260;
+    battle.bossAttackT = typeof getBossAttackDuration === 'function'
+      ? getBossAttackDuration(foe)
+      : BOSS_ATTACK_FRAMES * BOSS_ATTACK_BUFFER;
+    if (isCrolue && typeof emitFx === 'function') {
+      emitFx(HERO_SPOT.x + 40, HERO_SPOT.y - 36, '#d92638', 18, 4.5);
+    }
+  } else if (foe.brute) {
+    // Drius uses a stationary attack animation instead of shoving forward.
+    battle.enemyLungeT = 0;
+    battle.enemyLungeDistance = 0;
+    battle.driusAttackT = (typeof DRIUS_ATTACK_FRAMES_COUNT !== 'undefined' ? DRIUS_ATTACK_FRAMES_COUNT : 10) * (typeof DRIUS_ATTACK_BUFFER !== 'undefined' ? DRIUS_ATTACK_BUFFER : 3);
+  } else {
+    battle.enemyLungeT = 1;
+    battle.enemyLungeDistance = heavy ? 235 : 185;
+  }
+  hero.hp = Math.max(0, hero.hp - dmg);
+  if (dmg > 0) {
+    battle.flash.hero = 12;
+    battle.heroHitT = HERO_HIT_IFRAME_TICKS;
+    battle.heroHitTintT = HERO_HIT_TINT_TICKS;
+    battle.heroKnockbackT = 0;
+    popup('hero', aegisOverload ? `-${dmg} OVERLOAD` : fromWrongAnswer && hero.runInvincible ? `-${dmg} PIERCE` : `-${dmg}`, '#e8706a');
     emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#e8706a', 14, 3.5);
+  } else if (hero.runInvincible) {
+    battle.aegisAnimT = Math.max(battle.aegisAnimT, 22);
+    popup('hero', 'INVINCIBLE!', '#ffe07a');
+    emitFx(HERO_SPOT.x, HERO_SPOT.y - 75, '#ffe07a', 14, 3);
   } else {
     popup('hero', 'DODGE', '#f2bb61');
   }
   Sound.play(heavy ? 'heavy' : 'enemy');
-  battle.log = dmg > 0
-    ? `${fromWrongAnswer ? 'Breach counter! ' : heavy ? 'Heavy charge! ' : ''}${foe.name} hits you for ${dmg}.`
-    : `${foe.name} misses while your invincibility is active.`;
+  battle.log = aegisBreakNote
+    ? aegisBreakNote
+    : dmg > 0
+      ? `${fromWrongAnswer ? 'Breach counter! ' : heavy ? 'Heavy charge! ' : ''}${foe.name} hits you for ${dmg}.`
+      : hero.runInvincible
+        ? `${foe.name}'s attack bounces off your Kernel Aegis invincibility!`
+        : `${foe.name} misses while your invincibility is active.`;
   battle.block = 0;
   foe.turns++;
 
@@ -1292,18 +1926,30 @@ function continueBattle() {
   }
   if (battle.enemy.hp <= 0) return winBattle();
 
-  if (!battle.enemyAttackedThisTurn) {
-    performEnemyAttack({ fromWrongAnswer: false });
-    if (hero.hp <= 0 || battle.phase === 'dying') return;
+  // Burning tick at start of enemy turn resolution
+  if (battle.enemyBurnTurns > 0 && battle.enemy.hp > 0) {
+    const burnDmg = battle.enemyBurnDamage || 10;
+    battle.enemy.hp = Math.max(0, battle.enemy.hp - burnDmg);
+    battle.enemyBurnTurns--;
+    battle.burnAnimT = Math.max(battle.burnAnimT, 28);
+    battle.flash.enemy = Math.max(battle.flash.enemy, 8);
+    popup('enemy', `-${burnDmg} BURN`, '#ff7b47');
+    emitFx(FOE_SPOT.x, FOE_SPOT.y - 72, '#ff7b47', 16, 3.2);
+    if (battle.enemy.hp <= 0) {
+      battle.enemyDefeatT = 0;
+      return winBattle();
+    }
   }
-  battle.enemyAttackedThisTurn = false;
-  if (battle.defendUsedThisTurn) {
-    battle.defendUsedThisTurn = false;
-  } else if (battle.defendCooldownTurns > 0) {
-    battle.defendCooldownTurns--;
+
+  // Necromancy resurrected allies take their own separate turns sequentially before the enemy turn
+  if (getNecroAllies().length > 0 && battle.enemy.hp > 0) {
+    battle.allyTurnIndex = 0;
+    const res = performSingleAllyAttack(0);
+    renderAllyTurn(0, res.msg);
+    return;
   }
-  battle.phase = 'choose';
-  renderBattle();
+
+  finishTurnAfterAllies();
 }
 
 function winBattle() {
@@ -1318,7 +1964,51 @@ function winBattle() {
     .filter((id) => !before.includes(id) && !CARD_LIBRARY[id].start);
   Sound.play(battle.enemy.isBoss ? 'bossWin' : 'win');
   if (typeof submitLeaderboardRun === 'function') submitLeaderboardRun();
+  if (!multiplayerMatchActive && hasNecromancyUnlocked() && battle.enemy) {
+    const allies = getNecroAllies();
+    const maxAllies = getNecromancyMaxAllies();
+    if (allies.length < maxAllies) {
+      battle.necroCandidate = {
+        name: battle.enemy.name,
+        isBoss: Boolean(battle.enemy.isBoss),
+        isFinal: Boolean(battle.enemy.isFinal),
+        kor: Boolean(battle.enemy.kor),
+        brute: Boolean(battle.enemy.brute),
+        nyrmed: Boolean(battle.enemy.nyrmed),
+        grenu: Boolean(battle.enemy.grenu),
+        maxHp: battle.enemy.maxHp,
+        attack: Math.max(8, Math.round((battle.enemy.attack || 10) * 1.15)),
+      };
+      renderNecromancyPrompt();
+      return;
+    }
+    battle.log = `Necromancy capacity full (${allies.length}/${maxAllies}) — upgrade Necromancy in Skill Tree to raise more allies.`;
+  }
   renderWin();
+}
+
+function renderNecromancyPrompt() {
+  const cand = battle.necroCandidate;
+  if (!cand) return renderWin();
+  const allies = getNecroAllies();
+  const maxAllies = getNecromancyMaxAllies();
+  battle.phase = 'necro_prompt';
+  setPanel('');
+  const go = document.getElementById('gameOverOverlay');
+  if (!go) return renderWin();
+  go.classList.remove('is-victory', 'is-draw');
+  go.classList.add('is-necromancy');
+  go.innerHTML = `<div class="game-over-box is-necromancy">
+    <div class="game-over-corruption">NECROMANCY PACT // ${esc(cand.isBoss ? 'BOSS SOUL' : 'SOUL HARVESTED')} (${allies.length}/${maxAllies})</div>
+    <div class="game-over-skull" aria-hidden="true">☠</div>
+    <h2 class="game-over-title" id="gameOverTitle" data-text="RESURRECT?">RESURRECT?</h2>
+    <p class="game-over-killer">Raise <strong>${esc(cand.name)}</strong> (${cand.attack} ATK) to fight beside you? (Ally ${allies.length + 1} of ${maxAllies})</p>
+    <div class="game-over-actions">
+      <button type="button" class="game-over-btn is-primary" data-act="necro-yes">Yes</button>
+      <button type="button" class="game-over-btn is-secondary" data-act="necro-no">No</button>
+    </div>
+  </div>`;
+  go.hidden = false;
 }
 
 function afterWin() {
@@ -1353,6 +2043,7 @@ function exitBattle(msg) {
   grace = 90;
   renderExplore(msg);
   Sound.music('explore');
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
   gsap.killTweensOf(overlay);
   gsap.fromTo(overlay, { opacity: 0.8 }, { opacity: 0, duration: 0.5 });
 }
@@ -1458,6 +2149,9 @@ function startMultiplayerMatch(matchConfig, role, selfClientId) {
     endReason: '',
     dyingTarget: null,
     deathCountdown: 0,
+    selfCorrect: 0,
+    selfTotal: 0,
+    pvpSubmitted: false,
   });
 
   const makeFighter = () => ({
@@ -1532,7 +2226,7 @@ function startMultiplayerMatch(matchConfig, role, selfClientId) {
     enemyDefendEffectT: 0, enemyHealTintT: 0, enemyChargeT: 0,
     enemyProjectileT: -1, enemyProjectileCharged: false, enemyImpactRingT: 0, enemyPreviewCard: null,
     heroHealFlashT: 0, heroHealTintT: 0,
-    lungeT: 0, heroAttackT: 0, bossAttackT: 0, enemyLungeT: 0, enemyLungeDistance: 0,
+    lungeT: 0, heroAttackT: 0, bossAttackT: 0, driusAttackT: 0, enemyLungeT: 0, enemyLungeDistance: 0,
     chargeCard: false, chargeStartedAt: 0, chargeReady: false, chargeMaxT: 0, chargeSparks: [],
     projectileT: -1, projectileQueued: false, projectileCharged: false, projectileDamage: 0,
     pendingAttack: false,
@@ -1941,6 +2635,28 @@ function renderMultiplayerResult() {
     : (draw ? 'SIMULTANEOUS BREACH // MATCH TIED' : 'FATAL SYSTEM BREACH // DUEL LOST');
   const oppHp = battle.enemy ? battle.enemy.hp : 0;
   const boxClass = won ? ' is-victory' : (draw ? ' is-draw' : '');
+  const matchAccuracy = mpState.selfTotal
+    ? `${Math.floor((100 * (mpState.selfCorrect || 0)) / mpState.selfTotal)}%`
+    : '0%';
+
+  if (!mpState.pvpSubmitted && mpState.matchId) {
+    mpState.pvpSubmitted = true;
+    if (typeof recordAchievementProgress === 'function') {
+      recordAchievementProgress('pvpMatches', 1);
+      if (won) recordAchievementProgress('pvpWins', 1);
+    }
+    if (typeof submitPvpLeaderboardMatch === 'function') {
+      const selfDamage = mpState.fighters?.[mpState.role]?.damageDealt || 0;
+      submitPvpLeaderboardMatch({
+        matchId: mpState.matchId,
+        playerName: mpState.selfName,
+        outcome: mpState.outcome || (won ? 'won' : draw ? 'draw' : 'lost'),
+        correctAnswers: mpState.selfCorrect || 0,
+        totalAnswers: mpState.selfTotal || 0,
+        damageDealt: selfDamage,
+      });
+    }
+  }
 
   go.classList.toggle('is-victory', won);
   go.classList.toggle('is-draw', draw);
@@ -1954,7 +2670,7 @@ function renderMultiplayerResult() {
       <div class="game-over-stat"><span>YOUR HP</span><strong>${hero.hp}/${hero.maxHp}</strong></div>
       <div class="game-over-stat"><span>FOE HP</span><strong>${oppHp}/100</strong></div>
     </div>
-    <p class="game-over-note">Room ${esc(mpState.roomCode)} · ${esc(mpState.arenaName)} · Accuracy ${accuracy()}</p>
+    <p class="game-over-note">Room ${esc(mpState.roomCode)} · ${esc(mpState.arenaName)} · Accuracy ${matchAccuracy}</p>
     <div class="game-over-actions">
       <button type="button" class="game-over-btn is-primary" data-act="mp-lobby">Return to Lobby</button>
       <button type="button" class="game-over-btn is-secondary" data-act="mp-menu">Main Menu</button>
@@ -1970,8 +2686,12 @@ panel.addEventListener('click', (e) => {
   const { act, val } = btn.dataset;
   const actions = {
     card: () => chooseCard(Number(val)),
+    remedial: () => startRemedialChallenge(),
+    'remedial-answer': () => answerRemedialQuestion(Number(val)),
     answer: () => answerQuestion(Number(val)),
     continue: () => continueBattle(),
+    'ally-continue': () => continueAllyTurn(),
+    'enemy-follower-continue': () => continueEnemyFollowerTurn(),
     won: () => afterWin(),
     pickcard: () => pickReward(Number(val)),
     upgrade: () => applyUpgrade(Number(val)),
@@ -1996,7 +2716,28 @@ if (gameOverOverlayEl) {
     if (!btn || btn.disabled) return;
     const act = btn.dataset.act;
     if (act === 'retry') retryRoom();
-    else if (act === 'hub') {
+    else if (act === 'necro-yes') {
+      const allies = getNecroAllies();
+      const maxAllies = getNecromancyMaxAllies();
+      if (battle.necroCandidate && allies.length < maxAllies) {
+        const nextAllies = [...allies, { ...battle.necroCandidate }];
+        hero.necroAllies = nextAllies;
+        hero.necroAlly = nextAllies[0];
+        battle.necroCandidate = null;
+        emitFx(HERO_SPOT.x - 135, HERO_SPOT.y - 60, '#c77dff', 28, 4.2);
+        Sound.play('heal');
+      } else {
+        battle.necroCandidate = null;
+      }
+      hideGameOverOverlay();
+      battle.phase = 'won';
+      renderWin();
+    } else if (act === 'necro-no') {
+      battle.necroCandidate = null;
+      hideGameOverOverlay();
+      battle.phase = 'won';
+      renderWin();
+    } else if (act === 'hub') {
       hideGameOverOverlay();
       showDashboard();
     } else if (act === 'mp-lobby') {

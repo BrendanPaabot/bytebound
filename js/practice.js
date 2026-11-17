@@ -37,7 +37,7 @@ function nextPracticeQuestion() {
   if (pool.length > 1 && next === practice.current) {
     next = pickWeighted(pool.filter((q) => q !== practice.current));
   }
-  practice.current = next;
+  practice.current = typeof withShuffledChoices === 'function' ? withShuffledChoices(next) : next;
   practice.picked = null;
   practice.skillNote = '';
 }
@@ -66,28 +66,44 @@ function renderPracticeView() {
 function renderPracticeMenu() {
   const chips = PRACTICE_DIFFICULTIES.map((difficulty) => `
     <button class="practice-chip" data-practice="difficulty" data-diff="${difficulty}" aria-pressed="${practice.difficulty === difficulty}">${difficulty === 'mixed' ? 'Mixed' : capitalize(difficulty)}</button>`).join('');
+  const weakList = Object.entries(topicProgress).flatMap(([category, topics]) =>
+    Object.entries(topics)
+      .filter(([, s]) => (s?.attempted || 0) >= 1 && (s.correct / s.attempted) < 0.75)
+      .map(([topic, s]) => ({ category, topic, pct: Math.round((100 * s.correct) / s.attempted), s }))
+  ).sort((a, b) => a.pct - b.pct);
+  const weakCallout = weakList.length
+    ? `<div class="practice-weak-banner">
+        <div>
+          <strong>Weak Topic Spotlight</strong>
+          <small>${esc(weakList[0].category)} · ${esc(weakList[0].topic)} (${weakList[0].pct}% accuracy)</small>
+        </div>
+        <button class="practice-go" data-practice="start" data-src="topic" data-category="${esc(weakList[0].category)}" data-topic="${esc(weakList[0].topic)}">Drill Weakest</button>
+      </div>`
+    : '';
   const categories = Object.entries(topicProgress).map(([category, topics]) => {
-    const rows = Object.keys(topics).map((topic) => {
+    const rows = Object.entries(topics).map(([topic, s]) => {
       const count = questionsFor({ category, topic }, practice.difficulty).length;
+      const pctTxt = s?.attempted ? ` · ${Math.round((100 * s.correct) / s.attempted)}%` : '';
       return `<div class="practice-topic">
         <span>${esc(topic)}</span>
-        <small>${count} ${count === 1 ? 'question' : 'questions'}</small>
+        <small>${count} ${count === 1 ? 'question' : 'questions'}${pctTxt}</small>
         <button class="practice-go" data-practice="start" data-src="topic" data-category="${esc(category)}" data-topic="${esc(topic)}" ${count ? '' : 'disabled'}>Practice</button>
       </div>`;
     }).join('');
-    return `<details class="practice-category">
+    return `<details class="practice-category" open>
       <summary>${esc(category)}</summary>
       ${rows}
     </details>`;
   }).join('');
-  return `<span class="eyebrow">Practice</span>
+  return `<span class="eyebrow">Topic Drill · Non-Combat Study</span>
     <h2>Study without a fight</h2>
-    <p>Answer questions at your own pace. Results count toward your tracker and skill points, and you can't lose HP here.</p>
+    <p>Drill specific CS topics or your missed-question queue at your own pace. Answers update your Baseline/Tracker and earn Skill Points without combat damage. (Use <em>Practice Mode</em> on Quest Hub for a no-save combat sandbox.)</p>
     <div class="practice-controls"><span>Difficulty</span><div class="practice-chips">${chips}</div></div>
     <div class="practice-start">
       <button class="leaderboard-action" data-practice="start" data-src="all">Mixed quiz, all topics</button>
       <button class="leaderboard-action" data-practice="start" data-src="review" ${reviewQueue.length ? '' : 'disabled'}>Review missed (${reviewQueue.length})</button>
     </div>
+    ${weakCallout}
     <div class="practice-categories">${categories}</div>`;
 }
 

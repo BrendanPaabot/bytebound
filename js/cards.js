@@ -16,6 +16,9 @@ const CARD_LIBRARY = {
   heavy: { id: 'heavy', name: 'Heavy Blow', cost: 30, kind: 'hit', power: 2.2, unlock: { metric: 'kills', goal: 5, text: 'Defeat 5 viruses' }, text: 'Costs 30 mana for a crushing hit.' },
   fortify: { id: 'fortify', name: 'Fortify', cost: 0, kind: 'buff', defense: 2, unlock: { metric: 'kills', goal: 10, text: 'Defeat 10 viruses' }, text: '+2 defense for the rest of the battle.' },
   overclock: { id: 'overclock', name: 'Overclock', cost: 10, kind: 'hit', power: 1, correctMult: 2, unlock: { metric: 'bosses', goal: 1, text: 'Defeat a mini boss' }, text: 'Costs 10 mana. Double damage when correct.' },
+  kernel_aegis: { id: 'kernel_aegis', name: 'Kernel Aegis', cost: 10, kind: 'aegis', exclusiveActive: true, cooldown: 4, text: 'Blocks standard hits + full heal + 40 MP + ATK/DEF surge; wrong answers drain MP, shock HP & pierce on Bosses.' },
+  packet_lockdown: { id: 'packet_lockdown', name: 'Packet Lockdown', cost: 10, kind: 'stun', stunTurns: 8, exclusiveActive: true, cooldown: 3, text: '8–12t stun, 40–120 breach DMG, +50% hit DMG while stunned & +20 MP.' },
+  plasma_compile: { id: 'plasma_compile', name: 'Overburn Execution', cost: 15, kind: 'burn_hit', baseDamage: 100, burnDamage: 20, burnTurns: 5, exclusiveActive: true, cooldown: 2, text: '100–200 base DMG + 2x buffs (Execute <40% HP) + Inferno Burn (5t).' },
 };
 
 function cardCost(card, hero) {
@@ -31,8 +34,9 @@ function cardCostLabel(card, hero) {
 function describeCard(card, hero) {
   switch (card.kind) {
     case 'hit': {
-      const hit = Math.round(hero.attack * card.power * (card.correctMult || 1));
-      const glance = Math.round(hero.attack * 0.3);
+      const effectiveAtk = hero.attack + (hero.tempAttack || 0);
+      const hit = Math.round(effectiveAtk * card.power * (card.correctMult || 1));
+      const glance = Math.round(effectiveAtk * 0.3);
       const extra = card.manaOnCorrect ? ` +${card.manaOnCorrect} mana if correct.` : '';
       return `${hit} damage if correct, ${glance} if not.${extra}`;
     }
@@ -46,12 +50,27 @@ function describeCard(card, hero) {
       return `+${card.gain} mana if correct, 2 if not.`;
     case 'buff':
       return `+${card.defense} defense for this battle.`;
+    case 'aegis': {
+      const rank = typeof skillProgress !== 'undefined' ? Math.max(1, skillProgress.computerSystems?.ranks?.kernelAegis || 1) : 1;
+      return `Shields normal hits + Full HP + 40 MP + ${35 * rank} DMG (wrong answers drain 10 MP & shock/pierce). ${card.cooldown}t CD.`;
+    }
+    case 'stun': {
+      const rank = typeof skillProgress !== 'undefined' ? Math.max(1, skillProgress.networkingSecurity?.ranks?.packetLockdown || 1) : 1;
+      return `Stuns ${8 + (rank - 1) * 2}t + ${40 * rank} DMG + 1.5x hit DMG + 20 MP. ${card.cooldown}t CD.`;
+    }
+    case 'burn_hit': {
+      const rank = typeof skillProgress !== 'undefined' ? Math.max(1, skillProgress.programming?.ranks?.overburnExecution || 1) : 1;
+      const bonus = (Math.max(0, (hero.attack || 12) - 12) + (hero.tempAttack || 0)) * 2;
+      const total = 100 + (rank - 1) * 50 + bonus;
+      return `${total} DMG (1.5x Execute <40%) + ${20 * rank}/t burn (5t). ${card.cooldown}t CD.`;
+    }
     default:
       return card.text;
   }
 }
 
 function cardUnlocked(card, metrics) {
+  if (card.exclusiveActive) return false;
   if (card.start || !card.unlock) return true;
   return (metrics[card.unlock.metric] || 0) >= card.unlock.goal;
 }

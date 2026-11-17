@@ -194,12 +194,12 @@
     }
 
     async closeAndReturnToMenu() {
-      if (this.snapshot.currentRoom) {
-        await this.matchmaking.leaveCurrentRoom();
-      }
       this.closeOverlayOnly();
       if (typeof this.onBackToMenu === 'function') {
         this.onBackToMenu();
+      }
+      if (this.snapshot.currentRoom) {
+        await this.matchmaking.leaveCurrentRoom();
       }
     }
 

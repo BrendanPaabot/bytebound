@@ -9,9 +9,18 @@ function handleKey(rawKey, down, repeat = false) {
     if (!down && (key === 'a' || key === 'd')) keys[key].pressed = false;
     return;
   }
+  if (worldMapOpen) {
+    if (down && key === 'm' && !repeat && typeof closeWorldMap === 'function') closeWorldMap()
+    if (!down && (key === 'a' || key === 'd')) keys[key].pressed = false
+    return
+  }
   if (skillTreeOpen) {
     if (down && key === 'u' && !repeat) closeSkillTree()
     if (!down && (key === 'a' || key === 'd')) keys[key].pressed = false
+    return
+  }
+  if (down && !repeat && key === 'm' && playViewActive && mode !== 'menu' && !(typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive)) {
+    if (typeof openWorldMap === 'function') openWorldMap()
     return
   }
   if (down && !repeat && key === 'u' && playViewActive && mode !== 'menu' && !(typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive)) {
@@ -30,6 +39,9 @@ function handleKey(rawKey, down, repeat = false) {
   if (!down || repeat) return;
 
   if (mode === 'menu') {
+    if (!playViewActive && typeof dashboardView !== 'undefined' && dashboardView === 'practice' && typeof handlePracticeKey === 'function') {
+      if (handlePracticeKey(key)) return;
+    }
     // Enter starts the game only when no nav button or setting has focus.
     const focused = document.activeElement;
     const onControl = focused && focused !== document.body && focused.closest('button, input, select, textarea, a');
@@ -42,12 +54,18 @@ function handleKey(rawKey, down, repeat = false) {
     const phase = battle.phase;
     const isMp = typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive;
     if (phase === 'mp_waiting' || phase === 'mp_dying') return;
-    if (phase === 'choose' && n >= 0 && n < battle.hand.length) chooseCard(n);
+    if (phase === 'choose') {
+      if (!isMp && key === 'r' && hero.mana <= 0 && typeof startRemedialChallenge === 'function') startRemedialChallenge();
+      else if (n >= 0 && n < battle.hand.length) chooseCard(n);
+    }
     else if (phase === 'question' && n >= 0 && n < 4) answerQuestion(n);
+    else if (!isMp && phase === 'remedial' && n >= 0 && n < 4 && typeof answerRemedialQuestion === 'function') answerRemedialQuestion(n);
     else if (!isMp && phase === 'upgrade' && n >= 0 && n < battle.upgrades.length) applyUpgrade(n);
     else if (!isMp && phase === 'reward' && n >= 0 && n < battle.rewards.length) pickReward(n);
     else if (CONFIRM_KEYS.includes(key)) {
       if (phase === 'feedback') continueBattle();
+      else if (!isMp && phase === 'ally_turn' && typeof continueAllyTurn === 'function') continueAllyTurn();
+      else if (!isMp && phase === 'enemy_follower_turn' && typeof continueEnemyFollowerTurn === 'function') continueEnemyFollowerTurn();
       else if (!isMp && phase === 'won') afterWin();
       else if (!isMp && phase === 'lost') retryRoom();
     }

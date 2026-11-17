@@ -4,11 +4,11 @@ const FOE_SPOT = { x: 760, y: 454 };
 const motes = Array.from({ length: 28 }, () => ({ x: Math.random() * 1024, y: Math.random() * 576, s: 0.3 + Math.random() * 0.7 }));
 const fxParticles = [];
 const ARENA_THEMES = {
-  arena: './img/map/pcbattlearena.jpg',
-  storeroom: './img/map/backgroundLevel1.jpg?v=clean-room',
-  hall: './img/map/backgroundLevel2.jpg',
-  throne: './img/map/backgroundLevel3.jpg',
-  server: './img/map/backgroundLevel5.jpg?v=1',
+  arena: './img/map/datacenter/pcbattlearena.jpg',
+  storeroom: './img/map/datacenter/backgroundLevel1.jpg?v=clean-room',
+  hall: './img/map/datacenter/backgroundLevel2.jpg',
+  throne: './img/map/datacenter/backgroundLevel3.jpg',
+  server: './img/map/bbcorp/backgroundLevel5.jpg?v=1',
 };
 let currentArenaTheme = 'arena';
 const arenaBackground = new Image();

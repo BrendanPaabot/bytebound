@@ -36,6 +36,7 @@ $script:mpRooms = @{}
 $script:mpClosedRooms = @{}
 $script:mpEvents = [System.Collections.ArrayList]::new()
 $script:mpSeq = 0
+$script:mpPvpLeaderboard = @{}
 
 function Get-NowMs {
   return [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
@@ -223,6 +224,82 @@ try {
           closedCodes = @($script:mpClosedRooms.Keys)
           events = $eventsOut
         }
+        continue
+      }
+
+      if ($relativePath -eq 'api/mp/pvp-leaderboard' -and $context.Request.HttpMethod -eq 'GET') {
+        $entriesOut = @($script:mpPvpLeaderboard.Values)
+        Send-JsonResponse $context.Response 200 @{ ok = $true; entries = $entriesOut }
+        continue
+      }
+
+      if ($relativePath -eq 'api/mp/pvp-reset' -and $context.Request.HttpMethod -eq 'POST') {
+        $reader = New-Object IO.StreamReader($context.Request.InputStream, [Text.Encoding]::UTF8)
+        $rawBody = $reader.ReadToEnd()
+        $reader.Close()
+        if (-not [string]::IsNullOrWhiteSpace($rawBody)) {
+          $b = Convert-PsObjToHashtable ($rawBody | ConvertFrom-Json)
+          $pKey = ([string]$b.playerName).Trim().ToLowerInvariant()
+          if ($pKey -and $script:mpPvpLeaderboard.ContainsKey($pKey)) {
+            $script:mpPvpLeaderboard.Remove($pKey)
+          }
+        }
+        Send-JsonResponse $context.Response 200 @{ ok = $true }
+        continue
+      }
+
+      if ($relativePath -eq 'api/mp/pvp-result' -and $context.Request.HttpMethod -eq 'POST') {
+        $reader = New-Object IO.StreamReader($context.Request.InputStream, [Text.Encoding]::UTF8)
+        $rawBody = $reader.ReadToEnd()
+        $reader.Close()
+        if ([string]::IsNullOrWhiteSpace($rawBody)) {
+          Send-JsonResponse $context.Response 400 @{ ok = $false; error = 'Empty request body.' }
+          continue
+        }
+        $b = Convert-PsObjToHashtable ($rawBody | ConvertFrom-Json)
+        $pName = ([string]$b.playerName).Trim()
+        $pKey = $pName.ToLowerInvariant()
+        $mId = ([string]$b.matchId).Trim()
+        $outcome = ([string]$b.outcome).Trim().ToLowerInvariant()
+        if ([string]::IsNullOrWhiteSpace($pKey) -or [string]::IsNullOrWhiteSpace($mId) -or @('won', 'lost', 'draw') -notcontains $outcome) {
+          Send-JsonResponse $context.Response 400 @{ ok = $false; error = 'Invalid 1v1 result payload.' }
+          continue
+        }
+        if (-not $script:mpPvpLeaderboard.ContainsKey($pKey)) {
+          $script:mpPvpLeaderboard[$pKey] = @{
+            player_name = $pName
+            rating = 1000
+            wins = 0
+            losses = 0
+            draws = 0
+            matches_played = 0
+            damage_dealt = 0
+            correct_answers = 0
+            total_answers = 0
+            accuracy = 0
+            win_rate = 0
+            last_match_id = ''
+            updated_at = [DateTime]::UtcNow.ToString('o')
+          }
+        }
+        $rec = $script:mpPvpLeaderboard[$pKey]
+        if ($rec.last_match_id -ne $mId) {
+          $delta = if ($outcome -eq 'won') { 25 } elseif ($outcome -eq 'draw') { 5 } else { -15 }
+          $rec.player_name = $pName
+          $rec.rating = [Math]::Max(100, [int]$rec.rating + $delta)
+          if ($outcome -eq 'won') { $rec.wins++ }
+          elseif ($outcome -eq 'draw') { $rec.draws++ }
+          else { $rec.losses++ }
+          $rec.matches_played = [int]$rec.wins + [int]$rec.losses + [int]$rec.draws
+          $rec.damage_dealt = [int]$rec.damage_dealt + [Math]::Max(0, [int]$b.damageDealt)
+          $rec.correct_answers = [int]$rec.correct_answers + [Math]::Max(0, [int]$b.correctAnswers)
+          $rec.total_answers = [int]$rec.total_answers + [Math]::Max(0, [int]$b.totalAnswers)
+          $rec.accuracy = if ($rec.total_answers -gt 0) { [int][Math]::Floor(100.0 * $rec.correct_answers / $rec.total_answers) } else { 0 }
+          $rec.win_rate = if ($rec.matches_played -gt 0) { [int][Math]::Floor(100.0 * $rec.wins / $rec.matches_played) } else { 0 }
+          $rec.last_match_id = $mId
+          $rec.updated_at = [DateTime]::UtcNow.ToString('o')
+        }
+        Send-JsonResponse $context.Response 200 @{ ok = $true; entry = $rec }
         continue
       }
 

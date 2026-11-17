@@ -14,6 +14,7 @@ create table if not exists public.users (
   skill_progress jsonb not null default '{}'::jsonb,
   review_store jsonb not null default '{}'::jsonb,
   achievements jsonb not null default '{}'::jsonb,
+  pin_hash text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   last_login_at timestamptz not null default now()
@@ -23,6 +24,7 @@ alter table public.users add column if not exists best_score integer not null de
 alter table public.users add column if not exists total_kills integer not null default 0;
 alter table public.users add column if not exists total_correct integer not null default 0;
 alter table public.users add column if not exists total_answers integer not null default 0;
+alter table public.users add column if not exists pin_hash text;
 
 create index if not exists users_username_key_idx
   on public.users (username_key);
@@ -68,6 +70,10 @@ create table if not exists public.leaderboard_entries (
   ) stored,
   submitted_at timestamptz not null default now()
 );
+
+-- Remove any non-Arcade rows (e.g. 1v1-only players with 0 virus kills) from the Arcade leaderboard
+delete from public.leaderboard_entries
+where kills <= 0;
 
 -- Remove duplicate leaderboard rows for the same player (keep each player's highest-scoring row)
 delete from public.leaderboard_entries a
@@ -151,12 +157,15 @@ revoke all on public.leaderboard_entries from public, anon, authenticated;
 grant select on public.leaderboard_entries to anon, authenticated;
 
 -- ===== 3. User Profile RPCs =====
+drop function if exists public.upsert_user_profile(text, jsonb, jsonb, jsonb, jsonb);
+drop function if exists public.upsert_user_profile(text, jsonb, jsonb, jsonb, jsonb, text);
 create or replace function public.upsert_user_profile(
   p_username text,
   p_topic_progress jsonb default null,
   p_skill_progress jsonb default null,
   p_review_store jsonb default null,
-  p_achievements jsonb default null
+  p_achievements jsonb default null,
+  p_pin_hash text default null
 )
 returns jsonb
 language plpgsql
@@ -166,15 +175,28 @@ as $$
 declare
   v_display_name text := btrim(coalesce(p_username, ''));
   v_username_key text := lower(v_display_name);
+  v_pin_hash text := nullif(btrim(coalesce(p_pin_hash, '')), '');
+  v_existing public.users;
   v_user public.users;
 begin
   if char_length(v_display_name) not between 1 and 24 then
     raise exception 'Invalid username.';
   end if;
 
+  select * into v_existing
+  from public.users
+  where username_key = v_username_key;
+
+  if v_existing.id is not null and v_existing.pin_hash is not null then
+    if v_pin_hash is null or v_existing.pin_hash <> v_pin_hash then
+      raise exception 'Invalid profile PIN.';
+    end if;
+  end if;
+
   insert into public.users (
     username_key,
     display_name,
+    pin_hash,
     topic_progress,
     skill_progress,
     review_store,
@@ -185,6 +207,7 @@ begin
   values (
     v_username_key,
     v_display_name,
+    v_pin_hash,
     coalesce(p_topic_progress, '{}'::jsonb),
     coalesce(p_skill_progress, '{}'::jsonb),
     coalesce(p_review_store, '{}'::jsonb),
@@ -194,6 +217,7 @@ begin
   )
   on conflict (username_key) do update set
     display_name = excluded.display_name,
+    pin_hash = coalesce(public.users.pin_hash, v_pin_hash),
     topic_progress = coalesce(p_topic_progress, public.users.topic_progress),
     skill_progress = coalesce(p_skill_progress, public.users.skill_progress),
     review_store = coalesce(p_review_store, public.users.review_store),
@@ -213,6 +237,7 @@ begin
     'id', v_user.id,
     'username_key', v_user.username_key,
     'display_name', v_user.display_name,
+    'has_pin', (v_user.pin_hash is not null),
     'best_score', v_user.best_score,
     'total_kills', v_user.total_kills,
     'total_correct', v_user.total_correct,
@@ -228,13 +253,16 @@ begin
 end;
 $$;
 
-revoke all on function public.upsert_user_profile(text, jsonb, jsonb, jsonb, jsonb)
+revoke all on function public.upsert_user_profile(text, jsonb, jsonb, jsonb, jsonb, text)
   from public, anon, authenticated;
-grant execute on function public.upsert_user_profile(text, jsonb, jsonb, jsonb, jsonb)
+grant execute on function public.upsert_user_profile(text, jsonb, jsonb, jsonb, jsonb, text)
   to anon, authenticated;
 
+drop function if exists public.reset_user_profile(text);
+drop function if exists public.reset_user_profile(text, text);
 create or replace function public.reset_user_profile(
-  p_username text
+  p_username text,
+  p_pin_hash text default null
 )
 returns void
 language plpgsql
@@ -243,13 +271,36 @@ set search_path = ''
 as $$
 declare
   v_username_key text := lower(btrim(coalesce(p_username, '')));
+  v_pin_hash text := nullif(btrim(coalesce(p_pin_hash, '')), '');
+  v_user_id bigint;
+  v_existing_pin text;
 begin
   if char_length(v_username_key) not between 1 and 24 then
     raise exception 'Invalid username.';
   end if;
 
+  select id, pin_hash into v_user_id, v_existing_pin
+  from public.users
+  where username_key = v_username_key;
+
+  if v_existing_pin is not null and (v_pin_hash is null or v_existing_pin <> v_pin_hash) then
+    raise exception 'Invalid profile PIN.';
+  end if;
+
+  delete from public.leaderboard_entries
+  where (v_user_id is not null and user_id = v_user_id)
+     or lower(btrim(player_name)) = v_username_key;
+
+  delete from public.pvp_leaderboard_entries
+  where (v_user_id is not null and user_id = v_user_id)
+     or lower(btrim(player_name)) = v_username_key;
+
   update public.users
   set
+    best_score = 0,
+    total_kills = 0,
+    total_correct = 0,
+    total_answers = 0,
     topic_progress = '{}'::jsonb,
     skill_progress = '{}'::jsonb,
     review_store = '{}'::jsonb,
@@ -259,9 +310,9 @@ begin
 end;
 $$;
 
-revoke all on function public.reset_user_profile(text)
+revoke all on function public.reset_user_profile(text, text)
   from public, anon, authenticated;
-grant execute on function public.reset_user_profile(text)
+grant execute on function public.reset_user_profile(text, text)
   to anon, authenticated;
 
 -- ===== 4. Submit Leaderboard Run RPC (Connected to public.users via user_id) =====
@@ -288,7 +339,7 @@ begin
     or p_player_name is null
     or char_length(v_display_name) not between 1 and 24
     or p_kills is null
-    or p_kills not between 0 and 200
+    or p_kills not between 1 and 200
     or p_correct_answers is null
     or p_correct_answers not between 0 and 50000
     or p_total_answers is null
@@ -450,3 +501,147 @@ exception
   when undefined_object then null;
 end;
 $$;
+
+-- ===== 6. 1v1 Competitive Leaderboard (Separate from Arcade Leaderboard) =====
+create table if not exists public.pvp_leaderboard_entries (
+  id bigint generated always as identity primary key,
+  user_id bigint not null unique references public.users(id) on delete cascade,
+  player_name text not null check (char_length(btrim(player_name)) between 1 and 24),
+  rating integer not null default 1000 check (rating between 100 and 10000),
+  wins integer not null default 0 check (wins >= 0),
+  losses integer not null default 0 check (losses >= 0),
+  draws integer not null default 0 check (draws >= 0),
+  matches_played integer generated always as (wins + losses + draws) stored,
+  damage_dealt integer not null default 0 check (damage_dealt >= 0),
+  correct_answers integer not null default 0 check (correct_answers >= 0),
+  total_answers integer not null default 0 check (total_answers >= 0 and correct_answers <= total_answers),
+  accuracy integer generated always as (
+    case
+      when total_answers = 0 then 0
+      else floor(100.0 * correct_answers / total_answers)::integer
+    end
+  ) stored,
+  win_rate integer generated always as (
+    case
+      when (wins + losses + draws) = 0 then 0
+      else floor(100.0 * wins / (wins + losses + draws))::integer
+    end
+  ) stored,
+  last_match_id text,
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists pvp_leaderboard_entries_player_key_idx
+  on public.pvp_leaderboard_entries (lower(btrim(player_name)));
+
+create index if not exists pvp_leaderboard_entries_rank_idx
+  on public.pvp_leaderboard_entries (rating desc, wins desc, win_rate desc, accuracy desc, updated_at asc);
+
+alter table public.pvp_leaderboard_entries enable row level security;
+
+drop policy if exists "1v1 leaderboard entries are public to read"
+  on public.pvp_leaderboard_entries;
+create policy "1v1 leaderboard entries are public to read"
+  on public.pvp_leaderboard_entries
+  for select
+  to anon, authenticated
+  using (true);
+
+revoke all on public.pvp_leaderboard_entries from public, anon, authenticated;
+grant select on public.pvp_leaderboard_entries to anon, authenticated;
+
+create or replace function public.submit_pvp_match_result(
+  p_match_id text,
+  p_player_name text,
+  p_outcome text,
+  p_correct_answers integer default 0,
+  p_total_answers integer default 0,
+  p_damage_dealt integer default 0
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_display_name text := btrim(coalesce(p_player_name, ''));
+  v_player_key text := lower(v_display_name);
+  v_outcome text := lower(btrim(coalesce(p_outcome, '')));
+  v_match_id text := btrim(coalesce(p_match_id, ''));
+  v_user_id bigint;
+  v_delta integer;
+  v_win integer := case when v_outcome = 'won' then 1 else 0 end;
+  v_loss integer := case when v_outcome = 'lost' then 1 else 0 end;
+  v_draw integer := case when v_outcome = 'draw' then 1 else 0 end;
+begin
+  if char_length(v_match_id) < 1
+    or char_length(v_display_name) not between 1 and 24
+    or v_outcome not in ('won', 'lost', 'draw')
+    or p_correct_answers is null or p_correct_answers < 0
+    or p_total_answers is null or p_total_answers < p_correct_answers
+    or p_damage_dealt is null or p_damage_dealt < 0
+  then
+    raise exception 'Invalid 1v1 match result data.';
+  end if;
+
+  v_delta := case
+    when v_outcome = 'won' then 25
+    when v_outcome = 'draw' then 5
+    else -15
+  end;
+
+  insert into public.users (username_key, display_name, last_login_at, updated_at)
+  values (v_player_key, v_display_name, now(), now())
+  on conflict (username_key) do update set
+    display_name = excluded.display_name,
+    last_login_at = now(),
+    updated_at = now()
+  returning id into v_user_id;
+
+  insert into public.pvp_leaderboard_entries (
+    user_id, player_name, rating, wins, losses, draws,
+    damage_dealt, correct_answers, total_answers, last_match_id, updated_at
+  )
+  values (
+    v_user_id, v_display_name, greatest(100, 1000 + v_delta),
+    v_win, v_loss, v_draw, p_damage_dealt, p_correct_answers, p_total_answers, v_match_id, now()
+  )
+  on conflict (user_id) do update set
+    player_name = excluded.player_name,
+    rating = case
+      when public.pvp_leaderboard_entries.last_match_id = v_match_id then public.pvp_leaderboard_entries.rating
+      else greatest(100, public.pvp_leaderboard_entries.rating + v_delta)
+    end,
+    wins = case
+      when public.pvp_leaderboard_entries.last_match_id = v_match_id then public.pvp_leaderboard_entries.wins
+      else public.pvp_leaderboard_entries.wins + v_win
+    end,
+    losses = case
+      when public.pvp_leaderboard_entries.last_match_id = v_match_id then public.pvp_leaderboard_entries.losses
+      else public.pvp_leaderboard_entries.losses + v_loss
+    end,
+    draws = case
+      when public.pvp_leaderboard_entries.last_match_id = v_match_id then public.pvp_leaderboard_entries.draws
+      else public.pvp_leaderboard_entries.draws + v_draw
+    end,
+    damage_dealt = case
+      when public.pvp_leaderboard_entries.last_match_id = v_match_id then public.pvp_leaderboard_entries.damage_dealt
+      else public.pvp_leaderboard_entries.damage_dealt + p_damage_dealt
+    end,
+    correct_answers = case
+      when public.pvp_leaderboard_entries.last_match_id = v_match_id then public.pvp_leaderboard_entries.correct_answers
+      else public.pvp_leaderboard_entries.correct_answers + p_correct_answers
+    end,
+    total_answers = case
+      when public.pvp_leaderboard_entries.last_match_id = v_match_id then public.pvp_leaderboard_entries.total_answers
+      else public.pvp_leaderboard_entries.total_answers + p_total_answers
+    end,
+    last_match_id = v_match_id,
+    updated_at = now();
+end;
+$$;
+
+revoke all on function public.submit_pvp_match_result(text, text, text, integer, integer, integer)
+  from public, anon, authenticated;
+grant execute on function public.submit_pvp_match_result(text, text, text, integer, integer, integer)
+  to anon, authenticated;

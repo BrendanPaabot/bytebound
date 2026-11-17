@@ -14,9 +14,11 @@ const storedReduceMotion = localStorage.getItem(REDUCE_MOTION_STORAGE_KEY)
 let currentTheme = storedTheme === 'dark' ? 'dark' : 'light'
 let reduceMotion = storedReduceMotion === 'true'
 let activePlayerName = ''
+let activePlayerPinHash = ''
+let activePlayerHasPin = false
 window.activePlayerName = activePlayerName
 let activeAchievementStorageKey = ACHIEVEMENT_STORAGE_KEY
-let achievementProgress = { kills: 0, bestStreak: 0, upgrades: 0, bosses: 0 }
+let achievementProgress = { kills: 0, bestStreak: 0, upgrades: 0, bosses: 0, pvpMatches: 0, pvpWins: 0 }
 let unlockedAchievements = {}
 let achievementToastQueue = []
 let achievementToastTimer = 0
@@ -26,6 +28,14 @@ let leaderboardEntries = []
 let leaderboardState = 'idle'
 let leaderboardError = ''
 let leaderboardRequestId = 0
+let leaderboardTab = 'arcade'
+let pvpLeaderboardEntries = []
+let pvpLeaderboardState = 'idle'
+let pvpLeaderboardError = ''
+let pvpLeaderboardRequestId = 0
+let pvpLeaderboardTableAvailable = true
+const PVP_LEADERBOARD_STORAGE_KEY = 'bytebound-pvp-leaderboard-v1'
+const PVP_SUBMITTED_IDS_KEY = 'bytebound-pvp-submitted-v1'
 let leaderboardRunId = createLeaderboardRunId()
 let leaderboardRunSubmitted = false
 let leaderboardLastSubmittedSnapshot = ''
@@ -131,10 +141,11 @@ async function supabaseRequest(path, options = {}) {
 
 function getRecordableGameplayStats() {
   if (practiceRunActive || !activePlayerName) return null
+  if (typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive) return null
   const runKills = Math.max(0, stats.kills || 0)
   const runCorrect = Math.max(0, stats.correct || 0)
   const runTotal = Math.max(0, stats.total || 0)
-  if (runTotal > 0 || runKills > 0) {
+  if (runKills > 0) {
     const kills = Math.min(200, runKills)
     const correctAnswers = runCorrect
     const totalAnswers = Math.max(runTotal, kills, correctAnswers)
@@ -146,7 +157,7 @@ function getRecordableGameplayStats() {
   const profileKills = Math.max(0, metrics.kills || 0)
   const profileCorrect = Math.max(0, metrics.correct || 0)
   const profileTotal = Math.max(0, metrics.attempts || 0)
-  if (profileTotal > 0 || profileKills > 0) {
+  if (profileKills > 0) {
     const kills = Math.min(200, profileKills)
     const correctAnswers = profileCorrect
     const totalAnswers = Math.max(profileTotal, kills, correctAnswers)
@@ -197,12 +208,17 @@ async function loadLeaderboard(options = {}) {
     if (!Array.isArray(rawEntries)) throw new Error('Supabase returned an invalid leaderboard response.')
     if (requestId !== leaderboardRequestId) return
 
-    // Deduplicate by player_name so each user appears only once on the leaderboard (with their best score)
+    // Exclude 1v1-only or 0-kill records that have no Arcade virus progress, stale pre-reset rows, and deduplicate by player_name
     const bestEntryByPlayer = new Map()
     for (const entry of rawEntries) {
+      if ((entry?.kills || 0) <= 0) continue
       if (entry?.run_id && supersededRunIds.has(entry.run_id)) continue
       const key = String(entry.player_name || '').trim().toLowerCase()
       if (!key) continue
+      try {
+        const resetAt = Number(localStorage.getItem(`bytebound-reset-at-v1:${encodeURIComponent(key)}`) || 0)
+        if (resetAt && Date.parse(entry.submitted_at || 0) <= resetAt) continue
+      } catch {}
       const existing = bestEntryByPlayer.get(key)
       if (
         !existing ||
@@ -255,6 +271,198 @@ async function loadLeaderboard(options = {}) {
   }
 }
 
+function readLocalPvpLeaderboardMap() {
+  try {
+    const raw = localStorage.getItem(PVP_LEADERBOARD_STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveLocalPvpResult(matchData) {
+  const playerName = String(matchData?.playerName || '').trim()
+  const matchId = String(matchData?.matchId || '').trim()
+  const outcome = String(matchData?.outcome || '').toLowerCase()
+  if (!playerName || !matchId || !['won', 'lost', 'draw'].includes(outcome)) return null
+  const key = playerName.toLowerCase()
+  const dedupeKey = `${matchId}:${key}`
+  try {
+    const seenRaw = localStorage.getItem(PVP_SUBMITTED_IDS_KEY)
+    const seen = seenRaw ? JSON.parse(seenRaw) : []
+    const seenSet = new Set(Array.isArray(seen) ? seen : [])
+    if (seenSet.has(dedupeKey)) {
+      const map = readLocalPvpLeaderboardMap()
+      return map[key] || null
+    }
+    seenSet.add(dedupeKey)
+    localStorage.setItem(PVP_SUBMITTED_IDS_KEY, JSON.stringify([...seenSet].slice(-120)))
+  } catch {}
+
+  const map = readLocalPvpLeaderboardMap()
+  const prev = map[key] || {
+    player_name: playerName,
+    rating: 1000,
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    matches_played: 0,
+    damage_dealt: 0,
+    correct_answers: 0,
+    total_answers: 0,
+    accuracy: 0,
+    win_rate: 0,
+  }
+  const delta = outcome === 'won' ? 25 : outcome === 'draw' ? 5 : -15
+  const wins = prev.wins + (outcome === 'won' ? 1 : 0)
+  const losses = prev.losses + (outcome === 'lost' ? 1 : 0)
+  const draws = prev.draws + (outcome === 'draw' ? 1 : 0)
+  const matches_played = wins + losses + draws
+  const correct_answers = prev.correct_answers + Math.max(0, Number(matchData.correctAnswers) || 0)
+  const total_answers = prev.total_answers + Math.max(0, Number(matchData.totalAnswers) || 0)
+  const entry = {
+    player_name: playerName,
+    rating: Math.max(100, (prev.rating || 1000) + delta),
+    wins,
+    losses,
+    draws,
+    matches_played,
+    damage_dealt: (prev.damage_dealt || 0) + Math.max(0, Number(matchData.damageDealt) || 0),
+    correct_answers,
+    total_answers,
+    accuracy: total_answers ? Math.floor((100 * correct_answers) / total_answers) : 0,
+    win_rate: matches_played ? Math.floor((100 * wins) / matches_played) : 0,
+    updated_at: new Date().toISOString(),
+  }
+  map[key] = entry
+  try {
+    localStorage.setItem(PVP_LEADERBOARD_STORAGE_KEY, JSON.stringify(map))
+  } catch {}
+  return entry
+}
+
+async function submitPvpLeaderboardMatch(matchData) {
+  if (!matchData || !matchData.matchId || !matchData.playerName) return
+  try {
+    const key = String(matchData.playerName).trim().toLowerCase()
+    if (key) localStorage.removeItem(`bytebound-reset-at-v1:${encodeURIComponent(key)}`)
+  } catch {}
+  saveLocalPvpResult(matchData)
+  if (window.mpUI?.network?.localServerAvailable) {
+    try {
+      await fetch('/api/mp/pvp-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(matchData),
+      })
+    } catch {}
+  }
+  if (supabaseCredentials() && pvpLeaderboardTableAvailable) {
+    try {
+      await supabaseRequest('rpc/submit_pvp_match_result', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_match_id: String(matchData.matchId),
+          p_player_name: String(matchData.playerName).trim().slice(0, 24),
+          p_outcome: String(matchData.outcome || 'lost'),
+          p_correct_answers: Math.max(0, Number(matchData.correctAnswers) || 0),
+          p_total_answers: Math.max(0, Number(matchData.totalAnswers) || 0),
+          p_damage_dealt: Math.max(0, Number(matchData.damageDealt) || 0),
+        }),
+      })
+    } catch (error) {
+      const msg = String(error?.message || '')
+      if (msg.includes('PGRST205') || msg.includes('404') || msg.includes('submit_pvp_match_result')) {
+        pvpLeaderboardTableAvailable = false
+      }
+    }
+  }
+  if (dashboardView === 'leaderboards' && leaderboardTab === 'pvp' && !playViewActive) {
+    loadPvpLeaderboard()
+  }
+}
+
+async function loadPvpLeaderboard() {
+  const requestId = ++pvpLeaderboardRequestId
+  pvpLeaderboardState = 'loading'
+  pvpLeaderboardError = ''
+  renderDashboard()
+  try {
+    const merged = new Map()
+    const mergeRow = (entry) => {
+      const key = String(entry?.player_name || '').trim().toLowerCase()
+      if (!key) return
+      try {
+        const resetAt = Number(localStorage.getItem(`bytebound-reset-at-v1:${encodeURIComponent(key)}`) || 0)
+        if (resetAt && Date.parse(entry.updated_at || 0) <= resetAt) return
+      } catch {}
+      const existing = merged.get(key)
+      if (!existing || (entry.matches_played || 0) > (existing.matches_played || 0) ||
+          ((entry.matches_played || 0) === (existing.matches_played || 0) && (entry.rating || 0) >= (existing.rating || 0))) {
+        merged.set(key, entry)
+      }
+    }
+
+    for (const localEntry of Object.values(readLocalPvpLeaderboardMap())) {
+      mergeRow(localEntry)
+    }
+
+    if (window.mpUI?.network?.localServerAvailable) {
+      try {
+        const res = await fetch('/api/mp/pvp-leaderboard')
+        if (res.ok) {
+          const json = await res.json()
+          if (Array.isArray(json?.entries)) {
+            for (const e of json.entries) mergeRow(e)
+          }
+        }
+      } catch {}
+    }
+
+    if (supabaseCredentials() && pvpLeaderboardTableAvailable) {
+      try {
+        const query = new URLSearchParams({
+          select: 'player_name,rating,wins,losses,draws,matches_played,damage_dealt,correct_answers,total_answers,accuracy,win_rate,updated_at',
+          order: 'rating.desc,wins.desc,win_rate.desc,accuracy.desc',
+          limit: '40',
+        })
+        const sbEntries = await Promise.race([
+          supabaseRequest(`pvp_leaderboard_entries?${query}`).then((r) => r.json()).catch(() => null),
+          new Promise((resolve) => window.setTimeout(() => resolve(null), 2500)),
+        ])
+        if (Array.isArray(sbEntries)) {
+          for (const e of sbEntries) mergeRow(e)
+        }
+      } catch (error) {
+        const msg = String(error?.message || '')
+        if (msg.includes('PGRST205') || msg.includes('404') || msg.includes('pvp_leaderboard_entries')) {
+          pvpLeaderboardTableAvailable = false
+        }
+      }
+    }
+
+    if (requestId !== pvpLeaderboardRequestId) return
+    pvpLeaderboardEntries = [...merged.values()]
+      .filter((e) => (e.matches_played || 0) > 0)
+      .sort((a, b) =>
+        (b.rating || 0) - (a.rating || 0) ||
+        (b.wins || 0) - (a.wins || 0) ||
+        (b.win_rate || 0) - (a.win_rate || 0) ||
+        (b.accuracy || 0) - (a.accuracy || 0)
+      )
+      .slice(0, 20)
+    pvpLeaderboardState = 'ready'
+    renderDashboard()
+  } catch (error) {
+    if (requestId !== pvpLeaderboardRequestId) return
+    console.error('Unable to load 1v1 leaderboard.', error)
+    pvpLeaderboardState = 'error'
+    pvpLeaderboardError = error.message
+    renderDashboard()
+  }
+}
+
 async function performLeaderboardRunSubmit(options = {}) {
   const record = getRecordableGameplayStats()
   if (!record) return false
@@ -283,6 +491,10 @@ async function performLeaderboardRunSubmit(options = {}) {
   }
 
   await postRun(submittedRunId)
+  try {
+    const key = String(activePlayerName || '').trim().toLowerCase()
+    if (key) localStorage.removeItem(`bytebound-reset-at-v1:${encodeURIComponent(key)}`)
+  } catch {}
 
   // Verify whether the database updated the row in-place.
   // If the Supabase project still has the old ON CONFLICT (run_id) DO NOTHING function,
@@ -358,7 +570,7 @@ function buildUserProfilePayload() {
     topicProgress,
     skillProgress: {
       ...skillProgress,
-      specialization: { activeTree: activeSkillSpecialization },
+      specialization: { activeTree: activeSkillSpecialization, exclusiveTree: exclusiveSkillTree },
     },
     reviewStore: {
       queue: reviewQueue,
@@ -404,9 +616,10 @@ function mergeAndApplyCloudUserProfile(profileId, cloudUser) {
     }
   }
 
-  // 2. Merge skill tree progress
+  // 2. Merge skill tree progress only when no local multi-run saves exist yet (prevents old cloud snapshots from overwriting/refunding a run's skill tree on refresh)
   const cloudSkills = cloudUser.skill_progress
-  if (cloudSkills && typeof cloudSkills === 'object') {
+  const hasLocalRunSaves = loadRunSaves(profileId).saves.length > 0
+  if (cloudSkills && typeof cloudSkills === 'object' && !hasLocalRunSaves) {
     for (const key of SKILL_TREE_KEYS) {
       const source = cloudSkills?.[key]
       if (!source || typeof source !== 'object') continue
@@ -414,16 +627,33 @@ function mergeAndApplyCloudUserProfile(profileId, cloudUser) {
         skillProgress[key].correct = source.correct
         updatedLocal = true
       }
+      if (Number.isSafeInteger(source.transferredIn) && source.transferredIn > (skillProgress[key].transferredIn || 0)) {
+        skillProgress[key].transferredIn = source.transferredIn
+        updatedLocal = true
+      }
+      if (Number.isSafeInteger(source.transferredOut) && source.transferredOut > (skillProgress[key].transferredOut || 0)) {
+        skillProgress[key].transferredOut = source.transferredOut
+        updatedLocal = true
+      }
       for (const skill of SKILL_TREES[key].skills) {
         const rank = source.ranks?.[skill.id]
-        if (Number.isInteger(rank) && rank >= 0 && rank <= SKILL_MAX_RANK && rank > skillProgress[key].ranks[skill.id]) {
+        const maxR = skill.maxRank || SKILL_MAX_RANK
+        if (Number.isInteger(rank) && rank >= 0 && rank <= maxR && rank > skillProgress[key].ranks[skill.id]) {
           skillProgress[key].ranks[skill.id] = rank
+          if (skill.isExclusiveActive && rank > 0 && !exclusiveSkillTree) exclusiveSkillTree = key
           updatedLocal = true
         }
       }
     }
+    if (!exclusiveSkillTree && SKILL_TREE_KEYS.includes(cloudSkills?.specialization?.exclusiveTree)) {
+      exclusiveSkillTree = cloudSkills.specialization.exclusiveTree
+      updatedLocal = true
+    }
     if (!activeSkillSpecialization && SKILL_TREE_KEYS.includes(cloudSkills?.specialization?.activeTree)) {
       activeSkillSpecialization = cloudSkills.specialization.activeTree
+      updatedLocal = true
+    }
+    if (typeof reconcileExclusiveSkillPoints === 'function' && reconcileExclusiveSkillPoints()) {
       updatedLocal = true
     }
   }
@@ -472,7 +702,7 @@ function mergeAndApplyCloudUserProfile(profileId, cloudUser) {
       localStorage.setItem(`kings-pigs-topic-tracker-v1:${profileKey}`, JSON.stringify(topicProgress))
       localStorage.setItem(`kings-pigs-skill-tree-v1:${profileKey}`, JSON.stringify({
         ...skillProgress,
-        specialization: { activeTree: activeSkillSpecialization },
+        specialization: { activeTree: activeSkillSpecialization, exclusiveTree: exclusiveSkillTree },
       }))
       localStorage.setItem(`kings-pigs-review-v1:${profileKey}`, JSON.stringify({
         queue: reviewQueue,
@@ -486,10 +716,23 @@ function mergeAndApplyCloudUserProfile(profileId, cloudUser) {
       console.error('Unable to cache cloud user profile locally.', error)
     }
     adaptive.calibrateFromProgress()
-    refreshAchievements()
+    refreshAchievements({ silent: true })
     if (mode === 'menu' && !playViewActive) resetRun()
   }
   return updatedLocal
+}
+
+function hashProfilePin(profileId, pin) {
+  const raw = `bytebound-pin-v1:${String(profileId || '').toLowerCase()}:${String(pin || '').trim()}`
+  let h1 = 2166136261
+  let h2 = 5381
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw.charCodeAt(i)
+    h1 ^= ch
+    h1 = Math.imul(h1, 16777619)
+    h2 = Math.imul(h2, 33) ^ ch
+  }
+  return `pin_${(h1 >>> 0).toString(16).padStart(8, '0')}${(h2 >>> 0).toString(16).padStart(8, '0')}`
 }
 
 async function pushUserProfileToSupabase() {
@@ -506,6 +749,7 @@ async function pushUserProfileToSupabase() {
         p_skill_progress: payload.skillProgress,
         p_review_store: payload.reviewStore,
         p_achievements: payload.achievements,
+        p_pin_hash: activePlayerPinHash || null,
       }),
     })
     userSyncState = 'synced'
@@ -530,7 +774,7 @@ function scheduleUserProfileSync(delayMs = 1000) {
   }, delayMs)
 }
 
-async function syncUserOnLogin(displayName, profileId) {
+async function syncUserOnLogin(displayName, profileId, pinHash = activePlayerPinHash) {
   if (!supabaseCredentials()) {
     userSyncState = 'unconfigured'
     userSyncError = ''
@@ -545,10 +789,14 @@ async function syncUserOnLogin(displayName, profileId) {
       method: 'POST',
       body: JSON.stringify({
         p_username: displayName,
+        p_pin_hash: pinHash || null,
       }),
     })
     const cloudUser = await response.json()
     if (activePlayerName.toLowerCase() !== profileId) return
+    if (cloudUser && typeof cloudUser.has_pin === 'boolean') {
+      activePlayerHasPin = cloudUser.has_pin || Boolean(pinHash)
+    }
     mergeAndApplyCloudUserProfile(profileId, cloudUser)
     await pushUserProfileToSupabase()
     if (hasRecordableGameplayRun()) {
@@ -557,6 +805,13 @@ async function syncUserOnLogin(displayName, profileId) {
     renderDashboard()
   } catch (error) {
     if (activePlayerName.toLowerCase() !== profileId) return
+    const msg = String(error?.message || '')
+    if (msg.includes('Invalid profile PIN')) {
+      switchPlayerProfile()
+      loginError.textContent = 'Incorrect or missing password / PIN for this cloud profile.'
+      document.getElementById('pinInput')?.focus()
+      return
+    }
     console.warn('Unable to load or register cloud user profile on login.', error)
     userSyncState = 'error'
     userSyncError = error.message
@@ -569,7 +824,10 @@ async function resetUserProfileInSupabase(displayName) {
   try {
     await supabaseRequest('rpc/reset_user_profile', {
       method: 'POST',
-      body: JSON.stringify({ p_username: displayName }),
+      body: JSON.stringify({
+        p_username: displayName,
+        p_pin_hash: activePlayerPinHash || null,
+      }),
     })
     userSyncState = 'synced'
     userSyncError = ''
@@ -583,17 +841,37 @@ async function resetUserProfileInSupabase(displayName) {
 }
 
 const ACHIEVEMENTS = [
-  { id: 'first-blood', name: 'First Blood', description: 'Defeat your first virus.', goal: 1, metric: 'kills', icon: '01' },
-  { id: 'virus-hunter', name: 'Virus Hunter', description: 'Defeat 10 viruses across your adventures.', goal: 10, metric: 'kills', icon: '02' },
-  { id: 'quick-study', name: 'Quick Study', description: 'Get 10 quiz questions correct.', goal: 10, metric: 'correct', icon: '03' },
-  { id: 'knowledge-seeker', name: 'Knowledge Seeker', description: 'Get 50 quiz questions correct.', goal: 50, metric: 'correct', icon: '04' },
-  { id: 'unbroken-focus', name: 'Unbroken Focus', description: 'Answer 5 questions correctly in a row.', goal: 5, metric: 'bestStreak', icon: '05' },
-  { id: 'sharp-mind', name: 'Sharp Mind', description: 'Attempt 10 questions with at least 90% accuracy.', goal: 90, metric: 'accuracy', icon: '06' },
-  { id: 'upgrade-collector', name: 'Upgrade Collector', description: 'Choose 3 combat upgrades.', goal: 3, metric: 'upgrades', icon: '07' },
-  { id: 'skill-awakened', name: 'Skill Awakened', description: 'Purchase your first skill rank.', goal: 1, metric: 'skillRanks', icon: '08' },
-  { id: 'focused-specialist', name: 'Focused Specialist', description: 'Learn 3 different skills in one discipline.', goal: 3, metric: 'bestTreeSkills', icon: '09' },
-  { id: 'well-rounded', name: 'Well-Rounded', description: 'Invest in skills from 2 different disciplines.', goal: 2, metric: 'investedTrees', icon: '10' },
-  { id: 'boss-breaker', name: 'Boss Breaker', description: 'Defeat a mini boss.', goal: 1, metric: 'bosses', icon: '11' },
+  // General Achievements
+  { id: 'first-blood', category: 'general', name: 'First Blood', description: 'Defeat your first virus.', goal: 1, metric: 'kills', icon: '01' },
+  { id: 'virus-hunter', category: 'general', name: 'Virus Hunter', description: 'Defeat 10 viruses across your adventures.', goal: 10, metric: 'kills', icon: '02' },
+  { id: 'virus-slayer', category: 'general', name: 'Virus Slayer', description: 'Defeat 50 viruses across your adventures.', goal: 50, metric: 'kills', icon: '03' },
+  { id: 'quick-study', category: 'general', name: 'Quick Study', description: 'Get 10 quiz questions correct.', goal: 10, metric: 'correct', icon: '04' },
+  { id: 'knowledge-seeker', category: 'general', name: 'Knowledge Seeker', description: 'Get 50 quiz questions correct.', goal: 50, metric: 'correct', icon: '05' },
+  { id: 'master-scholar', category: 'general', name: 'Master Scholar', description: 'Get 100 quiz questions correct.', goal: 100, metric: 'correct', icon: '06' },
+  { id: 'seasoned-challenger', category: 'general', name: 'Seasoned Challenger', description: 'Attempt 50 quiz questions.', goal: 50, metric: 'attempts', icon: '07' },
+  { id: 'unbroken-focus', category: 'general', name: 'Unbroken Focus', description: 'Answer 5 questions correctly in a row.', goal: 5, metric: 'bestStreak', icon: '08' },
+  { id: 'unstoppable-mind', category: 'general', name: 'Unstoppable Mind', description: 'Answer 10 questions correctly in a row.', goal: 10, metric: 'bestStreak', icon: '09' },
+  { id: 'sharp-mind', category: 'general', name: 'Sharp Mind', description: 'Attempt 10 questions with at least 90% accuracy.', goal: 90, metric: 'accuracy', icon: '10' },
+  { id: 'upgrade-collector', category: 'general', name: 'Upgrade Collector', description: 'Choose 3 combat upgrades.', goal: 3, metric: 'upgrades', icon: '11' },
+  { id: 'upgrade-master', category: 'general', name: 'Upgrade Master', description: 'Choose 10 combat upgrades.', goal: 10, metric: 'upgrades', icon: '12' },
+  { id: 'skill-awakened', category: 'general', name: 'Skill Awakened', description: 'Purchase your first skill rank.', goal: 1, metric: 'skillRanks', icon: '13' },
+  { id: 'focused-specialist', category: 'general', name: 'Focused Specialist', description: 'Learn 3 different skills in one discipline.', goal: 3, metric: 'bestTreeSkills', icon: '14' },
+  { id: 'well-rounded', category: 'general', name: 'Well-Rounded', description: 'Invest in skills from 2 different disciplines.', goal: 2, metric: 'investedTrees', icon: '15' },
+  { id: 'boss-breaker', category: 'general', name: 'Boss Breaker', description: 'Defeat a mini boss.', goal: 1, metric: 'bosses', icon: '16' },
+  { id: 'boss-vanquisher', category: 'general', name: 'Boss Vanquisher', description: 'Defeat 5 mini bosses.', goal: 5, metric: 'bosses', icon: '17' },
+
+  // 1v1 Competitive Arena Achievements
+  { id: 'arena-debut', category: 'pvp', name: 'Arena Debut', description: 'Complete your first 1v1 Competitive match.', goal: 1, metric: 'pvpMatches', icon: 'VS' },
+  { id: 'duel-victor', category: 'pvp', name: 'Duel Victor', description: 'Win your first 1v1 Competitive match.', goal: 1, metric: 'pvpWins', icon: 'W1' },
+  { id: 'arena-gladiator', category: 'pvp', name: 'Arena Gladiator', description: 'Win 5 matches in the 1v1 Competitive Arena.', goal: 5, metric: 'pvpWins', icon: 'W5' },
+  { id: 'arena-champion', category: 'pvp', name: 'Arena Champion', description: 'Win 15 matches in the 1v1 Competitive Arena.', goal: 15, metric: 'pvpWins', icon: 'W15' },
+
+  // Exclusive Active Skill Achievements
+  { id: 'path-committed', category: 'exclusive', name: 'Path Committed', description: 'Unlock any Exclusive Active Skill in the Skill Tree.', goal: 1, metric: 'exclusivePicked', icon: 'EX' },
+  { id: 'aegis-bearer', category: 'exclusive', theme: 'cs', name: 'Aegis Bearer', description: 'Choose Kernel Aegis (Computer Systems Exclusive).', goal: 1, metric: 'exclusiveCs', icon: 'CS' },
+  { id: 'lockdown-enforcer', category: 'exclusive', theme: 'ns', name: 'Lockdown Enforcer', description: 'Choose Packet Lockdown (Networking Exclusive).', goal: 1, metric: 'exclusiveNs', icon: 'NS' },
+  { id: 'overburn-executor', category: 'exclusive', theme: 'pr', name: 'Overburn Executor', description: 'Choose Overburn Execution (Programming Exclusive).', goal: 1, metric: 'exclusivePr', icon: 'PR' },
+  { id: 'soul-binder', category: 'exclusive', theme: 'db', name: 'Soul Binder', description: 'Choose Necromancy Pact (Database Exclusive).', goal: 1, metric: 'exclusiveDb', icon: 'DB' },
 ]
 
 function resetAchievementToast() {
@@ -649,7 +927,7 @@ function queueAchievementToast(achievement) {
 function selectAchievementProfile(profileId) {
   resetAchievementToast()
   activeAchievementStorageKey = `${ACHIEVEMENT_STORAGE_KEY}:${encodeURIComponent(profileId)}`
-  achievementProgress = { kills: 0, bestStreak: 0, upgrades: 0, bosses: 0 }
+  achievementProgress = { kills: 0, bestStreak: 0, upgrades: 0, bosses: 0, pvpMatches: 0, pvpWins: 0 }
   unlockedAchievements = {}
   try {
     const saved = localStorage.getItem(activeAchievementStorageKey)
@@ -719,10 +997,15 @@ function getAchievementMetrics() {
     investedTrees: investedTrees.length,
     bestTreeSkills: Math.max(0, ...SKILL_TREE_KEYS.map((key) => countSpecializedSkills(key))),
     attempts: topicTotals.attempted,
+    exclusivePicked: exclusiveSkillTree ? 1 : 0,
+    exclusiveCs: exclusiveSkillTree === 'computerSystems' ? 1 : 0,
+    exclusiveNs: exclusiveSkillTree === 'networkingSecurity' ? 1 : 0,
+    exclusivePr: exclusiveSkillTree === 'programming' ? 1 : 0,
+    exclusiveDb: exclusiveSkillTree === 'database' ? 1 : 0,
   }
 }
 
-function refreshAchievements() {
+function refreshAchievements({ silent = false } = {}) {
   const metrics = getAchievementMetrics()
   if (practiceRunActive) return metrics
   let changed = false
@@ -731,7 +1014,7 @@ function refreshAchievements() {
     const accuracyQualified = achievement.metric !== 'accuracy' || metrics.attempts >= 10
     if (unlockedAchievements[achievement.id] || !accuracyQualified || value < achievement.goal) continue
     unlockedAchievements[achievement.id] = new Date().toISOString()
-    queueAchievementToast(achievement)
+    if (!silent) queueAchievementToast(achievement)
     changed = true
   }
   if (changed) saveAchievementProgress()
@@ -739,11 +1022,14 @@ function refreshAchievements() {
 }
 
 function renderCardCollection(metrics) {
-  const rows = Object.values(CARD_LIBRARY).map((card) => {
-    const unlocked = cardUnlocked(card, metrics)
-    const detail = unlocked ? esc(card.text) : `Locked: ${esc(card.unlock.text)}`
-    return `<li class="${unlocked ? 'is-unlocked' : 'is-locked'}"><strong>${esc(card.name)}</strong> <small>${detail}</small></li>`
-  }).join('')
+  const rows = Object.values(CARD_LIBRARY)
+    .filter((card) => !card.exclusiveActive)
+    .map((card) => {
+      const unlocked = cardUnlocked(card, metrics)
+      const detail = unlocked ? esc(card.text) : `Locked: ${esc(card.unlock?.text || 'Unlock via gameplay')}`
+      return `<li class="${unlocked ? 'is-unlocked' : 'is-locked'}"><strong>${esc(card.name)}</strong> <small>${detail}</small></li>`
+    })
+    .join('')
   return `<section class="card-collection">
     <h3>Card collection</h3>
     <p class="achievement-summary">Unlocked cards join your reward pool. Your deck starts over each run.</p>
@@ -752,41 +1038,105 @@ function renderCardCollection(metrics) {
 }
 
 function renderAchievements() {
-  const metrics = refreshAchievements()
+  const metrics = refreshAchievements({ silent: true })
   const unlockedCount = ACHIEVEMENTS.filter((achievement) => unlockedAchievements[achievement.id]).length
-  const cards = ACHIEVEMENTS.map((achievement) => {
-    const unlockedAt = unlockedAchievements[achievement.id]
-    const value = metrics[achievement.metric]
-    const progress = achievement.metric === 'accuracy' && metrics.attempts < 10
-      ? Math.floor(metrics.attempts * achievement.goal / 10)
-      : Math.min(value, achievement.goal)
-    const progressLabel = achievement.metric === 'accuracy' && metrics.attempts < 10
-      ? `${metrics.attempts} / 10 attempts · ${value}% accuracy`
-      : `${progress} / ${achievement.goal}${achievement.metric === 'accuracy' ? '%' : ''}`
-    return `<article class="achievement-card ${unlockedAt ? 'is-unlocked' : 'is-locked'}">
-      <div class="achievement-icon" aria-hidden="true">${achievement.icon}</div>
-      <div class="achievement-copy">
-        <div class="achievement-title-row">
-          <h3>${esc(achievement.name)}</h3>
-          <span>${unlockedAt ? 'UNLOCKED' : 'LOCKED'}</span>
+  const sections = [
+    { key: 'general', title: 'General Milestones', badge: 'GENERAL', hint: 'Campaign combat, quizzes, upgrades, and skill progression.' },
+    { key: 'pvp', title: '1v1 Competitive Arena', badge: '1V1 ARENA', hint: 'Head-to-head competitive duel milestones.' },
+    { key: 'exclusive', title: 'Exclusive Skill Paths', badge: 'EXCLUSIVE', hint: 'Signature active skill choices from the Skill Tree.' },
+  ]
+  const sectionsHtml = sections.map((sec) => {
+    const items = ACHIEVEMENTS.filter((a) => (a.category || 'general') === sec.key)
+    const secUnlocked = items.filter((a) => unlockedAchievements[a.id]).length
+    const cards = items.map((achievement) => {
+      const unlockedAt = unlockedAchievements[achievement.id]
+      const value = metrics[achievement.metric] || 0
+      const progress = achievement.metric === 'accuracy' && metrics.attempts < 10
+        ? Math.floor(metrics.attempts * achievement.goal / 10)
+        : Math.min(value, achievement.goal)
+      const progressLabel = achievement.metric === 'accuracy' && metrics.attempts < 10
+        ? `${metrics.attempts} / 10 attempts · ${value}% accuracy`
+        : `${progress} / ${achievement.goal}${achievement.metric === 'accuracy' ? '%' : ''}`
+      const themeClass = achievement.theme ? ` theme-${achievement.theme}` : ''
+      return `<article class="achievement-card cat-${sec.key}${themeClass} ${unlockedAt ? 'is-unlocked' : 'is-locked'}">
+        <div class="achievement-icon" aria-hidden="true">${achievement.icon}</div>
+        <div class="achievement-copy">
+          <div class="achievement-title-row">
+            <h3>${esc(achievement.name)}</h3>
+            <span class="achievement-cat-pill cat-${sec.key}${themeClass}">${sec.badge}</span>
+          </div>
+          <p>${esc(achievement.description)}</p>
+          <div class="achievement-progress" role="progressbar" aria-label="${esc(`${achievement.name} progress`)}" aria-valuenow="${progress}" aria-valuemin="0" aria-valuemax="${achievement.goal}">
+            <i style="width:${Math.min(100, 100 * progress / achievement.goal)}%"></i>
+          </div>
+          <div class="achievement-meta-row">
+            <small>${unlockedAt ? `Earned ${new Date(unlockedAt).toLocaleDateString()}` : progressLabel}</small>
+            <span class="achievement-state">${unlockedAt ? 'UNLOCKED' : 'LOCKED'}</span>
+          </div>
         </div>
-        <p>${esc(achievement.description)}</p>
-        <div class="achievement-progress" role="progressbar" aria-label="${esc(`${achievement.name} progress`)}" aria-valuenow="${progress}" aria-valuemin="0" aria-valuemax="${achievement.goal}">
-          <i style="width:${Math.min(100, 100 * progress / achievement.goal)}%"></i>
+      </article>`
+    }).join('')
+    return `<section class="achievement-section cat-${sec.key}">
+      <header class="achievement-section-head">
+        <div>
+          <h3>${sec.title}</h3>
+          <small>${sec.hint}</small>
         </div>
-        <small>${unlockedAt ? `Earned ${new Date(unlockedAt).toLocaleDateString()}` : progressLabel}</small>
-      </div>
-    </article>`
+        <span class="achievement-section-count">${secUnlocked} / ${items.length}</span>
+      </header>
+      <div class="achievement-grid">${cards}</div>
+    </section>`
   }).join('')
   return `<span class="eyebrow">Achievements</span>
     <h2>Milestones earned</h2>
-    <p class="achievement-summary">${unlockedCount} of ${ACHIEVEMENTS.length} achievements unlocked. Keep learning, battling, and building your skills.</p>
-    <div class="achievement-grid">${cards}</div>
+    <p class="achievement-summary">${unlockedCount} of ${ACHIEVEMENTS.length} achievements unlocked across General, 1v1 Arena, and Exclusive Skill Paths.</p>
+    <div class="achievement-sections">${sectionsHtml}</div>
     ${renderCardCollection(metrics)}`
 }
 
 function renderLeaderboard() {
+  const isPvp = leaderboardTab === 'pvp'
   const credentialsConfigured = Boolean(supabaseCredentials())
+  const activeKey = String(activePlayerName || '').trim().toLowerCase()
+  const tabsHtml = `<div class="leaderboard-tabs" role="tablist" aria-label="Leaderboard modes">
+    <button type="button" class="leaderboard-tab${!isPvp ? ' is-active' : ''}" data-leaderboard-tab="arcade" role="tab" aria-selected="${!isPvp}">Arcade Ranking</button>
+    <button type="button" class="leaderboard-tab${isPvp ? ' is-active' : ''}" data-leaderboard-tab="pvp" role="tab" aria-selected="${isPvp}">1v1 Competitive</button>
+  </div>`
+
+  if (isPvp) {
+    let message = ''
+    if (pvpLeaderboardState === 'loading') {
+      message = '<p class="leaderboard-message">Loading 1v1 rankings…</p>'
+    } else if (pvpLeaderboardState === 'error') {
+      message = `<p class="leaderboard-message is-error">Could not load 1v1 leaderboard: ${esc(pvpLeaderboardError)}</p>`
+    } else if (!pvpLeaderboardEntries.length) {
+      message = '<p class="leaderboard-message">No 1v1 competitive matches recorded yet. Win or complete a 1v1 duel to rank on this board.</p>'
+    }
+    const rows = pvpLeaderboardEntries.map((entry, index) => {
+      const isCurrentUser = activeKey && String(entry.player_name || '').trim().toLowerCase() === activeKey
+      return `<tr>
+        <td>${index + 1}</td>
+        <th scope="row">${esc(entry.player_name)}${isCurrentUser ? ' <small>(You)</small>' : ''}</th>
+        <td>${entry.rating}</td>
+        <td>${entry.wins}W - ${entry.losses}L${entry.draws ? ` - ${entry.draws}D` : ''}</td>
+        <td>${entry.win_rate}%</td>
+        <td>${entry.accuracy}%</td>
+      </tr>`
+    }).join('')
+    return `<span class="eyebrow">Leaderboard / 1v1 competitive</span>
+      <div class="leaderboard-heading">
+        <div><h2>1v1 Arena Champions</h2><p>Head-to-head online duels ranked by competitive rating (separate from Arcade).</p></div>
+        <button type="button" class="leaderboard-action" data-leaderboard-refresh ${pvpLeaderboardState === 'loading' ? 'disabled' : ''}>${pvpLeaderboardState === 'loading' ? 'Loading…' : 'Refresh'}</button>
+      </div>
+      ${tabsHtml}
+      ${message}
+      ${pvpLeaderboardEntries.length ? `<div class="leaderboard-table-wrap"><table class="leaderboard-table">
+        <thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Rating</th><th scope="col">Record</th><th scope="col">Win Rate</th><th scope="col">Accuracy</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>` : ''}
+      <p class="leaderboard-score-note">Base Rating: 1000 (+25 Win, -15 Loss, +5 Draw). Only completed 1v1 competitive duels affect this ranking.</p>`
+  }
+
   let message = ''
   if (!credentialsConfigured || leaderboardState === 'unconfigured') {
     message = `<p class="leaderboard-message">Connect your Supabase project to load shared rankings. Follow <a href="./SUPABASE_SETUP.md">the setup guide</a>, then refresh this page.</p>`
@@ -797,9 +1147,8 @@ function renderLeaderboard() {
   } else if (leaderboardState === 'submit-error') {
     message = `<p class="leaderboard-message is-error">Run submission failed: ${esc(leaderboardError)}</p>`
   } else if (!leaderboardEntries.length) {
-    message = '<p class="leaderboard-message">No gameplay runs recorded yet. Start a game and battle viruses to appear on the leaderboard.</p>'
+    message = '<p class="leaderboard-message">No Arcade runs recorded yet. Start an Arcade game and defeat viruses to appear on this leaderboard.</p>'
   }
-  const activeKey = String(activePlayerName || '').trim().toLowerCase()
   const rows = leaderboardEntries.map((entry, index) => {
     const isCurrentUser = activeKey && String(entry.player_name || '').trim().toLowerCase() === activeKey
     return `<tr>
@@ -811,17 +1160,18 @@ function renderLeaderboard() {
       <td>${entry.accuracy}%</td>
     </tr>`
   }).join('')
-  return `<span class="eyebrow">Leaderboard / global rankings</span>
+  return `<span class="eyebrow">Leaderboard / arcade rankings</span>
     <div class="leaderboard-heading">
-      <div><h2>Top adventurers</h2><p>Live and completed adventure runs, ranked by score.</p></div>
+      <div><h2>Top adventurers</h2><p>Arcade adventure runs ranked by score (excludes 1v1-only players).</p></div>
       <button type="button" class="leaderboard-action" data-leaderboard-refresh ${leaderboardState === 'loading' ? 'disabled' : ''}>${leaderboardState === 'loading' ? 'Loading…' : 'Refresh'}</button>
     </div>
+    ${tabsHtml}
     ${message}
     ${leaderboardEntries.length ? `<div class="leaderboard-table-wrap"><table class="leaderboard-table">
       <thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Score</th><th scope="col">Viruses</th><th scope="col">Correct</th><th scope="col">Accuracy</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>` : ''}
-    <p class="leaderboard-score-note">Score = 100 per virus + 10 per correct answer + accuracy. Ongoing and completed gameplays are recorded automatically as you play.</p>`
+    <p class="leaderboard-score-note">Score = 100 per virus + 10 per correct answer + accuracy. Only Arcade runs with defeated viruses appear here.</p>`
 }
 
 
@@ -908,21 +1258,45 @@ const player = new Player({
       destinationSize: { width: 76, height: 72 },
       logicalSize: { width: 156, height: 116 },
       drawOffset: { x: 40, y: 20 },
-      onComplete: () => gsap.to(overlay, { opacity: 1, onComplete: nextLevel }),
+      onComplete: () => gsap.to(overlay, { opacity: 1, onComplete: completeDoorTransition }),
     },
   },
 })
 
+const CAFE_DOOR_FRAME_RECTS = [
+  { x: 33, y: 95, width: 85, height: 145 },
+  { x: 147, y: 95, width: 83, height: 145 },
+  { x: 259, y: 95, width: 84, height: 145 },
+  { x: 373, y: 95, width: 84, height: 145 },
+  { x: 486, y: 95, width: 84, height: 145 },
+]
+
+const HOSPITAL_SLIDING_DOOR_RECTS = [
+  { x: 8, y: 45, width: 98, height: 95 },
+  { x: 128, y: 45, width: 98, height: 94 },
+  { x: 247, y: 45, width: 99, height: 94 },
+  { x: 367, y: 45, width: 99, height: 94 },
+  { x: 487, y: 45, width: 98, height: 94 },
+]
+
+const HOSPITAL_DOOR_FRAME_RECTS = [
+  { x: 114, y: 406, width: 460, height: 711 },
+  { x: 630, y: 406, width: 460, height: 711 },
+  { x: 1146, y: 406, width: 460, height: 711 },
+  { x: 1662, y: 406, width: 460, height: 711 },
+  { x: 2178, y: 406, width: 460, height: 711 },
+]
+
 const LEVELS = {
   1: {
     name: 'Storeroom',
-    bg: './img/map/backgroundLevel1.jpg?v=clean-room',
+    bg: './img/map/datacenter/backgroundLevel1.jpg?v=clean-room',
     grid: collisionsLevel1,
     collisionShapes: collisionShapesLevel1,
     sourceSize: { width: 1376, height: 768 },
     spawn: { x: 200, y: 200 },
     door: { x: 767, y: 300 },
-    doorImageSrc: './img/map/doorOpenpc.png',
+    doorImageSrc: './img/map/datacenter/doorOpenpc.png',
     doorSize: { width: 94, height: 110 },
     enemyFloorY: 546,
     enemySpawnBounds: { left: 165, right: 1210 },
@@ -930,13 +1304,13 @@ const LEVELS = {
   },
   2: {
     name: 'Great Hall',
-    bg: './img/map/backgroundLevel2.jpg',
+    bg: './img/map/datacenter/backgroundLevel2.jpg',
     grid: collisionsLevel2,
     collisionShapes: collisionShapesLevel2,
     sourceSize: { width: 1029, height: 768 },
     spawn: { x: 140, y: 110 },
     door: { x: 760, y: 342 },
-    doorImageSrc: './img/map/doorOpenpc.png',
+    doorImageSrc: './img/map/datacenter/doorOpenpc.png',
     doorSize: { width: 94, height: 110 },
     enemyFloorY: 676,
     enemySpawnBounds: { left: 110, right: 710 },
@@ -944,28 +1318,28 @@ const LEVELS = {
   },
   3: {
     name: 'Throne Gallery',
-    bg: './img/map/backgroundLevel3.jpg',
+    bg: './img/map/datacenter/backgroundLevel3.jpg',
     grid: collisionsLevel3,
     collisionShapes: collisionShapesLevel3,
     sourceSize: { width: 1024, height: 576 },
     spawn: { x: 124, y: 416 },
     door: { x: 145, y: 100 },
-    doorImageSrc: './img/map/doorOpenpc.png',
+    doorImageSrc: './img/map/datacenter/doorOpenpc.png',
     doorSize: { width: 94, height: 110 },
     enemyPlacements: [
       { x: 610, floorY: 420, patrolLeft: 528, patrolRight: 744 },
-      { x: 810, floorY: 360, patrolLeft: 760, patrolRight: 960 },
+      { x: 810, floorY: 360, patrolLeft: 760, patrolRight: 960, grenu: true },
     ],
     pigs: 2,
   },
   4: {
     name: 'Forest Gate',
-    bg: './img/map/backgroundLevel4.jpg',
+    bg: './img/map/bbcorp/backgroundLevel4.jpg',
     grid: collisionsLevel4,
     collisionShapes: collisionShapesLevel4,
     sourceSize: { width: 1376, height: 768 },
     door: { x: 90, y: 126 },
-    doorImageSrc: './img/map/doorOpencc.png',
+    doorImageSrc: './img/map/bbcorp/doorOpencc.png',
     doorSize: { width: 76, height: 90 },
     enemyPlacements: [
       { x: 340, floorY: 390, patrolLeft: 300, patrolRight: 432 },
@@ -978,12 +1352,12 @@ const LEVELS = {
   },
   5: {
     name: 'Server Wing',
-    bg: './img/map/backgroundLevel5.jpg?v=1',
+    bg: './img/map/bbcorp/backgroundLevel5.jpg?v=1',
     grid: collisionsLevel5,
     collisionShapes: collisionShapesLevel5,
     sourceSize: { width: 1376, height: 768 },
     door: { x: 850, y: 168 },
-    doorImageSrc: './img/map/doorOpencc.png',
+    doorImageSrc: './img/map/bbcorp/doorOpencc.png',
     doorSize: { width: 76, height: 90 },
     enemyPlacements: [
       { x: 530, floorY: 540, patrolLeft: 480, patrolRight: 630 },
@@ -991,6 +1365,224 @@ const LEVELS = {
       { x: 820, floorY: 540, patrolLeft: 790, patrolRight: 900 },
     ],
     spawn: { x: 112, y: 130 },
+    pigs: 3,
+  },
+  6: {
+    name: 'BB Corp Street',
+    bg: './img/map/mainroad/backgroundLevel6.jpg?v=1',
+    grid: collisionsLevel6,
+    collisionShapes: collisionShapesLevel6,
+    sourceSize: { width: 1376, height: 768 },
+    door: null,
+    edgeExits: { left: 7, right: 10 },
+    enemyPlacements: [
+      { x: 460, floorY: 588, patrolLeft: 320, patrolRight: 720, nyrmed: true },
+      { x: 840, floorY: 660, patrolLeft: 785, patrolRight: 920 },
+      { x: 1140, floorY: 588, patrolLeft: 955, patrolRight: 1265, grenu: true },
+    ],
+    spawn: { x: 185, y: 330 },
+    spawnDirection: 'right',
+    returnSpawn: { x: 835, y: 354 },
+    returnDirection: 'left',
+    returnLeftSpawn: { x: 24, y: 354 },
+    returnLeftDirection: 'right',
+    returnRightSpawn: { x: 835, y: 354 },
+    returnRightDirection: 'left',
+    pigs: 3,
+  },
+  7: {
+    name: 'Net Cafe Street',
+    bg: './img/map/mainroad/backgroundLevel6left.jpg?v=1',
+    grid: collisionsLevel6Left,
+    collisionShapes: collisionShapesLevel6Left,
+    sourceSize: { width: 1376, height: 768 },
+    edgeExits: { right: 6, allowRightWhenLocked: true },
+    door: { x: 396, y: 343 },
+    doorImageSrc: './img/map/netcafe/doorOpencafe.png?v=2',
+    doorSize: { width: 46, height: 70 },
+    doorFrameRects: CAFE_DOOR_FRAME_RECTS,
+    solidDoor: true,
+    enemyPlacements: [
+      { x: 260, floorY: 616, patrolLeft: 120, patrolRight: 420, grenu: true },
+      { x: 560, floorY: 616, patrolLeft: 440, patrolRight: 780, nyrmed: true },
+      { x: 900, floorY: 616, patrolLeft: 790, patrolRight: 1120 },
+    ],
+    spawn: { x: 838, y: 375 },
+    spawnDirection: 'left',
+    returnSpawn: { x: 356, y: 375 },
+    returnDirection: 'right',
+    pigs: 3,
+  },
+  8: {
+    name: 'Net Cafe Lobby',
+    bg: './img/map/netcafe/backgroundLevelcafe.jpg?v=1',
+    grid: collisionsLevelCafe,
+    collisionShapes: collisionShapesLevelCafe,
+    sourceSize: { width: 1376, height: 768 },
+    worldScale: 1.4,
+    doors: [
+      {
+        x: 312,
+        y: 429,
+        imageSrc: './img/map/netcafe/doorOpencafe.png?v=2',
+        doorSize: { width: 39, height: 58 },
+        doorFrameRects: CAFE_DOOR_FRAME_RECTS,
+        target: 'prev',
+        allowWhenLocked: true,
+      },
+      {
+        x: 886,
+        y: 130,
+        imageSrc: './img/map/netcafe/doorOpencafe.png?v=2',
+        doorSize: { width: 39, height: 59 },
+        doorFrameRects: CAFE_DOOR_FRAME_RECTS,
+        target: 'next',
+      },
+    ],
+    solidDoor: true,
+    enemyPlacements: [
+      { x: 850, floorY: 650, patrolLeft: 620, patrolRight: 1100 },
+      { x: 260, floorY: 448, patrolLeft: 100, patrolRight: 560, grenu: true },
+      { x: 930, floorY: 448, patrolLeft: 810, patrolRight: 1120, nyrmed: true },
+    ],
+    spawn: { x: 266, y: 422 },
+    spawnDirection: 'right',
+    returnSpawn: { x: 852, y: 124 },
+    returnDirection: 'left',
+    pigs: 3,
+  },
+  9: {
+    name: 'Net Cafe Staff Room',
+    bg: './img/map/netcafe/backgroundLevelcafe2.jpg?v=1',
+    grid: collisionsLevelCafe2,
+    collisionShapes: collisionShapesLevelCafe2,
+    sourceSize: { width: 1376, height: 768 },
+    worldScale: 1.4,
+    doors: [
+      {
+        x: 128,
+        y: 99,
+        imageSrc: './img/map/netcafe/doorOpencafe.png?v=2',
+        doorSize: { width: 42, height: 54 },
+        doorFrameRects: CAFE_DOOR_FRAME_RECTS,
+        target: 'prev',
+        allowWhenLocked: true,
+      },
+      {
+        x: 876,
+        y: 438,
+        imageSrc: './img/map/netcafe/doorOpencafe.png?v=2',
+        doorSize: { width: 38, height: 69 },
+        doorFrameRects: CAFE_DOOR_FRAME_RECTS,
+        target: 'loop',
+      },
+    ],
+    solidDoor: true,
+    bossPlacement: { x: 760, floorY: 676, patrolLeft: 500, patrolRight: 1080 },
+    enemyPlacements: [
+      { x: 250, floorY: 492, patrolLeft: 110, patrolRight: 520, grenu: true },
+      { x: 900, floorY: 416, patrolLeft: 720, patrolRight: 1085, nyrmed: true },
+      { x: 560, floorY: 676, patrolLeft: 140, patrolRight: 1120 },
+    ],
+    spawn: { x: 91, y: 90 },
+    spawnDirection: 'right',
+    pigs: 3,
+  },
+  10: {
+    name: 'East Main Road',
+    bg: './img/map/mainroad/backgroundLevel6right.jpg?v=1',
+    grid: collisionsLevel6Right,
+    collisionShapes: collisionShapesLevel6Right,
+    sourceSize: { width: 1376, height: 768 },
+    edgeExits: { left: 6, allowLeftWhenLocked: true },
+    door: { x: 404, y: 356 },
+    doorImageSrc: './img/map/hospital/slidingdoorOpenhospital.png?v=1',
+    doorSize: { width: 97, height: 71 },
+    doorFrameRects: HOSPITAL_SLIDING_DOOR_RECTS,
+    solidDoor: true,
+    enemyPlacements: [
+      { x: 620, floorY: 616, patrolLeft: 260, patrolRight: 1100, grenu: true },
+      { x: 860, floorY: 616, patrolLeft: 640, patrolRight: 1080, nyrmed: true },
+      { x: 1120, floorY: 616, patrolLeft: 960, patrolRight: 1240 },
+    ],
+    spawn: { x: 24, y: 375 },
+    spawnDirection: 'right',
+    returnSpawn: { x: 404, y: 375 },
+    returnDirection: 'right',
+    pigs: 3,
+  },
+  11: {
+    name: 'Hospital Wing',
+    bg: './img/map/hospital/backgroundLevelhospital.jpg?v=2',
+    grid: collisionsLevelHospital,
+    collisionShapes: collisionShapesLevelHospital,
+    sourceSize: { width: 1376, height: 768 },
+    worldScale: 1.4,
+    doors: [
+      {
+        x: 143,
+        y: 281,
+        imageSrc: './img/map/hospital/slidingdoorOpenhospital.png?v=1',
+        doorSize: { width: 119, height: 81 },
+        doorFrameRects: HOSPITAL_SLIDING_DOOR_RECTS,
+        target: 'prev',
+        allowWhenLocked: true,
+      },
+      {
+        x: 905,
+        y: 463,
+        imageSrc: './img/map/hospital/doorOpenhospital.jpg?v=1',
+        doorSize: { width: 30, height: 52 },
+        doorFrameRects: HOSPITAL_DOOR_FRAME_RECTS,
+        target: 'next',
+      },
+    ],
+    solidDoor: true,
+    enemyPlacements: [
+      { x: 560, floorY: 696, patrolLeft: 280, patrolRight: 860 },
+      { x: 920, floorY: 416, patrolLeft: 760, patrolRight: 1090, grenu: true },
+      { x: 960, floorY: 214, patrolLeft: 750, patrolRight: 1220, nyrmed: true },
+    ],
+    spawn: { x: 130, y: 292 },
+    spawnDirection: 'right',
+    returnSpawn: { x: 855, y: 454 },
+    returnDirection: 'left',
+    pigs: 3,
+  },
+  12: {
+    name: 'Hospital Upper Floors',
+    bg: './img/map/hospital/backgroundLevelhospital2.jpg?v=1',
+    grid: collisionsLevelHospital2,
+    collisionShapes: collisionShapesLevelHospital2,
+    sourceSize: { width: 1376, height: 768 },
+    worldScale: 1.4,
+    doors: [
+      {
+        x: 889,
+        y: 111,
+        imageSrc: './img/map/hospital/doorOpenhospital.jpg?v=1',
+        doorSize: { width: 38, height: 60 },
+        doorFrameRects: HOSPITAL_DOOR_FRAME_RECTS,
+        target: 'prev',
+        allowWhenLocked: true,
+      },
+      {
+        x: 902,
+        y: 462,
+        imageSrc: './img/map/hospital/doorOpenhospital.jpg?v=1',
+        doorSize: { width: 34, height: 53 },
+        doorFrameRects: HOSPITAL_DOOR_FRAME_RECTS,
+        target: 'loop',
+      },
+    ],
+    solidDoor: true,
+    enemyPlacements: [
+      { x: 420, floorY: 692, patrolLeft: 120, patrolRight: 760, grenu: true },
+      { x: 280, floorY: 500, patrolLeft: 100, patrolRight: 660 },
+      { x: 460, floorY: 234, patrolLeft: 120, patrolRight: 820, nyrmed: true },
+    ],
+    spawn: { x: 850, y: 112 },
+    spawnDirection: 'left',
     pigs: 3,
   },
 }
@@ -1010,6 +1602,10 @@ let skillTreeOpen = false
 let skillTreeReturnFocus = null
 let skillTreeStarted = false
 let selectedSkillNode = null
+let worldMapOpen = false
+let worldMapReturnFocus = null
+let selectedWorldMapRoom = null
+const visitedRooms = new Set()
 let skillMapPan = null
 const SKILL_MAP_ZOOM_OUT_POINTS = 5
 const SKILL_MAP_MIN_ZOOM = 0.55
@@ -1158,21 +1754,35 @@ function findPlatforms(grid, spawn) {
 }
 
 // ===== Run structure =====
-// The five authored rooms repeat with scaling after the first pass, and every BOSS_EVERY-th level is a boss room.
-const RUN_LENGTH = 20   // the run ends after this level; set to 0 to keep going
-const BOSS_EVERY = 10
+// Each 12-room loop branches into Net Cafe (7-9) or Hospital (10-12); King Crolue guards every loop finale.
+const RUN_LENGTH = 24   // 2 full loops; completing either branch on loop 2 wins the run (0 = endless)
+const BOSS_EVERY = 5
 const ROOM_COUNT = Object.keys(LEVELS).length
 
 function levelConfig(n) {
-  const base = LEVELS[((n - 1) % ROOM_COUNT) + 1]
+  const baseRoom = ((n - 1) % ROOM_COUNT) + 1
+  const base = LEVELS[baseRoom]
   const cycle = Math.floor((n - 1) / ROOM_COUNT)
-  const boss = n % BOSS_EVERY === 0
+  const grenuBoss = n === 15
+  const korBoss = baseRoom === 5
+  const isFinalRoom = baseRoom === 9 || baseRoom === 12 || (Boolean(RUN_LENGTH) && n === RUN_LENGTH)
+  const boss = isFinalRoom || korBoss || grenuBoss
   return {
     ...base,
-    name: boss ? `Boss: ${base.name}` : cycle ? `${base.name} ${cycle + 1}` : base.name,
+    name: boss
+      ? (isFinalRoom
+        ? `Final Boss · ${typeof FINAL_BOSS_NAME !== 'undefined' ? FINAL_BOSS_NAME : 'King Crolue'}: ${base.name}`
+        : grenuBoss
+          ? `Mini Boss Grenu: ${base.name}`
+          : `Mini Boss Kor: ${base.name}`)
+      : cycle
+        ? `${base.name} ${cycle + 1}`
+        : base.name,
     cycle,
     boss,
-    final: Boolean(RUN_LENGTH) && n === RUN_LENGTH,
+    korBoss,
+    grenuBoss,
+    final: isFinalRoom,
     pigs: boss ? 1 : base.pigs,
   }
 }
@@ -1199,8 +1809,8 @@ function spawnEnemies(cfg, floorRun, scaleX, scaleY) {
   const hpScale = 1 + 0.2 * cfg.cycle
   const attackScale = 1 + 0.1 * cfg.cycle
   if (cfg.boss) {
-    const boss = new Boss(floorRun, cfg.final)
-    const placement = cfg.enemyPlacements && cfg.enemyPlacements[0]
+    const boss = new Boss(floorRun, cfg.final, { grenu: Boolean(cfg.grenuBoss) })
+    const placement = cfg.bossPlacement || (cfg.enemyPlacements && cfg.enemyPlacements[0])
     if (placement) {
       boss.minX = placement.patrolLeft * scaleX
       boss.maxX = placement.patrolRight * scaleX - boss.w
@@ -1216,8 +1826,8 @@ function spawnEnemies(cfg, floorRun, scaleX, scaleY) {
     return [boss]
   }
   return Array.from({ length: cfg.pigs }, (_, i) => {
-    const enemy = new Enemy(floorRun, i)
     const placement = cfg.enemyPlacements && cfg.enemyPlacements[i]
+    const enemy = new Enemy(floorRun, i, { nyrmed: Boolean(placement?.nyrmed), grenu: Boolean(placement?.grenu) })
     if (placement) {
       enemy.minX = placement.patrolLeft * scaleX
       enemy.maxX = placement.patrolRight * scaleX - enemy.w
@@ -1236,20 +1846,99 @@ function spawnEnemies(cfg, floorRun, scaleX, scaleY) {
   })
 }
 
-function loadLevel(n) {
+const exploreCamera = {
+  x: 0,
+  y: 0,
+  worldWidth: canvas.width,
+  worldHeight: canvas.height,
+}
+let pendingDoorTarget = 'next'
+const clearedRooms = new Set()
+
+function clampCameraAxis(pos, viewSize, worldSize) {
+  const maxOffset = Math.max(0, worldSize - viewSize)
+  return Math.max(0, Math.min(pos, maxOffset))
+}
+
+function focusPointForExploreCamera() {
+  const h = player.hitbox
+  if (h) {
+    return {
+      x: h.position.x + h.width * 0.5,
+      y: h.position.y + h.height * 0.5,
+    }
+  }
+  return {
+    x: player.position.x + (player.width || 64) * 0.5,
+    y: player.position.y + (player.height || 64) * 0.5,
+  }
+}
+
+function resetExploreCamera(cfg) {
+  const worldScale = cfg?.worldScale || 1
+  exploreCamera.worldWidth = Math.round(canvas.width * worldScale)
+  exploreCamera.worldHeight = Math.round(canvas.height * worldScale)
+  if (exploreCamera.worldWidth <= canvas.width && exploreCamera.worldHeight <= canvas.height) {
+    exploreCamera.x = 0
+    exploreCamera.y = 0
+    return
+  }
+  const focus = focusPointForExploreCamera()
+  exploreCamera.x = clampCameraAxis(focus.x - canvas.width * 0.5, canvas.width, exploreCamera.worldWidth)
+  exploreCamera.y = clampCameraAxis(focus.y - canvas.height * 0.5, canvas.height, exploreCamera.worldHeight)
+}
+
+function updateExploreCamera() {
+  if (exploreCamera.worldWidth <= canvas.width && exploreCamera.worldHeight <= canvas.height) {
+    exploreCamera.x = 0
+    exploreCamera.y = 0
+    return
+  }
+  const focus = focusPointForExploreCamera()
+  const deadLeft = canvas.width * 0.34
+  const deadRight = canvas.width * 0.66
+  const deadTop = canvas.height * 0.3
+  const deadBottom = canvas.height * 0.68
+  const screenX = focus.x - exploreCamera.x
+  const screenY = focus.y - exploreCamera.y
+  let targetX = exploreCamera.x
+  let targetY = exploreCamera.y
+  if (screenX < deadLeft) targetX = focus.x - deadLeft
+  else if (screenX > deadRight) targetX = focus.x - deadRight
+  if (screenY < deadTop) targetY = focus.y - deadTop
+  else if (screenY > deadBottom) targetY = focus.y - deadBottom
+  targetX = clampCameraAxis(targetX, canvas.width, exploreCamera.worldWidth)
+  targetY = clampCameraAxis(targetY, canvas.height, exploreCamera.worldHeight)
+  const ease = 0.16
+  exploreCamera.x += (targetX - exploreCamera.x) * ease
+  exploreCamera.y += (targetY - exploreCamera.y) * ease
+  if (Math.abs(targetX - exploreCamera.x) < 0.5) exploreCamera.x = targetX
+  if (Math.abs(targetY - exploreCamera.y) < 0.5) exploreCamera.y = targetY
+}
+
+function loadLevel(n, options = {}) {
   const go = document.getElementById('gameOverOverlay')
   if (go) {
     go.hidden = true
     go.innerHTML = ''
   }
+  const spBanner = document.getElementById('spEarnedBanner')
+  if (spBanner) spBanner.hidden = true
+  window.clearTimeout(spEarnedBannerTimer)
+  spEarnedBannerTimer = 0
   const cfg = levelConfig(n)
   level = n
+  visitedRooms.add(((n - 1) % ROOM_COUNT) + 1)
   currentRoom = cfg
+  pendingDoorTarget = 'next'
   stats.roomKills = 0
+  const worldScale = cfg.worldScale || 1
+  const worldWidth = Math.round(canvas.width * worldScale)
+  const worldHeight = Math.round(canvas.height * worldScale)
   const grid = cfg.grid.parse2D()
   if (cfg.collisionShapes) {
-    const scaleX = canvas.width / cfg.sourceSize.width
-    const scaleY = canvas.height / cfg.sourceSize.height
+    const scaleX = worldWidth / cfg.sourceSize.width
+    const scaleY = worldHeight / cfg.sourceSize.height
     collisionBlocks = cfg.collisionShapes.map((shape) =>
       new CollisionBlock({
         id: shape.id,
@@ -1264,38 +1953,60 @@ function loadLevel(n) {
   }
   player.collisionBlocks = collisionBlocks
   player.worldBounds = cfg.collisionShapes
-    ? { left: 0, top: 0, right: canvas.width, bottom: canvas.height }
+    ? { left: 0, top: 0, right: worldWidth, bottom: worldHeight }
     : null
   if (player.currentAnimation) player.currentAnimation.isActive = false
-  const facingLeft = cfg.spawnDirection === 'left'
+  const useReturnSpawn = Boolean(options?.fromPrev && cfg.returnSpawn)
+  const spawnPoint = options?.spawnOverride || (useReturnSpawn ? cfg.returnSpawn : cfg.spawn)
+  const spawnDir = options?.directionOverride || (useReturnSpawn ? (cfg.returnDirection || cfg.spawnDirection) : cfg.spawnDirection)
+  const facingLeft = spawnDir === 'left'
   player.switchSprite(facingLeft ? 'idleLeft' : 'idleRight')
   player.lastDirection = facingLeft ? 'left' : 'right'
   player.preventInput = false
-  player.position = { ...cfg.spawn }
+  player.position = {
+    x: spawnPoint.x * worldScale,
+    y: spawnPoint.y * worldScale,
+  }
   player.velocity = { x: 0, y: 0 }
+  if (typeof player.updateHitbox === 'function') player.updateHitbox()
 
   background = new Sprite({
     position: { x: 0, y: 0 },
     imageSrc: cfg.bg,
-    destinationSize: { width: canvas.width, height: canvas.height },
+    destinationSize: { width: worldWidth, height: worldHeight },
   })
-  const scaleX = cfg.sourceSize ? canvas.width / cfg.sourceSize.width : 1
-  const scaleY = cfg.sourceSize ? canvas.height / cfg.sourceSize.height : 1
-  doors = cfg.door
-    ? [
-        new Sprite({
-          position: { ...cfg.door },
-          imageSrc: cfg.doorImageSrc || './img/map/doorOpenpc.png',
-          frameRate: 5,
-          frameBuffer: 4,
-          frameColumns: 5,
-          frameCount: 5,
-          loop: false,
-          autoplay: false,
-          destinationSize: cfg.doorSize,
-        }),
-      ]
-    : []
+  const scaleX = cfg.sourceSize ? worldWidth / cfg.sourceSize.width : 1
+  const scaleY = cfg.sourceSize ? worldHeight / cfg.sourceSize.height : 1
+  const doorSpecs = Array.isArray(cfg.doors)
+    ? cfg.doors
+    : cfg.door
+      ? [{
+          ...cfg.door,
+          imageSrc: cfg.doorImageSrc || './img/map/datacenter/doorOpenpc.png',
+          doorSize: cfg.doorSize,
+          doorFrameRects: cfg.doorFrameRects,
+          target: 'next',
+        }]
+      : []
+  doors = doorSpecs.map((spec) => {
+    const sprite = new Sprite({
+      position: { x: spec.x * worldScale, y: spec.y * worldScale },
+      imageSrc: spec.imageSrc || cfg.doorImageSrc || './img/map/datacenter/doorOpenpc.png',
+      frameRate: 5,
+      frameBuffer: 4,
+      frameColumns: 5,
+      frameCount: 5,
+      frameRects: spec.doorFrameRects || cfg.doorFrameRects,
+      loop: false,
+      autoplay: false,
+      destinationSize: spec.doorSize
+        ? { width: spec.doorSize.width * worldScale, height: spec.doorSize.height * worldScale }
+        : undefined,
+    })
+    sprite.target = spec.target || 'next'
+    sprite.allowWhenLocked = Boolean(spec.allowWhenLocked || sprite.target === 'prev')
+    return sprite
+  })
   const maxPigWidth = PIG_W * 1.6
   const maxPigHeight = PIG_H * 1.6
   const playableRuns = findPlatforms(grid, cfg.spawn).filter((run) => {
@@ -1317,11 +2028,19 @@ function loadLevel(n) {
     .sort((a, b) => b.c2 - b.c1 - (a.c2 - a.c1))[0]
   if (!floorRun) throw new Error(`No walkable floor found for level ${n}`)
   enemies = spawnEnemies(cfg, floorRun, scaleX, scaleY)
+  if (clearedRooms.has(n)) {
+    enemies.forEach((enemy) => {
+      enemy.alive = false
+    })
+    stats.roomKills = enemies.length
+  }
   grace = 90;
+  resetExploreCamera(cfg)
 
   mode = 'explore'
   renderExplore()
   Sound.music('explore')
+  saveCurrentRunSlot()
 }
 
 function newGame() {
@@ -1329,6 +2048,8 @@ function newGame() {
     submitLeaderboardRun({ skipReload: true })
   }
   resetRun()
+  clearedRooms.clear()
+  visitedRooms.clear()
   leaderboardRunId = createLeaderboardRunId()
   leaderboardRunSubmitted = false
   leaderboardLastSubmittedSnapshot = ''
@@ -1339,6 +2060,9 @@ function newGame() {
 
 function nextLevel() {
   submitLeaderboardRun({ skipReload: true })
+  if (enemies.length && enemies.every((e) => !e.alive)) {
+    clearedRooms.add(level)
+  }
   const followingLevel = level + 1
   if (!RUN_LENGTH || followingLevel <= RUN_LENGTH) {
     loadLevel(followingLevel)
@@ -1349,23 +2073,59 @@ function nextLevel() {
   gsap.to(overlay, { opacity: 0 })
 }
 
-// Doors stay locked until every pig in the room is defeated.
+function prevLevel() {
+  submitLeaderboardRun({ skipReload: true })
+  if (enemies.length && enemies.every((e) => !e.alive)) {
+    clearedRooms.add(level)
+  }
+  loadLevel(Math.max(1, level - 1), { fromPrev: true })
+  gsap.to(overlay, { opacity: 0 })
+}
+
+function completeDoorTransition() {
+  const target = pendingDoorTarget
+  pendingDoorTarget = 'next'
+  if (target === 'prev') {
+    prevLevel()
+    return
+  }
+  if (target === 'loop') {
+    submitLeaderboardRun({ skipReload: true })
+    if (enemies.length && enemies.every((e) => !e.alive)) {
+      clearedRooms.add(level)
+    }
+    const nextCycleLevel = (Math.floor((level - 1) / ROOM_COUNT) + 1) * ROOM_COUNT + 1
+    if (!RUN_LENGTH || nextCycleLevel <= RUN_LENGTH) {
+      loadLevel(nextCycleLevel)
+    } else {
+      mode = 'end'
+      showVictory()
+    }
+    gsap.to(overlay, { opacity: 0 })
+    return
+  }
+  nextLevel()
+}
+
+// Doors stay locked until every pig in the room is defeated (except exit/return doors back to the street).
 function tryDoor() {
   const h = player.hitbox
-  const door = doors[0]
-  if (!h || !door) return false
-  const interactionPadding = 20
-  const inside =
-    h.position.x < door.position.x + door.width + interactionPadding &&
-    h.position.x + h.width > door.position.x - interactionPadding &&
-    h.position.y < door.position.y + door.height + interactionPadding &&
-    h.position.y + h.height > door.position.y - interactionPadding
-  if (!inside) return false
+  if (!h || !doors.length) return false
+  const interactionPadding = 22
+  const door = doors.find(
+    (entry) =>
+      h.position.x < entry.position.x + entry.width + interactionPadding &&
+      h.position.x + h.width > entry.position.x - interactionPadding &&
+      h.position.y < entry.position.y + entry.height + interactionPadding &&
+      h.position.y + h.height > entry.position.y - interactionPadding
+  )
+  if (!door) return false
 
-  if (enemies.some((e) => e.alive)) {
+  if (!door.allowWhenLocked && enemies.some((e) => e.alive)) {
     renderExplore('The door is locked. Defeat every virus in this room first.')
     return true
   }
+  pendingDoorTarget = door.target || 'next'
   player.velocity = { x: 0, y: 0 }
   player.preventInput = true
   player.switchSprite('enterDoor')
@@ -1390,24 +2150,81 @@ function checkEncounter() {
 
 function drawExplore() {
   if (grace > 0) grace--
+  updateExploreCamera()
+  c.save()
+  c.translate(-Math.round(exploreCamera.x), -Math.round(exploreCamera.y))
   background.draw()
   if (currentRoom.boss) {
     c.fillStyle = 'rgba(120, 20, 40, 0.16)'
-    c.fillRect(0, 0, canvas.width, canvas.height)
+    c.fillRect(0, 0, exploreCamera.worldWidth, exploreCamera.worldHeight)
   }
   const locked = enemies.some((e) => e.alive)
-  c.globalAlpha = locked ? 0.45 : 1
+  c.globalAlpha = currentRoom.solidDoor ? 1 : (locked ? 0.45 : 1)
   doors.forEach((door) => door.draw())
   c.globalAlpha = 1
 
   enemies.forEach((e) => {
     if (mode !== 'end') e.update()
+    if (e.alive && e.nyrmed) {
+      const fScale = 1.9
+      const fx = e.x - e.dir * 52
+      const fy = e.y + (e.h - PIG_H * fScale)
+      drawPig(c, fx, fy, fScale, e.dir < 0, { animated: true, grenu: true })
+    }
     e.draw()
   })
   player.handleInput(keys)
   player.draw()
   player.update()
+  if (currentRoom.edgeExits && !player.preventInput && mode === 'explore') {
+    const h = player.hitbox
+    const onLeftEdge = h && h.position.x <= 56
+    const onRightEdge = h && h.position.x + h.width >= exploreCamera.worldWidth - 56
+    if (onLeftEdge || onRightEdge) {
+      const exitCfg = typeof currentRoom.edgeExits === 'object' ? currentRoom.edgeExits : null
+      const baseTarget = exitCfg ? (onLeftEdge ? exitCfg.left : exitCfg.right) : null
+      const cycleBase = Math.floor((level - 1) / ROOM_COUNT) * ROOM_COUNT
+      const targetLevel = baseTarget ? cycleBase + baseTarget : null
+      const allowLocked = Boolean(
+        (onLeftEdge && exitCfg?.allowLeftWhenLocked) ||
+        (onRightEdge && exitCfg?.allowRightWhenLocked)
+      )
+      if (exitCfg && !baseTarget) {
+        // Closed edge on single-direction street exit
+      } else if (!allowLocked && enemies.some((e) => e.alive)) {
+        player.velocity.x = 0
+        player.position.x += onLeftEdge ? 14 : -14
+        renderExplore('The road is blocked. Defeat every virus here first.')
+      } else {
+        if (enemies.length && enemies.every((e) => !e.alive)) {
+          clearedRooms.add(level)
+        }
+        player.velocity = { x: 0, y: 0 }
+        player.preventInput = true
+        gsap.to(overlay, {
+          opacity: 1,
+          duration: 0.45,
+          onComplete: () => {
+            if (targetLevel) {
+              const targetCfg = levelConfig(targetLevel)
+              let loadOpts = {}
+              if (baseTarget === 6) {
+                loadOpts = onRightEdge
+                  ? { fromPrev: true, spawnOverride: targetCfg.returnLeftSpawn, directionOverride: targetCfg.returnLeftDirection }
+                  : { fromPrev: true, spawnOverride: targetCfg.returnRightSpawn, directionOverride: targetCfg.returnRightDirection }
+              }
+              loadLevel(targetLevel, loadOpts)
+              gsap.to(overlay, { opacity: 0 })
+            } else {
+              nextLevel()
+            }
+          },
+        })
+      }
+    }
+  }
   checkEncounter()
+  c.restore()
 }
 
 function drawSheet(sp, x, y, s, advance = true, context = c) {
@@ -1869,7 +2686,7 @@ function drawCombatants(heroX, foeX, shake) {
     ? BATTLE_ATTACK_JUMP_OFFSETS[attackJumpFrame] * heroScale
     : 0
   const hy = HERO_SPOT.y + (attackActive ? jumpOffset : bob * 2) - knockbackArc
-  const foeScale = foe.brute ? 3.6 : 3.2
+  const foeScale = foe.nyrmed ? 4.1 : foe.grenu ? 3.55 : foe.brute ? 3.6 : 3.2
   const enemyLunge = b.enemyLungeT > 0
     ? Math.sin((1 - b.enemyLungeT) * Math.PI) * b.enemyLungeDistance
     : 0
@@ -1971,6 +2788,76 @@ function drawCombatants(heroX, foeX, shake) {
     drawChargeMeter(hx, charging ? chargeProgress : 1)
   }
   if (b.defendEffectT > 0) drawDefendEffect(hx, hy - heroDrawHeight)
+  if ((typeof hero !== 'undefined' && hero.runInvincible) || b.aegisAnimT > 0) {
+    c.save()
+    c.globalCompositeOperation = 'lighter'
+    const pulse = b.aegisAnimT > 0 ? 0.55 + Math.sin(arenaT * 0.45) * 0.25 : 0.28 + Math.sin(arenaT * 0.14) * 0.1
+    c.globalAlpha = pulse
+    c.strokeStyle = b.aegisAnimT > 0 ? '#ffe07a' : '#7bf5c8'
+    c.lineWidth = b.aegisAnimT > 0 ? 5 : 3
+    c.beginPath()
+    const radius = b.aegisAnimT > 0 ? 86 + (56 - b.aegisAnimT) * 0.3 : 78
+    for (let i = 0; i < 6; i++) {
+      const ang = (Math.PI / 3) * i + arenaT * 0.02
+      const px = hx + Math.cos(ang) * radius
+      const py = hy - heroDrawHeight * 0.5 + Math.sin(ang) * radius
+      if (i === 0) c.moveTo(px, py)
+      else c.lineTo(px, py)
+    }
+    c.closePath()
+    c.stroke()
+    c.restore()
+  }
+
+  // Resurrected Necromancy allies standing in distinct positions beside the player
+  const necroAlliesList = !foe.isMultiplayerPlayer && typeof hero !== 'undefined'
+    ? (Array.isArray(hero.necroAllies) && hero.necroAllies.length ? hero.necroAllies : (hero.necroAlly ? [hero.necroAlly] : []))
+    : []
+  if (necroAlliesList.length) {
+    const allySlots = [
+      { dx: -138, dy: 8 },
+      { dx: 118, dy: 16 },
+      { dx: -72, dy: -44 },
+    ]
+    necroAlliesList.forEach((ally, idx) => {
+      const slot = allySlots[idx] || { dx: -138 - idx * 44, dy: 8 + idx * 10 }
+      const slotLungeT = Array.isArray(b.allyLungeTs) ? (b.allyLungeTs[idx] || 0) : (b.allyLungeT || 0)
+      const slotAttackT = Array.isArray(b.allyAttackTs) ? (b.allyAttackTs[idx] || 0) : (b.allyAttackT || 0)
+      const allyLunge = slotLungeT > 0 ? Math.sin((1 - slotLungeT) * Math.PI) * 210 : 0
+      const ax = HERO_SPOT.x + slot.dx + allyLunge
+      const ay = HERO_SPOT.y + slot.dy + Math.sin(arenaT * 0.09 + 2 + idx * 1.4) * 2
+      c.save()
+      c.fillStyle = 'rgba(130, 56, 210, 0.35)'
+      c.beginPath()
+      c.ellipse(ax, HERO_SPOT.y + slot.dy + 2, 48, 9, 0, 0, Math.PI * 2)
+      c.fill()
+      c.shadowColor = '#c77dff'
+      c.shadowBlur = slotAttackT > 0 ? 22 : 12
+      c.filter = 'hue-rotate(235deg) saturate(1.5)'
+      if (ally.isBoss) {
+        const allyDur = typeof getBossAttackDuration === 'function' ? getBossAttackDuration(ally) : BOSS_ATTACK_FRAMES * BOSS_ATTACK_BUFFER
+        drawBossArt(c, ally, ax, ay, 140, { attacking: slotAttackT > 0, attackElapsed: Math.round(((24 - slotAttackT) / 24) * allyDur), faceLeft: false })
+      } else {
+        const aScale = ally.nyrmed ? 3.1 : ally.grenu ? 2.75 : ally.brute ? 2.8 : 2.5
+        drawPig(c, ax - 24 * aScale, ay - 36 * aScale, aScale, false, {
+          animated: true,
+          idle: true,
+          brute: Boolean(ally.brute),
+          nyrmed: Boolean(ally.nyrmed),
+          grenu: Boolean(ally.grenu),
+          attacking: Boolean(ally.brute) && slotAttackT > 0,
+          attackElapsed: 24 - slotAttackT,
+        })
+      }
+      c.restore()
+      c.save()
+      c.font = '8px "Press Start 2P", monospace'
+      c.textAlign = 'center'
+      c.fillStyle = '#e0aaff'
+      c.fillText(`ALLY ${idx + 1}: ${String(ally.name || 'UNDEAD').toUpperCase()}`, ax, ay - (ally.isBoss ? 148 : 96))
+      c.restore()
+    })
+  }
 
   if (foe.hp > 0 || foe.isMultiplayerPlayer || b.hitT > 0 || b.projectileT >= 0 || b.projectileQueued || charging || defeating) {
     const flash = b.flash.enemy > 0 && b.flash.enemy % 4 >= 2
@@ -1989,22 +2876,57 @@ function drawCombatants(heroX, foeX, shake) {
         if (flash) c.filter = 'brightness(1.85)'
         else if (invert) c.filter = 'brightness(0) invert(1)'
         drawSheet(opponentKing, x - oppW / 2, feetY - oppH, hs, mode === 'battle' && !ghost && !afterimage)
-      } else if (foe.isBoss) {
+      } else if (foe.isBoss && !foe.grenu) {
+        const atkDur = typeof getBossAttackDuration === 'function' ? getBossAttackDuration(foe) : BOSS_ATTACK_FRAMES * BOSS_ATTACK_BUFFER
         drawBossArt(c, foe, x, feetY, BOSS_BATTLE_HEIGHT, {
           attacking: b.bossAttackT > 0,
-          attackElapsed: BOSS_ATTACK_FRAMES * BOSS_ATTACK_BUFFER - b.bossAttackT,
+          attackElapsed: atkDur - b.bossAttackT,
           faceLeft: true,
           flash: !ghost && !afterimage && flash,
           invert: !ghost && !afterimage && invert,
         })
       } else {
-        drawPig(c, x - 24 * foeScale, feetY - 36 * foeScale, foeScale, true, {
+        const useScale = foe.isBoss && foe.grenu ? 4.4 : foeScale
+        drawPig(c, x - 24 * useScale, feetY - 36 * useScale, useScale, true, {
           animated: mode === 'battle',
           idle: true,
+          brute: Boolean(foe.brute),
+          nyrmed: Boolean(foe.nyrmed),
+          grenu: Boolean(foe.grenu),
+          attacking: Boolean(foe.brute) && b.driusAttackT > 0,
+          attackElapsed: (typeof DRIUS_ATTACK_FRAMES_COUNT !== 'undefined' ? DRIUS_ATTACK_FRAMES_COUNT : 10) * (typeof DRIUS_ATTACK_BUFFER !== 'undefined' ? DRIUS_ATTACK_BUFFER : 3) - b.driusAttackT,
           flash: !ghost && !afterimage && flash,
           invert: !ghost && !afterimage && invert,
         })
       }
+      c.restore()
+    }
+
+    // Nyrmed's loyal follower Grenu standing right beside him in battle
+    if (!foe.isMultiplayerPlayer && foe.hp > 0 && b.enemyFollower && b.enemyFollower.hp > 0) {
+      const fl = b.enemyFollower
+      const flLunge = (fl.lungeT || 0) > 0 ? Math.sin((1 - fl.lungeT) * Math.PI) * 260 : 0
+      const gx = FOE_SPOT.x + 122 + shake - flLunge
+      const gy = FOE_SPOT.y + 10 + Math.sin(arenaT * 0.09 + 1.8) * 2
+      const gScale = 3.05
+      c.save()
+      c.fillStyle = 'rgba(8, 6, 16, 0.48)'
+      c.beginPath()
+      c.ellipse(gx, FOE_SPOT.y + 12, 52, 9, 0, 0, Math.PI * 2)
+      c.fill()
+      c.shadowColor = '#ff9659'
+      c.shadowBlur = fl.lungeT > 0 ? 20 : 10
+      drawPig(c, gx - 24 * gScale, gy - 36 * gScale, gScale, true, {
+        animated: mode === 'battle',
+        idle: true,
+        grenu: true,
+      })
+      c.restore()
+      c.save()
+      c.font = '8px "Press Start 2P", monospace'
+      c.textAlign = 'center'
+      c.fillStyle = '#ffc299'
+      c.fillText('ALLY: GRENU', gx, gy - 118)
       c.restore()
     }
 
@@ -2100,9 +3022,59 @@ function drawCombatants(heroX, foeX, shake) {
       const foeHeight = foe.isMultiplayerPlayer
         ? opponentKing.destinationSize.height * hs
         : (foe.isBoss ? BOSS_BATTLE_HEIGHT : 36 * foeScale)
+      if (!foe.isMultiplayerPlayer && ((b.enemyStunTurns || 0) > 0 || b.stunAnimT > 0)) {
+        c.save()
+        c.globalCompositeOperation = 'lighter'
+        c.strokeStyle = '#6fe3e8'
+        c.lineWidth = b.stunAnimT > 0 ? 4 : 2.5
+        c.globalAlpha = b.stunAnimT > 0 ? 0.85 : 0.45 + Math.sin(arenaT * 0.25) * 0.2
+        c.beginPath()
+        c.ellipse(fx, fy - foeHeight * 0.45, 58, 18, 0.2, 0, Math.PI * 2)
+        c.stroke()
+        c.beginPath()
+        c.ellipse(fx, fy - foeHeight * 0.55, 58, 18, -0.2, 0, Math.PI * 2)
+        c.stroke()
+        c.restore()
+      }
+      if (!foe.isMultiplayerPlayer && ((b.enemyBurnTurns || 0) > 0 || b.burnAnimT > 0)) {
+        c.save()
+        c.globalCompositeOperation = 'lighter'
+        const flames = b.burnAnimT > 0 ? 7 : 4
+        for (let i = 0; i < flames; i++) {
+          const offsetX = Math.sin(arenaT * 0.2 + i * 1.4) * 34
+          const offsetY = ((arenaT * 2 + i * 18) % 52)
+          c.globalAlpha = 0.72 * (1 - offsetY / 52)
+          c.fillStyle = i % 2 === 0 ? '#ff7b47' : '#ffd27a'
+          c.fillRect(Math.round(fx + offsetX - 4), Math.round(fy - 18 - offsetY), 8, 8)
+        }
+        c.restore()
+      }
       drawStatTag(fx, fy - foeHeight - 6, label, foe.hp, foe.maxHp, labelColor, foe.mana, foe.maxMana)
+      if (!foe.isMultiplayerPlayer && ((b.enemyStunTurns || 0) > 0 || (b.enemyBurnTurns || 0) > 0)) {
+        const pills = []
+        if ((b.enemyStunTurns || 0) > 0) pills.push({ text: `STUNNED ${b.enemyStunTurns}t`, color: '#6fe3e8', bg: '#0e2830' })
+        if ((b.enemyBurnTurns || 0) > 0) pills.push({ text: `BURNING ${b.enemyBurnTurns}t`, color: '#ff9659', bg: '#2f140d' })
+        let pillY = fy - foeHeight - (foe.mana !== undefined ? 86 : 70)
+        c.save()
+        c.font = '9px "Press Start 2P", monospace'
+        c.textAlign = 'center'
+        c.textBaseline = 'middle'
+        for (const pill of pills) {
+          const pw = Math.max(128, c.measureText(pill.text).width + 20)
+          c.fillStyle = pill.bg
+          c.fillRect(Math.round(fx - pw / 2), Math.round(pillY - 10), pw, 20)
+          c.strokeStyle = pill.color
+          c.lineWidth = 2
+          c.strokeRect(Math.round(fx - pw / 2), Math.round(pillY - 10), pw, 20)
+          c.fillStyle = pill.color
+          c.fillText(pill.text, fx, pillY + 1)
+          pillY -= 24
+        }
+        c.restore()
+      }
     }
     if (foe.isBoss && b.bossAttackT > 0) b.bossAttackT--
+    if (foe.brute && !foe.isBoss && b.driusAttackT > 0) b.driusAttackT--
   }
 }
 
@@ -2189,7 +3161,19 @@ function drawBattle() {
     c.restore()
   }
   if (b.lungeT > 0) b.lungeT -= 0.04
+  if (b.allyLungeT > 0) b.allyLungeT -= 0.06
+  if (b.allyAttackT > 0) b.allyAttackT--
+  if (Array.isArray(b.allyLungeTs)) {
+    for (let i = 0; i < b.allyLungeTs.length; i++) if (b.allyLungeTs[i] > 0) b.allyLungeTs[i] = Math.max(0, b.allyLungeTs[i] - 0.06)
+  }
+  if (Array.isArray(b.allyAttackTs)) {
+    for (let i = 0; i < b.allyAttackTs.length; i++) if (b.allyAttackTs[i] > 0) b.allyAttackTs[i]--
+  }
+  if (b.aegisAnimT > 0) b.aegisAnimT--
+  if (b.stunAnimT > 0) b.stunAnimT--
+  if (b.burnAnimT > 0) b.burnAnimT--
   if (b.enemyLungeT > 0) b.enemyLungeT -= 0.04
+  if (b.enemyFollower && b.enemyFollower.lungeT > 0) b.enemyFollower.lungeT = Math.max(0, b.enemyFollower.lungeT - 0.05)
   if (b.hitT > 0) b.hitT = Math.max(0, b.hitT - 0.065)
   if (b.heroHitT > 0) b.heroHitT--
   if (b.heroHitTintT > 0) b.heroHitTintT--
@@ -2246,6 +3230,275 @@ function startGame() {
   gsap.killTweensOf(overlay)
   gsap.fromTo(overlay, { opacity: 1 }, { opacity: 0, duration: 0.6 })
   syncAnimationLoop()
+}
+
+const RUN_SAVES_STORAGE_KEY = 'bytebound-run-saves-v1'
+let activeRunSaveId = null
+let activeRunName = ''
+let activeRunRoleFocus = ''
+
+function getRunSavesStorageKey(profileId = activePlayerName.toLowerCase()) {
+  return `${RUN_SAVES_STORAGE_KEY}:${encodeURIComponent(profileId)}`
+}
+
+function loadRunSaves(profileId = activePlayerName.toLowerCase()) {
+  if (!profileId) return { activeId: null, saves: [] }
+  try {
+    const raw = localStorage.getItem(getRunSavesStorageKey(profileId))
+    if (!raw) return { activeId: null, saves: [] }
+    const parsed = JSON.parse(raw)
+    return {
+      activeId: typeof parsed?.activeId === 'string' ? parsed.activeId : null,
+      saves: Array.isArray(parsed?.saves) ? parsed.saves : [],
+    }
+  } catch {
+    return { activeId: null, saves: [] }
+  }
+}
+
+function writeRunSaves(data, profileId = activePlayerName.toLowerCase()) {
+  if (!profileId) return
+  try {
+    localStorage.setItem(getRunSavesStorageKey(profileId), JSON.stringify(data))
+  } catch (error) {
+    console.error('Unable to save run slots.', error)
+  }
+}
+
+function getRunRoleSummary(save) {
+  const ex = save?.exclusiveSkillTree
+  if (ex === 'computerSystems') return { label: 'Kernel Aegis · Computer Systems', theme: 'cs' }
+  if (ex === 'networkingSecurity') return { label: 'Packet Lockdown · Networking', theme: 'ns' }
+  if (ex === 'programming') return { label: 'Overburn Execution · Programming', theme: 'pr' }
+  if (ex === 'database') return { label: 'Necromancy Pact · Database', theme: 'db' }
+  const focus = save?.roleFocus
+  if (focus === 'computerSystems') return { label: 'Focus: Computer Systems', theme: 'cs' }
+  if (focus === 'networkingSecurity') return { label: 'Focus: Networking & Security', theme: 'ns' }
+  if (focus === 'programming') return { label: 'Focus: Programming', theme: 'pr' }
+  if (focus === 'database') return { label: 'Focus: Database', theme: 'db' }
+  return { label: 'Unbound · Any Path', theme: 'none' }
+}
+
+function countRunSkillRanks(save) {
+  let total = 0
+  const sp = save?.skillProgress
+  if (!sp || typeof sp !== 'object') return 0
+  for (const key of SKILL_TREE_KEYS) {
+    const ranks = sp[key]?.ranks
+    if (!ranks) continue
+    for (const r of Object.values(ranks)) total += Number(r) || 0
+  }
+  return total
+}
+
+function snapshotCurrentRunSave() {
+  return {
+    id: activeRunSaveId,
+    name: activeRunName || 'Run',
+    roleFocus: activeRunRoleFocus || '',
+    updatedAt: new Date().toISOString(),
+    level,
+    roomName: currentRoom?.name || `Room ${level}`,
+    mode,
+    hero: clonePracticeData(hero),
+    stats: clonePracticeData(stats),
+    runDeck: [...runDeck],
+    adaptive: {
+      level: adaptive.level,
+      mediumStreak: adaptive.mediumStreak,
+      focusCategory: adaptive.focusCategory,
+    },
+    skillProgress: clonePracticeData(skillProgress),
+    activeSkillSpecialization,
+    exclusiveSkillTree,
+    leaderboardRunId,
+  }
+}
+
+function saveCurrentRunSlot() {
+  if (!activePlayerName || practiceRunActive || multiplayerMatchActive || !activeRunSaveId) return
+  if (mode === 'menu') {
+    // When on the menu/hub (e.g. upgrading skills before resuming), only update the skill tree fields on the existing slot without overwriting its saved level/hero/stats!
+    const profileId = activePlayerName.toLowerCase()
+    const store = loadRunSaves(profileId)
+    const idx = store.saves.findIndex((s) => s && s.id === activeRunSaveId)
+    if (idx >= 0) {
+      store.saves[idx].skillProgress = clonePracticeData(skillProgress)
+      store.saves[idx].activeSkillSpecialization = activeSkillSpecialization
+      store.saves[idx].exclusiveSkillTree = exclusiveSkillTree
+      store.saves[idx].updatedAt = new Date().toISOString()
+      store.activeId = activeRunSaveId
+      writeRunSaves(store, profileId)
+    }
+    return
+  }
+  const profileId = activePlayerName.toLowerCase()
+  const store = loadRunSaves(profileId)
+  const snap = snapshotCurrentRunSave()
+  const idx = store.saves.findIndex((s) => s && s.id === activeRunSaveId)
+  if (idx >= 0) store.saves[idx] = snap
+  else store.saves.unshift(snap)
+  store.activeId = activeRunSaveId
+  writeRunSaves(store, profileId)
+}
+
+function renderRunSavesList() {
+  const listEl = document.getElementById('runSavesList')
+  if (!listEl) return
+  const store = loadRunSaves()
+  if (!store.saves.length) {
+    listEl.innerHTML = `<div class="run-saves-empty">No saved runs yet. Create a new run above to start with a fresh skill build and role!</div>`
+    return
+  }
+  const sorted = [...store.saves].sort((a, b) => Date.parse(b.updatedAt || 0) - Date.parse(a.updatedAt || 0))
+  listEl.innerHTML = sorted.map((save) => {
+    const role = getRunRoleSummary(save)
+    const ranks = countRunSkillRanks(save)
+    const isCurrent = save.id === activeRunSaveId && mode !== 'menu'
+    const totalQ = save.stats?.total || 0
+    const acc = totalQ ? `${Math.round((100 * (save.stats?.correct || 0)) / totalQ)}%` : '-'
+    const hp = save.hero?.hp ?? 100
+    const maxHp = save.hero?.maxHp ?? 100
+    const mp = save.hero?.mana ?? 100
+    const maxMp = save.hero?.maxMana ?? 100
+    const kills = save.stats?.kills ?? 0
+    const when = save.updatedAt ? new Date(save.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+    return `<article class="run-save-card${isCurrent ? ' is-active-run' : ''} theme-${role.theme}">
+      <div class="run-save-main">
+        <div class="run-save-top">
+          <strong>${esc(save.name || 'Saved Run')}</strong>
+          ${isCurrent ? '<span class="run-save-active-pill">ACTIVE</span>' : ''}
+          <span class="run-save-role-pill theme-${role.theme}">${esc(role.label)}</span>
+        </div>
+        <div class="run-save-meta">
+          <span>Room ${String(save.level || 1).padStart(2, '0')} (${esc(save.roomName || 'Storeroom')})</span>
+          <span>${kills} Kills</span>
+          <span>HP ${hp}/${maxHp} · MP ${mp}/${maxMp}</span>
+          <span>${ranks} Skill Ranks · Acc ${acc}</span>
+          <span>${esc(when)}</span>
+        </div>
+      </div>
+      <div class="run-save-actions">
+        <button type="button" class="run-save-btn is-continue" data-run-act="continue" data-run-id="${esc(save.id)}">Continue</button>
+        <button type="button" class="run-save-btn is-delete" data-run-act="delete" data-run-id="${esc(save.id)}">Delete</button>
+      </div>
+    </article>`
+  }).join('')
+}
+
+function openRunSavesModal() {
+  const modal = document.getElementById('runSavesOverlay')
+  if (!modal) {
+    startGame()
+    return
+  }
+  const store = loadRunSaves()
+  const nameInput = document.getElementById('newRunNameInput')
+  if (nameInput) nameInput.value = `Run ${store.saves.length + 1}`
+  renderRunSavesList()
+  modal.hidden = false
+  modal.setAttribute('aria-hidden', 'false')
+}
+
+function closeRunSavesModal() {
+  const modal = document.getElementById('runSavesOverlay')
+  if (!modal) return
+  modal.hidden = true
+  modal.setAttribute('aria-hidden', 'true')
+}
+
+function createAndStartNewRun(options = {}) {
+  if (!activePlayerName) return
+  const nameInput = document.getElementById('newRunNameInput')
+  const store = loadRunSaves()
+  const customName = String(options.name ?? nameInput?.value ?? '').trim()
+  const runName = customName || `Run ${store.saves.length + 1}`
+
+  saveCurrentRunSlot()
+  activeRunSaveId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+  activeRunName = runName
+  activeRunRoleFocus = ''
+  if (typeof resetSkillTreeForNewRun === 'function') resetSkillTreeForNewRun()
+  closeRunSavesModal()
+  startGame()
+  saveCurrentRunSlot()
+}
+
+function continueSavedRun(runId) {
+  if (!activePlayerName) return
+  const store = loadRunSaves()
+  const save = store.saves.find((s) => s && s.id === runId)
+  if (!save) return
+  if (activeRunSaveId && activeRunSaveId !== runId) saveCurrentRunSlot()
+
+  Sound.ensure()
+  closeRunSavesModal()
+  activeRunSaveId = save.id
+  activeRunName = save.name || 'Saved Run'
+  activeRunRoleFocus = save.roleFocus || ''
+
+  if (typeof applyRunSkillSnapshot === 'function') {
+    applyRunSkillSnapshot(save.skillProgress, save.activeSkillSpecialization || null, save.exclusiveSkillTree || null, { skipSlotSave: true })
+  }
+
+  playViewActive = true
+  clearedRooms.clear()
+  visitedRooms.clear()
+  leaderboardRunId = save.leaderboardRunId || createLeaderboardRunId()
+  leaderboardRunSubmitted = false
+  leaderboardLastSubmittedSnapshot = ''
+  loadLevel(Math.max(1, Number(save.level) || 1))
+
+  if (save.hero && typeof save.hero === 'object') {
+    Object.assign(hero, save.hero)
+    if (hero.hp <= 0) hero.hp = hero.maxHp || 100
+  }
+  if (save.stats && typeof save.stats === 'object') {
+    Object.assign(stats, save.stats)
+    const defeatedInRoom = Math.max(0, Math.min(enemies.length, Number(save.stats.roomKills) || 0))
+    for (let i = 0; i < defeatedInRoom; i++) {
+      if (enemies[i]) enemies[i].alive = false
+    }
+    stats.roomKills = defeatedInRoom
+  }
+  if (Array.isArray(save.runDeck) && save.runDeck.length) {
+    runDeck.splice(0, runDeck.length, ...save.runDeck)
+  }
+  adaptive.calibrateFromProgress()
+  if (save.adaptive && typeof save.adaptive === 'object') {
+    if (typeof save.adaptive.focusCategory === 'string' || save.adaptive.focusCategory === null) {
+      adaptive.setFocusCategory(save.adaptive.focusCategory || null)
+    }
+    if (Number.isInteger(save.adaptive.level)) {
+      adaptive.level = Math.max(0, Math.min(2, save.adaptive.level))
+    }
+    if (Number.isInteger(save.adaptive.mediumStreak)) {
+      adaptive.mediumStreak = Math.max(0, save.adaptive.mediumStreak)
+    }
+  }
+  saveCurrentRunSlot()
+  renderHud()
+  gsap.killTweensOf(overlay)
+  gsap.fromTo(overlay, { opacity: 1 }, { opacity: 0, duration: 0.5 })
+  syncAnimationLoop()
+}
+
+function deleteSavedRun(runId) {
+  if (!activePlayerName) return
+  const profileId = activePlayerName.toLowerCase()
+  const store = loadRunSaves(profileId)
+  store.saves = store.saves.filter((s) => s && s.id !== runId)
+  if (store.activeId === runId) store.activeId = null
+  writeRunSaves(store, profileId)
+  if (activeRunSaveId === runId) {
+    activeRunSaveId = null
+    activeRunName = ''
+    activeRunRoleFocus = ''
+    if (mode !== 'menu') {
+      resetDeadRunToMenu()
+    }
+  }
+  renderRunSavesList()
 }
 
 function clonePracticeData(value) {
@@ -2408,6 +3661,8 @@ function resetDeadRunToMenu() {
 
 function showPlayView() {
   if (skillTreeOpen) closeSkillTree()
+  if (worldMapOpen) closeWorldMap()
+  if (typeof practice !== 'undefined') practice.mode = 'menu'
   playViewActive = true
   Sound.ensure()
   gsap.killTweensOf(overlay)
@@ -2417,10 +3672,15 @@ function showPlayView() {
 }
 
 function showDashboard(nextView) {
+  if (!practiceRunActive && !multiplayerMatchActive && activeRunSaveId) {
+    saveCurrentRunSlot()
+  }
   if (typeof nextView === 'string' && nextView && nextView !== 'play') {
     dashboardView = nextView
   }
   if (skillTreeOpen) closeSkillTree()
+  if (worldMapOpen) closeWorldMap()
+  if (typeof practice !== 'undefined') practice.mode = 'menu'
   if (typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive) {
     if (typeof mpState !== 'undefined' && !mpState.outcome) {
       window.mpUI?.matchmaking?.forfeitMatch(`${activePlayerName || 'Player'} exited the match.`)
@@ -2444,6 +3704,10 @@ function showDashboard(nextView) {
     go.hidden = true
     go.innerHTML = ''
   }
+  const spBanner = document.getElementById('spEarnedBanner')
+  if (spBanner) spBanner.hidden = true
+  window.clearTimeout(spEarnedBannerTimer)
+  spEarnedBannerTimer = 0
   Sound.music('dashboard')
   keys.w.pressed = false
   keys.a.pressed = false
@@ -2464,37 +3728,55 @@ function skillTreeDetailMarkup() {
     const selectedSkill = selectedTree.skills.find((skill) => skill.id === selectedSkillNode.skillId)
     const selectedProgress = skillProgress[selectedSkillNode.treeKey]
     const selectedRank = selectedProgress.ranks[selectedSkill.id]
-    const selectedBranchLocked = Boolean(
-      activeSkillSpecialization &&
-      activeSkillSpecialization !== selectedSkillNode.treeKey &&
-      !canSwitchSkillSet()
-    )
+    const selectedMaxRank = selectedSkill.maxRank || SKILL_MAX_RANK
+    const selectedBranchLocked = isSkillTreeLockedOut(selectedSkillNode.treeKey)
     const canPurchase = canUpgradeSkill(selectedSkillNode.treeKey, selectedSkill)
     let availability = ''
-    if (selectedRank >= SKILL_MAX_RANK) availability = 'This skill is at maximum rank.'
+    if (selectedRank >= selectedMaxRank) availability = 'This skill is unlocked / at maximum rank.'
     else if (selectedBranchLocked) {
-      availability = `Other skill sets are locked because ${SKILL_TREES[activeSkillSpecialization].name} has reached ${SKILLS_TO_SPECIALIZE(activeSkillSpecialization)} of its 6 skills.`
+      const locker = exclusiveSkillTree || activeSkillSpecialization
+      availability = `Locked because you committed to ${SKILL_TREES[locker].name}. Locked topics cannot spend or earn skill points.`
     } else if (skillPointsAvailable(selectedSkillNode.treeKey) === 0) {
       const remainder = selectedProgress.correct % SKILL_POINT_INTERVAL
       availability = `No ${selectedTree.name} point available. ${SKILL_POINT_INTERVAL - remainder} more correct ${SKILL_POINT_INTERVAL - remainder === 1 ? 'answer' : 'answers'} earns one.`
+    } else if (selectedSkill.isExclusiveActive) {
+      const transferTotal = SKILL_TREE_KEYS
+        .filter((k) => k !== selectedSkillNode.treeKey)
+        .reduce((sum, k) => sum + skillPointsAvailable(k), 0)
+      availability = `Ready! Unlocking locks the other 3 topics and transfers ${transferTotal} unspent SP here.`
     } else {
       availability = selectedRank === 0 ? 'Ready to learn with 1 point.' : 'Ready to upgrade with 1 point.'
     }
-    const actionLabel = selectedRank === 0 ? 'GET SKILL' : 'UPGRADE SKILL'
-    detail = `<section class="skill-detail" id="skillTreeDetail" aria-live="polite" aria-labelledby="selectedSkillTitle">
-      <span class="skill-detail-eyebrow">${esc(selectedTree.name)} · SELECTED SKILL</span>
+    const actionLabel = selectedSkill.isExclusiveActive ? 'COMMIT & UNLOCK' : (selectedRank === 0 ? 'GET SKILL' : 'UPGRADE SKILL')
+    detail = `<section class="skill-detail${selectedSkill.isExclusiveActive ? ` is-exclusive-detail tree-${esc(selectedSkillNode.treeKey)}` : ''}" id="skillTreeDetail" aria-live="polite" aria-labelledby="selectedSkillTitle">
+      <span class="skill-detail-eyebrow">${esc(selectedTree.name)} · ${selectedSkill.isExclusiveActive ? 'EXCLUSIVE ACTIVE SKILL' : 'SELECTED SKILL'}</span>
       <h2 id="selectedSkillTitle">${esc(selectedSkill.name)}</h2>
       <p class="skill-detail-description">${esc(selectedSkill.description)}</p>
-      <div class="skill-detail-effect"><span>Effect per rank</span><strong>${esc(selectedSkill.effect)}</strong></div>
-      <div class="skill-detail-rank"><span>Current rank</span><strong>${selectedRank} / ${SKILL_MAX_RANK}</strong></div>
+      <div class="skill-detail-effect"><span>${selectedSkill.isExclusiveActive ? 'Active power' : 'Effect per rank'}</span><strong>${esc(selectedSkill.effect)}</strong></div>
+      <div class="skill-detail-rank"><span>Current rank</span><strong>${selectedRank} / ${selectedMaxRank}</strong></div>
       <p class="skill-detail-status ${canPurchase ? 'is-ready' : ''}">${esc(availability)}</p>
-      <button class="skill-purchase-button ${canPurchase ? 'is-affordable' : 'is-unavailable'}" type="button" data-skill-purchase="${esc(selectedSkill.id)}" data-skill-tree="${esc(selectedSkillNode.treeKey)}" ${canPurchase ? '' : 'disabled'}>${selectedRank >= SKILL_MAX_RANK ? 'MAX RANK' : actionLabel} · 1 POINT</button>
+      <button class="skill-purchase-button ${canPurchase ? 'is-affordable' : 'is-unavailable'}" type="button" data-skill-purchase="${esc(selectedSkill.id)}" data-skill-tree="${esc(selectedSkillNode.treeKey)}" ${canPurchase ? '' : 'disabled'}>${selectedRank >= selectedMaxRank ? (selectedSkill.isExclusiveActive ? 'UNLOCKED' : 'MAX RANK') : `${actionLabel} · 1 POINT`}</button>
     </section>`
   }
   return detail
 }
 
+function orthogonalBranchPath(px, py, tx, ty, key) {
+  const isVertical = key === 'computerSystems' || key === 'programming'
+  if (isVertical) {
+    if (Math.abs(px - tx) < 1) return `M ${px} ${py} L ${tx} ${ty}`
+    const midY = Math.round((py + ty) / 2)
+    return `M ${px} ${py} L ${px} ${midY} L ${tx} ${midY} L ${tx} ${ty}`
+  }
+  if (Math.abs(py - ty) < 1) return `M ${px} ${py} L ${tx} ${ty}`
+  const midX = Math.round((px + tx) / 2)
+  return `M ${px} ${py} L ${midX} ${py} L ${midX} ${ty} L ${tx} ${ty}`
+}
+
 function renderSkillTree() {
+  if (typeof reconcileExclusiveSkillPoints === 'function' && reconcileExclusiveSkillPoints()) {
+    saveSkillProgress()
+  }
   const grid = document.getElementById('skillTreeGrid')
   const availableTotal = SKILL_TREE_KEYS.reduce((total, key) => total + skillPointsAvailable(key), 0)
   const spentPointsTotal = SKILL_TREE_KEYS.reduce((total, key) =>
@@ -2510,10 +3792,11 @@ function renderSkillTree() {
   const pointsByTree = SKILL_TREE_KEYS.map((key) => {
     const earned = Math.floor(skillProgress[key].correct / SKILL_POINT_INTERVAL)
     const spent = Object.values(skillProgress[key].ranks).reduce((total, rank) => total + rank, 0)
-    return `<div class="skill-point-topic tree-${esc(key)}">
+    const locked = isSkillTreeLockedOut(key)
+    return `<div class="skill-point-topic tree-${esc(key)}${locked ? ' is-locked-topic' : ''}">
       <span>${esc(SKILL_TREES[key].name)}</span>
-      <strong>${skillPointsAvailable(key)}</strong>
-      <small>available · ${earned} earned · ${spent} spent</small>
+      <strong>${locked ? 'LOCKED' : skillPointsAvailable(key)}</strong>
+      <small>${locked ? 'locked by exclusive pact' : `available · ${earned} earned · ${spent} spent`}</small>
     </div>`
   }).join('')
   document.getElementById('skillTreeSummary').innerHTML = `
@@ -2524,45 +3807,49 @@ function renderSkillTree() {
       </div>
       <div class="skill-points-topics">${pointsByTree}</div>
     </div>
-    <p class="skill-points-hint">Earn 1 point per 5 correct answers in that topic. Points stay in their own skill set. · Focus: ${esc(specialization)} · Other skill sets stay open until your focus learns 3 of 6 skills.</p>`
+    <p class="skill-points-hint">Earn 1 SP per 5 correct answers per topic. Choosing any midpoint Exclusive Active Skill locks the other 3 topics and transfers all unspent SP to your chosen tree. · Focus: ${esc(specialization)}</p>`
 
-  const mapWidth = 1800
-  const mapHeight = 1380
+  const mapWidth = 1880
+  const mapHeight = 1440
   const nodeWidth = 184
   const nodeHeight = 74
-  const center = { x: 900, y: 655 }
+  const center = { x: 940, y: 685 }
   const positions = {
     computerSystems: {
-      foundation: { x: 808, y: 430 },
-      operatingSystem: { x: 590, y: 292 },
-      recovery: { x: 1030, y: 292 },
-      virtualization: { x: 470, y: 152 },
-      thermalControl: { x: 760, y: 152 },
-      firmwareOverclock: { x: 620, y: 42 },
+      foundation: { x: 848, y: 495 },
+      operatingSystem: { x: 848, y: 392 },
+      kernelAegis: { x: 848, y: 286 },
+      recovery: { x: 706, y: 172 },
+      virtualization: { x: 990, y: 172 },
+      thermalControl: { x: 706, y: 58 },
+      firmwareOverclock: { x: 990, y: 58 },
     },
     networkingSecurity: {
-      foundation: { x: 1085, y: 618 },
-      threatAnalysis: { x: 1270, y: 438 },
-      secureChannel: { x: 1270, y: 798 },
-      intrusionDetection: { x: 1460, y: 352 },
-      packetRouting: { x: 1460, y: 840 },
-      zeroTrust: { x: 1600, y: 612 },
+      foundation: { x: 1074, y: 648 },
+      threatAnalysis: { x: 1280, y: 648 },
+      packetLockdown: { x: 1486, y: 648 },
+      secureChannel: { x: 1682, y: 510 },
+      intrusionDetection: { x: 1682, y: 786 },
+      packetRouting: { x: 1682, y: 392 },
+      zeroTrust: { x: 1682, y: 904 },
     },
     programming: {
-      foundation: { x: 808, y: 820 },
-      errorHandling: { x: 590, y: 990 },
-      codeReuse: { x: 1030, y: 990 },
-      concurrency: { x: 470, y: 1170 },
-      runtimeOptimization: { x: 760, y: 1170 },
-      compilerMastery: { x: 620, y: 1290 },
+      foundation: { x: 848, y: 800 },
+      errorHandling: { x: 848, y: 904 },
+      overburnExecution: { x: 848, y: 1010 },
+      codeReuse: { x: 706, y: 1124 },
+      concurrency: { x: 990, y: 1124 },
+      runtimeOptimization: { x: 706, y: 1238 },
+      compilerMastery: { x: 990, y: 1238 },
     },
     database: {
-      foundation: { x: 532, y: 618 },
-      transactions: { x: 342, y: 438 },
-      queryCache: { x: 342, y: 798 },
-      replication: { x: 152, y: 840 },
-      queryOptimizer: { x: 152, y: 352 },
-      acidGuarantee: { x: 18, y: 612 },
+      foundation: { x: 622, y: 648 },
+      transactions: { x: 416, y: 648 },
+      necromancy: { x: 210, y: 648 },
+      queryCache: { x: 14, y: 510 },
+      replication: { x: 14, y: 786 },
+      queryOptimizer: { x: 14, y: 392 },
+      acidGuarantee: { x: 14, y: 904 },
     },
   }
   const visibleSkills = []
@@ -2596,14 +3883,12 @@ function renderSkillTree() {
       const targetX = target.x + nodeWidth / 2
       const targetY = target.y + nodeHeight / 2
       const requirements = skillRequirements(skill)
-      const parents = requirements.length
-        ? requirements.map((id) => positions[key][id])
-        : [center]
-      for (const parent of parents) {
-        const parentX = parent.x + (parent === center ? 0 : nodeWidth / 2)
-        const parentY = parent.y + (parent === center ? 0 : nodeHeight / 2)
-        edges.push(`<path class="skill-map-edge tree-${esc(key)}" d="M ${parentX} ${parentY} L ${targetX} ${targetY}"/>`)
-      }
+      const parentId = requirements[0]
+      const parent = parentId ? positions[key][parentId] : center
+      const parentX = parent.x + (parent === center ? 0 : nodeWidth / 2)
+      const parentY = parent.y + (parent === center ? 0 : nodeHeight / 2)
+      const d = orthogonalBranchPath(parentX, parentY, targetX, targetY, key)
+      edges.push(`<path class="skill-map-edge tree-${esc(key)}${skill.isExclusiveActive ? ' is-exclusive-edge' : ''}" d="${d}"/>`)
     }
   }
 
@@ -2611,40 +3896,51 @@ function renderSkillTree() {
     const tree = SKILL_TREES[key]
     const progress = skillProgress[key]
     const rank = progress.ranks[skill.id]
+    const maxRank = skill.maxRank || SKILL_MAX_RANK
     const available = skillPointsAvailable(key)
-    const branchLocked = Boolean(activeSkillSpecialization && activeSkillSpecialization !== key && !canSwitchSkillSet())
+    const branchLocked = isSkillTreeLockedOut(key)
     const selected = selectedSkillNode?.treeKey === key && selectedSkillNode.skillId === skill.id
+    const canUp = canUpgradeSkill(key, skill)
+    const justUp = lastPurchasedSkill && lastPurchasedSkill.treeKey === key && lastPurchasedSkill.skillId === skill.id
     const nodeClass = [
       'skill-map-node',
       `tree-${key}`,
+      skill.isExclusiveActive ? 'is-exclusive-active' : '',
+      skill.isNecromancy ? 'is-necromancy-node' : '',
       selected ? 'is-selected' : '',
       rank > 0 ? 'is-learned' : '',
+      canUp ? 'is-can-upgrade' : '',
+      justUp ? 'is-just-upgraded' : '',
       branchLocked ? 'is-locked' : '',
-      !branchLocked && available === 0 && rank < SKILL_MAX_RANK ? 'is-unaffordable' : '',
+      !branchLocked && available === 0 && rank < maxRank ? 'is-unaffordable' : '',
     ].filter(Boolean).join(' ')
-    const nodeStatus = rank === SKILL_MAX_RANK
-      ? 'MAX'
+    const nodeStatus = rank >= maxRank
+      ? (skill.isExclusiveActive ? 'ACTIVE' : 'MAX')
       : rank > 0
-        ? `${rank}/${SKILL_MAX_RANK}`
+        ? `${rank}/${maxRank}`
         : branchLocked
-          ? 'FOCUS'
+          ? 'LOCKED'
           : available > 0
-            ? 'READY'
+            ? (skill.isExclusiveActive ? 'CHOOSE' : 'READY')
             : 'NEED PT'
     const position = positions[key][skill.id]
-    const rootLabel = skillRequirements(skill).length ? '' : `<span class="skill-node-tree">${esc(tree.name)}</span>`
-    return `<button type="button" class="${nodeClass}" style="left:${position.x}px;top:${position.y}px" data-skill-select="${esc(skill.id)}" data-skill-tree="${esc(key)}" aria-pressed="${selected}" aria-label="${esc(`${tree.name}: ${skill.name}, rank ${rank} of ${SKILL_MAX_RANK}`)}">
-      ${rootLabel}<span class="skill-node-mark" aria-hidden="true">${rank > 0 ? '■' : '□'}</span>
+    const topLabel = skill.isExclusiveActive
+      ? '<span class="skill-node-tree is-exclusive-tag">★ EXCLUSIVE ACTIVE</span>'
+      : (skillRequirements(skill).length ? '' : `<span class="skill-node-tree">${esc(tree.name)}</span>`)
+    const markGlyph = skill.isExclusiveActive ? '◆' : (rank > 0 ? '■' : '□')
+    return `<button type="button" class="${nodeClass}" style="left:${position.x}px;top:${position.y}px" data-skill-select="${esc(skill.id)}" data-skill-tree="${esc(key)}" aria-pressed="${selected}" aria-label="${esc(`${tree.name}: ${skill.name}, rank ${rank} of ${maxRank}`)}">
+      ${topLabel}<span class="skill-node-mark" aria-hidden="true">${markGlyph}</span>
       <span class="skill-node-name">${esc(skill.name)}</span>
       <span class="skill-node-rank">${nodeStatus}</span>
     </button>`
   }).join('')
 
   grid.innerHTML = `<div class="skill-map-viewport" id="skillMapViewport" aria-label="Skill tree map. Drag to pan and scroll to zoom. Zoom-out below 100 percent unlocks after spending ${SKILL_MAP_ZOOM_OUT_POINTS} points.">
+      <canvas class="skill-map-particles" id="skillMapParticles" aria-hidden="true"></canvas>
       <div class="skill-map-zoom-status" id="skillMapZoomStatus"></div>
       <div class="skill-map-world" id="skillMapWorld" style="width:${mapWidth}px;height:${mapHeight}px">
         <svg class="skill-map-links" width="${mapWidth}" height="${mapHeight}" viewBox="0 0 ${mapWidth} ${mapHeight}" aria-hidden="true">${edges.join('')}</svg>
-        <div class="skill-map-center" style="left:${centerX - 74}px;top:${centerY - 74}px">
+        <div class="skill-map-center" style="left:${centerX - 76}px;top:${centerY - 76}px">
           <button type="button" class="skill-map-start" id="startSkillTree" ${skillTreeStarted ? 'disabled' : ''}>
             <span class="skill-core-mark" aria-hidden="true">✦</span>
             <strong>${skillTreeStarted ? 'PATH OPEN' : 'START'}</strong>
@@ -2728,6 +4024,131 @@ function renderSkillTree() {
   }
   viewport.addEventListener('pointerup', finishDrag)
   viewport.addEventListener('pointercancel', finishDrag)
+  startSkillTreeParticles(viewport)
+}
+
+let skillTreeParticleRaf = 0
+let skillTreeAmbientParticles = []
+let skillTreeBurstParticles = []
+let lastPurchasedSkill = null
+let spEarnedBannerTimer = 0
+
+function stopSkillTreeParticles() {
+  if (skillTreeParticleRaf) {
+    cancelAnimationFrame(skillTreeParticleRaf)
+    skillTreeParticleRaf = 0
+  }
+}
+
+function burstSkillTreeParticles(treeKey, skillId) {
+  const viewport = document.getElementById('skillMapViewport')
+  const node = document.querySelector(`[data-skill-select="${CSS.escape(skillId)}"][data-skill-tree="${CSS.escape(treeKey)}"]`)
+  if (!viewport || !node) return
+  const vr = viewport.getBoundingClientRect()
+  const nr = node.getBoundingClientRect()
+  const cx = nr.left - vr.left + nr.width / 2
+  const cy = nr.top - vr.top + nr.height / 2
+  const palette = {
+    computerSystems: '#f2bb61',
+    networkingSecurity: '#6fe3e8',
+    programming: '#8bc78e',
+    database: '#cf8b7b',
+  }
+  const color = palette[treeKey] || '#ffe07a'
+  for (let i = 0; i < 24; i++) {
+    const angle = (Math.PI * 2 * i) / 24 + Math.random() * 0.35
+    const speed = 1.4 + Math.random() * 3.4
+    skillTreeBurstParticles.push({
+      x: cx,
+      y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size: 3 + Math.floor(Math.random() * 4),
+      life: 1,
+      color: i % 3 === 0 ? '#fff6dc' : color,
+    })
+  }
+}
+
+function startSkillTreeParticles(viewport) {
+  stopSkillTreeParticles()
+  const canvasEl = document.getElementById('skillMapParticles')
+  if (!canvasEl || !viewport) return
+  const ctx = canvasEl.getContext('2d')
+  if (!ctx) return
+  const w = Math.max(320, viewport.clientWidth || 720)
+  const h = Math.max(240, viewport.clientHeight || 480)
+  canvasEl.width = w
+  canvasEl.height = h
+  const colors = ['#f2bb61', '#6fe3e8', '#8bc78e', '#cf8b7b']
+  if (!skillTreeAmbientParticles.length) {
+    skillTreeAmbientParticles = Array.from({ length: 34 }, (_, idx) => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.28,
+      vy: -0.15 - Math.random() * 0.32,
+      size: 2 + (idx % 3),
+      alpha: 0.25 + Math.random() * 0.45,
+      color: colors[idx % colors.length],
+    }))
+  }
+  const step = () => {
+    if (!skillTreeOpen || !canvasEl.isConnected) {
+      skillTreeParticleRaf = 0
+      return
+    }
+    if (canvasEl.width !== viewport.clientWidth || canvasEl.height !== viewport.clientHeight) {
+      canvasEl.width = Math.max(320, viewport.clientWidth)
+      canvasEl.height = Math.max(240, viewport.clientHeight)
+    }
+    const cw = canvasEl.width
+    const ch = canvasEl.height
+    ctx.clearRect(0, 0, cw, ch)
+    for (const p of skillTreeAmbientParticles) {
+      p.x += p.vx
+      p.y += p.vy
+      if (p.y < -6) { p.y = ch + 6; p.x = Math.random() * cw }
+      if (p.x < -6) p.x = cw + 6
+      if (p.x > cw + 6) p.x = -6
+      ctx.globalAlpha = p.alpha
+      ctx.fillStyle = p.color
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size)
+    }
+    for (let i = skillTreeBurstParticles.length - 1; i >= 0; i--) {
+      const b = skillTreeBurstParticles[i]
+      b.x += b.vx
+      b.y += b.vy
+      b.vx *= 0.94
+      b.vy *= 0.94
+      b.life -= 0.028
+      if (b.life <= 0) {
+        skillTreeBurstParticles.splice(i, 1)
+        continue
+      }
+      ctx.globalAlpha = Math.max(0, b.life)
+      ctx.fillStyle = b.color
+      ctx.fillRect(Math.round(b.x - b.size / 2), Math.round(b.y - b.size / 2), b.size, b.size)
+    }
+    ctx.globalAlpha = 1
+    skillTreeParticleRaf = requestAnimationFrame(step)
+  }
+  skillTreeParticleRaf = requestAnimationFrame(step)
+}
+
+function showSkillPointEarnedBanner(category) {
+  const banner = document.getElementById('spEarnedBanner')
+  if (!banner) return
+  const titleEl = document.getElementById('spEarnedTitle')
+  const noteEl = document.getElementById('spEarnedNote')
+  const availableTotal = SKILL_TREE_KEYS.reduce((total, key) => total + skillPointsAvailable(key), 0)
+  if (titleEl) titleEl.textContent = `SKILL POINT EARNED (${availableTotal} SP AVAILABLE)`
+  if (noteEl) noteEl.textContent = `${category || 'Discipline'} unlocked +1 SP — Press [U] or click to upgrade`
+  banner.hidden = false
+  window.clearTimeout(spEarnedBannerTimer)
+  spEarnedBannerTimer = window.setTimeout(() => {
+    banner.hidden = true
+    spEarnedBannerTimer = 0
+  }, 5000)
 }
 
 function openSkillTree() {
@@ -2746,6 +4167,7 @@ function openSkillTree() {
 function closeSkillTree() {
   if (!skillTreeOpen) return
   skillTreeOpen = false
+  stopSkillTreeParticles()
   const tree = document.getElementById('skillTreeOverlay')
   tree.hidden = true
   tree.setAttribute('aria-hidden', 'true')
@@ -2787,8 +4209,18 @@ document.getElementById('skillTreeOverlay').addEventListener('click', (event) =>
   }
   const button = event.target.closest('[data-skill-purchase]')
   if (!button) return
-  if (upgradeSkill(button.dataset.skillTree, button.dataset.skillPurchase)) {
+  const pTree = button.dataset.skillTree
+  const pSkill = button.dataset.skillPurchase
+  if (upgradeSkill(pTree, pSkill)) {
+    lastPurchasedSkill = { treeKey: pTree, skillId: pSkill }
+    Sound.play('heal')
     renderSkillTree()
+    burstSkillTreeParticles(pTree, pSkill)
+    window.setTimeout(() => {
+      if (lastPurchasedSkill?.treeKey === pTree && lastPurchasedSkill?.skillId === pSkill) {
+        lastPurchasedSkill = null
+      }
+    }, 750)
     renderHud()
   }
 })
@@ -2809,9 +4241,180 @@ document.getElementById('skillTreeOverlay').addEventListener('keydown', (event) 
 })
 
 window.addEventListener('resize', () => {
+  if (worldMapOpen) renderWorldMap()
   if (!skillTreeOpen) return
   skillMapPan = null
   renderSkillTree()
+})
+
+const WORLD_MAP_NODES = [
+  { id: 1, zone: 'datacenter', zoneLabel: 'DATA CENTER', x: 14, y: 166, desc: 'Entry maintenance bay. Defeat viruses to unlock the blast door.', exits: 'Door → Great Hall (02)' },
+  { id: 2, zone: 'datacenter', zoneLabel: 'DATA CENTER', x: 170, y: 166, desc: 'Multi-tier server corridor linking deeper into the core.', exits: 'Door → Throne Gallery (03)' },
+  { id: 3, zone: 'datacenter', zoneLabel: 'DATA CENTER', x: 326, y: 166, desc: 'Upper server terrace guarded by viruses and wild Grenu.', exits: 'Door → Forest Gate (04)' },
+  { id: 4, zone: 'bbcorp', zoneLabel: 'BB CORP', x: 482, y: 166, desc: 'Perimeter checkpoint entering BB Corp complex.', exits: 'Door → Server Wing (05)' },
+  { id: 5, zone: 'bbcorp', zoneLabel: 'BB CORP', x: 638, y: 166, desc: 'Mainframe wing guarded by Mini Boss Kor before stepping onto the street.', exits: 'Door → BB Corp Street (06)' },
+  { id: 6, zone: 'mainroad', zoneLabel: 'STREET HUB', x: 794, y: 161, isHub: true, desc: 'Main Road crossing outside BB Corp. Choose West to the Net Cafe or East toward Hospital & Bank.', exits: '◀ Left Road → Net Cafe St (07)  ·  ▶ Right Road ⇄ East Main Rd (10)' },
+  { id: 7, zone: 'netcafe', zoneLabel: 'WEST DISTRICT', x: 974, y: 66, desc: 'Outer storefront block featuring Corp Supply, Net Cafe, Food Stop, and Metro.', exits: '▶ Right Road ⇄ BB Corp St (06)  ·  Cafe Door ⇄ Net Cafe Lobby (08)' },
+  { id: 8, zone: 'netcafe', zoneLabel: 'NET CAFE', x: 1134, y: 66, desc: 'Multi-floor cyber cafe with Gamer Lobby, Arcade, and upper Staff Only loft.', exits: 'Exit ⇄ Net Cafe St (07)  ·  Staff Only ⇄ Staff Room (09)' },
+  { id: 9, zone: 'netcafe', zoneLabel: 'NET CAFE', x: 1294, y: 66, desc: 'Restricted back server bay guarded by Final Boss King Crolue.', exits: 'Staff Only ⇄ Net Cafe Lobby (08)  ·  Exit/Security ↻ Loops to Next Cycle' },
+  { id: 10, zone: 'hospital', zoneLabel: 'EAST DISTRICT', x: 974, y: 284, desc: 'Main road east past Hospital sliding doors and Bank facade.', exits: '◀ Left Road ⇄ BB Corp St (06)  ·  Sliding Door ⇄ Hospital Wing (11)' },
+  { id: 11, zone: 'hospital', zoneLabel: 'HOSPITAL', x: 1134, y: 284, desc: 'Emergency/Triage entrance lobby, Radiology/X-Ray, Pharmacy, and Utility.', exits: 'Sliding Door ⇄ East Main Rd (10)  ·  Exit Door ⇄ Upper Floors (12)' },
+  { id: 12, zone: 'hospital', zoneLabel: 'HOSPITAL', x: 1294, y: 284, desc: 'Top-level Surgery & ICU wards guarded by Final Boss King Crolue.', exits: 'Staff Only ⇄ Hospital Wing (11)  ·  Exit ↻ Loops to Next Cycle' },
+]
+
+const WORLD_MAP_EDGES = [
+  { from: 1, to: 2, label: 'Door' },
+  { from: 2, to: 3, label: 'Door' },
+  { from: 3, to: 4, label: 'Door' },
+  { from: 4, to: 5, label: 'Door' },
+  { from: 5, to: 6, label: 'Door' },
+  { from: 6, to: 7, branch: true, label: 'West Exit' },
+  { from: 7, to: 8, bidirectional: true, label: 'Cafe Door' },
+  { from: 8, to: 9, bidirectional: true, label: 'Staff Door' },
+  { from: 6, to: 10, branch: true, bidirectional: true, label: 'East Exit' },
+  { from: 10, to: 11, bidirectional: true, label: 'Sliding Door' },
+  { from: 11, to: 12, bidirectional: true, label: 'Staff / Exit' },
+]
+
+function isMapNodeCleared(nodeId) {
+  if (clearedRooms.has(nodeId)) return true
+  const currentBase = ((level - 1) % ROOM_COUNT) + 1
+  return currentBase === nodeId && enemies.length > 0 && enemies.every((e) => !e.alive)
+}
+
+function renderWorldMap() {
+  const stage = document.getElementById('worldMapStage')
+  const inspector = document.getElementById('worldMapInspector')
+  if (!stage || !inspector) return
+
+  const currentBase = ((level - 1) % ROOM_COUNT) + 1
+  if (!selectedWorldMapRoom) selectedWorldMapRoom = currentBase
+  const nodeMap = Object.fromEntries(WORLD_MAP_NODES.map((n) => [n.id, n]))
+  const NODE_W = 136
+  const edgePaths = WORLD_MAP_EDGES.map((edge) => {
+    const a = nodeMap[edge.from]
+    const b = nodeMap[edge.to]
+    const ah = a.isHub ? 92 : 82
+    const bh = b.isHub ? 92 : 82
+    const x1 = a.x + NODE_W
+    const y1 = a.y + ah / 2
+    const x2 = b.x
+    const y2 = b.y + bh / 2
+    const mx = Math.round((x1 + x2) / 2)
+    const active = visitedRooms.has(a.id) && (visitedRooms.has(b.id) || isMapNodeCleared(a.id))
+    const cls = [
+      'world-map-edge',
+      edge.branch ? 'is-branch' : '',
+      active ? 'is-active' : '',
+    ].filter(Boolean).join(' ')
+    return `<path class="${cls}" d="M ${x1} ${y1} L ${mx} ${y1} L ${mx} ${y2} L ${x2} ${y2}" />`
+  }).join('')
+
+  const cardsHtml = WORLD_MAP_NODES.map((node) => {
+    const cfg = LEVELS[node.id]
+    const isCurrent = node.id === currentBase
+    const isCleared = isMapNodeCleared(node.id)
+    const isVisited = visitedRooms.has(node.id)
+    const isSelected = node.id === selectedWorldMapRoom
+    const stateCls = isCurrent
+      ? 'is-current'
+      : isCleared
+        ? 'is-cleared'
+        : isVisited
+          ? 'is-visited'
+          : 'is-unexplored'
+    const pillText = isCurrent
+      ? 'YOU ARE HERE'
+      : isCleared
+        ? 'CLEARED'
+        : isVisited
+          ? 'VISITED'
+          : 'LOCKED'
+    const foesText = isCurrent
+      ? `${enemies.filter((e) => e.alive).length}/${enemies.length} FOES`
+      : `${cfg?.pigs || 0} FOES`
+    return `<button type="button" class="biome-node zone-${node.zone} ${stateCls}${isSelected ? ' is-selected' : ''}" style="left:${node.x}px;top:${node.y}px" data-map-room="${node.id}" aria-pressed="${isSelected}">
+      <div class="biome-node-top">
+        <span>${node.zoneLabel}</span>
+        <span>#${String(node.id).padStart(2, '0')}</span>
+      </div>
+      <div class="biome-node-name">${esc(cfg?.name || `Room ${node.id}`)}</div>
+      <div class="biome-node-meta">
+        <span>${foesText}</span>
+        <span class="biome-node-pill">${pillText}</span>
+      </div>
+    </button>`
+  }).join('')
+
+  stage.innerHTML = `
+    <svg class="world-map-lines" viewBox="0 0 1460 416" aria-hidden="true">${edgePaths}</svg>
+    <div class="world-map-track-tag is-hub" style="left:794px;top:134px;">MAIN ROAD · BRANCH HUB</div>
+    <div class="world-map-track-tag is-cafe" style="left:974px;top:36px;">WEST BRANCH · NET CAFE DISTRICT</div>
+    <div class="world-map-track-tag is-hosp" style="left:974px;top:384px;">EAST BRANCH · HOSPITAL DISTRICT</div>
+    ${cardsHtml}
+  `
+
+  const selNode = nodeMap[selectedWorldMapRoom] || nodeMap[currentBase]
+  const selCfg = LEVELS[selNode.id]
+  const selStatus = selNode.id === currentBase
+    ? 'Current Location'
+    : isMapNodeCleared(selNode.id)
+      ? 'Cleared'
+      : visitedRooms.has(selNode.id)
+        ? 'Explored'
+        : 'Unexplored'
+  inspector.innerHTML = `
+    <div class="world-map-inspector-main">
+      <strong>ROOM ${String(selNode.id).padStart(2, '0')} · ${esc(selCfg?.name || '')} (${selStatus})</strong>
+      <span>${esc(selNode.desc)}</span>
+    </div>
+    <div class="world-map-inspector-links">${esc(selNode.exits)}</div>
+  `
+}
+
+function openWorldMap() {
+  if (worldMapOpen || document.getElementById('app').hidden) return
+  if (skillTreeOpen) closeSkillTree()
+  keys.a.pressed = false
+  keys.d.pressed = false
+  worldMapOpen = true
+  worldMapReturnFocus = document.activeElement
+  selectedWorldMapRoom = ((level - 1) % ROOM_COUNT) + 1
+  const modal = document.getElementById('worldMapOverlay')
+  modal.hidden = false
+  modal.setAttribute('aria-hidden', 'false')
+  renderWorldMap()
+  const viewport = document.getElementById('worldMapViewport')
+  const currentBtn = viewport?.querySelector('.biome-node.is-current')
+  if (viewport && currentBtn) {
+    viewport.scrollLeft = Math.max(0, currentBtn.offsetLeft - viewport.clientWidth / 2 + currentBtn.offsetWidth / 2)
+  }
+  document.getElementById('closeWorldMap')?.focus()
+  syncAnimationLoop()
+}
+
+function closeWorldMap() {
+  if (!worldMapOpen) return
+  worldMapOpen = false
+  const modal = document.getElementById('worldMapOverlay')
+  modal.hidden = true
+  modal.setAttribute('aria-hidden', 'true')
+  const focusTarget = worldMapReturnFocus?.isConnected ? worldMapReturnFocus : document.querySelector('canvas')
+  if (focusTarget?.isConnected) focusTarget.focus()
+  worldMapReturnFocus = null
+  syncAnimationLoop()
+}
+
+document.getElementById('worldMapOverlay')?.addEventListener('click', (event) => {
+  if (event.target.id === 'worldMapOverlay' || event.target.closest('#closeWorldMap')) {
+    closeWorldMap()
+    return
+  }
+  const card = event.target.closest('[data-map-room]')
+  if (card) {
+    selectedWorldMapRoom = Number(card.dataset.mapRoom)
+    renderWorldMap()
+  }
 })
 
 let lastPlayerHpPercent = null
@@ -2840,7 +4443,7 @@ function updatePlayerHpMeter(percent) {
 }
 
 function renderDashboard() {
-  refreshAchievements()
+  refreshAchievements({ silent: true })
   const $ = (id) => document.getElementById(id)
   const room = currentRoom
   const totalPigs = room.pigs
@@ -2873,7 +4476,7 @@ function renderDashboard() {
   $('playHint').textContent = isMp
     ? '1v1 Arena: Press 1-4 to pick card & answer · Enter next round · Esc exit'
     : ({
-      explore: 'A / D move  ·  W jump / door  ·  Space jump  ·  Up door  ·  U skills  ·  Esc menu',
+      explore: 'A / D move  ·  W jump / door  ·  Space jump  ·  Up door  ·  M map  ·  U skills  ·  Esc menu',
       battle: 'Press 1-4 to choose  ·  Enter to continue  ·  U skills  ·  Esc menu',
       end: 'Esc for the menu',
     }[mode] || '')
@@ -2922,6 +4525,15 @@ function renderDashboard() {
   $('playRoomTag').textContent = isMp ? '1V1 DUEL' : `ROOM ${String(level).padStart(2, '0')}`
   $('playRoomName').textContent = isMp ? `${mpState.arenaName || 'Cyber Arena'} (${mpState.roomCode || 'LIVE'})` : room.name
   $('playModeStatus').textContent = isMp ? 'ONLINE DUEL' : status
+  const spBadge = document.getElementById('skillPointHudBadge')
+  const spText = document.getElementById('skillPointHudText')
+  if (spBadge && spText) {
+    const spTotal = isMp ? 0 : SKILL_TREE_KEYS.reduce((total, key) => total + skillPointsAvailable(key), 0)
+    spBadge.hidden = spTotal <= 0
+    if (spTotal > 0) {
+      spText.textContent = `${spTotal} SP · [U]`
+    }
+  }
   $('playPlayerHpText').textContent = `${hero.hp} / ${hero.maxHp}`
   updatePlayerHpMeter(Math.max(0, Math.min(100, (100 * hero.hp) / hero.maxHp)))
   $('playPlayerManaText').textContent = `${hero.mana} / ${hero.maxMana}`
@@ -2960,6 +4572,7 @@ function renderDashboard() {
 
 function renderDashboardView(view, room, totalPigs, defeated, remaining) {
   const progress = totalPigs ? Math.round((100 * defeated) / totalPigs) : 0
+  if (view === 'practice' && typeof renderPracticeView === 'function') return renderPracticeView()
   if (view === 'tracker') return renderTopicTracker()
   if (view === 'rewards') return renderAchievements()
   if (view === 'leaderboards') return renderLeaderboard()
@@ -3030,6 +4643,7 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
               <div class="settings-keybind-row"><span>Move left / right</span><span class="settings-keys"><kbd>A</kbd><kbd>D</kbd></span></div>
               <div class="settings-keybind-row"><span>Jump</span><span class="settings-keys"><kbd>W</kbd><kbd>Space</kbd></span></div>
               <div class="settings-keybind-row"><span>Enter door</span><span class="settings-keys"><kbd>Up</kbd><kbd>W</kbd></span></div>
+              <div class="settings-keybind-row"><span>Biome Map / Skill Tree</span><span class="settings-keys"><kbd>M</kbd><kbd>U</kbd></span></div>
               <div class="settings-keybind-row"><span>Battle cards &amp; answers</span><span class="settings-keys"><kbd>1–4</kbd></span></div>
               <div class="settings-keybind-row"><span>Continue / Menu</span><span class="settings-keys"><kbd>Enter</kbd><kbd>Esc</kbd></span></div>
             </div>
@@ -3044,6 +4658,7 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
           <div class="settings-content">
             <div class="settings-profile-box">
               <div class="settings-profile-row"><span>Active player</span><strong>${esc(activePlayerName || 'Knight')}</strong></div>
+              <div class="settings-profile-row"><span>Profile access</span><strong>${activePlayerHasPin ? 'Password / PIN Locked' : 'Classroom Handle (No PIN)'}</strong></div>
               <div class="settings-profile-row"><span>Sync status</span><strong>${syncText}</strong></div>
             </div>
             <div class="settings-actions-row">
@@ -3068,7 +4683,31 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
     </div>`
 }
 
-function resetCurrentProfileData() {
+function openResetConfirmModal() {
+  if (!activePlayerName) return
+  const modal = document.getElementById('resetConfirmOverlay')
+  const copyEl = document.getElementById('resetConfirmCopy')
+  if (!modal) {
+    executeCurrentProfileReset()
+    return
+  }
+  if (copyEl) {
+    copyEl.innerHTML = `Reset ALL saved data for <strong>${esc(activePlayerName)}</strong>? This permanently clears your Topic Tracker, Skill Tree, Achievements, current run, AND removes your records from both the Arcade and 1v1 Competitive leaderboards.`
+  }
+  modal.hidden = false
+  modal.setAttribute('aria-hidden', 'false')
+  document.getElementById('cancelResetProfileButton')?.focus()
+}
+
+function closeResetConfirmModal() {
+  const modal = document.getElementById('resetConfirmOverlay')
+  if (!modal) return
+  modal.hidden = true
+  modal.setAttribute('aria-hidden', 'true')
+}
+
+async function executeCurrentProfileReset() {
+  closeResetConfirmModal()
   if (!activePlayerName) return
   const profileId = activePlayerName.toLowerCase()
   const profileKey = encodeURIComponent(profileId)
@@ -3077,8 +4716,12 @@ function resetCurrentProfileData() {
     `kings-pigs-topic-tracker-v1:${profileKey}`,
     `kings-pigs-review-v1:${profileKey}`,
     `${ACHIEVEMENT_STORAGE_KEY}:${profileKey}`,
+    `${RUN_SAVES_STORAGE_KEY}:${profileKey}`,
+    `bytebound-avatar:${profileId}`,
   ]
-  if (!window.confirm(`Reset saved progress for ${activePlayerName}? This clears this profile's tracker, skills, achievements, and current run. It does not delete leaderboard entries or other profiles.`)) return
+  activeRunSaveId = null
+  activeRunName = ''
+  activeRunRoleFocus = ''
 
   try {
     window.clearTimeout(userSyncTimer)
@@ -3086,6 +4729,60 @@ function resetCurrentProfileData() {
     window.clearTimeout(leaderboardSyncTimer)
     leaderboardSyncTimer = 0
     for (const key of keysToReset) localStorage.removeItem(key)
+
+    // Remove this player's 1v1 Competitive leaderboard record & submission history locally
+    try {
+      const pvpMap = readLocalPvpLeaderboardMap()
+      if (pvpMap[profileId]) {
+        delete pvpMap[profileId]
+        localStorage.setItem(PVP_LEADERBOARD_STORAGE_KEY, JSON.stringify(pvpMap))
+      }
+      const seenRaw = localStorage.getItem(PVP_SUBMITTED_IDS_KEY)
+      if (seenRaw) {
+        const seen = JSON.parse(seenRaw)
+        if (Array.isArray(seen)) {
+          localStorage.setItem(
+            PVP_SUBMITTED_IDS_KEY,
+            JSON.stringify(seen.filter((id) => !String(id).endsWith(`:${profileId}`)))
+          )
+        }
+      }
+    } catch {}
+
+    // Stamp reset watermark (covering clock skew with remote DB; cleared as soon as player submits a new run/match)
+    try {
+      let maxTs = Date.now() + 30000
+      for (const e of leaderboardEntries) {
+        if (String(e?.player_name || '').trim().toLowerCase() === profileId) {
+          maxTs = Math.max(maxTs, Date.parse(e.submitted_at || 0) || 0)
+        }
+      }
+      for (const e of pvpLeaderboardEntries) {
+        if (String(e?.player_name || '').trim().toLowerCase() === profileId) {
+          maxTs = Math.max(maxTs, Date.parse(e.updated_at || 0) || 0)
+        }
+      }
+      localStorage.setItem(`bytebound-reset-at-v1:${profileKey}`, String(maxTs))
+    } catch {}
+    leaderboardEntries = leaderboardEntries.filter(
+      (entry) => String(entry?.player_name || '').trim().toLowerCase() !== profileId
+    )
+    pvpLeaderboardEntries = pvpLeaderboardEntries.filter(
+      (entry) => String(entry?.player_name || '').trim().toLowerCase() !== profileId
+    )
+
+    if (window.mpUI?.network?.localServerAvailable) {
+      try {
+        await fetch('/api/mp/pvp-reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerName: activePlayerName }),
+        })
+      } catch {}
+    }
+
+    activeSkillSpecialization = null
+    exclusiveSkillTree = null
     selectSkillProfile(profileId)
     selectAchievementProfile(profileId)
     skillTreeStarted = false
@@ -3097,14 +4794,20 @@ function resetCurrentProfileData() {
     leaderboardLastSubmittedSnapshot = ''
     leaderboardState = supabaseCredentials() ? 'idle' : 'unconfigured'
     leaderboardError = ''
+    pvpLeaderboardState = 'idle'
+    pvpLeaderboardError = ''
     mode = 'menu'
     playViewActive = false
-    resetUserProfileInSupabase(activePlayerName)
+    await resetUserProfileInSupabase(activePlayerName)
     renderDashboard()
+    renderHud()
   } catch (error) {
     console.error('Unable to reset this player profile.', error)
-    window.alert('Could not reset the profile data. Check browser storage permissions and try again.')
   }
+}
+
+function resetCurrentProfileData() {
+  openResetConfirmModal()
 }
 
 function getTopicBankCounts() {
@@ -3183,6 +4886,45 @@ function buildCapabilityRadarSvg(disciplineMetrics) {
   </svg>`
 }
 
+function formatBaselineComparison(correct, attempted, baselineCorrect, baselineAttempted) {
+  const currPct = attempted ? Math.round((100 * correct) / attempted) : 0
+  if (!baselineAttempted) {
+    return {
+      hasBaseline: false,
+      hasPost: false,
+      basePct: null,
+      currPct,
+      postPct: null,
+      postCorrect: 0,
+      postAttempted: 0,
+      delta: null,
+      deltaLabel: '',
+      deltaTone: 'flat',
+    }
+  }
+  const basePct = Math.round((100 * baselineCorrect) / baselineAttempted)
+  const postCorrect = Math.max(0, correct - baselineCorrect)
+  const postAttempted = Math.max(0, attempted - baselineAttempted)
+  const hasPost = postAttempted > 0
+  const postPct = hasPost ? Math.round((100 * postCorrect) / postAttempted) : currPct
+  const comparePct = hasPost ? postPct : currPct
+  const delta = comparePct - basePct
+  const deltaLabel = delta > 0 ? `+${delta}%` : delta < 0 ? `${delta}%` : '0%'
+  const deltaTone = delta > 0 ? 'gain' : delta < 0 ? 'drop' : 'flat'
+  return {
+    hasBaseline: true,
+    hasPost,
+    basePct,
+    currPct,
+    postPct,
+    postCorrect,
+    postAttempted,
+    delta,
+    deltaLabel,
+    deltaTone,
+  }
+}
+
 function renderTopicTracker() {
   const categories = Object.entries(topicProgress).map(([category, topics]) => ({
     category,
@@ -3193,19 +4935,35 @@ function renderTopicTracker() {
     for (const [, result] of group.topics) {
       summary.correct += result.correct || 0
       summary.attempted += result.attempted || 0
+      summary.baselineCorrect += result.baselineCorrect || 0
+      summary.baselineAttempted += result.baselineAttempted || 0
       summary.totalTopics += 1
       const state = getTopicMasteryState(result)
       if (state === 'mastered') summary.masteredTopics += 1
+      if (result.baselineAttempted > 0 && result.attempted > result.baselineAttempted) {
+        const b = Math.round((100 * result.baselineCorrect) / result.baselineAttempted)
+        const c = Math.round((100 * result.correct) / result.attempted)
+        if (c > b) summary.improvedTopics += 1
+      }
     }
     return summary
   }, {
     correct: 0,
     attempted: 0,
+    baselineCorrect: 0,
+    baselineAttempted: 0,
     totalTopics: 0,
     masteredTopics: 0,
+    improvedTopics: 0,
   })
 
   const overallAccuracy = totals.attempted ? Math.round((100 * totals.correct) / totals.attempted) : 0
+  const overallDiag = formatBaselineComparison(
+    totals.correct,
+    totals.attempted,
+    totals.baselineCorrect,
+    totals.baselineAttempted
+  )
   const totalKills = Math.max(stats.kills || 0, achievementProgress.kills || 0)
 
   const disciplineColors = {
@@ -3219,12 +4977,15 @@ function renderTopicTracker() {
     const agg = topics.reduce((acc, [, result]) => {
       acc.correct += result.correct || 0
       acc.attempted += result.attempted || 0
+      acc.baselineCorrect += result.baselineCorrect || 0
+      acc.baselineAttempted += result.baselineAttempted || 0
       const state = getTopicMasteryState(result)
       if (state === 'mastered') acc.mastered += 1
       return acc
-    }, { correct: 0, attempted: 0, mastered: 0 })
+    }, { correct: 0, attempted: 0, baselineCorrect: 0, baselineAttempted: 0, mastered: 0 })
 
     const accuracyPct = agg.attempted ? Math.round((100 * agg.correct) / agg.attempted) : 0
+    const diag = formatBaselineComparison(agg.correct, agg.attempted, agg.baselineCorrect, agg.baselineAttempted)
     const adaptiveTier = adaptive.categoryDifficultyName(category).toUpperCase()
 
     return {
@@ -3232,17 +4993,21 @@ function renderTopicTracker() {
       topics,
       ...agg,
       accuracyPct,
+      diag,
       adaptiveTier,
       color: disciplineColors[category] || 'gold',
     }
   })
 
   const disciplineCardsHtml = disciplineMetrics.map((d) => {
+    const baseTxt = d.diag.hasBaseline
+      ? `Baseline ${d.diag.basePct}% → ${d.accuracyPct}% (${d.diag.deltaLabel})`
+      : `${d.correct} / ${d.attempted} correct`
     return `<article class="cap-discipline-card tone-${esc(d.color)}">
       <div class="cap-discipline-top">
         <div>
           <span class="cap-discipline-name">${esc(d.category)}</span>
-          <small class="cap-discipline-sub">${d.mastered} / ${d.topics.length} topics mastered · ${d.correct} / ${d.attempted} correct</small>
+          <small class="cap-discipline-sub">${d.mastered} / ${d.topics.length} mastered · ${esc(baseTxt)}</small>
         </div>
         <span class="cap-tier-pill tier-${esc(d.adaptiveTier.toLowerCase())}">${esc(d.adaptiveTier)}</span>
       </div>
@@ -3261,10 +5026,22 @@ function renderTopicTracker() {
         ? Math.round((100 * result.correct) / result.attempted)
         : 0
       const capMeta = getTopicCapabilityMeta(result)
+      const tDiag = formatBaselineComparison(
+        result.correct || 0,
+        result.attempted || 0,
+        result.baselineCorrect || 0,
+        result.baselineAttempted || 0
+      )
+      const diagBadge = tDiag.hasBaseline
+        ? (tDiag.hasPost
+          ? `<span class="tracker-topic-baseline is-${esc(tDiag.deltaTone)}" title="Diagnostic baseline (first 3 answers) vs. post-baseline accuracy">Base ${tDiag.basePct}% → Post ${tDiag.postPct}% (${esc(tDiag.deltaLabel)})</span>`
+          : `<span class="tracker-topic-baseline is-flat" title="Collecting initial diagnostic baseline (first 3 answers)">Baseline ${tDiag.basePct}% (${result.baselineAttempted}/3)</span>`)
+        : `<span class="tracker-topic-baseline is-pending">No baseline yet</span>`
       return `<div class="tracker-topic state-${esc(capMeta.tone)}">
         <div class="tracker-topic-title">
           <span class="tracker-topic-name">${esc(topic)}</span>
           <span class="tracker-cap-badge badge-${esc(capMeta.tone)}">${esc(capMeta.label)}</span>
+          ${diagBadge}
         </div>
         <div class="tracker-bar state-${esc(capMeta.tone)}" role="progressbar" aria-label="${esc(`${topic} accuracy`)}" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"><i style="width:${percent}%"></i></div>
         <span class="tracker-topic-count">${result.correct} / ${result.attempted} correct</span>
@@ -3277,25 +5054,48 @@ function renderTopicTracker() {
           <h3>${esc(d.category)}</h3>
           <span class="cap-tier-pill tier-${esc(d.adaptiveTier.toLowerCase())}">${esc(d.adaptiveTier)}</span>
         </div>
-        <span>${d.mastered}/${d.topics.length} mastered · ${d.correct}/${d.attempted} correct (${d.accuracyPct}%)</span>
+        <span>${d.mastered}/${d.topics.length} mastered · ${d.diag.hasBaseline ? `Base ${d.diag.basePct}% → ${d.accuracyPct}% (${d.diag.deltaLabel})` : `${d.correct}/${d.attempted} (${d.accuracyPct}%)`}</span>
       </summary>
       ${topicRows}
     </details>`
   }).join('')
 
+  const overallGainBadge = overallDiag.hasBaseline
+    ? `<span class="tracker-delta is-${esc(overallDiag.deltaTone)}">${esc(overallDiag.deltaLabel)} vs baseline</span>`
+    : ''
+  const diagStripHtml = overallDiag.hasBaseline
+    ? `<section class="tracker-diagnostic-strip" aria-label="Diagnostic baseline comparison">
+        <div>
+          <span class="eyebrow">Diagnostic Pre / Post Comparison</span>
+          <strong>${overallDiag.hasPost
+            ? `Baseline ${overallDiag.basePct}% (${totals.baselineCorrect}/${totals.baselineAttempted}) → Post-Baseline ${overallDiag.postPct}% (${overallDiag.postCorrect}/${overallDiag.postAttempted}) · Gain ${esc(overallDiag.deltaLabel)}`
+            : `Diagnostic Baseline ${overallDiag.basePct}% (${totals.baselineCorrect}/${totals.baselineAttempted}) · Current ${overallAccuracy}%`}</strong>
+          <small>First 3 attempts per topic capture initial baseline accuracy; post-baseline measures subsequent accuracy (${totals.improvedTopics} topic${totals.improvedTopics === 1 ? '' : 's'} above baseline).</small>
+        </div>
+        <button type="button" class="leaderboard-action" data-open-practice="1">Drill Topics</button>
+      </section>`
+    : `<section class="tracker-diagnostic-strip" aria-label="Diagnostic baseline comparison">
+        <div>
+          <span class="eyebrow">Diagnostic Pre / Post Comparison</span>
+          <strong>Awaiting Diagnostic Baseline (0 / 3 per topic)</strong>
+          <small>Answer your first 3 questions in any topic during battle or Topic Drill to establish your Baseline vs. Current Accuracy comparison.</small>
+        </div>
+        <button type="button" class="leaderboard-action" data-open-practice="1">Start Topic Drill</button>
+      </section>`
+
   return `<span class="eyebrow">Learning Tracker</span>
     <h2>Your Topic Progress</h2>
-    <p class="achievement-summary">Track your accuracy and mastery across all four disciplines.</p>
+    <p class="achievement-summary">Track your baseline diagnostic vs. current accuracy across all four disciplines.</p>
     <div class="tracker-summary" aria-label="Overall quiz results">
       <article class="tracker-stat">
-        <span>Overall Accuracy</span>
-        <strong>${overallAccuracy}%</strong>
-        <small>${totals.correct} of ${totals.attempted} correct answers</small>
+        <span>Current Accuracy</span>
+        <strong>${overallAccuracy}% ${overallGainBadge}</strong>
+        <small>${overallDiag.hasBaseline ? `Baseline ${overallDiag.basePct}% · ${totals.correct}/${totals.attempted} correct` : `${totals.correct} of ${totals.attempted} correct answers`}</small>
       </article>
       <article class="tracker-stat">
         <span>Topics Mastered</span>
         <strong>${totals.masteredTopics} / ${totals.totalTopics}</strong>
-        <small>80%+ accuracy with 3+ answers</small>
+        <small>80%+ accuracy with 4+ answers</small>
       </article>
       <article class="tracker-stat">
         <span>Viruses Defeated</span>
@@ -3303,6 +5103,8 @@ function renderTopicTracker() {
         <small>Across your adventures</small>
       </article>
     </div>
+
+    ${diagStripHtml}
 
     <section class="cap-overview-grid" aria-label="Discipline capability overview">
       <div class="cap-radar-box">
@@ -3338,18 +5140,10 @@ function toggleNavMenu() {
 
 function enterPlay() {
   setNavMenuOpen(false)
-  if (
-    mode === 'menu' ||
-    mode === 'end' ||
-    hero.hp <= 0 ||
-    (mode === 'battle' && (battle.phase === 'dying' || battle.phase === 'lost'))
-  ) {
-    startGame()
-  } else {
-    playViewActive = true
-    resumeMusic()
-    renderDashboard()
+  if (!practiceRunActive && activeRunSaveId) {
+    saveCurrentRunSlot()
   }
+  openRunSavesModal()
 }
 
 window.mpUI = (typeof MultiplayerUI === 'function' && document.getElementById('multiplayerOverlay'))
@@ -3395,7 +5189,24 @@ if (exitGameBtn) {
 }
 document.getElementById('practiceModeButton').addEventListener('click', startPracticeAdventure)
 document.getElementById('exitPlayButton').addEventListener('click', () => showDashboard())
+const spHudBadgeEl = document.getElementById('skillPointHudBadge')
+if (spHudBadgeEl) spHudBadgeEl.addEventListener('click', () => openSkillTree())
+const worldMapHudBtnEl = document.getElementById('worldMapHudButton')
+if (worldMapHudBtnEl) worldMapHudBtnEl.addEventListener('click', () => openWorldMap())
+const spEarnedBannerEl = document.getElementById('spEarnedBanner')
+if (spEarnedBannerEl) spEarnedBannerEl.addEventListener('click', () => {
+  spEarnedBannerEl.hidden = true
+  openSkillTree()
+})
 document.getElementById('dashboardAside').addEventListener('click', (event) => {
+  if (typeof handlePracticeClick === 'function' && handlePracticeClick(event)) return
+  if (event.target.closest('[data-open-practice]')) {
+    playViewActive = false
+    dashboardView = 'practice'
+    if (typeof practice !== 'undefined') practice.mode = 'menu'
+    renderDashboard()
+    return
+  }
   const focusBtn = event.target.closest('[data-adaptive-focus]')
   if (focusBtn) {
     const val = focusBtn.dataset.adaptiveFocus
@@ -3407,8 +5218,14 @@ document.getElementById('dashboardAside').addEventListener('click', (event) => {
     switchPlayerProfile()
   } else if (event.target.closest('#syncProfileNowButton')) {
     syncUserOnLogin(activePlayerName, activePlayerName.toLowerCase())
+  } else if (event.target.closest('[data-leaderboard-tab]')) {
+    const nextTab = event.target.closest('[data-leaderboard-tab]').dataset.leaderboardTab
+    leaderboardTab = nextTab === 'pvp' ? 'pvp' : 'arcade'
+    if (leaderboardTab === 'pvp') loadPvpLeaderboard()
+    else loadLeaderboard()
   } else if (event.target.closest('[data-leaderboard-refresh]')) {
-    loadLeaderboard()
+    if (leaderboardTab === 'pvp') loadPvpLeaderboard()
+    else loadLeaderboard()
   } else if (event.target.closest('#resetProfileDataButton')) {
     resetCurrentProfileData()
   }
@@ -3453,6 +5270,7 @@ document.querySelectorAll('[data-view]').forEach((button) => {
     }
     if (!playViewActive && button.dataset.view === dashboardView) return
     if (skillTreeOpen) closeSkillTree()
+    if (worldMapOpen) closeWorldMap()
     if (typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive) {
       showDashboard(button.dataset.view)
       return
@@ -3471,22 +5289,54 @@ document.querySelectorAll('[data-view]').forEach((button) => {
     tabContent.classList.remove('is-tab-entering')
     void tabContent.offsetWidth
     tabContent.classList.add('is-tab-entering')
-    if (dashboardView === 'leaderboards') loadLeaderboard()
+    if (dashboardView === 'leaderboards') {
+      if (leaderboardTab === 'pvp') loadPvpLeaderboard()
+      else loadLeaderboard()
+    }
   })
 })
 window.addEventListener('pagehide', () => {
+  saveCurrentRunSlot()
   if (!practiceRunActive && hasRecordableGameplayRun()) {
     submitLeaderboardRun({ skipReload: true })
   }
 })
+document.getElementById('closeRunSavesButton')?.addEventListener('click', closeRunSavesModal)
+document.getElementById('createNewRunButton')?.addEventListener('click', () => createAndStartNewRun())
+document.getElementById('runSavesList')?.addEventListener('click', (event) => {
+  const btn = event.target.closest('[data-run-act]')
+  if (!btn) return
+  const { runAct, runId } = btn.dataset
+  if (runAct === 'continue') continueSavedRun(runId)
+  else if (runAct === 'delete') deleteSavedRun(runId)
+})
+document.getElementById('runSavesOverlay')?.addEventListener('click', (event) => {
+  if (event.target.id === 'runSavesOverlay') closeRunSavesModal()
+})
+document.getElementById('cancelResetProfileButton')?.addEventListener('click', closeResetConfirmModal)
+document.getElementById('confirmResetProfileButton')?.addEventListener('click', () => executeCurrentProfileReset())
+document.getElementById('resetConfirmOverlay')?.addEventListener('click', (event) => {
+  if (event.target.id === 'resetConfirmOverlay') closeResetConfirmModal()
+})
 window.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return
+  const runModal = document.getElementById('runSavesOverlay')
+  if (runModal && !runModal.hidden) {
+    closeRunSavesModal()
+    return
+  }
+  const resetModal = document.getElementById('resetConfirmOverlay')
+  if (resetModal && !resetModal.hidden) {
+    closeResetConfirmModal()
+    return
+  }
   if (window.mpUI?.isOpen) {
     window.mpUI.closeAndReturnToMenu()
     syncAnimationLoop()
     return
   }
   if (navMenuOpen) setNavMenuOpen(false)
+  else if (worldMapOpen) closeWorldMap()
   else if (skillTreeOpen) closeSkillTree()
   else if (playViewActive) showDashboard()
 })
@@ -3549,6 +5399,7 @@ document.addEventListener('click', (event) => {
 const loginScreen = document.getElementById('loginScreen')
 const app = document.getElementById('app')
 const usernameInput = document.getElementById('usernameInput')
+const pinInput = document.getElementById('pinInput')
 const loginError = document.getElementById('loginError')
 
 document.getElementById('loginForm').addEventListener('submit', (event) => {
@@ -3559,26 +5410,59 @@ document.getElementById('loginForm').addEventListener('submit', (event) => {
     usernameInput.focus()
     return
   }
+  const rawPin = pinInput ? pinInput.value.trim() : ''
+  if (rawPin && !/^\S{3,24}$/.test(rawPin)) {
+    loginError.textContent = 'Password / PIN must be 3 to 24 characters with no spaces (or leave blank).'
+    pinInput?.focus()
+    return
+  }
 
   const profileId = name.toLowerCase()
   try {
+    const pinHash = rawPin ? hashProfilePin(profileId, rawPin) : ''
     const savedProfiles = localStorage.getItem(PROFILE_STORAGE_KEY)
     const profiles = savedProfiles === null ? [] : JSON.parse(savedProfiles)
     if (!Array.isArray(profiles)) throw new Error('Saved profiles have an invalid format.')
 
     let profile = profiles.find((entry) => entry && entry.id === profileId)
     if (!profile) {
-      profile = { id: profileId, name, createdAt: new Date().toISOString() }
+      profile = { id: profileId, name, createdAt: new Date().toISOString(), ...(pinHash ? { pinHash } : {}) }
       profiles.push(profile)
       localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles))
+    } else {
+      if (profile.pinHash && profile.pinHash !== pinHash) {
+        loginError.textContent = `Enter the password / PIN for ${profile.name}.`
+        pinInput?.focus()
+        return
+      }
+      if (!profile.pinHash && pinHash) {
+        profile.pinHash = pinHash
+        localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles))
+      }
     }
 
     selectSkillProfile(profile.id)
     selectAchievementProfile(profile.id)
+    const runStore = loadRunSaves(profile.id)
+    const activeSave = runStore.activeId ? runStore.saves.find((s) => s && s.id === runStore.activeId) : null
+    if (activeSave) {
+      activeRunSaveId = activeSave.id
+      activeRunName = activeSave.name || ''
+      activeRunRoleFocus = activeSave.roleFocus || ''
+      if (typeof applyRunSkillSnapshot === 'function') {
+        applyRunSkillSnapshot(activeSave.skillProgress, activeSave.activeSkillSpecialization || null, activeSave.exclusiveSkillTree || null, { skipSlotSave: true })
+      }
+    } else {
+      activeRunSaveId = null
+      activeRunName = ''
+      activeRunRoleFocus = ''
+    }
     skillTreeStarted = false
     selectedSkillNode = null
     skillMapPan = null
     activePlayerName = profile.name
+    activePlayerPinHash = profile.pinHash || pinHash || ''
+    activePlayerHasPin = Boolean(activePlayerPinHash)
     window.activePlayerName = activePlayerName
     leaderboardRunId = createLeaderboardRunId()
     leaderboardRunSubmitted = false
@@ -3592,7 +5476,7 @@ document.getElementById('loginForm').addEventListener('submit', (event) => {
     app.hidden = false
     renderDashboard()
     Sound.music('dashboard')
-    syncUserOnLogin(profile.name, profile.id)
+    syncUserOnLogin(profile.name, profile.id, activePlayerPinHash)
     window.mpUI?.initIdentity(profile.name)
   } catch (error) {
     console.error('Unable to open the player profile.', error)
@@ -3606,6 +5490,8 @@ function switchPlayerProfile() {
   }
   pushUserProfileToSupabase()
   if (skillTreeOpen) closeSkillTree()
+  if (worldMapOpen) closeWorldMap()
+  if (typeof practice !== 'undefined') practice.mode = 'menu'
   if (window.mpUI) {
     window.mpUI.closeOverlayOnly()
     window.mpUI.matchmaking?.leaveCurrentRoom()
@@ -3617,6 +5503,9 @@ function switchPlayerProfile() {
   keys.a.pressed = false
   keys.d.pressed = false
   usernameInput.value = activePlayerName
+  if (pinInput) pinInput.value = ''
+  activePlayerPinHash = ''
+  activePlayerHasPin = false
   loginError.textContent = ''
   app.hidden = true
   loginScreen.hidden = false
@@ -3637,6 +5526,7 @@ function shouldAnimate() {
   return !app.hidden &&
     document.visibilityState === 'visible' &&
     !skillTreeOpen &&
+    !worldMapOpen &&
     !window.mpUI?.isOpen &&
     (playViewActive || mode === 'menu')
 }
@@ -3661,7 +5551,7 @@ function syncAnimationLoop() {
 function tick() {
   if (mode === 'menu') {
     drawMenu()
-  } else if (playViewActive && !skillTreeOpen) {
+  } else if (playViewActive && !skillTreeOpen && !worldMapOpen) {
     if (mode === 'intro') drawIntro()
     else if (mode === 'battle') drawBattle()
     else drawExplore()
