@@ -238,3 +238,64 @@ const collisionShapesLevelCafe2 = [
   { id: 'CAFE2_LOCKERS_RIGHT_WALL', x: 1105, y: 215, width: 20, height: 205, type: 'wall' },
   { id: 'CAFE2_LOWER_MID_PILLAR', x: 832, y: 455, width: 42, height: 115, type: 'wall' },
 ]
+
+// Bank (1376x768)
+const collisionsLevelBank = []
+
+const collisionShapesLevelBank = [
+  { id: 'BANK_CEILING', x: 68, y: 64, width: 1228, height: 20, type: 'ceiling' },
+  { id: 'BANK_LEFT_WALL', x: 68, y: 64, width: 22, height: 560, type: 'wall' },
+  { id: 'BANK_RIGHT_WALL', x: 1276, y: 64, width: 22, height: 560, type: 'wall' },
+  { id: 'BANK_GROUND_FLOOR', x: 68, y: 616, width: 1228, height: 18, type: 'solid' },
+  { id: 'BANK_TOP_LEFT_FLOOR', x: 84, y: 252, width: 472, height: 16, type: 'solid' },
+  { id: 'BANK_TOP_RIGHT_FLOOR', x: 684, y: 252, width: 594, height: 16, type: 'solid' },
+  { id: 'BANK_MID_LEFT_FLOOR', x: 84, y: 442, width: 500, height: 16, type: 'solid' },
+  { id: 'BANK_MID_RIGHT_FLOOR', x: 716, y: 442, width: 562, height: 16, type: 'solid' },
+]
+
+// Bank 2 - Upper Vault / Management (1376x768)
+const collisionsLevelBank2 = []
+
+const collisionShapesLevelBank2 = [
+  { id: 'BANK2_CEILING', x: 64, y: 64, width: 1244, height: 22, type: 'ceiling' },
+  { id: 'BANK2_LEFT_WALL', x: 64, y: 64, width: 22, height: 554, type: 'wall' },
+  { id: 'BANK2_RIGHT_WALL', x: 1290, y: 64, width: 22, height: 554, type: 'wall' },
+  { id: 'BANK2_TOP_LEFT_FLOOR', x: 64, y: 252, width: 478, height: 16, type: 'solid' },
+  { id: 'BANK2_TOP_RIGHT_FLOOR', x: 682, y: 252, width: 616, height: 16, type: 'solid' },
+  { id: 'BANK2_MID_LEFT_FLOOR', x: 64, y: 442, width: 190, height: 16, type: 'solid' },
+  { id: 'BANK2_MID_RIGHT_FLOOR', x: 336, y: 442, width: 962, height: 16, type: 'solid' },
+  { id: 'BANK2_GROUND_LEFT', x: 64, y: 616, width: 556, height: 18, type: 'solid' },
+  { id: 'BANK2_PIT_LEFT_WALL', x: 612, y: 616, width: 14, height: 52, type: 'wall' },
+  { id: 'BANK2_PIT_FLOOR', x: 612, y: 656, width: 176, height: 18, type: 'solid' },
+  { id: 'BANK2_PIT_RIGHT_WALL', x: 774, y: 616, width: 14, height: 52, type: 'wall' },
+  { id: 'BANK2_GROUND_RIGHT', x: 774, y: 616, width: 524, height: 18, type: 'solid' },
+]
+
+// Corp Supply 1 (1376x768)
+const collisionsLevelSupply = []
+
+const collisionShapesLevelSupply = [
+  { id: 'SUP1_CEILING', x: 64, y: 58, width: 1248, height: 22, type: 'ceiling' },
+  { id: 'SUP1_LEFT_WALL', x: 64, y: 74, width: 22, height: 540, type: 'wall' },
+  { id: 'SUP1_RIGHT_WALL', x: 1290, y: 74, width: 22, height: 540, type: 'wall' },
+  { id: 'SUP1_UPPER_LEFT_FLOOR', x: 64, y: 360, width: 606, height: 18, type: 'solid' },
+  { id: 'SUP1_RIGHT_TOP_FLOOR', x: 896, y: 276, width: 400, height: 22, type: 'oneWay' },
+  { id: 'SUP1_RIGHT_MID_FLOOR', x: 868, y: 441, width: 428, height: 20, type: 'oneWay' },
+  { id: 'SUP1_GROUND_FLOOR', x: 64, y: 612, width: 1248, height: 20, type: 'solid' },
+]
+
+// Corp Supply 2 - Management / Security (1376x768)
+const collisionsLevelSupply2 = []
+
+const collisionShapesLevelSupply2 = [
+  { id: 'SUP2_CEILING', x: 64, y: 66, width: 1248, height: 22, type: 'ceiling' },
+  { id: 'SUP2_LEFT_WALL', x: 64, y: 66, width: 22, height: 550, type: 'wall' },
+  { id: 'SUP2_RIGHT_WALL', x: 1290, y: 66, width: 22, height: 616, type: 'wall' },
+  { id: 'SUP2_UPPER_LEFT_FLOOR', x: 64, y: 368, width: 222, height: 18, type: 'oneWay' },
+  { id: 'SUP2_CONVEYOR_SLOPE', x1: 284, y1: 368, x2: 620, y2: 612, type: 'slope' },
+  { id: 'SUP2_UPPER_RIGHT_FLOOR', x: 904, y: 281, width: 404, height: 18, type: 'solid' },
+  { id: 'SUP2_MID_RIGHT_FLOOR', x: 886, y: 444, width: 422, height: 18, type: 'oneWay' },
+  { id: 'SUP2_GROUND_LEFT', x: 64, y: 612, width: 874, height: 18, type: 'solid' },
+  { id: 'SUP2_PIT_SLOPE', x1: 934, y1: 612, x2: 982, y2: 668, type: 'slope' },
+  { id: 'SUP2_GROUND_LOWER_RIGHT', x: 980, y: 668, width: 328, height: 18, type: 'solid' },
+]

@@ -1,10 +1,10 @@
 // ===== Practice mode: study by topic without combat =====
 // Answers count toward the topic tracker, skill points, and the review queue, but never cost HP.
-const PRACTICE_DIFFICULTIES = ['mixed', 'easy', 'medium', 'hard'];
+const PRACTICE_DIFFICULTIES = ['adaptive', 'mixed', 'easy', 'medium', 'hard'];
 const practice = {
   mode: 'menu',          // 'menu' | 'quiz'
   source: 'all',         // 'all' | 'review' | { category, topic }
-  difficulty: 'mixed',
+  difficulty: 'adaptive',
   current: null,
   picked: null,
   session: { correct: 0, total: 0 },
@@ -12,13 +12,18 @@ const practice = {
 };
 
 function questionsFor(source, difficulty) {
-  const levels = difficulty === 'mixed' ? DIFFICULTIES : [difficulty];
+  const isAdaptive = difficulty === 'adaptive';
+  const levels = (difficulty === 'mixed' || isAdaptive) ? DIFFICULTIES : [difficulty];
   let pool = levels.flatMap((level) => QUESTION_BANK[level]);
   if (source === 'review') {
     const queued = new Set(reviewQueue.map((entry) => entry.text));
     pool = pool.filter((q) => queued.has(q.q));
   } else if (source && typeof source === 'object') {
     pool = pool.filter((q) => q.category === source.category && q.topic === source.topic);
+  }
+  if (isAdaptive && typeof adaptive !== 'undefined' && typeof adaptive.categoryDifficultyName === 'function' && typeof QUESTION_DIFFICULTY !== 'undefined') {
+    const adapted = pool.filter((q) => QUESTION_DIFFICULTY.get(q.q) === adaptive.categoryDifficultyName(q.category));
+    if (adapted.length) return adapted;
   }
   return pool;
 }
@@ -51,6 +56,9 @@ function answerPractice(index) {
   if (correct) practice.session.correct++;
   recordTopicAnswer(q, correct);
   recordReview(q, correct);
+  if (typeof adaptive !== 'undefined' && typeof adaptive.calibrateFromProgress === 'function') {
+    adaptive.calibrateFromProgress();
+  }
   if (correct && recordCorrectAnswer(q.category)) {
     practice.skillNote = `${q.category} skill point earned. Press U to spend it.`;
   }
@@ -65,7 +73,7 @@ function renderPracticeView() {
 
 function renderPracticeMenu() {
   const chips = PRACTICE_DIFFICULTIES.map((difficulty) => `
-    <button class="practice-chip" data-practice="difficulty" data-diff="${difficulty}" aria-pressed="${practice.difficulty === difficulty}">${difficulty === 'mixed' ? 'Mixed' : capitalize(difficulty)}</button>`).join('');
+    <button class="practice-chip" data-practice="difficulty" data-diff="${difficulty}" aria-pressed="${practice.difficulty === difficulty}">${difficulty === 'adaptive' ? 'Adaptive' : difficulty === 'mixed' ? 'Mixed' : capitalize(difficulty)}</button>`).join('');
   const weakList = Object.entries(topicProgress).flatMap(([category, topics]) =>
     Object.entries(topics)
       .filter(([, s]) => (s?.attempted || 0) >= 1 && (s.correct / s.attempted) < 0.75)

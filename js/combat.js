@@ -952,6 +952,7 @@ function setPanel(html) {
   }
   panel.innerHTML = html;
   renderHud();
+  if (typeof syncTouchVisibility === 'function') syncTouchVisibility();
 }
 
 function renderHud() {
@@ -1281,6 +1282,7 @@ function answerQuestion(index) {
     mpState.selfTotal = (mpState.selfTotal || 0) + 1;
     if (correct) mpState.selfCorrect = (mpState.selfCorrect || 0) + 1;
     recordTopicAnswer(q, correct);
+    recordReview(q, correct);
     Sound.play(correct ? 'correct' : 'wrong');
     mpSubmitLocalMove(correct);
     return;

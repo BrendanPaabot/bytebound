@@ -186,6 +186,27 @@ class Player extends Sprite {
       const collisionBlock = this.collisionBlocks[i]
       if (collisionBlock.type === 'trigger' || collisionBlock.type === 'wall') continue
 
+      if (collisionBlock.type === 'slope') {
+        const horizontalOverlap =
+          this.hitbox.position.x < collisionBlock.x2 &&
+          this.hitbox.position.x + this.hitbox.width > collisionBlock.x1
+        if (!horizontalOverlap) continue
+        const sampleX =
+          collisionBlock.y2 >= collisionBlock.y1
+            ? Math.max(collisionBlock.x1, Math.min(collisionBlock.x2, this.hitbox.position.x))
+            : Math.max(collisionBlock.x1, Math.min(collisionBlock.x2, this.hitbox.position.x + this.hitbox.width))
+        const t = (sampleX - collisionBlock.x1) / Math.max(1, collisionBlock.x2 - collisionBlock.x1)
+        const surfaceY = collisionBlock.y1 + (collisionBlock.y2 - collisionBlock.y1) * t
+        const currentBottom = this.hitbox.position.y + this.hitbox.height
+        if (this.velocity.y >= 0 && previousBottom <= surfaceY + 14 && currentBottom >= surfaceY - 4) {
+          if (surfaceY < nearestSurface) {
+            nearestSurface = surfaceY
+            collision = { blockTop: surfaceY }
+          }
+        }
+        continue
+      }
+
       const horizontalOverlap =
         this.hitbox.position.x < collisionBlock.position.x + collisionBlock.width &&
         this.hitbox.position.x + this.hitbox.width > collisionBlock.position.x

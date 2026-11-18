@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path -LiteralPath $PSScriptRoot).Path.TrimEnd('\')
 $rootPrefix = $root + [IO.Path]::DirectorySeparatorChar
-$prefix = "http://127.0.0.1:$Port/"
+$prefix = "http://+:$Port/"
 $mimeTypes = @{
   '.css' = 'text/css; charset=utf-8'
   '.gif' = 'image/gif'
@@ -25,10 +25,18 @@ $mimeTypes = @{
 
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add($prefix)
-$listener.Start()
+try {
+  $listener.Start()
+} catch {
+  $listener = New-Object System.Net.HttpListener
+  $prefix = "http://127.0.0.1:$Port/"
+  $listener.Prefixes.Add($prefix)
+  $listener.Prefixes.Add("http://localhost:$Port/")
+  $listener.Start()
+}
 Write-Host "Serving $root at $prefix. Press Ctrl+C to stop."
 if (-not $NoBrowser) {
-  Start-Process $prefix
+  Start-Process "http://localhost:$Port/"
 }
 
 $script:mpPlayers = @{}

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=2" />
+  <link rel="stylesheet" href="css/styles.css?v=9" />
 </head>
 <body>
   <section class="login-screen" id="loginScreen" aria-labelledby="loginTitle">
@@ -38,7 +38,10 @@
           <label for="usernameInput">Username</label>
           <input id="usernameInput" name="username" type="text" maxlength="20" autocomplete="nickname" placeholder="Enter your username" required />
           <label for="pinInput">Password / PIN <small>(optional · protects profile &amp; resets)</small></label>
-          <input id="pinInput" name="pin" type="password" maxlength="24" autocomplete="off" placeholder="Optional password or PIN (blank = classroom mode)" />
+          <div class="pin-input-wrap">
+            <input id="pinInput" name="pin" type="password" maxlength="24" autocomplete="off" placeholder="Optional password or PIN (blank = classroom mode)" />
+            <button type="button" class="pin-toggle-btn" id="togglePinVisibilityButton" aria-pressed="false" aria-label="Show password">Show</button>
+          </div>
           <p class="login-error" id="loginError" role="alert" aria-live="polite"></p>
           <button class="login-submit" type="submit">Enter adventure</button>
         </form>
@@ -68,12 +71,12 @@
       <aside class="sidebar" id="mainSidebar">
         <p class="side-label">Navigation</p>
         <nav class="side-nav" aria-label="Main navigation">
-          <button class="nav-button" data-view="quest" aria-current="page"><span class="nav-number">01</span><span class="nav-name">Quest Hub</span></button>
-          <button class="nav-button" data-view="practice"><span class="nav-number">02</span><span class="nav-name">Topic Drill</span></button>
-          <button class="nav-button" data-view="tracker"><span class="nav-number">03</span><span class="nav-name">Tracker</span></button>
-          <button class="nav-button" data-view="leaderboards"><span class="nav-number">04</span><span class="nav-name">Leaderboards</span></button>
-          <button class="nav-button" data-view="rewards"><span class="nav-number">05</span><span class="nav-name">Achievements</span></button>
-          <button class="nav-button" data-view="settings"><span class="nav-number">06</span><span class="nav-name">Settings</span></button>
+          <button class="nav-button" data-view="quest" aria-current="page" data-bubble-tag="HUB PAGE" data-bubble-title="Quest Hub" data-bubble-desc="View room progress, adaptive difficulty status, controls, and launch Campaign, 1v1, or Practice."><span class="nav-number">01</span><span class="nav-name">Quest Hub</span></button>
+          <button class="nav-button" data-view="practice" data-bubble-tag="STUDY PAGE" data-bubble-title="Topic Drill" data-bubble-desc="Non-combat study quiz across 20 IT topics, Weak Topic Spotlight, and your Missed Review Queue."><span class="nav-number">02</span><span class="nav-name">Topic Drill</span></button>
+          <button class="nav-button" data-view="tracker" data-bubble-tag="ANALYTICS PAGE" data-bubble-title="Learning Tracker" data-bubble-desc="Inspect your 4-discipline Capability Radar, Baseline vs. Post-Baseline gains, and export a CSV report."><span class="nav-number">03</span><span class="nav-name">Tracker</span></button>
+          <button class="nav-button" data-view="leaderboards" data-bubble-tag="RANKINGS PAGE" data-bubble-title="Leaderboards" data-bubble-desc="Compare Arcade Campaign efficiency runs and 1v1 Competitive Elo ratings across players."><span class="nav-number">04</span><span class="nav-name">Leaderboards</span></button>
+          <button class="nav-button" data-view="rewards" data-bubble-tag="REWARDS PAGE" data-bubble-title="Achievements" data-bubble-desc="Track unlocked badges across General Campaign, 1v1 Arena duels, and Exclusive Skill Paths."><span class="nav-number">05</span><span class="nav-name">Achievements</span></button>
+          <button class="nav-button" data-view="settings" data-bubble-tag="SYSTEM PAGE" data-bubble-title="Settings" data-bubble-desc="Configure Dark/Light theme, Reduced Motion, BGM/SFX volume, keybinds, and account PIN or reset."><span class="nav-number">06</span><span class="nav-name">Settings</span></button>
         </nav>
         <div class="side-code">
           <span class="eyebrow">Bytebound code</span>
@@ -89,10 +92,10 @@
               <p id="welcomeSubtitle">Sharpen your mind. Ready your sword.</p>
             </div>
             <div class="welcome-actions" aria-label="Choose a game mode">
-              <button class="start-button cta" id="startGameButton" type="button">Start game</button>
-              <button class="multiplayer-menu-button cta" id="multiplayerMenuButton" type="button">1v1 Multiplayer</button>
-              <button class="practice-mode-button cta" id="practiceModeButton" type="button" title="No-save combat sandbox (use Topic Drill in sidebar for non-combat study)">Practice Mode</button>
-              <button class="exit-game-button cta" id="exitGameButton" type="button">Exit</button>
+              <button class="start-button cta" id="startGameButton" type="button" data-bubble-tag="CAMPAIGN" data-bubble-title="Start Game" data-bubble-desc="Create a new Campaign save slot or resume an adventure across 16 adaptive IT rooms.">Start game</button>
+              <button class="multiplayer-menu-button cta" id="multiplayerMenuButton" type="button" data-bubble-tag="ONLINE 1V1" data-bubble-title="1v1 Multiplayer" data-bubble-desc="Challenge another player in a turn-based synchronized duel using identical IT questions.">1v1 Multiplayer</button>
+              <button class="practice-mode-button cta" id="practiceModeButton" type="button" data-bubble-tag="SANDBOX" data-bubble-title="Practice Mode" data-bubble-desc="Rehearse combat in a temporary no-save run without modifying your stats or leaderboard.">Practice Mode</button>
+              <button class="exit-game-button cta" id="exitGameButton" type="button" data-bubble-tag="LOG OUT" data-bubble-title="Exit &amp; Log Out" data-bubble-desc="Save progress and log out of your current account back to the login screen.">Exit</button>
             </div>
           </div>
           <div class="welcome-insights" aria-label="Run overview">
@@ -138,7 +141,7 @@
               <div class="play-hud-header">
                 <button id="exitPlayButton" type="button" aria-label="Pause and return to the menu" title="Pause (Esc)">Menu</button>
                 <button id="fullscreenButton" type="button" aria-label="Toggle full screen" title="Full screen (F)">Fullscreen</button>
-                <div class="play-hud-room"><span id="playRoomTag">ROOM 01</span><strong id="playRoomName">Storeroom</strong></div>
+                <div class="play-hud-room"><span id="playRoomTag">ROOM 01</span><strong id="playRoomName">Terminal Bay</strong></div>
                 <button id="worldMapHudButton" class="play-map-badge" type="button" title="Open World Map (M)">MAP · [M]</button>
                 <button id="skillPointHudBadge" class="play-sp-badge" type="button" hidden title="Open Skill Tree (U)"><span class="play-sp-diamond" aria-hidden="true">◆</span><span id="skillPointHudText">1 SP · [U]</span></button>
                 <span class="play-hud-status" id="playModeStatus">READY</span>
@@ -163,7 +166,7 @@
               <div class="play-explore-banner" id="playExploreBanner" role="status" aria-live="polite" hidden></div>
             </div>
             <div class="preview-head">
-              <div class="preview-room"><span class="eyebrow" id="roomTag">ROOM 01</span><strong id="roomTxt">Storeroom</strong></div>
+              <div class="preview-room"><span class="eyebrow" id="roomTag">ROOM 01</span><strong id="roomTxt">Terminal Bay</strong></div>
               <span class="preview-ready" id="previewStatus">READY TO ENTER</span>
             </div>
             <div class="preview-frame">
@@ -238,21 +241,25 @@
       <header class="world-map-header">
         <div>
           <h1 id="worldMapTitle">Biome Route Map</h1>
-          <p id="worldMapSubtitle">Trace connected buildings and branching street districts.</p>
+          <p id="worldMapSubtitle">Drag to pan, scroll to zoom, and click a room to inspect connections.</p>
         </div>
         <div class="world-map-actions">
+          <button type="button" class="world-map-reset" id="resetWorldMapView">Center View</button>
           <button type="button" class="world-map-close" id="closeWorldMap">Close · M</button>
         </div>
       </header>
       <div class="world-map-legend" aria-label="Map legend">
-        <span class="world-map-legend-item"><i class="world-map-dot is-current"></i>Current Location</span>
-        <span class="world-map-legend-item"><i class="world-map-dot is-cleared"></i>Cleared</span>
-        <span class="world-map-legend-item"><i class="world-map-dot is-visited"></i>Explored</span>
-        <span class="world-map-legend-item"><i class="world-map-dot is-unexplored"></i>Unexplored</span>
-        <span class="world-map-legend-item"><i class="world-map-dot is-branch"></i>Street Branch Hub</span>
+        <span class="world-map-legend-item"><i class="world-map-dot is-current"></i>Current</span>
+        <span class="world-map-legend-item"><i class="world-map-dot is-cleared"></i>Completed</span>
+        <span class="world-map-legend-item"><i class="world-map-dot is-visited"></i>Unlocked</span>
+        <span class="world-map-legend-item"><i class="world-map-dot is-unexplored"></i>Locked</span>
+        <span class="world-map-legend-item"><i class="world-map-dot is-boss"></i>Boss Sanctum</span>
       </div>
-      <div class="world-map-viewport" id="worldMapViewport">
+      <div class="world-map-viewport" id="worldMapViewport" aria-label="Draggable campaign route map. Drag to pan and scroll to zoom.">
+        <canvas class="world-map-particles" id="worldMapParticles" aria-hidden="true"></canvas>
+        <div class="world-map-zoom-status" id="worldMapZoomStatus">Zoom 100% · Drag to pan, scroll to zoom</div>
         <div class="world-map-stage" id="worldMapStage"></div>
+        <aside class="world-map-hover-preview" id="worldMapHoverPreview" role="tooltip" aria-hidden="true"></aside>
       </div>
       <footer class="world-map-inspector" id="worldMapInspector" aria-live="polite"></footer>
     </div>
@@ -294,6 +301,14 @@
     </span>
   </div>
 
+  <aside class="ui-hover-bubble" id="uiHoverBubble" role="tooltip" aria-hidden="true">
+    <div class="ui-hover-bubble-head">
+      <span class="ui-hover-bubble-tag" id="uiHoverBubbleTag">INFO</span>
+      <strong class="ui-hover-bubble-title" id="uiHoverBubbleTitle"></strong>
+    </div>
+    <p class="ui-hover-bubble-desc" id="uiHoverBubbleDesc"></p>
+  </aside>
+
   <script
     src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.1/gsap.min.js"
     integrity="sha512-Mf/xUqfWvDIr+1B6zfnIDIiG7XHzyP/guXUWgV6PgaQoIFeXkJQR5XWh9fqAiCiRCpemabt3naV4jhDWVnuYDQ=="
@@ -301,23 +316,23 @@
     referrerpolicy="no-referrer"
   ></script>
   <script src="js/utils.js"></script>
-  <script src="js/data/collisions.js?v=33"></script>
+  <script src="js/data/collisions.js?v=39"></script>
   <script src="js/data/questions.js?v=5"></script>
-  <script src="js/classes/CollisionBlock.js?v=7"></script>
-  <script src="js/classes/Sprite.js?v=5"></script>
-  <script src="js/classes/Player.js?v=13"></script>
+  <script src="js/classes/CollisionBlock.js?v=8"></script>
+  <script src="js/classes/Sprite.js?v=7"></script>
+  <script src="js/classes/Player.js?v=14"></script>
   <script src="js/classes/Enemy.js?v=14"></script>
   <script src="js/classes/Boss.js?v=6"></script>
   <script src="js/audio.js?v=13"></script>
   <script src="js/cards.js?v=7"></script>
-  <script src="js/arena.js?v=9"></script>
-  <script src="js/combat.js?v=56"></script>
-  <script src="js/practice.js?v=3"></script>
+  <script src="js/arena.js?v=10"></script>
+  <script src="js/combat.js?v=58"></script>
+  <script src="js/practice.js?v=4"></script>
   <script src="js/eventListeners.js?v=15"></script>
   <script src="supabase-config.js?v=1"></script>
   <script src="js/mp-network.js?v=3"></script>
-  <script src="js/mp-matchmaking.js?v=3"></script>
+  <script src="js/mp-matchmaking.js?v=5"></script>
   <script src="js/mp-ui.js?v=4"></script>
-  <script src="index.js?v=130"></script>
+  <script src="index.js?v=146"></script>
 </body>
 </html>

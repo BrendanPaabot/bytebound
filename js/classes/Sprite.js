@@ -29,6 +29,13 @@ class Sprite {
     this.frameRects = frameRects
     this.frameCrop = frameCrop
     this.flipX = flipX
+    if (this.logicalSize) {
+      this.width = this.logicalSize.width
+      this.height = this.logicalSize.height
+    } else if (this.destinationSize) {
+      this.width = this.destinationSize.width
+      this.height = this.destinationSize.height
+    }
     const initialImage = new Image()
     this.image = initialImage
     this.loaded = false
@@ -39,6 +46,10 @@ class Sprite {
     }
     initialImage.onerror = () => console.error(`Failed to load sprite: ${imageSrc}`)
     initialImage.src = imageSrc
+    if (initialImage.complete && initialImage.naturalWidth > 0) {
+      this.loaded = true
+      this.updateDimensions()
+    }
     this.frameRate = frameRate
     this.currentFrame = 0
     this.elapsedFrames = 0

@@ -4,10 +4,10 @@
 
   const MP_ARENAS = [
     { id: 'arena', name: 'Cyber Arena' },
-    { id: 'storeroom', name: 'Storeroom' },
-    { id: 'hall', name: 'Great Hall' },
-    { id: 'throne', name: 'Throne Gallery' },
-    { id: 'server', name: 'Server Wing' },
+    { id: 'terminal_bay', name: 'Terminal Bay' },
+    { id: 'server_shaft', name: 'Server Shaft' },
+    { id: 'control_deck', name: 'Control Deck' },
+    { id: 'executive_floor', name: 'Executive Floor' },
   ];
 
   const MP_CATEGORIES = [

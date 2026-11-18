@@ -1287,9 +1287,41 @@ const HOSPITAL_DOOR_FRAME_RECTS = [
   { x: 2178, y: 406, width: 460, height: 711 },
 ]
 
+const BANK_DOOR_FRAME_RECTS = [
+  { x: 12, y: 39, width: 111, height: 176 },
+  { x: 128, y: 39, width: 113, height: 176 },
+  { x: 246, y: 39, width: 111, height: 175 },
+  { x: 362, y: 39, width: 112, height: 176 },
+  { x: 479, y: 39, width: 111, height: 176 },
+]
+
+const BANK_ROOM_DOOR_FRAME_RECTS = [
+  { x: 19, y: 38, width: 103, height: 150 },
+  { x: 135, y: 38, width: 103, height: 150 },
+  { x: 251, y: 38, width: 103, height: 150 },
+  { x: 366, y: 38, width: 103, height: 150 },
+  { x: 480, y: 38, width: 103, height: 150 },
+]
+
+const SUPPLY_SHUTTER_FRAME_RECTS = [
+  { x: 12, y: 9, width: 114, height: 223 },
+  { x: 128, y: 9, width: 114, height: 223 },
+  { x: 245, y: 9, width: 113, height: 223 },
+  { x: 361, y: 9, width: 114, height: 223 },
+  { x: 477, y: 9, width: 114, height: 223 },
+]
+
+const SUPPLY_ROOM_DOOR_FRAME_RECTS = [
+  { x: 19, y: 22, width: 108, height: 197 },
+  { x: 134, y: 22, width: 109, height: 197 },
+  { x: 250, y: 22, width: 109, height: 197 },
+  { x: 367, y: 22, width: 107, height: 197 },
+  { x: 482, y: 22, width: 108, height: 197 },
+]
+
 const LEVELS = {
   1: {
-    name: 'Storeroom',
+    name: 'Terminal Bay',
     bg: './img/map/datacenter/backgroundLevel1.jpg?v=clean-room',
     grid: collisionsLevel1,
     collisionShapes: collisionShapesLevel1,
@@ -1303,7 +1335,7 @@ const LEVELS = {
     pigs: 2,
   },
   2: {
-    name: 'Great Hall',
+    name: 'Server Shaft',
     bg: './img/map/datacenter/backgroundLevel2.jpg',
     grid: collisionsLevel2,
     collisionShapes: collisionShapesLevel2,
@@ -1317,7 +1349,7 @@ const LEVELS = {
     pigs: 3,
   },
   3: {
-    name: 'Throne Gallery',
+    name: 'Control Deck',
     bg: './img/map/datacenter/backgroundLevel3.jpg',
     grid: collisionsLevel3,
     collisionShapes: collisionShapesLevel3,
@@ -1333,7 +1365,7 @@ const LEVELS = {
     pigs: 2,
   },
   4: {
-    name: 'Forest Gate',
+    name: 'Office Wing',
     bg: './img/map/bbcorp/backgroundLevel4.jpg',
     grid: collisionsLevel4,
     collisionShapes: collisionShapesLevel4,
@@ -1351,7 +1383,7 @@ const LEVELS = {
     pigs: 3,
   },
   5: {
-    name: 'Server Wing',
+    name: 'Executive Floor',
     bg: './img/map/bbcorp/backgroundLevel5.jpg?v=1',
     grid: collisionsLevel5,
     collisionShapes: collisionShapesLevel5,
@@ -1397,10 +1429,29 @@ const LEVELS = {
     collisionShapes: collisionShapesLevel6Left,
     sourceSize: { width: 1376, height: 768 },
     edgeExits: { right: 6, allowRightWhenLocked: true },
-    door: { x: 396, y: 343 },
-    doorImageSrc: './img/map/netcafe/doorOpencafe.png?v=2',
-    doorSize: { width: 46, height: 70 },
-    doorFrameRects: CAFE_DOOR_FRAME_RECTS,
+    doors: [
+      {
+        x: 396,
+        y: 343,
+        target: 'next',
+        doorLabel: 'NET CAFE',
+        imageSrc: './img/map/netcafe/doorOpencafe.png?v=2',
+        doorSize: { width: 46, height: 70 },
+        doorFrameRects: CAFE_DOOR_FRAME_RECTS,
+        solidDoor: true,
+      },
+      {
+        x: 84,
+        y: 346,
+        target: 'room',
+        targetRoom: 15,
+        doorLabel: 'SUPPLY',
+        imageSrc: './img/map/supply/doorOpensupply.png?v=1',
+        doorSize: { width: 73, height: 69 },
+        doorFrameRects: SUPPLY_SHUTTER_FRAME_RECTS,
+        solidDoor: true,
+      },
+    ],
     solidDoor: true,
     enemyPlacements: [
       { x: 260, floorY: 616, patrolLeft: 120, patrolRight: 420, grenu: true },
@@ -1411,6 +1462,8 @@ const LEVELS = {
     spawnDirection: 'left',
     returnSpawn: { x: 356, y: 375 },
     returnDirection: 'right',
+    supplyReturnSpawn: { x: 40, y: 375 },
+    supplyReturnDirection: 'right',
     pigs: 3,
   },
   8: {
@@ -1495,20 +1548,41 @@ const LEVELS = {
     collisionShapes: collisionShapesLevel6Right,
     sourceSize: { width: 1376, height: 768 },
     edgeExits: { left: 6, allowLeftWhenLocked: true },
-    door: { x: 404, y: 356 },
-    doorImageSrc: './img/map/hospital/slidingdoorOpenhospital.png?v=1',
-    doorSize: { width: 97, height: 71 },
-    doorFrameRects: HOSPITAL_SLIDING_DOOR_RECTS,
+    doors: [
+      {
+        x: 404,
+        y: 356,
+        target: 'next',
+        doorLabel: 'HOSPITAL',
+        imageSrc: './img/map/hospital/slidingdoorOpenhospital.png?v=1',
+        doorSize: { width: 97, height: 71 },
+        doorFrameRects: HOSPITAL_SLIDING_DOOR_RECTS,
+        solidDoor: true,
+      },
+      {
+        x: 833,
+        y: 342,
+        target: 'room',
+        targetRoom: 13,
+        doorLabel: 'BANK',
+        imageSrc: './img/map/bank/doorOpenbank.png?v=1',
+        doorSize: { width: 68, height: 70 },
+        doorFrameRects: BANK_DOOR_FRAME_RECTS,
+        solidDoor: true,
+      },
+    ],
     solidDoor: true,
     enemyPlacements: [
       { x: 620, floorY: 616, patrolLeft: 260, patrolRight: 1100, grenu: true },
       { x: 860, floorY: 616, patrolLeft: 640, patrolRight: 1080, nyrmed: true },
       { x: 1120, floorY: 616, patrolLeft: 960, patrolRight: 1240 },
     ],
-    spawn: { x: 24, y: 375 },
-    spawnDirection: 'right',
+    spawn: { x: 830, y: 375 },
+    spawnDirection: 'left',
     returnSpawn: { x: 404, y: 375 },
     returnDirection: 'right',
+    bankReturnSpawn: { x: 786, y: 375 },
+    bankReturnDirection: 'left',
     pigs: 3,
   },
   11: {
@@ -1582,6 +1656,178 @@ const LEVELS = {
       { x: 460, floorY: 234, patrolLeft: 120, patrolRight: 820, nyrmed: true },
     ],
     spawn: { x: 850, y: 112 },
+    spawnDirection: 'left',
+    pigs: 3,
+  },
+  13: {
+    name: 'Bank',
+    bg: './img/map/bank/backgroundLevelbank.jpg?v=1',
+    grid: collisionsLevelBank,
+    collisionShapes: collisionShapesLevelBank,
+    sourceSize: { width: 1376, height: 768 },
+    worldScale: 1.4,
+    solidDoor: true,
+    doors: [
+      {
+        x: 77,
+        y: 384,
+        target: 'room',
+        targetRoom: 10,
+        returnSpawnKey: 'bankReturnSpawn',
+        returnDirectionKey: 'bankReturnDirection',
+        allowWhenLocked: true,
+        doorLabel: 'EXIT',
+        imageSrc: './img/map/bank/doorOpenbank.png?v=1',
+        doorSize: { width: 72, height: 74 },
+        doorFrameRects: BANK_DOOR_FRAME_RECTS,
+        solidDoor: true,
+      },
+      {
+        x: 842,
+        y: 108,
+        target: 'next',
+        doorLabel: 'MANAGEMENT',
+        imageSrc: './img/map/bank/doorOpenbankroom.png?v=1',
+        doorSize: { width: 55, height: 83 },
+        doorFrameRects: BANK_ROOM_DOOR_FRAME_RECTS,
+        solidDoor: true,
+      },
+    ],
+    enemyPlacements: [
+      { x: 760, floorY: 616, patrolLeft: 320, patrolRight: 1180, grenu: true },
+      { x: 340, floorY: 442, patrolLeft: 140, patrolRight: 520 },
+      { x: 940, floorY: 252, patrolLeft: 730, patrolRight: 1200, nyrmed: true },
+    ],
+    spawn: { x: 80, y: 398 },
+    spawnDirection: 'right',
+    returnSpawn: { x: 800, y: 126 },
+    returnDirection: 'left',
+    pigs: 3,
+  },
+  14: {
+    name: 'Bank Upper Floors',
+    bg: './img/map/bank/backgroundLevelbank2.jpg?v=1',
+    grid: collisionsLevelBank2,
+    collisionShapes: collisionShapesLevelBank2,
+    sourceSize: { width: 1376, height: 768 },
+    worldScale: 1.4,
+    solidDoor: true,
+    doors: [
+      {
+        x: 285,
+        y: 108,
+        target: 'prev',
+        allowWhenLocked: true,
+        doorLabel: 'EXIT',
+        imageSrc: './img/map/bank/doorOpenbankroom.png?v=1',
+        doorSize: { width: 59, height: 82 },
+        doorFrameRects: BANK_ROOM_DOOR_FRAME_RECTS,
+        solidDoor: true,
+      },
+      {
+        x: 837,
+        y: 108,
+        target: 'loop',
+        doorLabel: 'EXIT',
+        imageSrc: './img/map/bank/doorOpenbankroom.png?v=1',
+        doorSize: { width: 60, height: 82 },
+        doorFrameRects: BANK_ROOM_DOOR_FRAME_RECTS,
+        solidDoor: true,
+      },
+    ],
+    bossPlacement: { x: 820, floorY: 442, patrolLeft: 420, patrolRight: 1180 },
+    enemyPlacements: [
+      { x: 900, floorY: 442, patrolLeft: 420, patrolRight: 1180, nyrmed: true },
+      { x: 240, floorY: 616, patrolLeft: 120, patrolRight: 580, grenu: true },
+      { x: 960, floorY: 616, patrolLeft: 800, patrolRight: 1200 },
+    ],
+    spawn: { x: 257, y: 126 },
+    spawnDirection: 'right',
+    pigs: 3,
+  },
+  15: {
+    name: 'Corp Supply',
+    bg: './img/map/supply/backgroundLevelsupply.jpg?v=1',
+    grid: collisionsLevelSupply,
+    collisionShapes: collisionShapesLevelSupply,
+    sourceSize: { width: 1376, height: 768 },
+    worldScale: 1.4,
+    solidDoor: true,
+    doors: [
+      {
+        x: 80,
+        y: 345,
+        target: 'room',
+        targetRoom: 7,
+        returnSpawnKey: 'supplyReturnSpawn',
+        returnDirectionKey: 'supplyReturnDirection',
+        allowWhenLocked: true,
+        doorLabel: 'EXIT',
+        imageSrc: './img/map/supply/doorOpensupply.png?v=1',
+        doorSize: { width: 78, height: 114 },
+        doorFrameRects: SUPPLY_SHUTTER_FRAME_RECTS,
+        solidDoor: true,
+      },
+      {
+        x: 319,
+        y: 205,
+        target: 'next',
+        doorLabel: 'MANAGEMENT',
+        imageSrc: './img/map/supply/doorOpensupplyroom.png?v=1',
+        doorSize: { width: 56, height: 69 },
+        doorFrameRects: SUPPLY_ROOM_DOOR_FRAME_RECTS,
+        solidDoor: true,
+      },
+    ],
+    enemyPlacements: [
+      { x: 560, floorY: 612, patrolLeft: 260, patrolRight: 1120, grenu: true },
+      { x: 240, floorY: 360, patrolLeft: 110, patrolRight: 620 },
+      { x: 1060, floorY: 276, patrolLeft: 910, patrolRight: 1260, nyrmed: true },
+    ],
+    spawn: { x: 61, y: 396 },
+    spawnDirection: 'right',
+    returnSpawn: { x: 288, y: 204 },
+    returnDirection: 'right',
+    pigs: 3,
+  },
+  16: {
+    name: 'Corp Supply Management',
+    bg: './img/map/supply/backgroundLevelsupply2.jpg?v=1',
+    grid: collisionsLevelSupply2,
+    collisionShapes: collisionShapesLevelSupply2,
+    sourceSize: { width: 1376, height: 768 },
+    worldScale: 1.4,
+    solidDoor: true,
+    doors: [
+      {
+        x: 710,
+        y: 140,
+        target: 'prev',
+        allowWhenLocked: true,
+        doorLabel: 'EXIT',
+        imageSrc: './img/map/supply/doorOpensupplyroom.png?v=1',
+        doorSize: { width: 53, height: 71 },
+        doorFrameRects: SUPPLY_ROOM_DOOR_FRAME_RECTS,
+        solidDoor: true,
+      },
+      {
+        x: 97,
+        y: 187,
+        target: 'loop',
+        doorLabel: 'EXIT',
+        imageSrc: './img/map/supply/doorOpensupplyroom.png?v=1',
+        doorSize: { width: 60, height: 89 },
+        doorFrameRects: SUPPLY_ROOM_DOOR_FRAME_RECTS,
+        solidDoor: true,
+      },
+    ],
+    bossPlacement: { x: 680, floorY: 612, patrolLeft: 620, patrolRight: 920 },
+    enemyPlacements: [
+      { x: 680, floorY: 612, patrolLeft: 625, patrolRight: 920, nyrmed: true },
+      { x: 1080, floorY: 444, patrolLeft: 910, patrolRight: 1260, grenu: true },
+      { x: 1120, floorY: 668, patrolLeft: 1000, patrolRight: 1260 },
+    ],
+    spawn: { x: 678, y: 148 },
     spawnDirection: 'left',
     pigs: 3,
   },
@@ -1754,18 +2000,17 @@ function findPlatforms(grid, spawn) {
 }
 
 // ===== Run structure =====
-// Each 12-room loop branches into Net Cafe (7-9) or Hospital (10-12); King Crolue guards every loop finale.
-const RUN_LENGTH = 24   // 2 full loops; completing either branch on loop 2 wins the run (0 = endless)
-const BOSS_EVERY = 5
+// Each 16-room loop branches via BB Corp Street (06) to Left Street (07 -> Net Cafe 08-09 & Corp Supply 15-16) and Right Street (10 -> Hospital 11-12 & Bank 13-14); King Crolue guards all 4 branch finales.
+const RUN_LENGTH = 32   // 2 full loops; completing any branch on loop 2 wins the run (0 = endless)
 const ROOM_COUNT = Object.keys(LEVELS).length
 
 function levelConfig(n) {
   const baseRoom = ((n - 1) % ROOM_COUNT) + 1
   const base = LEVELS[baseRoom]
   const cycle = Math.floor((n - 1) / ROOM_COUNT)
-  const grenuBoss = n === 15
+  const grenuBoss = baseRoom === 3 && cycle === 1
   const korBoss = baseRoom === 5
-  const isFinalRoom = baseRoom === 9 || baseRoom === 12 || (Boolean(RUN_LENGTH) && n === RUN_LENGTH)
+  const isFinalRoom = baseRoom === 9 || baseRoom === 12 || baseRoom === 14 || baseRoom === 16 || (Boolean(RUN_LENGTH) && n === RUN_LENGTH)
   const boss = isFinalRoom || korBoss || grenuBoss
   return {
     ...base,
@@ -1853,6 +2098,8 @@ const exploreCamera = {
   worldHeight: canvas.height,
 }
 let pendingDoorTarget = 'next'
+let pendingDoorMeta = null
+let hoveredExploreDoor = null
 const clearedRooms = new Set()
 
 function clampCameraAxis(pos, viewSize, worldSize) {
@@ -1931,6 +2178,8 @@ function loadLevel(n, options = {}) {
   visitedRooms.add(((n - 1) % ROOM_COUNT) + 1)
   currentRoom = cfg
   pendingDoorTarget = 'next'
+  pendingDoorMeta = null
+  hoveredExploreDoor = null
   stats.roomKills = 0
   const worldScale = cfg.worldScale || 1
   const worldWidth = Math.round(canvas.width * worldScale)
@@ -1940,13 +2189,22 @@ function loadLevel(n, options = {}) {
     const scaleX = worldWidth / cfg.sourceSize.width
     const scaleY = worldHeight / cfg.sourceSize.height
     collisionBlocks = cfg.collisionShapes.map((shape) =>
-      new CollisionBlock({
-        id: shape.id,
-        position: { x: shape.x * scaleX, y: shape.y * scaleY },
-        width: shape.width * scaleX,
-        height: shape.height * scaleY,
-        type: shape.type || 'solid',
-      })
+      shape.type === 'slope'
+        ? new CollisionBlock({
+            id: shape.id,
+            x1: shape.x1 * scaleX,
+            y1: shape.y1 * scaleY,
+            x2: shape.x2 * scaleX,
+            y2: shape.y2 * scaleY,
+            type: 'slope',
+          })
+        : new CollisionBlock({
+            id: shape.id,
+            position: { x: shape.x * scaleX, y: shape.y * scaleY },
+            width: shape.width * scaleX,
+            height: shape.height * scaleY,
+            type: shape.type || 'solid',
+          })
     )
   } else {
     collisionBlocks = grid.createObjectsFrom2D()
@@ -1956,9 +2214,11 @@ function loadLevel(n, options = {}) {
     ? { left: 0, top: 0, right: worldWidth, bottom: worldHeight }
     : null
   if (player.currentAnimation) player.currentAnimation.isActive = false
-  const useReturnSpawn = Boolean(options?.fromPrev && cfg.returnSpawn)
-  const spawnPoint = options?.spawnOverride || (useReturnSpawn ? cfg.returnSpawn : cfg.spawn)
-  const spawnDir = options?.directionOverride || (useReturnSpawn ? (cfg.returnDirection || cfg.spawnDirection) : cfg.spawnDirection)
+  const returnKey = options?.returnSpawnKey || 'returnSpawn'
+  const returnDirKey = options?.returnDirectionKey || 'returnDirection'
+  const useReturnSpawn = Boolean(options?.fromPrev && cfg[returnKey])
+  const spawnPoint = options?.spawnOverride || (useReturnSpawn ? cfg[returnKey] : cfg.spawn)
+  const spawnDir = options?.directionOverride || (useReturnSpawn ? (cfg[returnDirKey] || cfg.spawnDirection) : cfg.spawnDirection)
   const facingLeft = spawnDir === 'left'
   player.switchSprite(facingLeft ? 'idleLeft' : 'idleRight')
   player.lastDirection = facingLeft ? 'left' : 'right'
@@ -1991,7 +2251,7 @@ function loadLevel(n, options = {}) {
   doors = doorSpecs.map((spec) => {
     const sprite = new Sprite({
       position: { x: spec.x * worldScale, y: spec.y * worldScale },
-      imageSrc: spec.imageSrc || cfg.doorImageSrc || './img/map/datacenter/doorOpenpc.png',
+      imageSrc: spec.imageSrc || spec.doorImageSrc || cfg.doorImageSrc || './img/map/datacenter/doorOpenpc.png',
       frameRate: 5,
       frameBuffer: 4,
       frameColumns: 5,
@@ -2004,28 +2264,38 @@ function loadLevel(n, options = {}) {
         : undefined,
     })
     sprite.target = spec.target || 'next'
+    sprite.targetRoom = spec.targetRoom || null
+    sprite.returnSpawnKey = spec.returnSpawnKey || null
+    sprite.returnDirectionKey = spec.returnDirectionKey || null
     sprite.allowWhenLocked = Boolean(spec.allowWhenLocked || sprite.target === 'prev')
+    sprite.doorLabel = spec.doorLabel || (sprite.target === 'prev' ? 'EXIT' : 'ENTER')
     return sprite
   })
-  const maxPigWidth = PIG_W * 1.6
-  const maxPigHeight = PIG_H * 1.6
-  const playableRuns = findPlatforms(grid, cfg.spawn).filter((run) => {
-    const minX = run.c1 * 64 + 8
-    const maxX = (run.c2 + 1) * 64 - 8
-    const y = run.row * 64 - maxPigHeight
-    return (
-      minX >= 0 &&
-      maxX <= canvas.width &&
-      maxX - minX >= maxPigWidth &&
-      y >= 0 &&
-      y + maxPigHeight <= canvas.height
-    )
-  })
-  // The open-space scan can include ceilings, so place pigs on the lowest floor.
-  const floorRow = Math.max(...playableRuns.map((run) => run.row))
-  const floorRun = playableRuns
-    .filter((run) => run.row === floorRow)
-    .sort((a, b) => b.c2 - b.c1 - (a.c2 - a.c1))[0]
+  const hasExplicitPlacements = Boolean(cfg.enemyPlacements?.length || cfg.bossPlacement)
+  let floorRun = null
+  if (grid.length) {
+    const maxPigWidth = PIG_W * 1.6
+    const maxPigHeight = PIG_H * 1.6
+    const playableRuns = findPlatforms(grid, cfg.spawn).filter((run) => {
+      const minX = run.c1 * 64 + 8
+      const maxX = (run.c2 + 1) * 64 - 8
+      const y = run.row * 64 - maxPigHeight
+      return (
+        minX >= 0 &&
+        maxX <= canvas.width &&
+        maxX - minX >= maxPigWidth &&
+        y >= 0 &&
+        y + maxPigHeight <= canvas.height
+      )
+    })
+    // The open-space scan can include ceilings, so place pigs on the lowest floor.
+    const floorRow = Math.max(...playableRuns.map((run) => run.row))
+    floorRun = playableRuns
+      .filter((run) => run.row === floorRow)
+      .sort((a, b) => b.c2 - b.c1 - (a.c2 - a.c1))[0]
+  } else if (hasExplicitPlacements) {
+    floorRun = { row: 7, c1: 1, c2: 14 }
+  }
   if (!floorRun) throw new Error(`No walkable floor found for level ${n}`)
   enemies = spawnEnemies(cfg, floorRun, scaleX, scaleY)
   if (clearedRooms.has(n)) {
@@ -2084,9 +2354,32 @@ function prevLevel() {
 
 function completeDoorTransition() {
   const target = pendingDoorTarget
+  const meta = pendingDoorMeta
   pendingDoorTarget = 'next'
+  pendingDoorMeta = null
   if (target === 'prev') {
     prevLevel()
+    return
+  }
+  if (target === 'room' && meta?.targetRoom) {
+    submitLeaderboardRun({ skipReload: true })
+    if (enemies.length && enemies.every((e) => !e.alive)) {
+      clearedRooms.add(level)
+    }
+    const cycleOffset = Math.floor((level - 1) / ROOM_COUNT) * ROOM_COUNT
+    const destLevel = cycleOffset + meta.targetRoom
+    const isReturn = Boolean(meta.returnSpawnKey && LEVELS[meta.targetRoom]?.[meta.returnSpawnKey])
+    loadLevel(
+      destLevel,
+      isReturn
+        ? {
+            fromPrev: true,
+            returnSpawnKey: meta.returnSpawnKey,
+            returnDirectionKey: meta.returnDirectionKey,
+          }
+        : {}
+    )
+    gsap.to(overlay, { opacity: 0 })
     return
   }
   if (target === 'loop') {
@@ -2108,17 +2401,99 @@ function completeDoorTransition() {
 }
 
 // Doors stay locked until every pig in the room is defeated (except exit/return doors back to the street).
-function tryDoor() {
+function getDoorAtPlayer() {
   const h = player.hitbox
-  if (!h || !doors.length) return false
+  if (!h || !doors.length) return null
   const interactionPadding = 22
-  const door = doors.find(
+  return doors.find(
     (entry) =>
       h.position.x < entry.position.x + entry.width + interactionPadding &&
       h.position.x + h.width > entry.position.x - interactionPadding &&
       h.position.y < entry.position.y + entry.height + interactionPadding &&
       h.position.y + h.height > entry.position.y - interactionPadding
-  )
+  ) || null
+}
+
+function updateHoveredExploreDoor(clientX, clientY) {
+  if (mode !== 'explore' || !playViewActive || !canvas || !doors.length || player.preventInput) {
+    hoveredExploreDoor = null
+    if (canvas) canvas.style.cursor = ''
+    return
+  }
+  const rect = canvas.getBoundingClientRect()
+  if (!rect.width || !rect.height) {
+    hoveredExploreDoor = null
+    canvas.style.cursor = ''
+    return
+  }
+  const worldX = ((clientX - rect.left) / rect.width) * canvas.width + (exploreCamera?.x || 0)
+  const worldY = ((clientY - rect.top) / rect.height) * canvas.height + (exploreCamera?.y || 0)
+  const pad = 8
+  hoveredExploreDoor = doors.find(
+    (entry) =>
+      worldX >= entry.position.x - pad &&
+      worldX <= entry.position.x + entry.width + pad &&
+      worldY >= entry.position.y - pad &&
+      worldY <= entry.position.y + entry.height + pad
+  ) || null
+  canvas.style.cursor = hoveredExploreDoor ? 'pointer' : ''
+}
+
+if (canvas) {
+  canvas.addEventListener('mousemove', (e) => updateHoveredExploreDoor(e.clientX, e.clientY))
+  canvas.addEventListener('mouseleave', () => {
+    hoveredExploreDoor = null
+    canvas.style.cursor = ''
+  })
+}
+
+function drawDoorBubble(door, roomLocked) {
+  if (!door) return
+  const canEnter = Boolean(door.allowWhenLocked || !roomLocked)
+  const text = canEnter ? `W / ↑ ${door.doorLabel || 'ENTER'}` : 'LOCKED'
+  const bob = Math.sin(performance.now() / 220) * 2
+
+  c.save()
+  c.font = 'bold 10px "Silkscreen", monospace'
+  const textW = Math.ceil(c.measureText(text).width)
+  const boxW = textW + 18
+  const boxH = 20
+  const doorCenterX = door.position.x + door.width * 0.5
+  const minX = exploreCamera.x + 6
+  const maxX = exploreCamera.x + canvas.width - boxW - 6
+  const bx = Math.round(Math.max(minX, Math.min(doorCenterX - boxW * 0.5, maxX)))
+  const by = Math.round(Math.max(exploreCamera.y + 6, door.position.y - boxH - 8 + bob))
+  const tipX = Math.round(Math.max(bx + 7, Math.min(doorCenterX, bx + boxW - 7)))
+
+  // Small pixel-art floating speech bubble above the door
+  c.fillStyle = canEnter ? '#16202a' : '#26181e'
+  c.strokeStyle = canEnter ? '#6ce392' : '#d87a7a'
+  c.lineWidth = 2
+  c.fillRect(bx, by, boxW, boxH)
+  c.strokeRect(bx, by, boxW, boxH)
+
+  // Bubble pointer tail
+  c.fillStyle = canEnter ? '#6ce392' : '#d87a7a'
+  c.beginPath()
+  c.moveTo(tipX - 5, by + boxH)
+  c.lineTo(tipX + 5, by + boxH)
+  c.lineTo(tipX, by + boxH + 5)
+  c.closePath()
+  c.fill()
+  c.fillStyle = canEnter ? '#16202a' : '#26181e'
+  c.fillRect(tipX - 3, by + boxH - 1, 6, 2)
+
+  // Status dot + prompt label
+  c.fillStyle = canEnter ? '#6ce392' : '#e07a7a'
+  c.fillRect(bx + 6, by + 7, 5, 5)
+  c.fillStyle = canEnter ? '#f7efc8' : '#f4cccc'
+  c.textBaseline = 'middle'
+  c.fillText(text, bx + 14, by + boxH * 0.5 + 0.5)
+  c.restore()
+}
+
+function tryDoor() {
+  const door = getDoorAtPlayer()
   if (!door) return false
 
   if (!door.allowWhenLocked && enemies.some((e) => e.alive)) {
@@ -2126,6 +2501,11 @@ function tryDoor() {
     return true
   }
   pendingDoorTarget = door.target || 'next'
+  pendingDoorMeta = {
+    targetRoom: door.targetRoom || null,
+    returnSpawnKey: door.returnSpawnKey || null,
+    returnDirectionKey: door.returnDirectionKey || null,
+  }
   player.velocity = { x: 0, y: 0 }
   player.preventInput = true
   player.switchSprite('enterDoor')
@@ -2176,6 +2556,13 @@ function drawExplore() {
   player.handleInput(keys)
   player.draw()
   player.update()
+  if (mode === 'explore' && !player.preventInput && doors.length) {
+    const bubbleDoors = new Set()
+    const nearDoor = getDoorAtPlayer()
+    if (nearDoor) bubbleDoors.add(nearDoor)
+    if (hoveredExploreDoor && doors.includes(hoveredExploreDoor)) bubbleDoors.add(hoveredExploreDoor)
+    bubbleDoors.forEach((door) => drawDoorBubble(door, locked))
+  }
   if (currentRoom.edgeExits && !player.preventInput && mode === 'explore') {
     const h = player.hitbox
     const onLeftEdge = h && h.position.x <= 56
@@ -3307,6 +3694,7 @@ function snapshotCurrentRunSave() {
       level: adaptive.level,
       mediumStreak: adaptive.mediumStreak,
       focusCategory: adaptive.focusCategory,
+      categoryState: clonePracticeData(adaptive.categoryState),
     },
     skillProgress: clonePracticeData(skillProgress),
     activeSkillSpecialization,
@@ -3371,7 +3759,7 @@ function renderRunSavesList() {
           <span class="run-save-role-pill theme-${role.theme}">${esc(role.label)}</span>
         </div>
         <div class="run-save-meta">
-          <span>Room ${String(save.level || 1).padStart(2, '0')} (${esc(save.roomName || 'Storeroom')})</span>
+          <span>Room ${String(save.level || 1).padStart(2, '0')} (${esc(save.roomName || 'Terminal Bay')})</span>
           <span>${kills} Kills</span>
           <span>HP ${hp}/${maxHp} · MP ${mp}/${maxMp}</span>
           <span>${ranks} Skill Ranks · Acc ${acc}</span>
@@ -3466,6 +3854,17 @@ function continueSavedRun(runId) {
   }
   adaptive.calibrateFromProgress()
   if (save.adaptive && typeof save.adaptive === 'object') {
+    if (save.adaptive.categoryState && typeof save.adaptive.categoryState === 'object') {
+      for (const cat of DISCIPLINE_CATEGORIES) {
+        const savedCat = save.adaptive.categoryState[cat]
+        if (savedCat && typeof savedCat === 'object') {
+          adaptive.categoryState[cat] = {
+            level: Number.isInteger(savedCat.level) ? Math.max(0, Math.min(2, savedCat.level)) : adaptive.categoryLevel(cat),
+            mediumStreak: Number.isInteger(savedCat.mediumStreak) ? Math.max(0, savedCat.mediumStreak) : 0,
+          }
+        }
+      }
+    }
     if (typeof save.adaptive.focusCategory === 'string' || save.adaptive.focusCategory === null) {
       adaptive.setFocusCategory(save.adaptive.focusCategory || null)
     }
@@ -3637,12 +4036,27 @@ function startPracticeAdventure() {
   syncAnimationLoop()
 }
 
+function syncTouchVisibility() {
+  if (typeof app === 'undefined' || !app) return
+  const gameOverEl = document.getElementById('gameOverOverlay')
+  const hideTouch =
+    !playViewActive ||
+    mode !== 'explore' ||
+    Boolean(player?.preventInput) ||
+    Boolean(skillTreeOpen) ||
+    Boolean(worldMapOpen) ||
+    Boolean(window.mpUI?.isOpen) ||
+    Boolean(gameOverEl && !gameOverEl.hidden)
+  app.classList.toggle('is-touch-hidden', hideTouch)
+}
+
 function updateNavigation() {
   const activeView = skillTreeOpen ? 'skilltree' : playViewActive ? 'play' : dashboardView
   document.querySelectorAll('[data-view]').forEach((button) => {
     if (button.dataset.view === activeView) button.setAttribute('aria-current', 'page')
     else button.removeAttribute('aria-current')
   })
+  syncTouchVisibility()
 }
 
 function resetDeadRunToMenu() {
@@ -4153,6 +4567,7 @@ function showSkillPointEarnedBanner(category) {
 
 function openSkillTree() {
   if (skillTreeOpen || document.getElementById('app').hidden) return
+  if (typeof hideUiHoverBubble === 'function') hideUiHoverBubble()
   skillTreeOpen = true
   skillTreeReturnFocus = document.activeElement
   const tree = document.getElementById('skillTreeOverlay')
@@ -4241,104 +4656,570 @@ document.getElementById('skillTreeOverlay').addEventListener('keydown', (event) 
 })
 
 window.addEventListener('resize', () => {
-  if (worldMapOpen) renderWorldMap()
+  if (worldMapOpen) {
+    worldMapPan = null
+    renderWorldMap()
+  }
   if (!skillTreeOpen) return
   skillMapPan = null
   renderSkillTree()
 })
 
+const WORLD_MAP_WIDTH = 1540
+const WORLD_MAP_HEIGHT = 540
+const WORLD_MAP_MIN_ZOOM = 0.65
+const WORLD_MAP_MAX_ZOOM = 1.45
+let worldMapPan = null
+let worldMapParticleRaf = 0
+let worldMapAmbientParticles = []
+let worldMapActiveEdgePolylines = []
+let worldMapWasDragging = false
+let hoveredWorldMapRoom = null
+
 const WORLD_MAP_NODES = [
-  { id: 1, zone: 'datacenter', zoneLabel: 'DATA CENTER', x: 14, y: 166, desc: 'Entry maintenance bay. Defeat viruses to unlock the blast door.', exits: 'Door → Great Hall (02)' },
-  { id: 2, zone: 'datacenter', zoneLabel: 'DATA CENTER', x: 170, y: 166, desc: 'Multi-tier server corridor linking deeper into the core.', exits: 'Door → Throne Gallery (03)' },
-  { id: 3, zone: 'datacenter', zoneLabel: 'DATA CENTER', x: 326, y: 166, desc: 'Upper server terrace guarded by viruses and wild Grenu.', exits: 'Door → Forest Gate (04)' },
-  { id: 4, zone: 'bbcorp', zoneLabel: 'BB CORP', x: 482, y: 166, desc: 'Perimeter checkpoint entering BB Corp complex.', exits: 'Door → Server Wing (05)' },
-  { id: 5, zone: 'bbcorp', zoneLabel: 'BB CORP', x: 638, y: 166, desc: 'Mainframe wing guarded by Mini Boss Kor before stepping onto the street.', exits: 'Door → BB Corp Street (06)' },
-  { id: 6, zone: 'mainroad', zoneLabel: 'STREET HUB', x: 794, y: 161, isHub: true, desc: 'Main Road crossing outside BB Corp. Choose West to the Net Cafe or East toward Hospital & Bank.', exits: '◀ Left Road → Net Cafe St (07)  ·  ▶ Right Road ⇄ East Main Rd (10)' },
-  { id: 7, zone: 'netcafe', zoneLabel: 'WEST DISTRICT', x: 974, y: 66, desc: 'Outer storefront block featuring Corp Supply, Net Cafe, Food Stop, and Metro.', exits: '▶ Right Road ⇄ BB Corp St (06)  ·  Cafe Door ⇄ Net Cafe Lobby (08)' },
-  { id: 8, zone: 'netcafe', zoneLabel: 'NET CAFE', x: 1134, y: 66, desc: 'Multi-floor cyber cafe with Gamer Lobby, Arcade, and upper Staff Only loft.', exits: 'Exit ⇄ Net Cafe St (07)  ·  Staff Only ⇄ Staff Room (09)' },
-  { id: 9, zone: 'netcafe', zoneLabel: 'NET CAFE', x: 1294, y: 66, desc: 'Restricted back server bay guarded by Final Boss King Crolue.', exits: 'Staff Only ⇄ Net Cafe Lobby (08)  ·  Exit/Security ↻ Loops to Next Cycle' },
-  { id: 10, zone: 'hospital', zoneLabel: 'EAST DISTRICT', x: 974, y: 284, desc: 'Main road east past Hospital sliding doors and Bank facade.', exits: '◀ Left Road ⇄ BB Corp St (06)  ·  Sliding Door ⇄ Hospital Wing (11)' },
-  { id: 11, zone: 'hospital', zoneLabel: 'HOSPITAL', x: 1134, y: 284, desc: 'Emergency/Triage entrance lobby, Radiology/X-Ray, Pharmacy, and Utility.', exits: 'Sliding Door ⇄ East Main Rd (10)  ·  Exit Door ⇄ Upper Floors (12)' },
-  { id: 12, zone: 'hospital', zoneLabel: 'HOSPITAL', x: 1294, y: 284, desc: 'Top-level Surgery & ICU wards guarded by Final Boss King Crolue.', exits: 'Staff Only ⇄ Hospital Wing (11)  ·  Exit ↻ Loops to Next Cycle' },
+  { id: 1, zone: 'datacenter', zoneLabel: 'DATA CENTER', x: 62, y: 48, desc: 'Industrial bay lined with wall CRT terminals. Defeat viruses to unlock the blast door.', exits: 'Door → Server Shaft (02)' },
+  { id: 2, zone: 'datacenter', zoneLabel: 'DATA CENTER', x: 222, y: 48, desc: 'Stepped server shaft with an upper terminal alcove and lower rack corridor.', exits: 'Door → Control Deck (03)' },
+  { id: 3, zone: 'datacenter', zoneLabel: 'DATA CENTER', x: 382, y: 48, desc: 'Multi-tiered operations deck with a central steel platform and wall monitors.', exits: 'Door → Office Wing (04)' },
+  { id: 4, zone: 'bbcorp', zoneLabel: 'BB CORP', x: 542, y: 48, desc: 'Stepped corporate office wing leading down into a yellow-lit server bay.', exits: 'Door → Executive Floor (05)' },
+  { id: 5, zone: 'bbcorp', zoneLabel: 'BB CORP', x: 702, y: 48, desc: 'Glass-walled corner office and mezzanine guarded by Mini Boss Kor.', exits: 'Door → BB Corp Street (06)' },
+  { id: 6, zone: 'mainroad', zoneLabel: 'STREET HUB', x: 702, y: 196, isHub: true, desc: 'Central crossing outside BB Corp branching West toward Cafe & Supply and East toward Hospital & Bank.', exits: '◀ Left Street → Net Cafe St (07)  ·  ▶ Right Street → East Main Rd (10)' },
+  { id: 7, zone: 'netcafe', zoneLabel: 'LEFT STREET', x: 492, y: 318, isHub: true, desc: 'West commercial block with Storefront Shutter into Corp Supply and Neon Entrance into Net Cafe.', exits: '▶ BB Corp St (06)  ·  ◀ Net Cafe (08)  ·  ◀ Corp Supply Shutter (15)' },
+  { id: 8, zone: 'netcafe', zoneLabel: 'NET CAFE', x: 300, y: 230, desc: 'Multi-floor cyber cafe with Gamer Lobby, Arcade, and upper Staff Only loft.', exits: 'Exit ⇄ Left Street (07)  ·  Staff Only ⇄ Staff Room (09)' },
+  { id: 9, zone: 'netcafe', zoneLabel: 'NET CAFE', x: 118, y: 230, desc: 'Restricted back server bay guarded by Final Boss King Crolue.', exits: 'Staff Only ⇄ Net Cafe Lobby (08)  ·  Exit/Security ↻ Loops to Next Cycle' },
+  { id: 15, zone: 'supply', zoneLabel: 'CORP SUPPLY', x: 300, y: 406, desc: 'Warehouse loading bay, forklift lane, and upper racking leading to Security Management.', exits: 'Shutter ⇄ Left Street (07)  ·  Management ⇄ Supply Upper (16)' },
+  { id: 16, zone: 'supply', zoneLabel: 'CORP SUPPLY', x: 118, y: 406, desc: 'Conveyor ramp, server bay pit, and Upper Security catwalk guarded by Final Boss King Crolue.', exits: 'Management ⇄ Corp Supply (15)  ·  Exit ↻ Loops to Next Cycle' },
+  { id: 10, zone: 'hospital', zoneLabel: 'RIGHT STREET', x: 912, y: 318, isHub: true, desc: 'East main boulevard featuring Hospital sliding doors and the fortified Bank facade.', exits: '◀ BB Corp St (06)  ·  ▶ Hospital Wing (11)  ·  ▶ Bank (13)' },
+  { id: 11, zone: 'hospital', zoneLabel: 'HOSPITAL', x: 1104, y: 230, desc: 'Emergency/Triage entrance lobby, Radiology/X-Ray, Pharmacy, and Utility.', exits: 'Sliding Door ⇄ Right Street (10)  ·  Exit Door ⇄ Upper Floors (12)' },
+  { id: 12, zone: 'hospital', zoneLabel: 'HOSPITAL', x: 1286, y: 230, desc: 'Top-level Surgery & ICU wards guarded by Final Boss King Crolue.', exits: 'Staff Only ⇄ Hospital Wing (11)  ·  Exit ↻ Loops to Next Cycle' },
+  { id: 13, zone: 'bank', zoneLabel: 'BANK', x: 1104, y: 406, desc: 'Three-tier secure vault facility with Vault Chamber, ATM Lobby, and Management Wing.', exits: 'Bank Door ⇄ Right Street (10)  ·  Management ⇄ Upper Floors (14)' },
+  { id: 14, zone: 'bank', zoneLabel: 'BANK', x: 1286, y: 406, desc: 'Top-level Bank Management & Vault Wing guarded by Final Boss King Crolue.', exits: 'Management ⇄ Bank (13)  ·  Exit ↻ Loops to Next Cycle' },
 ]
 
 const WORLD_MAP_EDGES = [
-  { from: 1, to: 2, label: 'Door' },
-  { from: 2, to: 3, label: 'Door' },
-  { from: 3, to: 4, label: 'Door' },
-  { from: 4, to: 5, label: 'Door' },
-  { from: 5, to: 6, label: 'Door' },
-  { from: 6, to: 7, branch: true, label: 'West Exit' },
-  { from: 7, to: 8, bidirectional: true, label: 'Cafe Door' },
-  { from: 8, to: 9, bidirectional: true, label: 'Staff Door' },
-  { from: 6, to: 10, branch: true, bidirectional: true, label: 'East Exit' },
-  { from: 10, to: 11, bidirectional: true, label: 'Sliding Door' },
-  { from: 11, to: 12, bidirectional: true, label: 'Staff / Exit' },
+  { from: 1, to: 2, dir: 'right', label: 'Door' },
+  { from: 2, to: 3, dir: 'right', label: 'Door' },
+  { from: 3, to: 4, dir: 'right', label: 'Door' },
+  { from: 4, to: 5, dir: 'right', label: 'Door' },
+  { from: 5, to: 6, dir: 'down', label: 'Street Exit' },
+  { from: 6, to: 7, dir: 'left', branch: true, label: 'Left Street' },
+  { from: 7, to: 8, dir: 'left', branch: true, bidirectional: true, label: 'Cafe Door' },
+  { from: 8, to: 9, dir: 'left', bidirectional: true, label: 'Staff Door' },
+  { from: 7, to: 15, dir: 'left', branch: true, bidirectional: true, label: 'Supply Shutter' },
+  { from: 15, to: 16, dir: 'left', bidirectional: true, label: 'Management' },
+  { from: 6, to: 10, dir: 'right', branch: true, bidirectional: true, label: 'Right Street' },
+  { from: 10, to: 11, dir: 'right', branch: true, bidirectional: true, label: 'Sliding Door' },
+  { from: 11, to: 12, dir: 'right', bidirectional: true, label: 'Staff / Exit' },
+  { from: 10, to: 13, dir: 'right', branch: true, bidirectional: true, label: 'Bank Door' },
+  { from: 13, to: 14, dir: 'right', bidirectional: true, label: 'Management' },
 ]
 
+const WORLD_MAP_NODE_BY_ID = Object.fromEntries(WORLD_MAP_NODES.map((n) => [n.id, n]))
+const WORLD_MAP_PARENT_BY_ID = Object.fromEntries(WORLD_MAP_EDGES.map((e) => [e.to, e.from]))
+
+function pointAlongPolyline(pts, t) {
+  if (!pts?.length) return { x: 0, y: 0 }
+  if (pts.length === 1) return pts[0]
+  let total = 0
+  const lens = []
+  for (let i = 1; i < pts.length; i++) {
+    const seg = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y)
+    lens.push(seg)
+    total += seg
+  }
+  if (!total) return pts[0]
+  let dist = Math.max(0, Math.min(1, t)) * total
+  for (let i = 0; i < lens.length; i++) {
+    const seg = lens[i]
+    if (dist <= seg || i === lens.length - 1) {
+      const f = seg ? dist / seg : 0
+      return {
+        x: pts[i].x + (pts[i + 1].x - pts[i].x) * f,
+        y: pts[i].y + (pts[i + 1].y - pts[i].y) * f,
+      }
+    }
+    dist -= seg
+  }
+  return pts[pts.length - 1]
+}
+
+function stopWorldMapParticles() {
+  if (worldMapParticleRaf) {
+    cancelAnimationFrame(worldMapParticleRaf)
+    worldMapParticleRaf = 0
+  }
+}
+
+function startWorldMapParticles(viewport) {
+  stopWorldMapParticles()
+  const canvasEl = document.getElementById('worldMapParticles')
+  if (!canvasEl || !viewport) return
+  const ctx = canvasEl.getContext('2d')
+  if (!ctx) return
+  const w = Math.max(320, viewport.clientWidth || 720)
+  const h = Math.max(240, viewport.clientHeight || 420)
+  canvasEl.width = w
+  canvasEl.height = h
+  const colors = ['#f2bb61', '#9e7ee6', '#d9954c', '#5fc29a', '#7fb8cc']
+  if (!worldMapAmbientParticles.length) {
+    worldMapAmbientParticles = Array.from({ length: 42 }, (_, idx) => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.34,
+      vy: -0.14 - Math.random() * 0.32,
+      size: 2 + (idx % 3),
+      alpha: 0.22 + Math.random() * 0.45,
+      color: colors[idx % colors.length],
+    }))
+  }
+  let pathPhase = 0
+  const step = () => {
+    if (!worldMapOpen || !canvasEl.isConnected) {
+      worldMapParticleRaf = 0
+      return
+    }
+    if (canvasEl.width !== viewport.clientWidth || canvasEl.height !== viewport.clientHeight) {
+      canvasEl.width = Math.max(320, viewport.clientWidth)
+      canvasEl.height = Math.max(240, viewport.clientHeight)
+    }
+    const cw = canvasEl.width
+    const ch = canvasEl.height
+    ctx.clearRect(0, 0, cw, ch)
+    for (const p of worldMapAmbientParticles) {
+      p.x += p.vx
+      p.y += p.vy
+      if (p.y < -6) { p.y = ch + 6; p.x = Math.random() * cw }
+      if (p.x < -6) p.x = cw + 6
+      if (p.x > cw + 6) p.x = -6
+      ctx.globalAlpha = p.alpha
+      ctx.fillStyle = p.color
+      ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size)
+    }
+    ctx.globalAlpha = 1
+
+    const fxCanvas = document.getElementById('worldMapStageFx')
+    const fxCtx = fxCanvas?.getContext('2d')
+    if (fxCtx && fxCanvas) {
+      fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height)
+      pathPhase = (pathPhase + 0.0085) % 1
+      for (let i = 0; i < worldMapActiveEdgePolylines.length; i++) {
+        const edge = worldMapActiveEdgePolylines[i]
+        const sparkColor = edge.completed ? '#7ef0a2' : edge.branch ? '#ffd27a' : '#96dcf2'
+        for (let copy = 0; copy < 2; copy++) {
+          const t = (pathPhase + copy * 0.5 + i * 0.13) % 1
+          const pt = pointAlongPolyline(edge.pts, t)
+          fxCtx.fillStyle = sparkColor
+          fxCtx.globalAlpha = 0.85
+          fxCtx.fillRect(Math.round(pt.x - 2), Math.round(pt.y - 2), 4, 4)
+        }
+      }
+      fxCtx.globalAlpha = 1
+    }
+    worldMapParticleRaf = requestAnimationFrame(step)
+  }
+  worldMapParticleRaf = requestAnimationFrame(step)
+}
+
 function isMapNodeCleared(nodeId) {
-  if (clearedRooms.has(nodeId)) return true
+  const cycleOffset = Math.floor((level - 1) / ROOM_COUNT) * ROOM_COUNT
+  if (clearedRooms.has(nodeId) || clearedRooms.has(cycleOffset + nodeId)) return true
   const currentBase = ((level - 1) % ROOM_COUNT) + 1
   return currentBase === nodeId && enemies.length > 0 && enemies.every((e) => !e.alive)
 }
 
-function renderWorldMap() {
-  const stage = document.getElementById('worldMapStage')
+function isMapNodeUnlocked(nodeId) {
+  if (nodeId === 1) return true
+  const currentBase = ((level - 1) % ROOM_COUNT) + 1
+  if (nodeId === currentBase || isMapNodeCleared(nodeId) || visitedRooms.has(nodeId)) return true
+  const parentId = WORLD_MAP_PARENT_BY_ID[nodeId]
+  return Boolean(parentId && isMapNodeCleared(parentId))
+}
+
+function getMapUnlockRequirement(nodeId) {
+  if (nodeId === 1) return 'Starting Map · Always Unlocked'
+  const parentId = WORLD_MAP_PARENT_BY_ID[nodeId]
+  const parentName = LEVELS[parentId]?.name || 'Previous Room'
+  return `Requires clearing Room #${String(parentId || 1).padStart(2, '0')} · ${parentName}`
+}
+
+function getWorldMapNodeDetails(nodeId) {
+  const node = WORLD_MAP_NODE_BY_ID[nodeId] || WORLD_MAP_NODES[0]
+  const base = LEVELS[node.id] || {}
+  const cycleOffset = Math.floor((level - 1) / ROOM_COUNT) * ROOM_COUNT
+  const cfg = levelConfig(cycleOffset + node.id)
+  const currentBase = ((level - 1) % ROOM_COUNT) + 1
+  const isCurrent = node.id === currentBase
+  const isCleared = isMapNodeCleared(node.id)
+  const isUnlocked = isMapNodeUnlocked(node.id)
+  const statusKey = isCurrent
+    ? 'current'
+    : isCleared
+      ? 'completed'
+      : isUnlocked
+        ? 'unlocked'
+        : 'locked'
+  const statusLabel = isCurrent
+    ? 'CURRENT'
+    : isCleared
+      ? 'COMPLETED'
+      : isUnlocked
+        ? 'UNLOCKED'
+        : 'LOCKED'
+
+  const difficulty = node.id <= 3
+    ? 'Tier I · Entry Bay'
+    : node.id <= 5
+      ? 'Tier II · Core Security'
+      : node.id === 6 || node.id === 7 || node.id === 10
+        ? 'Tier III · Street District'
+        : (node.id === 9 || node.id === 12 || node.id === 14 || node.id === 16)
+          ? 'Tier V · Boss Sanctum'
+          : 'Tier IV · Interior Wing'
+
+  let enemySummary
+  const isBossNode = Boolean(cfg.boss)
+  const isFinalBoss = Boolean(cfg.final)
+  if (cfg.final) {
+    enemySummary = 'Final Boss · King Crolue'
+  } else if (cfg.korBoss) {
+    enemySummary = 'Mini Boss · Kor'
+  } else if (cfg.grenuBoss) {
+    enemySummary = 'Mini Boss · Grenu'
+  } else {
+    const placements = Array.isArray(base.enemyPlacements) ? base.enemyPlacements : []
+    const specials = []
+    if (placements.some((p) => p.nyrmed)) specials.push('Nyrmed')
+    if (placements.some((p) => p.grenu)) specials.push('Grenu')
+    const baseCount = base.pigs || placements.length || 0
+    enemySummary = specials.length
+      ? `${baseCount} Viruses (${specials.join(' + ')})`
+      : `${baseCount} Viruses`
+  }
+
+  return {
+    node,
+    base,
+    cfg,
+    name: base.name || `Room ${node.id}`,
+    thumbnail: base.bg || '',
+    difficulty,
+    enemySummary,
+    isCurrent,
+    isCleared,
+    isUnlocked,
+    isBossNode,
+    isFinalBoss,
+    statusKey,
+    statusLabel,
+    unlockReq: getMapUnlockRequirement(node.id),
+  }
+}
+
+function hideWorldMapHoverPreview() {
+  hoveredWorldMapRoom = null
+  const preview = document.getElementById('worldMapHoverPreview')
+  if (preview) {
+    preview.classList.remove('is-visible')
+    preview.setAttribute('aria-hidden', 'true')
+  }
+  document.querySelectorAll('#worldMapStage .world-map-edge.is-hover-highlight').forEach((edgeEl) => {
+    edgeEl.classList.remove('is-hover-highlight')
+  })
+}
+
+function showWorldMapHoverPreview(nodeId, cardEl) {
+  const viewport = document.getElementById('worldMapViewport')
+  const preview = document.getElementById('worldMapHoverPreview')
+  if (!viewport || !preview || !cardEl || !worldMapOpen) return
+  const d = getWorldMapNodeDetails(nodeId)
+  hoveredWorldMapRoom = nodeId
+
+  document.querySelectorAll('#worldMapStage .world-map-edge').forEach((edgeEl) => {
+    const match = edgeEl.dataset.edgeFrom === String(nodeId) || edgeEl.dataset.edgeTo === String(nodeId)
+    edgeEl.classList.toggle('is-hover-highlight', match)
+  })
+
+  const footerLine = d.isUnlocked
+    ? (d.isCurrent ? 'Current room · Click card to inspect or resume' : 'Click to select · Double-click or click Enter Map')
+    : `Locked · ${d.unlockReq}`
+
+  preview.innerHTML = `
+    <div class="wmp-thumb-wrap">
+      ${d.thumbnail ? `<img class="wmp-thumb" src="${esc(d.thumbnail)}" alt="${esc(d.name)} preview" />` : ''}
+      <span class="wmp-status-badge is-${d.statusKey}">${d.statusLabel}</span>
+    </div>
+    <div class="wmp-head">
+      <strong>${esc(d.name)}</strong>
+      <span>MAP #${String(nodeId).padStart(2, '0')}</span>
+    </div>
+    <div class="wmp-tags">
+      <span class="wmp-tag">${esc(d.node.zoneLabel)}</span>
+      <span class="wmp-tag">${esc(d.difficulty)}</span>
+      <span class="wmp-tag${d.isBossNode ? ' is-boss' : ''}">${esc(d.enemySummary)}</span>
+    </div>
+    <p class="wmp-desc">${esc(d.node.desc)}</p>
+    <div class="wmp-footer">${esc(footerLine)}</div>
+  `
+
+  const vr = viewport.getBoundingClientRect()
+  const cr = cardEl.getBoundingClientRect()
+  const prevW = preview.offsetWidth || 288
+  const prevH = preview.offsetHeight || 250
+  const vw = viewport.clientWidth || vr.width || 960
+  const vh = viewport.clientHeight || vr.height || 520
+
+  let left = cr.right - vr.left + 14
+  if (left + prevW > vw - 12) {
+    left = cr.left - vr.left - prevW - 14
+  }
+  left = Math.max(12, Math.min(vw - prevW - 12, left))
+
+  let top = cr.top - vr.top - 10
+  top = Math.max(12, Math.min(vh - prevH - 12, top))
+
+  preview.style.left = `${Math.round(left)}px`
+  preview.style.top = `${Math.round(top)}px`
+  preview.setAttribute('aria-hidden', 'false')
+  preview.classList.add('is-visible')
+}
+
+function travelToWorldMapRoom(roomId) {
+  const id = Number(roomId)
+  const d = getWorldMapNodeDetails(id)
+  if (!d.isUnlocked) {
+    selectedWorldMapRoom = id
+    updateWorldMapInspector(WORLD_MAP_NODE_BY_ID, ((level - 1) % ROOM_COUNT) + 1)
+    return false
+  }
+  const cycleOffset = Math.floor((level - 1) / ROOM_COUNT) * ROOM_COUNT
+  const destLevel = cycleOffset + id
+  closeWorldMap()
+  if (destLevel !== level) {
+    loadLevel(destLevel)
+  }
+  gsap.to(overlay, { opacity: 0, duration: 0.25 })
+  return true
+}
+
+function updateWorldMapInspector(nodeMap, currentBase) {
   const inspector = document.getElementById('worldMapInspector')
-  if (!stage || !inspector) return
+  if (!inspector) return
+  const selNode = nodeMap[selectedWorldMapRoom] || nodeMap[currentBase]
+  const d = getWorldMapNodeDetails(selNode.id)
+  const actionBtn = d.isUnlocked
+    ? `<button type="button" class="world-map-enter-btn" id="worldMapEnterButton" data-map-enter="${selNode.id}">${d.isCurrent ? 'Resume Current Map' : d.isCleared ? 'Replay Map →' : 'Enter Map →'}</button>`
+    : `<button type="button" class="world-map-enter-btn is-locked" id="worldMapEnterButton" data-map-enter="${selNode.id}" disabled>🔒 ${esc(d.unlockReq)}</button>`
+  inspector.innerHTML = `
+    <div class="world-map-inspector-main">
+      <strong>ROOM ${String(selNode.id).padStart(2, '0')} · ${esc(d.name)} (${d.statusLabel}) · ${esc(d.enemySummary)}</strong>
+      <span>${esc(selNode.desc)}</span>
+    </div>
+    <div class="world-map-inspector-side">
+      <div class="world-map-inspector-links">${esc(selNode.exits)}</div>
+      ${actionBtn}
+    </div>
+  `
+}
+
+function bindWorldMapViewportControls(viewport, stage, centerFocusNode) {
+  const zoomStatus = document.getElementById('worldMapZoomStatus')
+  const vw = Math.max(320, viewport.clientWidth || 720)
+  const vh = Math.max(240, viewport.clientHeight || 420)
+  const fitScale = Math.min(1, Math.min((vw - 32) / WORLD_MAP_WIDTH, (vh - 28) / WORLD_MAP_HEIGHT))
+  const defaultScale = Math.max(WORLD_MAP_MIN_ZOOM, Math.min(1, Number(fitScale.toFixed(2))))
+
+  if (!worldMapPan || !viewport.clientWidth || !viewport.clientHeight) {
+    const focus = centerFocusNode || WORLD_MAP_NODES[5]
+    const focusCx = focus.x + 68
+    const focusCy = focus.y + (focus.isHub ? 48 : 46)
+    worldMapPan = {
+      x: vw / 2 - focusCx * defaultScale,
+      y: vh / 2 - focusCy * defaultScale,
+      scale: defaultScale,
+    }
+  }
+  worldMapPan.scale = Math.max(WORLD_MAP_MIN_ZOOM, Math.min(WORLD_MAP_MAX_ZOOM, worldMapPan.scale || defaultScale))
+
+  const updateZoomStatus = () => {
+    if (zoomStatus) zoomStatus.textContent = `Zoom ${Math.round(worldMapPan.scale * 100)}% · Drag to pan, scroll to zoom`
+  }
+  const clampPan = () => {
+    const scaledW = WORLD_MAP_WIDTH * worldMapPan.scale
+    const scaledH = WORLD_MAP_HEIGHT * worldMapPan.scale
+    const cw = viewport.clientWidth || vw
+    const ch = viewport.clientHeight || vh
+    worldMapPan.x = scaledW <= cw
+      ? (cw - scaledW) / 2
+      : Math.min(36, Math.max(cw - scaledW - 36, worldMapPan.x))
+    worldMapPan.y = scaledH <= ch
+      ? (ch - scaledH) / 2
+      : Math.min(28, Math.max(ch - scaledH - 28, worldMapPan.y))
+    stage.style.transform = `translate(${worldMapPan.x}px, ${worldMapPan.y}px) scale(${worldMapPan.scale})`
+  }
+  clampPan()
+  updateZoomStatus()
+
+  if (viewport.dataset.boundPan === '1') return
+  viewport.dataset.boundPan = '1'
+  let drag = null
+
+  viewport.addEventListener('wheel', (event) => {
+    if (!worldMapOpen || event.deltaY === 0) return
+    event.preventDefault()
+    hideWorldMapHoverPreview()
+    const rect = viewport.getBoundingClientRect()
+    const anchorX = event.clientX - rect.left
+    const anchorY = event.clientY - rect.top
+    const nextScale = Math.max(
+      WORLD_MAP_MIN_ZOOM,
+      Math.min(WORLD_MAP_MAX_ZOOM, worldMapPan.scale * Math.exp(-event.deltaY * 0.001))
+    )
+    if (nextScale === worldMapPan.scale) return
+    const mapX = (anchorX - worldMapPan.x) / worldMapPan.scale
+    const mapY = (anchorY - worldMapPan.y) / worldMapPan.scale
+    worldMapPan.scale = nextScale
+    worldMapPan.x = anchorX - mapX * nextScale
+    worldMapPan.y = anchorY - mapY * nextScale
+    clampPan()
+    updateZoomStatus()
+  }, { passive: false })
+
+  viewport.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || event.target.closest('button')) return
+    hideWorldMapHoverPreview()
+    drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, panX: worldMapPan.x, panY: worldMapPan.y, moved: false }
+    viewport.setPointerCapture(event.pointerId)
+  })
+  viewport.addEventListener('pointermove', (event) => {
+    if (!drag || drag.pointerId !== event.pointerId) return
+    const dx = event.clientX - drag.x
+    const dy = event.clientY - drag.y
+    if (!drag.moved && Math.hypot(dx, dy) > 4) drag.moved = true
+    worldMapPan.x = drag.panX + dx
+    worldMapPan.y = drag.panY + dy
+    viewport.classList.add('is-panning')
+    clampPan()
+  })
+  const finishDrag = (event) => {
+    if (!drag || drag.pointerId !== event.pointerId) return
+    if (drag.moved) {
+      worldMapWasDragging = true
+      window.setTimeout(() => { worldMapWasDragging = false }, 50)
+    }
+    drag = null
+    viewport.classList.remove('is-panning')
+  }
+  viewport.addEventListener('pointerup', finishDrag)
+  viewport.addEventListener('pointercancel', finishDrag)
+
+  stage.addEventListener('pointerover', (event) => {
+    if (drag) return
+    const card = event.target.closest('[data-map-room]')
+    if (card) showWorldMapHoverPreview(Number(card.dataset.mapRoom), card)
+  })
+  stage.addEventListener('pointerout', (event) => {
+    const card = event.target.closest('[data-map-room]')
+    if (!card) return
+    const related = event.relatedTarget?.closest?.('[data-map-room]')
+    if (!related) hideWorldMapHoverPreview()
+  })
+  stage.addEventListener('mouseleave', hideWorldMapHoverPreview)
+}
+
+function renderWorldMap() {
+  const viewport = document.getElementById('worldMapViewport')
+  const stage = document.getElementById('worldMapStage')
+  if (!stage || !viewport) return
 
   const currentBase = ((level - 1) % ROOM_COUNT) + 1
   if (!selectedWorldMapRoom) selectedWorldMapRoom = currentBase
-  const nodeMap = Object.fromEntries(WORLD_MAP_NODES.map((n) => [n.id, n]))
+  const nodeMap = WORLD_MAP_NODE_BY_ID
   const NODE_W = 136
+  worldMapActiveEdgePolylines = []
+
   const edgePaths = WORLD_MAP_EDGES.map((edge) => {
     const a = nodeMap[edge.from]
     const b = nodeMap[edge.to]
-    const ah = a.isHub ? 92 : 82
-    const bh = b.isHub ? 92 : 82
-    const x1 = a.x + NODE_W
-    const y1 = a.y + ah / 2
-    const x2 = b.x
-    const y2 = b.y + bh / 2
-    const mx = Math.round((x1 + x2) / 2)
-    const active = visitedRooms.has(a.id) && (visitedRooms.has(b.id) || isMapNodeCleared(a.id))
+    const ah = a.isHub ? 96 : 92
+    const bh = b.isHub ? 96 : 92
+    let pts
+    if (edge.dir === 'down') {
+      const cx1 = a.x + NODE_W / 2
+      const cy1 = a.y + ah
+      const cx2 = b.x + NODE_W / 2
+      const cy2 = b.y
+      const my = Math.round((cy1 + cy2) / 2)
+      pts = [{ x: cx1, y: cy1 }, { x: cx1, y: my }, { x: cx2, y: my }, { x: cx2, y: cy2 }]
+    } else if (edge.dir === 'left') {
+      const x1 = a.x
+      const y1 = a.y + ah / 2
+      const x2 = b.x + NODE_W
+      const y2 = b.y + bh / 2
+      const mx = Math.round((x1 + x2) / 2)
+      pts = [{ x: x1, y: y1 }, { x: mx, y: y1 }, { x: mx, y: y2 }, { x: x2, y: y2 }]
+    } else {
+      const x1 = a.x + NODE_W
+      const y1 = a.y + ah / 2
+      const x2 = b.x
+      const y2 = b.y + bh / 2
+      const mx = Math.round((x1 + x2) / 2)
+      pts = [{ x: x1, y: y1 }, { x: mx, y: y1 }, { x: mx, y: y2 }, { x: x2, y: y2 }]
+    }
+    const d = `M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y} L ${pts[2].x} ${pts[2].y} L ${pts[3].x} ${pts[3].y}`
+
+    const bCleared = isMapNodeCleared(b.id)
+    const aCleared = isMapNodeCleared(a.id)
+    const bUnlocked = isMapNodeUnlocked(b.id)
+    const isCompleted = aCleared && (bCleared || visitedRooms.has(b.id) || b.id === currentBase)
+    const isAvailable = !isCompleted && (aCleared || bUnlocked || a.id === currentBase)
+    if (isCompleted || isAvailable) {
+      worldMapActiveEdgePolylines.push({ pts, completed: isCompleted, branch: Boolean(edge.branch) })
+    }
     const cls = [
       'world-map-edge',
       edge.branch ? 'is-branch' : '',
-      active ? 'is-active' : '',
+      isCompleted ? 'is-completed is-active' : isAvailable ? 'is-available is-active' : 'is-locked',
     ].filter(Boolean).join(' ')
-    return `<path class="${cls}" d="M ${x1} ${y1} L ${mx} ${y1} L ${mx} ${y2} L ${x2} ${y2}" />`
+    return `<path class="${cls}" data-edge-from="${a.id}" data-edge-to="${b.id}" d="${d}" />`
   }).join('')
 
-  const cardsHtml = WORLD_MAP_NODES.map((node) => {
-    const cfg = LEVELS[node.id]
-    const isCurrent = node.id === currentBase
-    const isCleared = isMapNodeCleared(node.id)
-    const isVisited = visitedRooms.has(node.id)
+  const cardsHtml = WORLD_MAP_NODES.map((node, idx) => {
+    const d = getWorldMapNodeDetails(node.id)
     const isSelected = node.id === selectedWorldMapRoom
-    const stateCls = isCurrent
+    const stateCls = d.isCurrent
       ? 'is-current'
-      : isCleared
+      : d.isCleared
         ? 'is-cleared'
-        : isVisited
-          ? 'is-visited'
-          : 'is-unexplored'
-    const pillText = isCurrent
+        : d.isUnlocked
+          ? 'is-visited is-unlocked'
+          : 'is-unexplored is-locked'
+    const pillText = d.isCurrent
       ? 'YOU ARE HERE'
-      : isCleared
-        ? 'CLEARED'
-        : isVisited
-          ? 'VISITED'
+      : d.isCleared
+        ? 'COMPLETED'
+        : d.isUnlocked
+          ? 'UNLOCKED'
           : 'LOCKED'
-    const foesText = isCurrent
+    const foesText = d.isCurrent
       ? `${enemies.filter((e) => e.alive).length}/${enemies.length} FOES`
-      : `${cfg?.pigs || 0} FOES`
-    return `<button type="button" class="biome-node zone-${node.zone} ${stateCls}${isSelected ? ' is-selected' : ''}" style="left:${node.x}px;top:${node.y}px" data-map-room="${node.id}" aria-pressed="${isSelected}">
+      : d.isFinalBoss
+        ? 'KING CROLUE'
+        : d.isBossNode
+          ? 'MINI BOSS'
+          : `${d.base?.pigs || 0} FOES`
+    const bossClasses = [
+      d.isBossNode ? 'is-boss-node' : '',
+      d.isFinalBoss ? 'is-final-boss' : '',
+    ].filter(Boolean).join(' ')
+    const thumbTag = d.isBossNode
+      ? `<span class="biome-node-boss-tag">${d.isFinalBoss ? '★ BOSS' : '◆ ELITE'}</span>`
+      : ''
+    return `<button type="button" class="biome-node zone-${node.zone} ${stateCls} ${bossClasses}${isSelected ? ' is-selected' : ''}" style="left:${node.x}px;top:${node.y}px;animation-delay:${idx * 18}ms" data-map-room="${node.id}" aria-pressed="${isSelected}">
+      <div class="biome-node-thumb" style="background-image:url('${esc(d.thumbnail)}')">${thumbTag}</div>
       <div class="biome-node-top">
         <span>${node.zoneLabel}</span>
         <span>#${String(node.id).padStart(2, '0')}</span>
       </div>
-      <div class="biome-node-name">${esc(cfg?.name || `Room ${node.id}`)}</div>
+      <div class="biome-node-name">${esc(d.name)}</div>
       <div class="biome-node-meta">
         <span>${foesText}</span>
         <span class="biome-node-pill">${pillText}</span>
@@ -4347,48 +5228,34 @@ function renderWorldMap() {
   }).join('')
 
   stage.innerHTML = `
-    <svg class="world-map-lines" viewBox="0 0 1460 416" aria-hidden="true">${edgePaths}</svg>
-    <div class="world-map-track-tag is-hub" style="left:794px;top:134px;">MAIN ROAD · BRANCH HUB</div>
-    <div class="world-map-track-tag is-cafe" style="left:974px;top:36px;">WEST BRANCH · NET CAFE DISTRICT</div>
-    <div class="world-map-track-tag is-hosp" style="left:974px;top:384px;">EAST BRANCH · HOSPITAL DISTRICT</div>
+    <svg class="world-map-lines" width="${WORLD_MAP_WIDTH}" height="${WORLD_MAP_HEIGHT}" viewBox="0 0 ${WORLD_MAP_WIDTH} ${WORLD_MAP_HEIGHT}" aria-hidden="true">${edgePaths}</svg>
+    <canvas class="world-map-stage-fx" id="worldMapStageFx" width="${WORLD_MAP_WIDTH}" height="${WORLD_MAP_HEIGHT}" aria-hidden="true"></canvas>
+    <div class="world-map-track-tag is-cafe" style="left:118px;top:194px;">LEFT STREET · NET CAFE & CORP SUPPLY</div>
+    <div class="world-map-track-tag is-hub" style="left:664px;top:338px;">CENTRAL STREET JUNCTION</div>
+    <div class="world-map-track-tag is-hosp" style="left:1104px;top:194px;">RIGHT STREET · HOSPITAL & BANK</div>
     ${cardsHtml}
   `
 
-  const selNode = nodeMap[selectedWorldMapRoom] || nodeMap[currentBase]
-  const selCfg = LEVELS[selNode.id]
-  const selStatus = selNode.id === currentBase
-    ? 'Current Location'
-    : isMapNodeCleared(selNode.id)
-      ? 'Cleared'
-      : visitedRooms.has(selNode.id)
-        ? 'Explored'
-        : 'Unexplored'
-  inspector.innerHTML = `
-    <div class="world-map-inspector-main">
-      <strong>ROOM ${String(selNode.id).padStart(2, '0')} · ${esc(selCfg?.name || '')} (${selStatus})</strong>
-      <span>${esc(selNode.desc)}</span>
-    </div>
-    <div class="world-map-inspector-links">${esc(selNode.exits)}</div>
-  `
+  updateWorldMapInspector(nodeMap, currentBase)
+  bindWorldMapViewportControls(viewport, stage, nodeMap[currentBase])
+  hideWorldMapHoverPreview()
+  startWorldMapParticles(viewport)
 }
 
 function openWorldMap() {
   if (worldMapOpen || document.getElementById('app').hidden) return
+  if (typeof hideUiHoverBubble === 'function') hideUiHoverBubble()
   if (skillTreeOpen) closeSkillTree()
   keys.a.pressed = false
   keys.d.pressed = false
   worldMapOpen = true
+  worldMapPan = null
   worldMapReturnFocus = document.activeElement
   selectedWorldMapRoom = ((level - 1) % ROOM_COUNT) + 1
   const modal = document.getElementById('worldMapOverlay')
   modal.hidden = false
   modal.setAttribute('aria-hidden', 'false')
   renderWorldMap()
-  const viewport = document.getElementById('worldMapViewport')
-  const currentBtn = viewport?.querySelector('.biome-node.is-current')
-  if (viewport && currentBtn) {
-    viewport.scrollLeft = Math.max(0, currentBtn.offsetLeft - viewport.clientWidth / 2 + currentBtn.offsetWidth / 2)
-  }
   document.getElementById('closeWorldMap')?.focus()
   syncAnimationLoop()
 }
@@ -4396,6 +5263,8 @@ function openWorldMap() {
 function closeWorldMap() {
   if (!worldMapOpen) return
   worldMapOpen = false
+  stopWorldMapParticles()
+  hideWorldMapHoverPreview()
   const modal = document.getElementById('worldMapOverlay')
   modal.hidden = true
   modal.setAttribute('aria-hidden', 'true')
@@ -4410,11 +5279,47 @@ document.getElementById('worldMapOverlay')?.addEventListener('click', (event) =>
     closeWorldMap()
     return
   }
+  if (event.target.closest('#resetWorldMapView')) {
+    worldMapWasDragging = false
+    worldMapPan = null
+    renderWorldMap()
+    return
+  }
+  const enterBtn = event.target.closest('[data-map-enter]')
+  if (enterBtn) {
+    travelToWorldMapRoom(Number(enterBtn.dataset.mapEnter))
+    return
+  }
   const card = event.target.closest('[data-map-room]')
   if (card) {
-    selectedWorldMapRoom = Number(card.dataset.mapRoom)
-    renderWorldMap()
+    worldMapWasDragging = false
+    const roomId = Number(card.dataset.mapRoom)
+    selectedWorldMapRoom = roomId
+    document.querySelectorAll('#worldMapStage .biome-node').forEach((node) => {
+      const sel = node === card
+      node.classList.toggle('is-selected', sel)
+      node.setAttribute('aria-pressed', String(sel))
+    })
+    updateWorldMapInspector(WORLD_MAP_NODE_BY_ID, ((level - 1) % ROOM_COUNT) + 1)
+    if (!isMapNodeUnlocked(roomId)) {
+      card.classList.remove('is-locked-shake')
+      void card.offsetWidth
+      card.classList.add('is-locked-shake')
+    }
   }
+})
+
+document.getElementById('worldMapOverlay')?.addEventListener('dblclick', (event) => {
+  const card = event.target.closest('[data-map-room]')
+  if (!card) return
+  const roomId = Number(card.dataset.mapRoom)
+  if (!isMapNodeUnlocked(roomId)) {
+    card.classList.remove('is-locked-shake')
+    void card.offsetWidth
+    card.classList.add('is-locked-shake')
+    return
+  }
+  travelToWorldMapRoom(roomId)
 })
 
 let lastPlayerHpPercent = null
@@ -4925,6 +5830,110 @@ function formatBaselineComparison(correct, attempted, baselineCorrect, baselineA
   }
 }
 
+function csvEscapeCell(value) {
+  const s = String(value ?? '')
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+function buildTopicTrackerCsv() {
+  const headers = [
+    'Player',
+    'Discipline',
+    'Topic',
+    'Adaptive Tier',
+    'Mastery State',
+    'Baseline Correct',
+    'Baseline Attempted',
+    'Baseline %',
+    'Post-Baseline Correct',
+    'Post-Baseline Attempted',
+    'Post-Baseline %',
+    'Total Correct',
+    'Total Attempted',
+    'Overall %',
+    'Delta vs Baseline %',
+  ]
+  const rows = [headers.map(csvEscapeCell).join(',')]
+  const playerLabel = activePlayerName || 'Player'
+  let sumBaseC = 0
+  let sumBaseA = 0
+  let sumTotC = 0
+  let sumTotA = 0
+
+  for (const [category, topics] of Object.entries(topicProgress)) {
+    const tier = adaptive.categoryDifficultyName(category).toUpperCase()
+    for (const [topicName, r] of Object.entries(topics)) {
+      const cVal = r?.correct || 0
+      const aVal = r?.attempted || 0
+      const bC = r?.baselineCorrect || 0
+      const bA = r?.baselineAttempted || 0
+      sumBaseC += bC
+      sumBaseA += bA
+      sumTotC += cVal
+      sumTotA += aVal
+      const diag = formatBaselineComparison(cVal, aVal, bC, bA)
+      const cap = getTopicCapabilityMeta(r)
+      rows.push([
+        playerLabel,
+        category,
+        topicName,
+        tier,
+        cap.label,
+        bC,
+        bA,
+        diag.hasBaseline ? diag.basePct : '',
+        diag.postCorrect,
+        diag.postAttempted,
+        diag.hasPost ? diag.postPct : '',
+        cVal,
+        aVal,
+        aVal ? diag.currPct : '',
+        diag.hasBaseline ? diag.delta : '',
+      ].map(csvEscapeCell).join(','))
+    }
+  }
+  const sumDiag = formatBaselineComparison(sumTotC, sumTotA, sumBaseC, sumBaseA)
+  rows.push([
+    playerLabel,
+    'ALL DISCIPLINES',
+    'OVERALL SUMMARY',
+    adaptive.name.toUpperCase(),
+    '',
+    sumBaseC,
+    sumBaseA,
+    sumDiag.hasBaseline ? sumDiag.basePct : '',
+    sumDiag.postCorrect,
+    sumDiag.postAttempted,
+    sumDiag.hasPost ? sumDiag.postPct : '',
+    sumTotC,
+    sumTotA,
+    sumTotA ? sumDiag.currPct : '',
+    sumDiag.hasBaseline ? sumDiag.delta : '',
+  ].map(csvEscapeCell).join(','))
+
+  return rows.join('\n')
+}
+
+function exportTopicTrackerCsv() {
+  const csv = buildTopicTrackerCsv()
+  window.__lastExportedTrackerCsv = csv
+  const slug = String(activePlayerName || 'knight').toLowerCase().replace(/[^a-z0-9_-]+/g, '_') || 'knight'
+  const filename = `bytebound-learning-report-${slug}.csv`
+  try {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  } catch (error) {
+    console.warn('Unable to trigger CSV download.', error)
+  }
+}
+
 function renderTopicTracker() {
   const categories = Object.entries(topicProgress).map(([category, topics]) => ({
     category,
@@ -5072,7 +6081,10 @@ function renderTopicTracker() {
             : `Diagnostic Baseline ${overallDiag.basePct}% (${totals.baselineCorrect}/${totals.baselineAttempted}) · Current ${overallAccuracy}%`}</strong>
           <small>First 3 attempts per topic capture initial baseline accuracy; post-baseline measures subsequent accuracy (${totals.improvedTopics} topic${totals.improvedTopics === 1 ? '' : 's'} above baseline).</small>
         </div>
-        <button type="button" class="leaderboard-action" data-open-practice="1">Drill Topics</button>
+        <div class="tracker-diagnostic-actions">
+          <button type="button" class="leaderboard-action" data-export-tracker="csv">Export CSV</button>
+          <button type="button" class="leaderboard-action" data-open-practice="1">Drill Topics</button>
+        </div>
       </section>`
     : `<section class="tracker-diagnostic-strip" aria-label="Diagnostic baseline comparison">
         <div>
@@ -5080,7 +6092,10 @@ function renderTopicTracker() {
           <strong>Awaiting Diagnostic Baseline (0 / 3 per topic)</strong>
           <small>Answer your first 3 questions in any topic during battle or Topic Drill to establish your Baseline vs. Current Accuracy comparison.</small>
         </div>
-        <button type="button" class="leaderboard-action" data-open-practice="1">Start Topic Drill</button>
+        <div class="tracker-diagnostic-actions">
+          <button type="button" class="leaderboard-action" data-export-tracker="csv">Export CSV</button>
+          <button type="button" class="leaderboard-action" data-open-practice="1">Start Topic Drill</button>
+        </div>
       </section>`
 
   return `<span class="eyebrow">Learning Tracker</span>
@@ -5127,8 +6142,84 @@ function renderTopicTracker() {
 
 // One entry point for every Play / Resume button.
 let navMenuOpen = false
+const UI_HOVER_BUBBLE_EL = document.getElementById('uiHoverBubble')
+let activeBubbleTarget = null
+
+function hideUiHoverBubble() {
+  activeBubbleTarget = null
+  if (!UI_HOVER_BUBBLE_EL) return
+  UI_HOVER_BUBBLE_EL.classList.remove('is-visible')
+  UI_HOVER_BUBBLE_EL.setAttribute('aria-hidden', 'true')
+}
+
+function showUiHoverBubble(targetEl) {
+  if (!UI_HOVER_BUBBLE_EL || !targetEl) return
+  const desc = targetEl.dataset?.bubbleDesc
+  if (!desc) return
+  if (app.hidden || skillTreeOpen || worldMapOpen || window.mpUI?.isOpen) {
+    hideUiHoverBubble()
+    return
+  }
+  const isSidebarBtn = Boolean(targetEl.closest('#mainSidebar'))
+  if (isSidebarBtn && !navMenuOpen) {
+    hideUiHoverBubble()
+    return
+  }
+  const rect = targetEl.getBoundingClientRect()
+  if (rect.width <= 0 || rect.height <= 0) {
+    hideUiHoverBubble()
+    return
+  }
+
+  activeBubbleTarget = targetEl
+  const tagEl = document.getElementById('uiHoverBubbleTag')
+  const titleEl = document.getElementById('uiHoverBubbleTitle')
+  const descEl = document.getElementById('uiHoverBubbleDesc')
+  if (tagEl) tagEl.textContent = targetEl.dataset.bubbleTag || 'INFO'
+  if (titleEl) titleEl.textContent = targetEl.dataset.bubbleTitle || targetEl.textContent.trim()
+  if (descEl) descEl.textContent = desc
+
+  UI_HOVER_BUBBLE_EL.dataset.placement = 'bottom'
+  UI_HOVER_BUBBLE_EL.style.left = '0px'
+  UI_HOVER_BUBBLE_EL.style.top = '0px'
+  UI_HOVER_BUBBLE_EL.setAttribute('aria-hidden', 'false')
+
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const bw = UI_HOVER_BUBBLE_EL.offsetWidth || 260
+  const bh = UI_HOVER_BUBBLE_EL.offsetHeight || 96
+  const gap = 12
+  let placement = 'bottom'
+  let left = rect.left + rect.width / 2 - bw / 2
+  let top = rect.bottom + gap
+
+  if (isSidebarBtn && rect.right + gap + bw <= vw - 10) {
+    placement = 'right'
+    left = rect.right + gap
+    top = rect.top + rect.height / 2 - bh / 2
+  } else if (top + bh > vh - 12 && rect.top - gap - bh >= 10) {
+    placement = 'top'
+    top = rect.top - gap - bh
+  }
+
+  left = Math.max(10, Math.min(vw - bw - 10, left))
+  top = Math.max(10, Math.min(vh - bh - 10, top))
+
+  const anchorCenterX = rect.left + rect.width / 2
+  const anchorCenterY = rect.top + rect.height / 2
+  const notchX = Math.max(18, Math.min(bw - 18, anchorCenterX - left))
+  const notchY = Math.max(18, Math.min(bh - 18, anchorCenterY - top))
+  UI_HOVER_BUBBLE_EL.style.setProperty('--bubble-notch-x', `${Math.round(notchX)}px`)
+  UI_HOVER_BUBBLE_EL.style.setProperty('--bubble-notch-y', `${Math.round(notchY)}px`)
+  UI_HOVER_BUBBLE_EL.dataset.placement = placement
+  UI_HOVER_BUBBLE_EL.style.left = `${Math.round(left)}px`
+  UI_HOVER_BUBBLE_EL.style.top = `${Math.round(top)}px`
+  UI_HOVER_BUBBLE_EL.classList.add('is-visible')
+}
+
 function setNavMenuOpen(open) {
   navMenuOpen = Boolean(open)
+  if (!navMenuOpen) hideUiHoverBubble()
   const appEl = document.getElementById('app')
   const toggleBtn = document.getElementById('navToggleButton')
   if (appEl) appEl.classList.toggle('is-nav-open', navMenuOpen)
@@ -5182,9 +6273,9 @@ if (multiplayerMenuBtn) {
 const exitGameBtn = document.getElementById('exitGameButton')
 if (exitGameBtn) {
   exitGameBtn.addEventListener('click', () => {
+    hideUiHoverBubble()
     setNavMenuOpen(false)
     switchPlayerProfile()
-    try { window.close() } catch {}
   })
 }
 document.getElementById('practiceModeButton').addEventListener('click', startPracticeAdventure)
@@ -5200,6 +6291,10 @@ if (spEarnedBannerEl) spEarnedBannerEl.addEventListener('click', () => {
 })
 document.getElementById('dashboardAside').addEventListener('click', (event) => {
   if (typeof handlePracticeClick === 'function' && handlePracticeClick(event)) return
+  if (event.target.closest('[data-export-tracker]')) {
+    exportTopicTrackerCsv()
+    return
+  }
   if (event.target.closest('[data-open-practice]')) {
     playViewActive = false
     dashboardView = 'practice'
@@ -5384,7 +6479,12 @@ function soundableControl(target) {
 }
 
 document.addEventListener('pointerover', (event) => {
-  if (event.pointerType === 'touch' || !Sound.enabled || !Sound.ready) return
+  if (event.pointerType === 'touch') return
+  const bubbleTarget = event.target instanceof Element ? event.target.closest('[data-bubble-desc]') : null
+  if (bubbleTarget && bubbleTarget !== activeBubbleTarget) {
+    showUiHoverBubble(bubbleTarget)
+  }
+  if (!Sound.enabled || !Sound.ready) return
   const control = soundableControl(event.target)
   if (!control || (event.relatedTarget instanceof Node && control.contains(event.relatedTarget))) return
   const now = performance.now()
@@ -5392,15 +6492,48 @@ document.addEventListener('pointerover', (event) => {
   lastHoverSoundAt = now
   Sound.play('hover')
 })
+document.addEventListener('pointerout', (event) => {
+  if (!activeBubbleTarget) return
+  const leaving = event.target instanceof Element ? event.target.closest('[data-bubble-desc]') : null
+  if (leaving === activeBubbleTarget && !(event.relatedTarget instanceof Node && activeBubbleTarget.contains(event.relatedTarget))) {
+    hideUiHoverBubble()
+  }
+})
+document.addEventListener('focusin', (event) => {
+  const bubbleTarget = event.target instanceof Element ? event.target.closest('[data-bubble-desc]') : null
+  if (bubbleTarget) showUiHoverBubble(bubbleTarget)
+})
+document.addEventListener('focusout', (event) => {
+  if (activeBubbleTarget && event.target === activeBubbleTarget && !(event.relatedTarget instanceof Node && activeBubbleTarget.contains(event.relatedTarget))) {
+    hideUiHoverBubble()
+  }
+})
 document.addEventListener('click', (event) => {
+  hideUiHoverBubble()
   if (soundableControl(event.target)) Sound.play('click')
 }, true)
+window.addEventListener('resize', hideUiHoverBubble)
+document.querySelector('main')?.addEventListener('scroll', hideUiHoverBubble, { passive: true })
 
 const loginScreen = document.getElementById('loginScreen')
 const app = document.getElementById('app')
 const usernameInput = document.getElementById('usernameInput')
 const pinInput = document.getElementById('pinInput')
+const togglePinVisibilityButton = document.getElementById('togglePinVisibilityButton')
 const loginError = document.getElementById('loginError')
+
+function setPinInputVisibility(visible) {
+  if (!pinInput || !togglePinVisibilityButton) return
+  pinInput.type = visible ? 'text' : 'password'
+  togglePinVisibilityButton.textContent = visible ? 'Hide' : 'Show'
+  togglePinVisibilityButton.setAttribute('aria-pressed', String(visible))
+  togglePinVisibilityButton.setAttribute('aria-label', visible ? 'Hide password' : 'Show password')
+}
+
+togglePinVisibilityButton?.addEventListener('click', () => {
+  setPinInputVisibility(pinInput?.type === 'password')
+  pinInput?.focus()
+})
 
 document.getElementById('loginForm').addEventListener('submit', (event) => {
   event.preventDefault()
@@ -5471,6 +6604,7 @@ document.getElementById('loginForm').addEventListener('submit', (event) => {
     dashboardView = 'quest'
     playViewActive = false
     resetRun()
+    setPinInputVisibility(false)
     loginError.textContent = ''
     loginScreen.hidden = true
     app.hidden = false
@@ -5485,6 +6619,8 @@ document.getElementById('loginForm').addEventListener('submit', (event) => {
 })
 
 function switchPlayerProfile() {
+  if (typeof hideUiHoverBubble === 'function') hideUiHoverBubble()
+  setNavMenuOpen(false)
   if (!practiceRunActive && hasRecordableGameplayRun()) {
     submitLeaderboardRun({ skipReload: true })
   }
@@ -5503,7 +6639,10 @@ function switchPlayerProfile() {
   keys.a.pressed = false
   keys.d.pressed = false
   usernameInput.value = activePlayerName
-  if (pinInput) pinInput.value = ''
+  if (pinInput) {
+    pinInput.value = ''
+    setPinInputVisibility(false)
+  }
   activePlayerPinHash = ''
   activePlayerHasPin = false
   loginError.textContent = ''
@@ -5549,6 +6688,7 @@ function syncAnimationLoop() {
 }
 
 function tick() {
+  syncTouchVisibility()
   if (mode === 'menu') {
     drawMenu()
   } else if (playViewActive && !skillTreeOpen && !worldMapOpen) {
