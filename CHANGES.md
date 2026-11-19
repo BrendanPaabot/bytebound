@@ -25,9 +25,9 @@
 - **Card Battles, Exclusive Skills & Kernel Aegis Accountability:**
   - All 4 exclusive capstone skills unlock via discipline Skill Trees (`U`): **`Kernel Aegis`** (Computer Systems), **`Packet Lockdown`** (Networking & Security), **`Overburn Execution`** (Programming), and **`Necromancy`** (Database, spending Mana scaled by enemy strength to raise up to `3` sequential undead allies that attack only when you answer correctly).
   - `Kernel Aegis` blocks normal enemy hits for the run, **but careless wrong answers still impose consequences**: draining `-10 MP`, resetting streak/accuracy bonuses, shocking the hero (`-4 HP` Aegis overload), and piercing `Kernel Aegis` for `50%` breach damage during Boss battles.
-- **Authentication, Privacy, & Persistence Scope:**
+- **Unique Username Identification, Data Minimization & Persistence Scope:**
   - Designed as a classroom-ready prototype with **local storage** (`localStorage`) + optional **Supabase cloud sync** (`users`, `leaderboard_entries`, `pvp_leaderboard_entries`, `multiplayer_rooms`).
-  - Profiles support an **optional `3–24` character Password / PIN** hashed client-side via `hashProfilePin()` (salted deterministic 64-bit FNV-1a + DJB2 hash, stored in `pin_hash` and enforced by Supabase `upsert_user_profile` / `reset_user_profile`). Blank Password/PIN permits quick classroom handles pending institutional OAuth/SSO.
+  - Passwords and PINs have been removed to maximize classroom accessibility and eliminate password/credential storage. Each player is uniquely identified by a **case-insensitive unique username** (`1–24` characters, stored under `username_key` with a PostgreSQL `UNIQUE` constraint and enforced via **New Player** registration / `register_user_profile` RPC and **Returning Player** sign-in so duplicate names cannot be created).
   - Clicking **Exit** cleanly logs out of the active account back to the login screen without closing the browser tab.
 
 ## Editing Questions
@@ -36,11 +36,10 @@
 
 ## Supabase Database Setup (Migrations)
 Run these scripts in order in the Supabase SQL Editor:
-1. `supabase/schema.sql` (full base schema + RLS + `users`, Arcade leaderboard, `multiplayer_rooms`, RPCs)
+1. `supabase/schema.sql` (full base schema + RLS + `users`, Arcade leaderboard, 1v1 leaderboard, `multiplayer_rooms`, RPCs)
 2. `supabase/migration-leaderboard-run-checks.sql` (leaderboard submission validation)
 3. `supabase/migration-1v1-leaderboard.sql` (1v1 competitive leaderboard table + kill-gated Arcade submission)
-4. `supabase/migration-profile-pin.sql` (adds `pin_hash` column + RPC enforcement)
-5. `supabase/migration-cleanup-users-and-sss-pin.sql` (optional classroom seed cleanup)
+4. `supabase/migration-unique-username-no-password.sql` (removes legacy `pin_hash` column and enforces passwordless unique username registration via `register_user_profile`)
 
 ## Local Launch & Tunables
 - **Local launch:** Run `serve-local.cmd` (`serve-local.ps1`) to serve on `localhost` with reliable Web Audio / BGM playback and local multiplayer APIs.

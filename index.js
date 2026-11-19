@@ -14,8 +14,6 @@ const storedReduceMotion = localStorage.getItem(REDUCE_MOTION_STORAGE_KEY)
 let currentTheme = storedTheme === 'dark' ? 'dark' : 'light'
 let reduceMotion = storedReduceMotion === 'true'
 let activePlayerName = ''
-let activePlayerPinHash = ''
-let activePlayerHasPin = false
 window.activePlayerName = activePlayerName
 let activeAchievementStorageKey = ACHIEVEMENT_STORAGE_KEY
 let achievementProgress = {
@@ -747,17 +745,67 @@ function mergeAndApplyCloudUserProfile(profileId, cloudUser) {
   return updatedLocal
 }
 
-function hashProfilePin(profileId, pin) {
-  const raw = `bytebound-pin-v1:${String(profileId || '').toLowerCase()}:${String(pin || '').trim()}`
-  let h1 = 2166136261
-  let h2 = 5381
-  for (let i = 0; i < raw.length; i++) {
-    const ch = raw.charCodeAt(i)
-    h1 ^= ch
-    h1 = Math.imul(h1, 16777619)
-    h2 = Math.imul(h2, 33) ^ ch
+function normalizeUsername(raw) {
+  return String(raw || '').trim().replace(/\s+/g, ' ')
+}
+
+function getUsernameKey(raw) {
+  return normalizeUsername(raw).toLowerCase()
+}
+
+async function lookupCloudUserByKey(profileId) {
+  if (!profileId || !supabaseCredentials()) {
+    return { configured: false, reachable: false, found: false, user: null }
   }
-  return `pin_${(h1 >>> 0).toString(16).padStart(8, '0')}${(h2 >>> 0).toString(16).padStart(8, '0')}`
+  try {
+    const response = await supabaseRequest(
+      `users?username_key=eq.${encodeURIComponent(profileId)}&select=id,username_key,display_name&limit=1`
+    )
+    const rows = await response.json()
+    const user = Array.isArray(rows) && rows.length ? rows[0] : null
+    return { configured: true, reachable: true, found: Boolean(user), user }
+  } catch (error) {
+    console.warn('Unable to check cloud username availability.', error)
+    return { configured: true, reachable: false, found: false, user: null, error }
+  }
+}
+
+async function registerCloudUserProfile(displayName) {
+  if (!displayName || !supabaseCredentials()) return null
+  try {
+    const response = await supabaseRequest('rpc/register_user_profile', {
+      method: 'POST',
+      body: JSON.stringify({
+        p_username: displayName,
+      }),
+    })
+    return await response.json()
+  } catch (error) {
+    const msg = String(error?.message || '')
+    if (/already taken|duplicate key|23505/i.test(msg)) {
+      const takenErr = new Error('Username is already taken.')
+      takenErr.code = 'USERNAME_TAKEN'
+      throw takenErr
+    }
+    if (msg.includes('(404)') || /Could not find the function/i.test(msg)) {
+      // Fallback when migration-unique-username-no-password.sql has not yet been applied
+      const check = await lookupCloudUserByKey(getUsernameKey(displayName))
+      if (check.found) {
+        const takenErr = new Error('Username is already taken.')
+        takenErr.code = 'USERNAME_TAKEN'
+        throw takenErr
+      }
+      if (!check.reachable) return null
+      const fallbackResponse = await supabaseRequest('rpc/upsert_user_profile', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_username: displayName,
+        }),
+      })
+      return await fallbackResponse.json()
+    }
+    throw error
+  }
 }
 
 async function pushUserProfileToSupabase() {
@@ -774,7 +822,6 @@ async function pushUserProfileToSupabase() {
         p_skill_progress: payload.skillProgress,
         p_review_store: payload.reviewStore,
         p_achievements: payload.achievements,
-        p_pin_hash: activePlayerPinHash || null,
       }),
     })
     userSyncState = 'synced'
@@ -799,7 +846,7 @@ function scheduleUserProfileSync(delayMs = 1000) {
   }, delayMs)
 }
 
-async function syncUserOnLogin(displayName, profileId, pinHash = activePlayerPinHash) {
+async function syncUserOnLogin(displayName, profileId, prefetchedCloudUser = null) {
   if (!supabaseCredentials()) {
     userSyncState = 'unconfigured'
     userSyncError = ''
@@ -810,18 +857,17 @@ async function syncUserOnLogin(displayName, profileId, pinHash = activePlayerPin
   userSyncError = ''
   renderDashboard()
   try {
-    const response = await supabaseRequest('rpc/upsert_user_profile', {
-      method: 'POST',
-      body: JSON.stringify({
-        p_username: displayName,
-        p_pin_hash: pinHash || null,
-      }),
-    })
-    const cloudUser = await response.json()
-    if (activePlayerName.toLowerCase() !== profileId) return
-    if (cloudUser && typeof cloudUser.has_pin === 'boolean') {
-      activePlayerHasPin = cloudUser.has_pin || Boolean(pinHash)
+    let cloudUser = prefetchedCloudUser
+    if (!cloudUser) {
+      const response = await supabaseRequest('rpc/upsert_user_profile', {
+        method: 'POST',
+        body: JSON.stringify({
+          p_username: displayName,
+        }),
+      })
+      cloudUser = await response.json()
     }
+    if (activePlayerName.toLowerCase() !== profileId) return
     mergeAndApplyCloudUserProfile(profileId, cloudUser)
     await pushUserProfileToSupabase()
     if (hasRecordableGameplayRun()) {
@@ -830,14 +876,7 @@ async function syncUserOnLogin(displayName, profileId, pinHash = activePlayerPin
     renderDashboard()
   } catch (error) {
     if (activePlayerName.toLowerCase() !== profileId) return
-    const msg = String(error?.message || '')
-    if (msg.includes('Invalid profile PIN')) {
-      switchPlayerProfile()
-      loginError.textContent = 'Incorrect or missing password / PIN for this cloud profile.'
-      document.getElementById('pinInput')?.focus()
-      return
-    }
-    console.warn('Unable to load or register cloud user profile on login.', error)
+    console.warn('Unable to load or sync cloud user profile on login.', error)
     userSyncState = 'error'
     userSyncError = error.message
     renderDashboard()
@@ -851,7 +890,6 @@ async function resetUserProfileInSupabase(displayName) {
       method: 'POST',
       body: JSON.stringify({
         p_username: displayName,
-        p_pin_hash: activePlayerPinHash || null,
       }),
     })
     userSyncState = 'synced'
@@ -5716,7 +5754,7 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
           <div class="settings-content">
             <div class="settings-profile-box">
               <div class="settings-profile-row"><span>Active player</span><strong>${esc(activePlayerName || 'Knight')}</strong></div>
-              <div class="settings-profile-row"><span>Profile access</span><strong>${activePlayerHasPin ? 'Password / PIN Locked' : 'Classroom Handle (No PIN)'}</strong></div>
+              <div class="settings-profile-row"><span>Identification</span><strong>Unique Username (Passwordless)</strong></div>
               <div class="settings-profile-row"><span>Sync status</span><strong>${syncText}</strong></div>
             </div>
             <div class="settings-actions-row">
@@ -6672,58 +6710,235 @@ document.querySelector('main')?.addEventListener('scroll', hideUiHoverBubble, { 
 const loginScreen = document.getElementById('loginScreen')
 const app = document.getElementById('app')
 const usernameInput = document.getElementById('usernameInput')
-const pinInput = document.getElementById('pinInput')
-const togglePinVisibilityButton = document.getElementById('togglePinVisibilityButton')
+const loginLead = document.getElementById('loginLead')
+const loginStatus = document.getElementById('loginStatus')
 const loginError = document.getElementById('loginError')
+const loginSubmitButton = document.getElementById('loginSubmitButton')
+const authModeRegisterTab = document.getElementById('authModeRegisterTab')
+const authModeLoginTab = document.getElementById('authModeLoginTab')
 
-function setPinInputVisibility(visible) {
-  if (!pinInput || !togglePinVisibilityButton) return
-  pinInput.type = visible ? 'text' : 'password'
-  togglePinVisibilityButton.textContent = visible ? 'Hide' : 'Show'
-  togglePinVisibilityButton.setAttribute('aria-pressed', String(visible))
-  togglePinVisibilityButton.setAttribute('aria-label', visible ? 'Hide password' : 'Show password')
+function readLocalProfiles() {
+  const savedProfiles = localStorage.getItem(PROFILE_STORAGE_KEY)
+  if (savedProfiles === null) return []
+  const parsed = JSON.parse(savedProfiles)
+  if (!Array.isArray(parsed)) throw new Error('Saved profiles have an invalid format.')
+  return parsed
 }
 
-togglePinVisibilityButton?.addEventListener('click', () => {
-  setPinInputVisibility(pinInput?.type === 'password')
-  pinInput?.focus()
+let authMode = 'register'
+let loginSubmitting = false
+let usernameCheckTimer = 0
+let usernameCheckSeq = 0
+
+function setLoginStatus(message = '', tone = '') {
+  if (!loginStatus) return
+  loginStatus.textContent = message
+  loginStatus.className = 'login-status' + (tone ? ` is-${tone}` : '')
+}
+
+function setAuthMode(nextMode, options = {}) {
+  authMode = nextMode === 'login' ? 'login' : 'register'
+  const isRegister = authMode === 'register'
+  if (authModeRegisterTab) {
+    authModeRegisterTab.classList.toggle('is-active', isRegister)
+    authModeRegisterTab.setAttribute('aria-selected', String(isRegister))
+  }
+  if (authModeLoginTab) {
+    authModeLoginTab.classList.toggle('is-active', !isRegister)
+    authModeLoginTab.setAttribute('aria-selected', String(!isRegister))
+  }
+  if (loginLead) {
+    loginLead.textContent = isRegister
+      ? 'Claim a unique username to begin — no password needed.'
+      : 'Enter your existing unique username to continue your progress.'
+  }
+  if (usernameInput) {
+    usernameInput.placeholder = isRegister ? 'Choose a unique username' : 'Enter your existing username'
+  }
+  if (loginSubmitButton && !loginSubmitting) {
+    loginSubmitButton.textContent = isRegister ? 'Create unique profile' : 'Continue adventure'
+  }
+  if (!options.keepError && loginError) loginError.textContent = ''
+  if (!options.skipCheck) scheduleUsernameAvailabilityCheck(0)
+}
+
+function scheduleUsernameAvailabilityCheck(delayMs = 260) {
+  window.clearTimeout(usernameCheckTimer)
+  usernameCheckTimer = 0
+  const name = normalizeUsername(usernameInput?.value)
+  if (!name) {
+    setLoginStatus('')
+    return
+  }
+  if (name.length > 24) {
+    setLoginStatus('Username must be 1 to 24 characters.', 'taken')
+    return
+  }
+  const profileId = getUsernameKey(name)
+  const seq = ++usernameCheckSeq
+  const modeAtStart = authMode
+
+  const runCheck = async () => {
+    let localMatch = null
+    try {
+      localMatch = readLocalProfiles().find((entry) => entry && entry.id === profileId) || null
+    } catch {}
+
+    if (modeAtStart === 'register') {
+      if (localMatch) {
+        if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
+        setLoginStatus(`"${localMatch.name}" is already taken. Pick a unique username or switch to Returning Player.`, 'taken')
+        return
+      }
+      if (!supabaseCredentials()) {
+        if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
+        setLoginStatus('Username is available.', 'available')
+        return
+      }
+      setLoginStatus('Checking username uniqueness...', 'checking')
+      const cloudCheck = await lookupCloudUserByKey(profileId)
+      if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
+      if (cloudCheck.found) {
+        setLoginStatus(`"${cloudCheck.user.display_name}" is already taken. Choose a different unique username.`, 'taken')
+      } else if (cloudCheck.reachable) {
+        setLoginStatus('Username is available!', 'available')
+      } else {
+        setLoginStatus('Available locally (offline — will verify uniqueness on sync).', 'available')
+      }
+      return
+    }
+
+    // Returning Player check
+    if (localMatch) {
+      if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
+      setLoginStatus(`Profile "${localMatch.name}" found — ready to continue.`, 'available')
+      return
+    }
+    if (!supabaseCredentials()) {
+      if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
+      setLoginStatus('No saved profile with that name. Switch to New Player to register it.', 'taken')
+      return
+    }
+    setLoginStatus('Looking up unique profile...', 'checking')
+    const cloudCheck = await lookupCloudUserByKey(profileId)
+    if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
+    if (cloudCheck.found) {
+      setLoginStatus(`Profile "${cloudCheck.user.display_name}" found — ready to continue.`, 'available')
+    } else if (cloudCheck.reachable) {
+      setLoginStatus('No profile found with that name. Switch to New Player to create it.', 'taken')
+    } else {
+      setLoginStatus('Offline — only locally cached profiles can be opened right now.', 'checking')
+    }
+  }
+
+  if (delayMs <= 0) runCheck()
+  else usernameCheckTimer = window.setTimeout(runCheck, delayMs)
+}
+
+authModeRegisterTab?.addEventListener('click', () => {
+  setAuthMode('register')
+  usernameInput?.focus()
+})
+authModeLoginTab?.addEventListener('click', () => {
+  setAuthMode('login')
+  usernameInput?.focus()
+})
+usernameInput?.addEventListener('input', () => {
+  if (loginError) loginError.textContent = ''
+  scheduleUsernameAvailabilityCheck(260)
 })
 
-document.getElementById('loginForm').addEventListener('submit', (event) => {
+// Default to Returning Player if a profile already exists on this browser; otherwise New Player
+try {
+  const existingLocal = readLocalProfiles()
+  setAuthMode(existingLocal.length > 0 ? 'login' : 'register', { skipCheck: true })
+} catch {
+  setAuthMode('register', { skipCheck: true })
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (event) => {
   event.preventDefault()
-  const name = usernameInput.value.trim().replace(/\s+/g, ' ')
+  if (loginSubmitting) return
+  const name = normalizeUsername(usernameInput.value)
   if (!name) {
-    loginError.textContent = 'Enter a name to continue.'
+    loginError.textContent = 'Enter a unique username to continue.'
     usernameInput.focus()
     return
   }
-  const rawPin = pinInput ? pinInput.value.trim() : ''
-  if (rawPin && !/^\S{3,24}$/.test(rawPin)) {
-    loginError.textContent = 'Password / PIN must be 3 to 24 characters with no spaces (or leave blank).'
-    pinInput?.focus()
+  if (name.length > 24) {
+    loginError.textContent = 'Username must be between 1 and 24 characters.'
+    usernameInput.focus()
     return
   }
 
-  const profileId = name.toLowerCase()
-  try {
-    const pinHash = rawPin ? hashProfilePin(profileId, rawPin) : ''
-    const savedProfiles = localStorage.getItem(PROFILE_STORAGE_KEY)
-    const profiles = savedProfiles === null ? [] : JSON.parse(savedProfiles)
-    if (!Array.isArray(profiles)) throw new Error('Saved profiles have an invalid format.')
+  const profileId = getUsernameKey(name)
+  loginSubmitting = true
+  if (loginSubmitButton) {
+    loginSubmitButton.disabled = true
+    loginSubmitButton.textContent = authMode === 'register' ? 'Verifying uniqueness...' : 'Loading profile...'
+  }
+  loginError.textContent = ''
 
-    let profile = profiles.find((entry) => entry && entry.id === profileId)
-    if (!profile) {
-      profile = { id: profileId, name, createdAt: new Date().toISOString(), ...(pinHash ? { pinHash } : {}) }
+  try {
+    const profiles = readLocalProfiles()
+    let profile = profiles.find((entry) => entry && entry.id === profileId) || null
+    let prefetchedCloudUser = null
+
+    if (authMode === 'register') {
+      if (profile) {
+        loginError.textContent = `Username "${profile.name}" is already taken. Choose a different unique name, or switch to Returning Player.`
+        setLoginStatus('Duplicate usernames are not allowed.', 'taken')
+        usernameInput.focus()
+        return
+      }
+      if (supabaseCredentials()) {
+        const cloudCheck = await lookupCloudUserByKey(profileId)
+        if (cloudCheck.found) {
+          loginError.textContent = `Username "${cloudCheck.user.display_name}" is already taken. Choose a different unique name, or switch to Returning Player.`
+          setLoginStatus('Duplicate usernames are not allowed.', 'taken')
+          usernameInput.focus()
+          return
+        }
+        if (cloudCheck.reachable) {
+          try {
+            prefetchedCloudUser = await registerCloudUserProfile(name)
+          } catch (regErr) {
+            if (regErr?.code === 'USERNAME_TAKEN' || /already taken|duplicate key|23505/i.test(String(regErr?.message || ''))) {
+              loginError.textContent = `Username "${name}" is already taken. Choose a different unique name, or switch to Returning Player.`
+              setLoginStatus('Duplicate usernames are not allowed.', 'taken')
+              usernameInput.focus()
+              return
+            }
+            console.warn('Cloud registration warning; continuing with local unique profile.', regErr)
+          }
+        }
+      }
+      profile = { id: profileId, name, createdAt: new Date().toISOString() }
       profiles.push(profile)
       localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles))
     } else {
-      if (profile.pinHash && profile.pinHash !== pinHash) {
-        loginError.textContent = `Enter the password / PIN for ${profile.name}.`
-        pinInput?.focus()
-        return
+      // Returning Player mode
+      let cloudUserLookup = null
+      if (supabaseCredentials()) {
+        cloudUserLookup = await lookupCloudUserByKey(profileId)
       }
-      if (!profile.pinHash && pinHash) {
-        profile.pinHash = pinHash
+      if (!profile) {
+        if (cloudUserLookup?.found) {
+          const canonicalName = normalizeUsername(cloudUserLookup.user.display_name) || name
+          profile = { id: profileId, name: canonicalName, createdAt: new Date().toISOString() }
+          profiles.push(profile)
+          localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles))
+        } else {
+          loginError.textContent = cloudUserLookup && !cloudUserLookup.reachable
+            ? `Unable to reach the cloud right now, and "${name}" is not saved on this browser.`
+            : `No profile found for "${name}". Check the spelling or switch to New Player to register it.`
+          setLoginStatus('Profile not found.', 'taken')
+          usernameInput.focus()
+          return
+        }
+      } else if (profile.pinHash) {
+        // Strip legacy password/PIN hash from older saved local profiles
+        delete profile.pinHash
         localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles))
       }
     }
@@ -6748,8 +6963,6 @@ document.getElementById('loginForm').addEventListener('submit', (event) => {
     selectedSkillNode = null
     skillMapPan = null
     activePlayerName = profile.name
-    activePlayerPinHash = profile.pinHash || pinHash || ''
-    activePlayerHasPin = Boolean(activePlayerPinHash)
     window.activePlayerName = activePlayerName
     leaderboardRunId = createLeaderboardRunId()
     leaderboardRunSubmitted = false
@@ -6758,17 +6971,23 @@ document.getElementById('loginForm').addEventListener('submit', (event) => {
     dashboardView = 'quest'
     playViewActive = false
     resetRun()
-    setPinInputVisibility(false)
     loginError.textContent = ''
+    setLoginStatus('')
     loginScreen.hidden = true
     app.hidden = false
     renderDashboard()
     Sound.music('dashboard')
-    syncUserOnLogin(profile.name, profile.id, activePlayerPinHash)
+    syncUserOnLogin(profile.name, profile.id, prefetchedCloudUser)
     window.mpUI?.initIdentity(profile.name)
   } catch (error) {
     console.error('Unable to open the player profile.', error)
     loginError.textContent = 'Unable to save or load this profile in browser storage.'
+  } finally {
+    loginSubmitting = false
+    if (loginSubmitButton) {
+      loginSubmitButton.disabled = false
+      loginSubmitButton.textContent = authMode === 'register' ? 'Create unique profile' : 'Continue adventure'
+    }
   }
 })
 
@@ -6793,15 +7012,11 @@ function switchPlayerProfile() {
   keys.a.pressed = false
   keys.d.pressed = false
   usernameInput.value = activePlayerName
-  if (pinInput) {
-    pinInput.value = ''
-    setPinInputVisibility(false)
-  }
-  activePlayerPinHash = ''
-  activePlayerHasPin = false
   loginError.textContent = ''
+  setLoginStatus('')
   app.hidden = true
   loginScreen.hidden = false
+  setAuthMode('login', { skipCheck: true })
   usernameInput.focus()
   syncAnimationLoop()
 }

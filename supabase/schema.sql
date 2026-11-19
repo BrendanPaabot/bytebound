@@ -14,7 +14,6 @@ create table if not exists public.users (
   skill_progress jsonb not null default '{}'::jsonb,
   review_store jsonb not null default '{}'::jsonb,
   achievements jsonb not null default '{}'::jsonb,
-  pin_hash text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   last_login_at timestamptz not null default now()
@@ -24,7 +23,7 @@ alter table public.users add column if not exists best_score integer not null de
 alter table public.users add column if not exists total_kills integer not null default 0;
 alter table public.users add column if not exists total_correct integer not null default 0;
 alter table public.users add column if not exists total_answers integer not null default 0;
-alter table public.users add column if not exists pin_hash text;
+alter table public.users drop column if exists pin_hash;
 
 create index if not exists users_username_key_idx
   on public.users (username_key);
@@ -156,16 +155,10 @@ create policy "Leaderboard entries are public to read"
 revoke all on public.leaderboard_entries from public, anon, authenticated;
 grant select on public.leaderboard_entries to anon, authenticated;
 
--- ===== 3. User Profile RPCs =====
-drop function if exists public.upsert_user_profile(text, jsonb, jsonb, jsonb, jsonb);
-drop function if exists public.upsert_user_profile(text, jsonb, jsonb, jsonb, jsonb, text);
-create or replace function public.upsert_user_profile(
-  p_username text,
-  p_topic_progress jsonb default null,
-  p_skill_progress jsonb default null,
-  p_review_store jsonb default null,
-  p_achievements jsonb default null,
-  p_pin_hash text default null
+-- ===== 3. User Profile RPCs (Passwordless Unique Username Identification) =====
+drop function if exists public.register_user_profile(text);
+create or replace function public.register_user_profile(
+  p_username text
 )
 returns jsonb
 language plpgsql
@@ -173,30 +166,25 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_display_name text := btrim(coalesce(p_username, ''));
+  v_display_name text := btrim(regexp_replace(coalesce(p_username, ''), '\s+', ' ', 'g'));
   v_username_key text := lower(v_display_name);
-  v_pin_hash text := nullif(btrim(coalesce(p_pin_hash, '')), '');
-  v_existing public.users;
   v_user public.users;
 begin
   if char_length(v_display_name) not between 1 and 24 then
     raise exception 'Invalid username.';
   end if;
 
-  select * into v_existing
-  from public.users
-  where username_key = v_username_key;
-
-  if v_existing.id is not null and v_existing.pin_hash is not null then
-    if v_pin_hash is null or v_existing.pin_hash <> v_pin_hash then
-      raise exception 'Invalid profile PIN.';
-    end if;
+  if exists (
+    select 1
+    from public.users
+    where username_key = v_username_key
+  ) then
+    raise exception 'Username is already taken.' using errcode = '23505';
   end if;
 
   insert into public.users (
     username_key,
     display_name,
-    pin_hash,
     topic_progress,
     skill_progress,
     review_store,
@@ -207,7 +195,78 @@ begin
   values (
     v_username_key,
     v_display_name,
-    v_pin_hash,
+    '{}'::jsonb,
+    '{}'::jsonb,
+    '{}'::jsonb,
+    '{}'::jsonb,
+    now(),
+    now()
+  )
+  returning * into v_user;
+
+  return jsonb_build_object(
+    'id', v_user.id,
+    'username_key', v_user.username_key,
+    'display_name', v_user.display_name,
+    'best_score', v_user.best_score,
+    'total_kills', v_user.total_kills,
+    'total_correct', v_user.total_correct,
+    'total_answers', v_user.total_answers,
+    'topic_progress', v_user.topic_progress,
+    'skill_progress', v_user.skill_progress,
+    'review_store', v_user.review_store,
+    'achievements', v_user.achievements,
+    'created_at', v_user.created_at,
+    'updated_at', v_user.updated_at,
+    'last_login_at', v_user.last_login_at
+  );
+exception
+  when unique_violation then
+    raise exception 'Username is already taken.' using errcode = '23505';
+end;
+$$;
+
+revoke all on function public.register_user_profile(text)
+  from public, anon, authenticated;
+grant execute on function public.register_user_profile(text)
+  to anon, authenticated;
+
+drop function if exists public.upsert_user_profile(text, jsonb, jsonb, jsonb, jsonb);
+drop function if exists public.upsert_user_profile(text, jsonb, jsonb, jsonb, jsonb, text);
+create or replace function public.upsert_user_profile(
+  p_username text,
+  p_topic_progress jsonb default null,
+  p_skill_progress jsonb default null,
+  p_review_store jsonb default null,
+  p_achievements jsonb default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_display_name text := btrim(regexp_replace(coalesce(p_username, ''), '\s+', ' ', 'g'));
+  v_username_key text := lower(v_display_name);
+  v_user public.users;
+begin
+  if char_length(v_display_name) not between 1 and 24 then
+    raise exception 'Invalid username.';
+  end if;
+
+  insert into public.users (
+    username_key,
+    display_name,
+    topic_progress,
+    skill_progress,
+    review_store,
+    achievements,
+    last_login_at,
+    updated_at
+  )
+  values (
+    v_username_key,
+    v_display_name,
     coalesce(p_topic_progress, '{}'::jsonb),
     coalesce(p_skill_progress, '{}'::jsonb),
     coalesce(p_review_store, '{}'::jsonb),
@@ -217,7 +276,6 @@ begin
   )
   on conflict (username_key) do update set
     display_name = excluded.display_name,
-    pin_hash = coalesce(public.users.pin_hash, v_pin_hash),
     topic_progress = coalesce(p_topic_progress, public.users.topic_progress),
     skill_progress = coalesce(p_skill_progress, public.users.skill_progress),
     review_store = coalesce(p_review_store, public.users.review_store),
@@ -237,7 +295,6 @@ begin
     'id', v_user.id,
     'username_key', v_user.username_key,
     'display_name', v_user.display_name,
-    'has_pin', (v_user.pin_hash is not null),
     'best_score', v_user.best_score,
     'total_kills', v_user.total_kills,
     'total_correct', v_user.total_correct,
@@ -253,16 +310,15 @@ begin
 end;
 $$;
 
-revoke all on function public.upsert_user_profile(text, jsonb, jsonb, jsonb, jsonb, text)
+revoke all on function public.upsert_user_profile(text, jsonb, jsonb, jsonb, jsonb)
   from public, anon, authenticated;
-grant execute on function public.upsert_user_profile(text, jsonb, jsonb, jsonb, jsonb, text)
+grant execute on function public.upsert_user_profile(text, jsonb, jsonb, jsonb, jsonb)
   to anon, authenticated;
 
 drop function if exists public.reset_user_profile(text);
 drop function if exists public.reset_user_profile(text, text);
 create or replace function public.reset_user_profile(
-  p_username text,
-  p_pin_hash text default null
+  p_username text
 )
 returns void
 language plpgsql
@@ -270,22 +326,16 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_username_key text := lower(btrim(coalesce(p_username, '')));
-  v_pin_hash text := nullif(btrim(coalesce(p_pin_hash, '')), '');
+  v_username_key text := lower(btrim(regexp_replace(coalesce(p_username, ''), '\s+', ' ', 'g')));
   v_user_id bigint;
-  v_existing_pin text;
 begin
   if char_length(v_username_key) not between 1 and 24 then
     raise exception 'Invalid username.';
   end if;
 
-  select id, pin_hash into v_user_id, v_existing_pin
+  select id into v_user_id
   from public.users
   where username_key = v_username_key;
-
-  if v_existing_pin is not null and (v_pin_hash is null or v_existing_pin <> v_pin_hash) then
-    raise exception 'Invalid profile PIN.';
-  end if;
 
   delete from public.leaderboard_entries
   where (v_user_id is not null and user_id = v_user_id)
@@ -310,9 +360,9 @@ begin
 end;
 $$;
 
-revoke all on function public.reset_user_profile(text, text)
+revoke all on function public.reset_user_profile(text)
   from public, anon, authenticated;
-grant execute on function public.reset_user_profile(text, text)
+grant execute on function public.reset_user_profile(text)
   to anon, authenticated;
 
 -- ===== 4. Submit Leaderboard Run RPC (Connected to public.users via user_id) =====
