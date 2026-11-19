@@ -27,7 +27,7 @@
   - `Kernel Aegis` blocks normal enemy hits for the run, **but careless wrong answers still impose consequences**: draining `-10 MP`, resetting streak/accuracy bonuses, shocking the hero (`-4 HP` Aegis overload), and piercing `Kernel Aegis` for `50%` breach damage during Boss battles.
 - **Unique Username Identification, Data Minimization & Persistence Scope:**
   - Designed as a classroom-ready prototype with **local storage** (`localStorage`) + optional **Supabase cloud sync** (`users`, `leaderboard_entries`, `pvp_leaderboard_entries`, `multiplayer_rooms`).
-  - Passwords and PINs have been removed to maximize classroom accessibility and eliminate password/credential storage. Each player is uniquely identified by a **case-insensitive unique username** (`1–24` characters, stored under `username_key` with a PostgreSQL `UNIQUE` constraint and enforced via **New Player** registration / `register_user_profile` RPC and **Returning Player** sign-in so duplicate names cannot be created).
+  - Passwords and PINs have been removed to maximize classroom accessibility and eliminate password/credential storage. Players can enter any desired username (`1–24` characters): the first player claims the base name (e.g., `Knight`), while any subsequent player choosing the same name automatically receives a unique Xbox-style numeric discriminator suffix (e.g., `Knight#0001`, `Knight#0002`), stored case-insensitively under `username_key` with a PostgreSQL `UNIQUE` constraint and atomic `register_user_profile` allocation. Returning players sign in directly using their exact assigned handle.
   - Clicking **Exit** cleanly logs out of the active account back to the login screen without closing the browser tab.
 
 ## Editing Questions
@@ -39,7 +39,7 @@ Run these scripts in order in the Supabase SQL Editor:
 1. `supabase/schema.sql` (full base schema + RLS + `users`, Arcade leaderboard, 1v1 leaderboard, `multiplayer_rooms`, RPCs)
 2. `supabase/migration-leaderboard-run-checks.sql` (leaderboard submission validation)
 3. `supabase/migration-1v1-leaderboard.sql` (1v1 competitive leaderboard table + kill-gated Arcade submission)
-4. `supabase/migration-unique-username-no-password.sql` (removes legacy `pin_hash` column and enforces passwordless unique username registration via `register_user_profile`)
+4. `supabase/migration-unique-username-no-password.sql` (removes legacy `pin_hash` column and enables passwordless unique handles with automatic `#0001`–`#9999` numeric discriminator tags on duplicate names via `register_user_profile`)
 
 ## Local Launch & Tunables
 - **Local launch:** Run `serve-local.cmd` (`serve-local.ps1`) to serve on `localhost` with reliable Web Audio / BGM playback and local multiplayer APIs.

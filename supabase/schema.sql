@@ -155,7 +155,7 @@ create policy "Leaderboard entries are public to read"
 revoke all on public.leaderboard_entries from public, anon, authenticated;
 grant select on public.leaderboard_entries to anon, authenticated;
 
--- ===== 3. User Profile RPCs (Passwordless Unique Username Identification) =====
+-- ===== 3. User Profile RPCs (Passwordless Unique Handle with Xbox-Style #XXXX Suffix) =====
 drop function if exists public.register_user_profile(text);
 create or replace function public.register_user_profile(
   p_username text
@@ -166,48 +166,73 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_display_name text := btrim(regexp_replace(coalesce(p_username, ''), '\s+', ' ', 'g'));
-  v_username_key text := lower(v_display_name);
+  v_requested text := btrim(regexp_replace(coalesce(p_username, ''), '\s+', ' ', 'g'));
+  v_base text;
+  v_candidate_name text;
+  v_candidate_key text;
+  v_suffix integer := 0;
   v_user public.users;
 begin
-  if char_length(v_display_name) not between 1 and 24 then
+  if char_length(v_requested) not between 1 and 24 then
     raise exception 'Invalid username.';
   end if;
 
-  if exists (
-    select 1
-    from public.users
-    where username_key = v_username_key
-  ) then
-    raise exception 'Username is already taken.' using errcode = '23505';
+  -- Strip any existing #XXXX suffix to derive the base handle (max 19 chars so base + '#0001' <= 24)
+  v_base := btrim(regexp_replace(v_requested, '#[0-9]{1,4}$', ''));
+  if char_length(v_base) < 1 then
+    v_base := v_requested;
+  end if;
+  v_base := btrim(left(v_base, 19));
+  if char_length(v_base) < 1 then
+    v_base := left(v_requested, 19);
   end if;
 
-  insert into public.users (
-    username_key,
-    display_name,
-    topic_progress,
-    skill_progress,
-    review_store,
-    achievements,
-    last_login_at,
-    updated_at
-  )
-  values (
-    v_username_key,
-    v_display_name,
-    '{}'::jsonb,
-    '{}'::jsonb,
-    '{}'::jsonb,
-    '{}'::jsonb,
-    now(),
-    now()
-  )
-  returning * into v_user;
+  -- Try the requested name first; if taken, automatically allocate Xbox-style #0001..#9999
+  loop
+    if v_suffix = 0 then
+      v_candidate_name := v_requested;
+    else
+      if v_suffix > 9999 then
+        raise exception 'No available numeric tag remains for this username.';
+      end if;
+      v_candidate_name := v_base || '#' || lpad(v_suffix::text, 4, '0');
+    end if;
+    v_candidate_key := lower(v_candidate_name);
+
+    begin
+      insert into public.users (
+        username_key,
+        display_name,
+        topic_progress,
+        skill_progress,
+        review_store,
+        achievements,
+        last_login_at,
+        updated_at
+      )
+      values (
+        v_candidate_key,
+        v_candidate_name,
+        '{}'::jsonb,
+        '{}'::jsonb,
+        '{}'::jsonb,
+        '{}'::jsonb,
+        now(),
+        now()
+      )
+      returning * into v_user;
+      exit;
+    exception
+      when unique_violation then
+        v_suffix := v_suffix + 1;
+    end;
+  end loop;
 
   return jsonb_build_object(
     'id', v_user.id,
     'username_key', v_user.username_key,
     'display_name', v_user.display_name,
+    'assigned_suffix', (v_suffix > 0),
     'best_score', v_user.best_score,
     'total_kills', v_user.total_kills,
     'total_correct', v_user.total_correct,
@@ -220,9 +245,6 @@ begin
     'updated_at', v_user.updated_at,
     'last_login_at', v_user.last_login_at
   );
-exception
-  when unique_violation then
-    raise exception 'Username is already taken.' using errcode = '23505';
 end;
 $$;
 

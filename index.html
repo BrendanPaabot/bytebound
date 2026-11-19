@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=13" />
+  <link rel="stylesheet" href="css/styles.css?v=14" />
 </head>
 <body>
   <section class="login-screen" id="loginScreen" aria-labelledby="loginTitle">
@@ -33,19 +33,19 @@
       <section class="login-card">
         <span class="eyebrow" id="loginEyebrow">Player identification</span>
         <h2 id="loginTitle">Welcome,<br />adventurer.</h2>
-        <p id="loginLead">Claim a unique username to begin — no password needed.</p>
+        <p id="loginLead">Choose any username — duplicate names auto-assign a unique #tag (like Xbox).</p>
         <div class="login-mode-tabs" role="tablist" aria-label="Account mode">
           <button type="button" class="login-mode-tab is-active" id="authModeRegisterTab" role="tab" aria-selected="true" data-auth-mode="register">New Player</button>
           <button type="button" class="login-mode-tab" id="authModeLoginTab" role="tab" aria-selected="false" data-auth-mode="login">Returning Player</button>
         </div>
         <form class="login-form" id="loginForm">
-          <label for="usernameInput">Unique Username</label>
-          <input id="usernameInput" name="username" type="text" maxlength="24" autocomplete="nickname" placeholder="Choose a unique username" required />
+          <label for="usernameInput">Username</label>
+          <input id="usernameInput" name="username" type="text" maxlength="24" autocomplete="nickname" placeholder="Enter your username (e.g. Knight)" required />
           <p class="login-status" id="loginStatus" aria-live="polite"></p>
           <p class="login-error" id="loginError" role="alert" aria-live="polite"></p>
-          <button class="login-submit" id="loginSubmitButton" type="submit">Create unique profile</button>
+          <button class="login-submit" id="loginSubmitButton" type="submit">Create profile</button>
         </form>
-        <p class="login-note">Every username is unique — no password required. Your progress syncs automatically.</p>
+        <p class="login-note">No password needed. Duplicate names receive a unique #0001 tag automatically.</p>
       </section>
     </div>
   </section>
@@ -333,6 +333,6 @@
   <script src="js/mp-network.js?v=3"></script>
   <script src="js/mp-matchmaking.js?v=6"></script>
   <script src="js/mp-ui.js?v=4"></script>
-  <script src="index.js?v=151"></script>
+  <script src="index.js?v=152"></script>
 </body>
 </html>

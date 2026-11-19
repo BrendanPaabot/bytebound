@@ -5,7 +5,7 @@
    1. [`supabase/schema.sql`](./supabase/schema.sql) — creates `public.users` + `register_user_profile` / `upsert_user_profile` / `reset_user_profile` RPCs, `public.leaderboard_entries` + `submit_leaderboard_run`, `public.pvp_leaderboard_entries` + `submit_pvp_match_result`, and `public.multiplayer_rooms` + Realtime publication.
    2. [`supabase/migration-leaderboard-run-checks.sql`](./supabase/migration-leaderboard-run-checks.sql) — enforces server-side leaderboard run validation checks.
    3. [`supabase/migration-1v1-leaderboard.sql`](./supabase/migration-1v1-leaderboard.sql) — adds `public.pvp_leaderboard_entries` + `submit_pvp_match_result` and kill-gated Arcade submission.
-   4. [`supabase/migration-unique-username-no-password.sql`](./supabase/migration-unique-username-no-password.sql) — removes legacy password/PIN columns and enforces passwordless, case-insensitive unique username registration via `register_user_profile`.
+   4. [`supabase/migration-unique-username-no-password.sql`](./supabase/migration-unique-username-no-password.sql) — removes legacy password/PIN columns and enables passwordless unique handles with automatic Xbox-style `#0001`–`#9999` numeric suffixes on duplicate names via `register_user_profile`.
 3. Verify the project URL and publishable key (or legacy anon key) in `supabase-config.js`:
 
    ```js

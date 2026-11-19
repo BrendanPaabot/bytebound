@@ -4639,6 +4639,10 @@ body {
 .login-status.is-checking {
   color: #d8c28a;
 }
+.login-status.is-tag {
+  color: #f4c86f;
+  font-weight: 600;
+}
 :root:not([data-theme="dark"]) .login-status {
   color: #4f6449;
 }
@@ -4650,6 +4654,10 @@ body {
 }
 :root:not([data-theme="dark"]) .login-status.is-checking {
   color: #8a6420;
+}
+:root:not([data-theme="dark"]) .login-status.is-tag {
+  color: #9a5d10;
+  font-weight: 600;
 }
 .login-submit:disabled {
   opacity: 0.65;

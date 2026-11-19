@@ -753,6 +753,39 @@ function getUsernameKey(raw) {
   return normalizeUsername(raw).toLowerCase()
 }
 
+function stripUsernameSuffix(raw) {
+  const cleaned = normalizeUsername(raw)
+  const withoutTag = cleaned.replace(/#\d{1,4}$/, '').trim()
+  const base = withoutTag || cleaned
+  return base.slice(0, 19).trim() || cleaned.slice(0, 19)
+}
+
+function formatNumberedHandle(baseName, suffixNumber) {
+  return `${baseName}#${String(suffixNumber).padStart(4, '0')}`
+}
+
+function escapePostgrestLikePattern(str) {
+  return String(str || '').replace(/[\\%_]/g, (ch) => `\\${ch}`)
+}
+
+function computeAvailableHandle(requestedName, takenKeysSet) {
+  const cleaned = normalizeUsername(requestedName)
+  const exactKey = cleaned.toLowerCase()
+  if (!takenKeysSet.has(exactKey)) {
+    return { displayName: cleaned, profileId: exactKey, suffixed: false, suffixNumber: 0 }
+  }
+  const baseName = stripUsernameSuffix(cleaned)
+  for (let n = 1; n <= 9999; n++) {
+    const candidate = formatNumberedHandle(baseName, n)
+    const candidateKey = candidate.toLowerCase()
+    if (!takenKeysSet.has(candidateKey)) {
+      return { displayName: candidate, profileId: candidateKey, suffixed: true, suffixNumber: n }
+    }
+  }
+  const fallback = `${baseName.slice(0, 15)}#${String(Date.now()).slice(-4)}`
+  return { displayName: fallback, profileId: fallback.toLowerCase(), suffixed: true, suffixNumber: 9999 }
+}
+
 async function lookupCloudUserByKey(profileId) {
   if (!profileId || !supabaseCredentials()) {
     return { configured: false, reachable: false, found: false, user: null }
@@ -770,36 +803,62 @@ async function lookupCloudUserByKey(profileId) {
   }
 }
 
-async function registerCloudUserProfile(displayName) {
-  if (!displayName || !supabaseCredentials()) return null
+async function lookupCloudUsernameFamily(requestedName) {
+  const cleaned = normalizeUsername(requestedName)
+  const exactKey = cleaned.toLowerCase()
+  const baseKey = stripUsernameSuffix(cleaned).toLowerCase()
+  if (!exactKey || !supabaseCredentials()) {
+    return { configured: false, reachable: false, exactUser: null, takenKeys: new Set() }
+  }
+  try {
+    const exactRes = await supabaseRequest(
+      `users?username_key=eq.${encodeURIComponent(exactKey)}&select=id,username_key,display_name&limit=1`
+    )
+    const exactRows = await exactRes.json()
+    const exactUser = Array.isArray(exactRows) && exactRows.length ? exactRows[0] : null
+    const takenKeys = new Set()
+    if (exactUser?.username_key) takenKeys.add(String(exactUser.username_key).toLowerCase())
+
+    const pattern = `${escapePostgrestLikePattern(baseKey)}#*`
+    const familyRes = await supabaseRequest(
+      `users?username_key=like.${encodeURIComponent(pattern)}&select=username_key,display_name&limit=1000`
+    )
+    const familyRows = await familyRes.json()
+    if (Array.isArray(familyRows)) {
+      for (const row of familyRows) {
+        if (row?.username_key) takenKeys.add(String(row.username_key).toLowerCase())
+      }
+    }
+    return { configured: true, reachable: true, exactUser, takenKeys }
+  } catch (error) {
+    console.warn('Unable to query cloud username family.', error)
+    return { configured: true, reachable: false, exactUser: null, takenKeys: new Set(), error }
+  }
+}
+
+async function registerCloudUserProfile(requestedName, fallbackDisplayName) {
+  if (!requestedName || !supabaseCredentials()) return null
   try {
     const response = await supabaseRequest('rpc/register_user_profile', {
       method: 'POST',
       body: JSON.stringify({
-        p_username: displayName,
+        p_username: requestedName,
       }),
     })
     return await response.json()
   } catch (error) {
     const msg = String(error?.message || '')
-    if (/already taken|duplicate key|23505/i.test(msg)) {
-      const takenErr = new Error('Username is already taken.')
-      takenErr.code = 'USERNAME_TAKEN'
-      throw takenErr
-    }
-    if (msg.includes('(404)') || /Could not find the function/i.test(msg)) {
-      // Fallback when migration-unique-username-no-password.sql has not yet been applied
-      const check = await lookupCloudUserByKey(getUsernameKey(displayName))
-      if (check.found) {
-        const takenErr = new Error('Username is already taken.')
-        takenErr.code = 'USERNAME_TAKEN'
-        throw takenErr
-      }
-      if (!check.reachable) return null
+    if (
+      msg.includes('(404)') ||
+      /Could not find the function/i.test(msg) ||
+      /already taken|duplicate key|23505/i.test(msg)
+    ) {
+      // Fallback if the Xbox-tag register_user_profile SQL has not yet been applied on Supabase
+      const targetName = normalizeUsername(fallbackDisplayName || requestedName)
       const fallbackResponse = await supabaseRequest('rpc/upsert_user_profile', {
         method: 'POST',
         body: JSON.stringify({
-          p_username: displayName,
+          p_username: targetName,
         }),
       })
       return await fallbackResponse.json()
@@ -5754,7 +5813,7 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
           <div class="settings-content">
             <div class="settings-profile-box">
               <div class="settings-profile-row"><span>Active player</span><strong>${esc(activePlayerName || 'Knight')}</strong></div>
-              <div class="settings-profile-row"><span>Identification</span><strong>Unique Username (Passwordless)</strong></div>
+              <div class="settings-profile-row"><span>Identification</span><strong>Unique Handle (Xbox-Style #Tag)</strong></div>
               <div class="settings-profile-row"><span>Sync status</span><strong>${syncText}</strong></div>
             </div>
             <div class="settings-actions-row">
@@ -6749,14 +6808,14 @@ function setAuthMode(nextMode, options = {}) {
   }
   if (loginLead) {
     loginLead.textContent = isRegister
-      ? 'Claim a unique username to begin — no password needed.'
-      : 'Enter your existing unique username to continue your progress.'
+      ? 'Choose any username — duplicate names auto-assign a unique #tag (like Xbox).'
+      : 'Enter your exact handle (including #0001 if assigned one) to continue.'
   }
   if (usernameInput) {
-    usernameInput.placeholder = isRegister ? 'Choose a unique username' : 'Enter your existing username'
+    usernameInput.placeholder = isRegister ? 'Enter your username (e.g. Knight)' : 'Enter your handle (e.g. Knight#0001)'
   }
   if (loginSubmitButton && !loginSubmitting) {
-    loginSubmitButton.textContent = isRegister ? 'Create unique profile' : 'Continue adventure'
+    loginSubmitButton.textContent = isRegister ? 'Create profile' : 'Continue adventure'
   }
   if (!options.keepError && loginError) loginError.textContent = ''
   if (!options.skipCheck) scheduleUsernameAvailabilityCheck(0)
@@ -6779,31 +6838,41 @@ function scheduleUsernameAvailabilityCheck(delayMs = 260) {
   const modeAtStart = authMode
 
   const runCheck = async () => {
-    let localMatch = null
+    let localProfiles = []
     try {
-      localMatch = readLocalProfiles().find((entry) => entry && entry.id === profileId) || null
+      localProfiles = readLocalProfiles()
     } catch {}
+    const localKeys = new Set(localProfiles.map((entry) => entry && String(entry.id || '').toLowerCase()).filter(Boolean))
+    const localMatch = localProfiles.find((entry) => entry && entry.id === profileId) || null
 
     if (modeAtStart === 'register') {
-      if (localMatch) {
-        if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
-        setLoginStatus(`"${localMatch.name}" is already taken. Pick a unique username or switch to Returning Player.`, 'taken')
-        return
-      }
       if (!supabaseCredentials()) {
         if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
-        setLoginStatus('Username is available.', 'available')
+        const resolved = computeAvailableHandle(name, localKeys)
+        if (!resolved.suffixed) {
+          setLoginStatus(`Username "${resolved.displayName}" is available!`, 'available')
+        } else {
+          setLoginStatus(`"${name}" is already in use — you will get "${resolved.displayName}".`, 'tag')
+        }
         return
       }
-      setLoginStatus('Checking username uniqueness...', 'checking')
-      const cloudCheck = await lookupCloudUserByKey(profileId)
+      setLoginStatus('Checking handle availability...', 'checking')
+      const cloudFamily = await lookupCloudUsernameFamily(name)
       if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
-      if (cloudCheck.found) {
-        setLoginStatus(`"${cloudCheck.user.display_name}" is already taken. Choose a different unique username.`, 'taken')
-      } else if (cloudCheck.reachable) {
-        setLoginStatus('Username is available!', 'available')
+      const combinedKeys = new Set([...localKeys, ...cloudFamily.takenKeys])
+      const resolved = computeAvailableHandle(name, combinedKeys)
+      if (!resolved.suffixed) {
+        setLoginStatus(
+          cloudFamily.reachable
+            ? `Username "${resolved.displayName}" is available!`
+            : `Available locally as "${resolved.displayName}" (offline).`,
+          'available'
+        )
       } else {
-        setLoginStatus('Available locally (offline — will verify uniqueness on sync).', 'available')
+        setLoginStatus(
+          `"${name}" is already taken — you will be assigned "${resolved.displayName}" (unique #tag).`,
+          'tag'
+        )
       }
       return
     }
@@ -6816,16 +6885,16 @@ function scheduleUsernameAvailabilityCheck(delayMs = 260) {
     }
     if (!supabaseCredentials()) {
       if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
-      setLoginStatus('No saved profile with that name. Switch to New Player to register it.', 'taken')
+      setLoginStatus('No saved profile with that handle. Include #0001 if assigned one, or switch to New Player.', 'taken')
       return
     }
-    setLoginStatus('Looking up unique profile...', 'checking')
+    setLoginStatus('Looking up profile...', 'checking')
     const cloudCheck = await lookupCloudUserByKey(profileId)
     if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
     if (cloudCheck.found) {
       setLoginStatus(`Profile "${cloudCheck.user.display_name}" found — ready to continue.`, 'available')
     } else if (cloudCheck.reachable) {
-      setLoginStatus('No profile found with that name. Switch to New Player to create it.', 'taken')
+      setLoginStatus('No profile found with that handle. Include your #0001 tag if assigned one, or switch to New Player.', 'taken')
     } else {
       setLoginStatus('Offline — only locally cached profiles can be opened right now.', 'checking')
     }
@@ -6861,7 +6930,7 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
   if (loginSubmitting) return
   const name = normalizeUsername(usernameInput.value)
   if (!name) {
-    loginError.textContent = 'Enter a unique username to continue.'
+    loginError.textContent = 'Enter a username to continue.'
     usernameInput.focus()
     return
   }
@@ -6875,46 +6944,51 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
   loginSubmitting = true
   if (loginSubmitButton) {
     loginSubmitButton.disabled = true
-    loginSubmitButton.textContent = authMode === 'register' ? 'Verifying uniqueness...' : 'Loading profile...'
+    loginSubmitButton.textContent = authMode === 'register' ? 'Assigning unique handle...' : 'Loading profile...'
   }
   loginError.textContent = ''
 
   try {
     const profiles = readLocalProfiles()
+    const localKeys = new Set(profiles.map((entry) => entry && String(entry.id || '').toLowerCase()).filter(Boolean))
     let profile = profiles.find((entry) => entry && entry.id === profileId) || null
     let prefetchedCloudUser = null
 
     if (authMode === 'register') {
-      if (profile) {
-        loginError.textContent = `Username "${profile.name}" is already taken. Choose a different unique name, or switch to Returning Player.`
-        setLoginStatus('Duplicate usernames are not allowed.', 'taken')
-        usernameInput.focus()
-        return
-      }
+      let combinedKeys = new Set(localKeys)
+      let cloudReachable = false
       if (supabaseCredentials()) {
-        const cloudCheck = await lookupCloudUserByKey(profileId)
-        if (cloudCheck.found) {
-          loginError.textContent = `Username "${cloudCheck.user.display_name}" is already taken. Choose a different unique name, or switch to Returning Player.`
-          setLoginStatus('Duplicate usernames are not allowed.', 'taken')
-          usernameInput.focus()
-          return
-        }
-        if (cloudCheck.reachable) {
-          try {
-            prefetchedCloudUser = await registerCloudUserProfile(name)
-          } catch (regErr) {
-            if (regErr?.code === 'USERNAME_TAKEN' || /already taken|duplicate key|23505/i.test(String(regErr?.message || ''))) {
-              loginError.textContent = `Username "${name}" is already taken. Choose a different unique name, or switch to Returning Player.`
-              setLoginStatus('Duplicate usernames are not allowed.', 'taken')
-              usernameInput.focus()
-              return
+        const cloudFamily = await lookupCloudUsernameFamily(name)
+        cloudReachable = cloudFamily.reachable
+        for (const key of cloudFamily.takenKeys) combinedKeys.add(key)
+      }
+      let resolved = computeAvailableHandle(name, combinedKeys)
+
+      if (supabaseCredentials() && cloudReachable) {
+        try {
+          // If the exact name is already taken locally, pass the resolved #tag fallback so pre-migration DBs also allocate cleanly
+          const cloudRequested = localKeys.has(profileId) ? resolved.displayName : name
+          prefetchedCloudUser = await registerCloudUserProfile(cloudRequested, resolved.displayName)
+          if (prefetchedCloudUser?.display_name && prefetchedCloudUser?.username_key) {
+            resolved = {
+              displayName: normalizeUsername(prefetchedCloudUser.display_name),
+              profileId: String(prefetchedCloudUser.username_key).toLowerCase(),
+              suffixed: String(prefetchedCloudUser.username_key).toLowerCase() !== profileId,
             }
-            console.warn('Cloud registration warning; continuing with local unique profile.', regErr)
           }
+        } catch (regErr) {
+          console.warn('Cloud registration warning; continuing with assigned local handle.', regErr)
         }
       }
-      profile = { id: profileId, name, createdAt: new Date().toISOString() }
-      profiles.push(profile)
+
+      const existingResolved = profiles.find((entry) => entry && entry.id === resolved.profileId)
+      if (existingResolved) {
+        profile = existingResolved
+        profile.name = resolved.displayName
+      } else {
+        profile = { id: resolved.profileId, name: resolved.displayName, createdAt: new Date().toISOString() }
+        profiles.push(profile)
+      }
       localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles))
     } else {
       // Returning Player mode
@@ -6931,7 +7005,7 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
         } else {
           loginError.textContent = cloudUserLookup && !cloudUserLookup.reachable
             ? `Unable to reach the cloud right now, and "${name}" is not saved on this browser.`
-            : `No profile found for "${name}". Check the spelling or switch to New Player to register it.`
+            : `No profile found for "${name}". Include your #0001 tag if assigned one, or switch to New Player.`
           setLoginStatus('Profile not found.', 'taken')
           usernameInput.focus()
           return
@@ -6986,7 +7060,7 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
     loginSubmitting = false
     if (loginSubmitButton) {
       loginSubmitButton.disabled = false
-      loginSubmitButton.textContent = authMode === 'register' ? 'Create unique profile' : 'Continue adventure'
+      loginSubmitButton.textContent = authMode === 'register' ? 'Create profile' : 'Continue adventure'
     }
   }
 })
