@@ -3,7 +3,13 @@
   const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
   const MP_ARENAS = [
-    { id: 'arena', name: 'Cyber Arena' },
+    { id: 'arena', name: 'Data Center Arena' },
+    { id: 'bbcorp', name: 'BB Corp Arena' },
+    { id: 'mainroad', name: 'Main Street Arena' },
+    { id: 'netcafe', name: 'Net Cafe Arena' },
+    { id: 'hospital', name: 'Hospital Arena' },
+    { id: 'bank', name: 'Bank Arena' },
+    { id: 'supply', name: 'Corp Supply Arena' },
     { id: 'terminal_bay', name: 'Terminal Bay' },
     { id: 'server_shaft', name: 'Server Shaft' },
     { id: 'control_deck', name: 'Control Deck' },

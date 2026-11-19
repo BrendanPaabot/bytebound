@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Bytebound · CITCS Quest</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=9" />
+  <link rel="stylesheet" href="css/styles.css?v=12" />
 </head>
 <body>
   <section class="login-screen" id="loginScreen" aria-labelledby="loginTitle">
@@ -39,7 +39,7 @@
           <input id="usernameInput" name="username" type="text" maxlength="20" autocomplete="nickname" placeholder="Enter your username" required />
           <label for="pinInput">Password / PIN <small>(optional · protects profile &amp; resets)</small></label>
           <div class="pin-input-wrap">
-            <input id="pinInput" name="pin" type="password" maxlength="24" autocomplete="off" placeholder="Optional password or PIN (blank = classroom mode)" />
+            <input id="pinInput" name="pin" type="password" maxlength="24" autocomplete="off" placeholder="Optional password / PIN" />
             <button type="button" class="pin-toggle-btn" id="togglePinVisibilityButton" aria-pressed="false" aria-label="Show password">Show</button>
           </div>
           <p class="login-error" id="loginError" role="alert" aria-live="polite"></p>
@@ -325,14 +325,14 @@
   <script src="js/classes/Boss.js?v=6"></script>
   <script src="js/audio.js?v=13"></script>
   <script src="js/cards.js?v=7"></script>
-  <script src="js/arena.js?v=10"></script>
-  <script src="js/combat.js?v=58"></script>
-  <script src="js/practice.js?v=4"></script>
-  <script src="js/eventListeners.js?v=15"></script>
+  <script src="js/arena.js?v=11"></script>
+  <script src="js/combat.js?v=60"></script>
+  <script src="js/practice.js?v=6"></script>
+  <script src="js/eventListeners.js?v=16"></script>
   <script src="supabase-config.js?v=1"></script>
   <script src="js/mp-network.js?v=3"></script>
-  <script src="js/mp-matchmaking.js?v=5"></script>
+  <script src="js/mp-matchmaking.js?v=6"></script>
   <script src="js/mp-ui.js?v=4"></script>
-  <script src="index.js?v=146"></script>
+  <script src="index.js?v=150"></script>
 </body>
 </html>

@@ -93,25 +93,100 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => handleKey(e.key, false));
 
-document.querySelectorAll('[data-k]').forEach((btn) => {
+const touchButtons = [...document.querySelectorAll('[data-k]')];
+const dirTouchButtons = touchButtons.filter((b) => b.dataset.k === 'a' || b.dataset.k === 'd');
+const activeTouchPointers = new Map(); // pointerId -> { btn, key, isDir }
+
+function syncDirectionalKeysFromPointers() {
+  let leftHeld = false;
+  let rightHeld = false;
+  for (const entry of activeTouchPointers.values()) {
+    if (entry.key === 'a') leftHeld = true;
+    if (entry.key === 'd') rightHeld = true;
+  }
+  keys.a.pressed = leftHeld;
+  keys.d.pressed = rightHeld;
+  for (const b of dirTouchButtons) {
+    const held = b.dataset.k === 'a' ? leftHeld : rightHeld;
+    b.classList.toggle('is-pressed', held);
+  }
+}
+
+function releaseTouchPointer(pointerId) {
+  const entry = activeTouchPointers.get(pointerId);
+  if (!entry) return;
+  activeTouchPointers.delete(pointerId);
+  if (entry.isDir) {
+    syncDirectionalKeysFromPointers();
+  } else {
+    let stillHeld = false;
+    for (const other of activeTouchPointers.values()) {
+      if (other.btn === entry.btn) {
+        stillHeld = true;
+        break;
+      }
+    }
+    if (!stillHeld) {
+      entry.btn.classList.remove('is-pressed');
+      handleKey(entry.key, false);
+    }
+  }
+  if (entry.btn.hasPointerCapture && entry.btn.hasPointerCapture(pointerId)) {
+    try { entry.btn.releasePointerCapture(pointerId); } catch (_) {}
+  }
+}
+
+function releaseAllTouchControls() {
+  for (const pid of [...activeTouchPointers.keys()]) {
+    releaseTouchPointer(pid);
+  }
+  keys.a.pressed = false;
+  keys.d.pressed = false;
+  touchButtons.forEach((b) => b.classList.remove('is-pressed'));
+}
+
+touchButtons.forEach((btn) => {
   const key = btn.dataset.k;
+  const isDir = key === 'a' || key === 'd';
   btn.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    btn.classList.add('is-pressed');
     if (btn.setPointerCapture) {
       try { btn.setPointerCapture(e.pointerId); } catch (_) {}
     }
-    handleKey(key, true);
-  });
-  const release = (e) => {
-    btn.classList.remove('is-pressed');
-    handleKey(key, false);
-    if (e && e.pointerId != null && btn.hasPointerCapture && btn.hasPointerCapture(e.pointerId)) {
-      try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
+    activeTouchPointers.set(e.pointerId, { btn, key, isDir });
+    if (isDir) {
+      syncDirectionalKeysFromPointers();
+    } else {
+      btn.classList.add('is-pressed');
+      handleKey(key, true);
     }
-  };
+  });
+  if (isDir) {
+    // Allow smooth thumb sliding between LEFT and RIGHT on the D-pad without lifting
+    btn.addEventListener('pointermove', (e) => {
+      const entry = activeTouchPointers.get(e.pointerId);
+      if (!entry || !entry.isDir) return;
+      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('.touch-dir[data-k]');
+      if (target && (target.dataset.k === 'a' || target.dataset.k === 'd') && target.dataset.k !== entry.key) {
+        entry.key = target.dataset.k;
+        syncDirectionalKeysFromPointers();
+      }
+    });
+  }
+  const release = (e) => releaseTouchPointer(e.pointerId);
   btn.addEventListener('pointerup', release);
   btn.addEventListener('pointercancel', release);
   btn.addEventListener('lostpointercapture', release);
   btn.addEventListener('contextmenu', (e) => e.preventDefault());
+});
+
+window.addEventListener('blur', releaseAllTouchControls);
+window.addEventListener('orientationchange', () => {
+  releaseAllTouchControls();
+  window.setTimeout(() => {
+    if (typeof syncTouchVisibility === 'function') syncTouchVisibility();
+    if (typeof updateExploreCamera === 'function' && typeof mode !== 'undefined' && mode === 'explore') {
+      updateExploreCamera();
+    }
+  }, 120);
 });

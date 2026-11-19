@@ -18,7 +18,20 @@ let activePlayerPinHash = ''
 let activePlayerHasPin = false
 window.activePlayerName = activePlayerName
 let activeAchievementStorageKey = ACHIEVEMENT_STORAGE_KEY
-let achievementProgress = { kills: 0, bestStreak: 0, upgrades: 0, bosses: 0, pvpMatches: 0, pvpWins: 0 }
+let achievementProgress = {
+  kills: 0,
+  bestStreak: 0,
+  upgrades: 0,
+  bosses: 0,
+  pvpMatches: 0,
+  pvpWins: 0,
+  pvpDamage: 0,
+  pvpCorrect: 0,
+  pvpBestRating: 1000,
+  drillAnswers: 0,
+  drillCompletions: 0,
+  leaderboardSubmissions: 0,
+}
 let unlockedAchievements = {}
 let achievementToastQueue = []
 let achievementToastTimer = 0
@@ -339,6 +352,13 @@ function saveLocalPvpResult(matchData) {
   try {
     localStorage.setItem(PVP_LEADERBOARD_STORAGE_KEY, JSON.stringify(map))
   } catch {}
+  if (typeof recordAchievementProgress === 'function' && activePlayerName && key === activePlayerName.trim().toLowerCase()) {
+    const dmg = Math.max(0, Number(matchData.damageDealt) || 0)
+    const corr = Math.max(0, Number(matchData.correctAnswers) || 0)
+    if (dmg > 0) recordAchievementProgress('pvpDamage', dmg)
+    if (corr > 0) recordAchievementProgress('pvpCorrect', corr)
+    recordAchievementProgress('pvpBestRating', entry.rating)
+  }
   return entry
 }
 
@@ -526,6 +546,11 @@ async function performLeaderboardRunSubmit(options = {}) {
   leaderboardRunSubmitted = true
   leaderboardState = 'ready'
   leaderboardError = ''
+  if (!wasSubmittedBefore && typeof recordAchievementProgress === 'function') {
+    recordAchievementProgress('leaderboardSubmissions', 1)
+  } else {
+    refreshAchievements()
+  }
   return true
 }
 
@@ -860,18 +885,41 @@ const ACHIEVEMENTS = [
   { id: 'boss-breaker', category: 'general', name: 'Boss Breaker', description: 'Defeat a mini boss.', goal: 1, metric: 'bosses', icon: '16' },
   { id: 'boss-vanquisher', category: 'general', name: 'Boss Vanquisher', description: 'Defeat 5 mini bosses.', goal: 5, metric: 'bosses', icon: '17' },
 
+  // Topic Drill, Learning Tracker & Leaderboard Achievements
+  { id: 'drill-initiate', category: 'study', name: 'Drill Initiate', description: 'Answer 5 questions in Topic Drill.', goal: 5, metric: 'drillAnswers', icon: 'TD1' },
+  { id: 'drill-scholar', category: 'study', name: 'Drill Scholar', description: 'Answer 25 questions in Topic Drill.', goal: 25, metric: 'drillAnswers', icon: 'TD2' },
+  { id: 'set-finisher', category: 'study', name: 'Set Finisher', description: 'Complete a Topic Drill set (DONE).', goal: 1, metric: 'drillCompletions', icon: 'DN1' },
+  { id: 'curriculum-finisher', category: 'study', name: 'Curriculum Finisher', description: 'Complete 5 Topic Drill sets (DONE).', goal: 5, metric: 'drillCompletions', icon: 'DN5' },
+  { id: 'topic-explorer', category: 'study', name: 'Topic Explorer', description: 'Attempt at least 1 question in 10 IT topics.', goal: 10, metric: 'topicsExplored', icon: 'TR1' },
+  { id: 'full-coverage', category: 'study', name: 'Full Coverage', description: 'Attempt all 20 IT topics in the Learning Tracker.', goal: 20, metric: 'topicsExplored', icon: 'TR2' },
+  { id: 'growth-mindset', category: 'study', name: 'Growth Mindset', description: 'Beat your Diagnostic Baseline in 3 topics.', goal: 3, metric: 'topicsImproved', icon: 'UP3' },
+  { id: 'tracker-virtuoso', category: 'study', name: 'Tracker Virtuoso', description: 'Master 5 IT topics (80%+ accuracy, 4+ answers).', goal: 5, metric: 'topicsMastered', icon: 'MS5' },
+  { id: 'on-the-board', category: 'study', name: 'On The Board', description: 'Record a run on the Arcade Leaderboard.', goal: 1, metric: 'leaderboardRuns', icon: 'LB1' },
+  { id: 'top-ten-contender', category: 'study', name: 'Top 10 Contender', description: 'Reach Top 10 on the Arcade Leaderboard.', goal: 1, metric: 'topArcadeTen', icon: 'T10' },
+  { id: 'podium-finish', category: 'study', name: 'Podium Finish', description: 'Reach Top 3 on the Arcade Leaderboard.', goal: 1, metric: 'topArcadeThree', icon: 'TOP' },
+  { id: 'arcade-apex', category: 'study', name: 'Arcade Apex', description: 'Claim Rank #1 on the Arcade Leaderboard.', goal: 1, metric: 'topArcadeOne', icon: '#1' },
+
   // 1v1 Competitive Arena Achievements
   { id: 'arena-debut', category: 'pvp', name: 'Arena Debut', description: 'Complete your first 1v1 Competitive match.', goal: 1, metric: 'pvpMatches', icon: 'VS' },
   { id: 'duel-victor', category: 'pvp', name: 'Duel Victor', description: 'Win your first 1v1 Competitive match.', goal: 1, metric: 'pvpWins', icon: 'W1' },
   { id: 'arena-gladiator', category: 'pvp', name: 'Arena Gladiator', description: 'Win 5 matches in the 1v1 Competitive Arena.', goal: 5, metric: 'pvpWins', icon: 'W5' },
   { id: 'arena-champion', category: 'pvp', name: 'Arena Champion', description: 'Win 15 matches in the 1v1 Competitive Arena.', goal: 15, metric: 'pvpWins', icon: 'W15' },
+  { id: 'arena-striker', category: 'pvp', name: 'Arena Striker', description: 'Deal 250 total damage in 1v1 Competitive duels.', goal: 250, metric: 'pvpDamage', icon: 'DM1' },
+  { id: 'arena-destroyer', category: 'pvp', name: 'Arena Destroyer', description: 'Deal 1,000 total damage in 1v1 Competitive duels.', goal: 1000, metric: 'pvpDamage', icon: 'DM2' },
+  { id: 'duel-savant', category: 'pvp', name: 'Duel Savant', description: 'Answer 20 questions correctly in 1v1 duels.', goal: 20, metric: 'pvpCorrect', icon: 'Q20' },
+  { id: 'elo-ascendant', category: 'pvp', name: 'Elo Ascendant', description: 'Reach 1,100+ Rating on the 1v1 Leaderboard.', goal: 1100, metric: 'pvpBestRating', icon: 'ELO' },
 
-  // Exclusive Active Skill Achievements
+  // Role & Exclusive Active Skill Achievements
   { id: 'path-committed', category: 'exclusive', name: 'Path Committed', description: 'Unlock any Exclusive Active Skill in the Skill Tree.', goal: 1, metric: 'exclusivePicked', icon: 'EX' },
   { id: 'aegis-bearer', category: 'exclusive', theme: 'cs', name: 'Aegis Bearer', description: 'Choose Kernel Aegis (Computer Systems Exclusive).', goal: 1, metric: 'exclusiveCs', icon: 'CS' },
+  { id: 'aegis-sentinel', category: 'exclusive', theme: 'cs', name: 'Aegis Sentinel', description: 'Invest 6 total skill ranks in Computer Systems.', goal: 6, metric: 'csSkillRanks', icon: 'CS6' },
   { id: 'lockdown-enforcer', category: 'exclusive', theme: 'ns', name: 'Lockdown Enforcer', description: 'Choose Packet Lockdown (Networking Exclusive).', goal: 1, metric: 'exclusiveNs', icon: 'NS' },
+  { id: 'net-architect', category: 'exclusive', theme: 'ns', name: 'Net Architect', description: 'Invest 6 total skill ranks in Networking & Security.', goal: 6, metric: 'nsSkillRanks', icon: 'NS6' },
   { id: 'overburn-executor', category: 'exclusive', theme: 'pr', name: 'Overburn Executor', description: 'Choose Overburn Execution (Programming Exclusive).', goal: 1, metric: 'exclusivePr', icon: 'PR' },
+  { id: 'code-compiler', category: 'exclusive', theme: 'pr', name: 'Code Compiler', description: 'Invest 6 total skill ranks in Programming.', goal: 6, metric: 'prSkillRanks', icon: 'PR6' },
   { id: 'soul-binder', category: 'exclusive', theme: 'db', name: 'Soul Binder', description: 'Choose Necromancy Pact (Database Exclusive).', goal: 1, metric: 'exclusiveDb', icon: 'DB' },
+  { id: 'vault-keeper', category: 'exclusive', theme: 'db', name: 'Vault Keeper', description: 'Invest 6 total skill ranks in Database.', goal: 6, metric: 'dbSkillRanks', icon: 'DB6' },
+  { id: 'apex-specialist', category: 'exclusive', name: 'Apex Specialist', description: 'Upgrade any Exclusive Active Skill to Rank 3/3.', goal: 1, metric: 'exclusiveMaxed', icon: 'MAX' },
 ]
 
 function resetAchievementToast() {
@@ -927,7 +975,20 @@ function queueAchievementToast(achievement) {
 function selectAchievementProfile(profileId) {
   resetAchievementToast()
   activeAchievementStorageKey = `${ACHIEVEMENT_STORAGE_KEY}:${encodeURIComponent(profileId)}`
-  achievementProgress = { kills: 0, bestStreak: 0, upgrades: 0, bosses: 0, pvpMatches: 0, pvpWins: 0 }
+  achievementProgress = {
+    kills: 0,
+    bestStreak: 0,
+    upgrades: 0,
+    bosses: 0,
+    pvpMatches: 0,
+    pvpWins: 0,
+    pvpDamage: 0,
+    pvpCorrect: 0,
+    pvpBestRating: 1000,
+    drillAnswers: 0,
+    drillCompletions: 0,
+    leaderboardSubmissions: 0,
+  }
   unlockedAchievements = {}
   try {
     const saved = localStorage.getItem(activeAchievementStorageKey)
@@ -971,7 +1032,7 @@ function recordAchievementProgress(metric, value) {
     throw new Error(`Invalid achievement progress: ${metric}`)
   }
   if (practiceRunActive) return
-  achievementProgress[metric] = metric === 'bestStreak'
+  achievementProgress[metric] = (metric === 'bestStreak' || metric === 'pvpBestRating')
     ? Math.max(achievementProgress[metric], value)
     : achievementProgress[metric] + value
   saveAchievementProgress()
@@ -979,29 +1040,60 @@ function recordAchievementProgress(metric, value) {
 }
 
 function getAchievementMetrics() {
-  const topicTotals = Object.values(topicProgress).flatMap((topics) => Object.values(topics))
-    .reduce((totals, topic) => ({
-      correct: totals.correct + topic.correct,
-      attempted: totals.attempted + topic.attempted,
-    }), { correct: 0, attempted: 0 })
-  const investedTrees = SKILL_TREE_KEYS.filter((key) =>
-    Object.values(skillProgress[key].ranks).some((rank) => rank > 0)
-  )
+  const allTopics = Object.values(topicProgress).flatMap((topics) => Object.values(topics))
+  const topicTotals = allTopics.reduce((totals, topic) => ({
+    correct: totals.correct + (topic.correct || 0),
+    attempted: totals.attempted + (topic.attempted || 0),
+  }), { correct: 0, attempted: 0 })
+  const topicsExplored = allTopics.filter((t) => (t?.attempted || 0) >= 1).length
+  const topicsMastered = allTopics.filter((t) => typeof getTopicMasteryState === 'function' && getTopicMasteryState(t) === 'mastered').length
+  const topicsImproved = allTopics.filter((t) => {
+    if (!t || !t.baselineAttempted || (t.attempted || 0) <= t.baselineAttempted) return false
+    const basePct = Math.round((100 * (t.baselineCorrect || 0)) / t.baselineAttempted)
+    const currPct = Math.round((100 * (t.correct || 0)) / t.attempted)
+    return currPct > basePct
+  }).length
+  const treeRankSum = (key) => Object.values(skillProgress[key]?.ranks || {}).reduce((sum, rank) => sum + (rank || 0), 0)
+  const investedTrees = SKILL_TREE_KEYS.filter((key) => treeRankSum(key) > 0)
+  const exclusiveMaxed = SKILL_TREE_KEYS.some((key) => {
+    const exId = SKILL_TREES[key]?.exclusiveId
+    return exId && (skillProgress[key]?.ranks?.[exId] || 0) >= 3
+  }) ? 1 : 0
+  const activeKey = String(activePlayerName || '').trim().toLowerCase()
+  const arcadeRankIdx = activeKey
+    ? leaderboardEntries.findIndex((e) => String(e?.player_name || '').trim().toLowerCase() === activeKey)
+    : -1
+  const arcadeRank = arcadeRankIdx >= 0 ? arcadeRankIdx + 1 : 0
+  const pvpEntry = activeKey
+    ? pvpLeaderboardEntries.find((e) => String(e?.player_name || '').trim().toLowerCase() === activeKey)
+    : null
+  const pvpBestRating = Math.max(achievementProgress.pvpBestRating || 1000, pvpEntry?.rating || 0)
   return {
     ...achievementProgress,
     correct: topicTotals.correct,
     accuracy: topicTotals.attempted ? Math.floor((100 * topicTotals.correct) / topicTotals.attempted) : 0,
-    skillRanks: investedTrees.reduce((total, key) =>
-      total + Object.values(skillProgress[key].ranks).reduce((sum, rank) => sum + rank, 0), 0
-    ),
+    skillRanks: investedTrees.reduce((total, key) => total + treeRankSum(key), 0),
     investedTrees: investedTrees.length,
     bestTreeSkills: Math.max(0, ...SKILL_TREE_KEYS.map((key) => countSpecializedSkills(key))),
     attempts: topicTotals.attempted,
+    topicsExplored,
+    topicsMastered,
+    topicsImproved,
+    leaderboardRuns: Math.max(achievementProgress.leaderboardSubmissions || 0, arcadeRank > 0 ? 1 : 0),
+    topArcadeTen: arcadeRank >= 1 && arcadeRank <= 10 ? 1 : 0,
+    topArcadeThree: arcadeRank >= 1 && arcadeRank <= 3 ? 1 : 0,
+    topArcadeOne: arcadeRank === 1 ? 1 : 0,
+    pvpBestRating,
+    csSkillRanks: treeRankSum('computerSystems'),
+    nsSkillRanks: treeRankSum('networkingSecurity'),
+    prSkillRanks: treeRankSum('programming'),
+    dbSkillRanks: treeRankSum('database'),
     exclusivePicked: exclusiveSkillTree ? 1 : 0,
     exclusiveCs: exclusiveSkillTree === 'computerSystems' ? 1 : 0,
     exclusiveNs: exclusiveSkillTree === 'networkingSecurity' ? 1 : 0,
     exclusivePr: exclusiveSkillTree === 'programming' ? 1 : 0,
     exclusiveDb: exclusiveSkillTree === 'database' ? 1 : 0,
+    exclusiveMaxed,
   }
 }
 
@@ -1042,8 +1134,9 @@ function renderAchievements() {
   const unlockedCount = ACHIEVEMENTS.filter((achievement) => unlockedAchievements[achievement.id]).length
   const sections = [
     { key: 'general', title: 'General Milestones', badge: 'GENERAL', hint: 'Campaign combat, quizzes, upgrades, and skill progression.' },
-    { key: 'pvp', title: '1v1 Competitive Arena', badge: '1V1 ARENA', hint: 'Head-to-head competitive duel milestones.' },
-    { key: 'exclusive', title: 'Exclusive Skill Paths', badge: 'EXCLUSIVE', hint: 'Signature active skill choices from the Skill Tree.' },
+    { key: 'study', title: 'Topic Drill, Tracker & Leaderboard', badge: 'STUDY & RANK', hint: 'Non-combat Topic Drill mastery, Learning Tracker coverage, and Arcade rankings.' },
+    { key: 'pvp', title: '1v1 Competitive Arena', badge: '1V1 ARENA', hint: 'Head-to-head competitive duel, damage, accuracy, and Elo milestones.' },
+    { key: 'exclusive', title: 'Role & Exclusive Skill Paths', badge: 'ROLE PATH', hint: 'Discipline role mastery and signature exclusive active skills.' },
   ]
   const sectionsHtml = sections.map((sec) => {
     const items = ACHIEVEMENTS.filter((a) => (a.category || 'general') === sec.key)
@@ -1089,7 +1182,7 @@ function renderAchievements() {
   }).join('')
   return `<span class="eyebrow">Achievements</span>
     <h2>Milestones earned</h2>
-    <p class="achievement-summary">${unlockedCount} of ${ACHIEVEMENTS.length} achievements unlocked across General, 1v1 Arena, and Exclusive Skill Paths.</p>
+    <p class="achievement-summary">${unlockedCount} of ${ACHIEVEMENTS.length} achievements unlocked across General, Topic Drill/Tracker/Leaderboard, 1v1 Arena, and Role Skill Paths.</p>
     <div class="achievement-sections">${sectionsHtml}</div>
     ${renderCardCollection(metrics)}`
 }
@@ -1322,6 +1415,7 @@ const SUPPLY_ROOM_DOOR_FRAME_RECTS = [
 const LEVELS = {
   1: {
     name: 'Terminal Bay',
+    arenaTheme: 'datacenter',
     bg: './img/map/datacenter/backgroundLevel1.jpg?v=clean-room',
     grid: collisionsLevel1,
     collisionShapes: collisionShapesLevel1,
@@ -1336,6 +1430,7 @@ const LEVELS = {
   },
   2: {
     name: 'Server Shaft',
+    arenaTheme: 'datacenter',
     bg: './img/map/datacenter/backgroundLevel2.jpg',
     grid: collisionsLevel2,
     collisionShapes: collisionShapesLevel2,
@@ -1350,6 +1445,7 @@ const LEVELS = {
   },
   3: {
     name: 'Control Deck',
+    arenaTheme: 'datacenter',
     bg: './img/map/datacenter/backgroundLevel3.jpg',
     grid: collisionsLevel3,
     collisionShapes: collisionShapesLevel3,
@@ -1366,6 +1462,7 @@ const LEVELS = {
   },
   4: {
     name: 'Office Wing',
+    arenaTheme: 'bbcorp',
     bg: './img/map/bbcorp/backgroundLevel4.jpg',
     grid: collisionsLevel4,
     collisionShapes: collisionShapesLevel4,
@@ -1384,6 +1481,7 @@ const LEVELS = {
   },
   5: {
     name: 'Executive Floor',
+    arenaTheme: 'bbcorp',
     bg: './img/map/bbcorp/backgroundLevel5.jpg?v=1',
     grid: collisionsLevel5,
     collisionShapes: collisionShapesLevel5,
@@ -1401,6 +1499,7 @@ const LEVELS = {
   },
   6: {
     name: 'BB Corp Street',
+    arenaTheme: 'mainroad',
     bg: './img/map/mainroad/backgroundLevel6.jpg?v=1',
     grid: collisionsLevel6,
     collisionShapes: collisionShapesLevel6,
@@ -1424,6 +1523,7 @@ const LEVELS = {
   },
   7: {
     name: 'Net Cafe Street',
+    arenaTheme: 'mainroad',
     bg: './img/map/mainroad/backgroundLevel6left.jpg?v=1',
     grid: collisionsLevel6Left,
     collisionShapes: collisionShapesLevel6Left,
@@ -1468,6 +1568,7 @@ const LEVELS = {
   },
   8: {
     name: 'Net Cafe Lobby',
+    arenaTheme: 'netcafe',
     bg: './img/map/netcafe/backgroundLevelcafe.jpg?v=1',
     grid: collisionsLevelCafe,
     collisionShapes: collisionShapesLevelCafe,
@@ -1506,6 +1607,7 @@ const LEVELS = {
   },
   9: {
     name: 'Net Cafe Staff Room',
+    arenaTheme: 'netcafe',
     bg: './img/map/netcafe/backgroundLevelcafe2.jpg?v=1',
     grid: collisionsLevelCafe2,
     collisionShapes: collisionShapesLevelCafe2,
@@ -1543,6 +1645,7 @@ const LEVELS = {
   },
   10: {
     name: 'East Main Road',
+    arenaTheme: 'mainroad',
     bg: './img/map/mainroad/backgroundLevel6right.jpg?v=1',
     grid: collisionsLevel6Right,
     collisionShapes: collisionShapesLevel6Right,
@@ -1587,6 +1690,7 @@ const LEVELS = {
   },
   11: {
     name: 'Hospital Wing',
+    arenaTheme: 'hospital',
     bg: './img/map/hospital/backgroundLevelhospital.jpg?v=2',
     grid: collisionsLevelHospital,
     collisionShapes: collisionShapesLevelHospital,
@@ -1625,6 +1729,7 @@ const LEVELS = {
   },
   12: {
     name: 'Hospital Upper Floors',
+    arenaTheme: 'hospital',
     bg: './img/map/hospital/backgroundLevelhospital2.jpg?v=1',
     grid: collisionsLevelHospital2,
     collisionShapes: collisionShapesLevelHospital2,
@@ -1661,6 +1766,7 @@ const LEVELS = {
   },
   13: {
     name: 'Bank',
+    arenaTheme: 'bank',
     bg: './img/map/bank/backgroundLevelbank.jpg?v=1',
     grid: collisionsLevelBank,
     collisionShapes: collisionShapesLevelBank,
@@ -1706,6 +1812,7 @@ const LEVELS = {
   },
   14: {
     name: 'Bank Upper Floors',
+    arenaTheme: 'bank',
     bg: './img/map/bank/backgroundLevelbank2.jpg?v=1',
     grid: collisionsLevelBank2,
     collisionShapes: collisionShapesLevelBank2,
@@ -1747,6 +1854,7 @@ const LEVELS = {
   },
   15: {
     name: 'Corp Supply',
+    arenaTheme: 'supply',
     bg: './img/map/supply/backgroundLevelsupply.jpg?v=1',
     grid: collisionsLevelSupply,
     collisionShapes: collisionShapesLevelSupply,
@@ -1792,6 +1900,7 @@ const LEVELS = {
   },
   16: {
     name: 'Corp Supply Management',
+    arenaTheme: 'supply',
     bg: './img/map/supply/backgroundLevelsupply2.jpg?v=1',
     grid: collisionsLevelSupply2,
     collisionShapes: collisionShapesLevelSupply2,
@@ -2177,6 +2286,7 @@ function loadLevel(n, options = {}) {
   level = n
   visitedRooms.add(((n - 1) % ROOM_COUNT) + 1)
   currentRoom = cfg
+  if (typeof setArenaTheme === 'function') setArenaTheme(cfg.arenaTheme || 'datacenter')
   pendingDoorTarget = 'next'
   pendingDoorMeta = null
   hoveredExploreDoor = null
@@ -4039,6 +4149,7 @@ function startPracticeAdventure() {
 function syncTouchVisibility() {
   if (typeof app === 'undefined' || !app) return
   const gameOverEl = document.getElementById('gameOverOverlay')
+  const inBattle = Boolean(playViewActive && (mode === 'battle' || mode === 'intro'))
   const hideTouch =
     !playViewActive ||
     mode !== 'explore' ||
@@ -4048,6 +4159,7 @@ function syncTouchVisibility() {
     Boolean(window.mpUI?.isOpen) ||
     Boolean(gameOverEl && !gameOverEl.hidden)
   app.classList.toggle('is-touch-hidden', hideTouch)
+  app.classList.toggle('is-in-battle', inBattle)
 }
 
 function updateNavigation() {
@@ -4418,13 +4530,48 @@ function renderSkillTree() {
     clampPan()
     updateZoomStatus()
   }, { passive: false })
+  const activeMapPointers = new Map()
   let drag = null
+  let pinch = null
   viewport.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0 || event.target.closest('button')) return
-    drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, panX: skillMapPan.x, panY: skillMapPan.y }
-    viewport.setPointerCapture(event.pointerId)
+    if ((event.pointerType === 'mouse' && event.button !== 0) || event.target.closest('button')) return
+    activeMapPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    try { viewport.setPointerCapture(event.pointerId) } catch (_) {}
+    if (activeMapPointers.size === 2) {
+      drag = null
+      const pts = [...activeMapPointers.values()]
+      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1
+      const rect = viewport.getBoundingClientRect()
+      const midX = (pts[0].x + pts[1].x) / 2 - rect.left
+      const midY = (pts[0].y + pts[1].y) / 2 - rect.top
+      pinch = {
+        dist,
+        scale: skillMapPan.scale,
+        mapX: (midX - skillMapPan.x) / skillMapPan.scale,
+        mapY: (midY - skillMapPan.y) / skillMapPan.scale,
+      }
+      viewport.classList.add('is-panning')
+    } else if (activeMapPointers.size === 1) {
+      drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, panX: skillMapPan.x, panY: skillMapPan.y }
+    }
   })
   viewport.addEventListener('pointermove', (event) => {
+    if (!activeMapPointers.has(event.pointerId)) return
+    activeMapPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    if (pinch && activeMapPointers.size === 2) {
+      const pts = [...activeMapPointers.values()]
+      const nextDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1
+      const rect = viewport.getBoundingClientRect()
+      const midX = (pts[0].x + pts[1].x) / 2 - rect.left
+      const midY = (pts[0].y + pts[1].y) / 2 - rect.top
+      const nextScale = Math.max(minimumZoom, Math.min(SKILL_MAP_MAX_ZOOM, pinch.scale * (nextDist / pinch.dist)))
+      skillMapPan.scale = nextScale
+      skillMapPan.x = midX - pinch.mapX * nextScale
+      skillMapPan.y = midY - pinch.mapY * nextScale
+      clampPan()
+      updateZoomStatus()
+      return
+    }
     if (!drag || drag.pointerId !== event.pointerId) return
     skillMapPan.x = drag.panX + event.clientX - drag.x
     skillMapPan.y = drag.panY + event.clientY - drag.y
@@ -4432,9 +4579,15 @@ function renderSkillTree() {
     clampPan()
   })
   const finishDrag = (event) => {
-    if (!drag || drag.pointerId !== event.pointerId) return
-    drag = null
-    viewport.classList.remove('is-panning')
+    activeMapPointers.delete(event.pointerId)
+    if (activeMapPointers.size < 2) pinch = null
+    if (activeMapPointers.size === 1) {
+      const [[remId, remPt]] = [...activeMapPointers.entries()]
+      drag = { pointerId: remId, x: remPt.x, y: remPt.y, panX: skillMapPan.x, panY: skillMapPan.y }
+    } else {
+      drag = null
+      viewport.classList.remove('is-panning')
+    }
   }
   viewport.addEventListener('pointerup', finishDrag)
   viewport.addEventListener('pointercancel', finishDrag)
@@ -5622,6 +5775,7 @@ async function executeCurrentProfileReset() {
     `kings-pigs-review-v1:${profileKey}`,
     `${ACHIEVEMENT_STORAGE_KEY}:${profileKey}`,
     `${RUN_SAVES_STORAGE_KEY}:${profileKey}`,
+    `bytebound-drill-done-v1:${profileKey}`,
     `bytebound-avatar:${profileId}`,
   ]
   activeRunSaveId = null

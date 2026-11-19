@@ -445,7 +445,7 @@ const SKILL_TREES = {
     skills: [
       { id: 'foundation', name: 'Query Indexing', description: 'Index battle knowledge for faster, more decisive attacks.', effect: '+1 ATK per rank', bonus: { attack: 1 } },
       { id: 'transactions', name: 'Transaction Safety', description: 'Apply reliable transaction principles to improve defense.', effect: '+1 DEF per rank', bonus: { defense: 1 }, requires: ['foundation'] },
-      { id: 'necromancy', name: 'Necromancy', description: 'EXCLUSIVE ACTIVE SKILL: Become a Necromancer. Raise fallen enemies or bosses to fight beside you. Rank 1 allows 1 ally; upgrade Necromancy to raise up to 3 allies at once. Choosing this locks all other 3 skill sets and transfers their unspent SP here.', effect: 'Max Undead Allies: 1 per rank (up to 3)', bonus: {}, isExclusiveActive: true, activeCardId: null, isNecromancy: true, maxRank: 3, requires: ['transactions'] },
+      { id: 'necromancy', name: 'Necromancy', description: 'EXCLUSIVE ACTIVE SKILL: Become a Necromancer. Spend Mana to raise fallen enemies or bosses (stronger souls cost more MP), and they attack alongside you whenever you answer correctly. Rank 1 allows 1 ally; upgrade Necromancy to raise up to 3 allies at once. Choosing this locks all other 3 skill sets and transfers their unspent SP here.', effect: 'Max Undead Allies: 1 per rank (up to 3 · Costs MP)', bonus: {}, isExclusiveActive: true, activeCardId: null, isNecromancy: true, maxRank: 3, requires: ['transactions'] },
       { id: 'queryCache', name: 'Query Cache', description: 'Cache useful results to regain mana on correct answers.', effect: '+2 MP per correct answer per rank', bonus: { bonusMana: 2 }, requires: ['necromancy'] },
       { id: 'replication', name: 'Replication', description: 'Replicate critical resources to expand your mana reserve.', effect: '+5 max MP per rank', bonus: { maxMana: 5 }, requires: ['necromancy'] },
       { id: 'queryOptimizer', name: 'Query Optimizer', description: 'Choose efficient query plans for balanced combat improvements.', effect: '+1 ATK and +1 DEF per rank', bonus: { attack: 1, defense: 1 }, requires: ['queryCache'] },
@@ -706,6 +706,22 @@ function getNecroAllies() {
   if (Array.isArray(hero.necroAllies) && hero.necroAllies.length) return hero.necroAllies;
   return hero.necroAlly ? [hero.necroAlly] : [];
 }
+function getNecromancyManaCost(cand) {
+  if (!cand) return 20;
+  const tierBase = cand.isFinal
+    ? 50
+    : cand.isBoss
+      ? 35
+      : cand.nyrmed
+        ? 24
+        : cand.grenu
+          ? 18
+          : cand.brute
+            ? 14
+            : 7;
+  const statCost = Math.round((cand.attack || 9) * 1.1 + (cand.maxHp || 40) * 0.08);
+  return Math.max(20, Math.min(95, tierBase + statCost));
+}
 
 function getUnlockedExclusiveCardId() {
   for (const key of SKILL_TREE_KEYS) {
@@ -851,6 +867,7 @@ function endMultiplayerMatchState() {
     battle.enemy = null;
     battle.phase = 'choose';
     battle.pendingAttack = false;
+  battle.lastAnswerCorrect = false;
     battle.question = null;
     battle.popups = [];
   }
@@ -1162,6 +1179,9 @@ function showVictory() {
 // ===== Battle flow =====
 function startBattle(enemy) {
   hideGameOverOverlay();
+  if (!multiplayerMatchActive && typeof setArenaTheme === 'function') {
+    setArenaTheme((typeof currentRoom !== 'undefined' && currentRoom?.arenaTheme) || 'datacenter');
+  }
   if (typeof battleKingDeath !== 'undefined' && battleKingDeath) {
     battleKingDeath.currentFrame = 0;
     battleKingDeath.elapsedFrames = 0;
@@ -1203,7 +1223,7 @@ function startBattle(enemy) {
     pendingAttack: false,
     hitT: 0, enemyInvertT: 0, cameraPushDistance: 0, cameraShakeT: 0, impactRingT: 0, enemyDefeatT: -1,
     heroHitT: 0, heroHitTintT: 0, heroKnockbackT: -1,
-    deathTimer: 0, enemyAttackedThisTurn: false,
+    deathTimer: 0, enemyAttackedThisTurn: false, lastAnswerCorrect: true,
     flash: { hero: 0, enemy: 0 }, fromReview: false, newUnlocks: [],
     log: enemy.nyrmed ? `${enemy.name} & follower Grenu block the way!` : enemy.isBoss ? `${enemy.name} blocks the way!` : `A wild ${enemy.name} appeared!`,
   });
@@ -1252,6 +1272,7 @@ function chooseCard(index) {
   battle.projectileCharged = false;
   battle.projectileDamage = 0;
   battle.pendingAttack = false;
+  battle.lastAnswerCorrect = false;
   if (multiplayerMatchActive) {
     battle.question = withShuffledChoices(mpGetQuestionForRound(mpState.round));
     battle.fromReview = false;
@@ -1278,6 +1299,7 @@ function answerQuestion(index) {
   if (battle.phase !== 'question') return;
   const q = battle.question;
   const correct = index === q.answer;
+  battle.lastAnswerCorrect = correct;
   if (multiplayerMatchActive) {
     mpState.selfTotal = (mpState.selfTotal || 0) + 1;
     if (correct) mpState.selfCorrect = (mpState.selfCorrect || 0) + 1;
@@ -1315,6 +1337,9 @@ function answerQuestion(index) {
     notes.push(`Focus restores ${heal} HP and 5 mana (streak ${stats.streak}).`);
   } else {
     notes.push('Saved for review.');
+    if (getNecroAllies().length > 0) {
+      notes.push('Summoned allies hold back on a wrong answer.');
+    }
     performEnemyAttack({ fromWrongAnswer: true });
     battle.enemyAttackedThisTurn = true;
     if (hero.hp <= 0 || battle.phase === 'dying') return;
@@ -1480,6 +1505,7 @@ function answerRemedialQuestion(index) {
 
   battle.remedial = null;
   battle.question = q;
+  battle.lastAnswerCorrect = score > 0;
   battle.enemyAttackedThisTurn = false;
   battle.phase = 'feedback';
   renderFeedback(correct, notes);
@@ -1944,7 +1970,8 @@ function continueBattle() {
   }
 
   // Necromancy resurrected allies take their own separate turns sequentially before the enemy turn
-  if (getNecroAllies().length > 0 && battle.enemy.hp > 0) {
+  // only when the player answered correctly this turn!
+  if (!battle.enemyAttackedThisTurn && battle.lastAnswerCorrect !== false && getNecroAllies().length > 0 && battle.enemy.hp > 0) {
     battle.allyTurnIndex = 0;
     const res = performSingleAllyAttack(0);
     renderAllyTurn(0, res.msg);
@@ -1970,7 +1997,7 @@ function winBattle() {
     const allies = getNecroAllies();
     const maxAllies = getNecromancyMaxAllies();
     if (allies.length < maxAllies) {
-      battle.necroCandidate = {
+      const cand = {
         name: battle.enemy.name,
         isBoss: Boolean(battle.enemy.isBoss),
         isFinal: Boolean(battle.enemy.isFinal),
@@ -1981,6 +2008,8 @@ function winBattle() {
         maxHp: battle.enemy.maxHp,
         attack: Math.max(8, Math.round((battle.enemy.attack || 10) * 1.15)),
       };
+      cand.manaCost = getNecromancyManaCost(cand);
+      battle.necroCandidate = cand;
       renderNecromancyPrompt();
       return;
     }
@@ -1994,6 +2023,8 @@ function renderNecromancyPrompt() {
   if (!cand) return renderWin();
   const allies = getNecroAllies();
   const maxAllies = getNecromancyMaxAllies();
+  const manaCost = cand.manaCost ?? getNecromancyManaCost(cand);
+  const canAfford = hero.mana >= manaCost;
   battle.phase = 'necro_prompt';
   setPanel('');
   const go = document.getElementById('gameOverOverlay');
@@ -2004,10 +2035,16 @@ function renderNecromancyPrompt() {
     <div class="game-over-corruption">NECROMANCY PACT // ${esc(cand.isBoss ? 'BOSS SOUL' : 'SOUL HARVESTED')} (${allies.length}/${maxAllies})</div>
     <div class="game-over-skull" aria-hidden="true">☠</div>
     <h2 class="game-over-title" id="gameOverTitle" data-text="RESURRECT?">RESURRECT?</h2>
-    <p class="game-over-killer">Raise <strong>${esc(cand.name)}</strong> (${cand.attack} ATK) to fight beside you? (Ally ${allies.length + 1} of ${maxAllies})</p>
+    <p class="game-over-killer">Raise <strong>${esc(cand.name)}</strong> (${cand.attack} ATK · ${cand.maxHp} HP) to fight beside you? (Ally ${allies.length + 1} of ${maxAllies})</p>
+    <div class="game-over-stats">
+      <div class="game-over-stat"><span>ALLY ATK</span><strong>${cand.attack}</strong></div>
+      <div class="game-over-stat"><span>MANA COST</span><strong>${manaCost} MP</strong></div>
+      <div class="game-over-stat"><span>YOUR MANA</span><strong>${hero.mana}/${hero.maxMana} MP</strong></div>
+    </div>
+    <p class="game-over-note">${canAfford ? `Costs ${manaCost} MP (stronger souls require more mana). Summoned allies only attack when you answer correctly.` : `Not enough mana! Need ${manaCost} MP to bind ${esc(cand.name)} (you have ${hero.mana} MP).`}</p>
     <div class="game-over-actions">
-      <button type="button" class="game-over-btn is-primary" data-act="necro-yes">Yes</button>
-      <button type="button" class="game-over-btn is-secondary" data-act="necro-no">No</button>
+      <button type="button" class="game-over-btn is-primary" data-act="necro-yes" ${canAfford ? '' : 'disabled'}>${canAfford ? `Yes (-${manaCost} MP)` : `Need ${manaCost} MP`}</button>
+      <button type="button" class="game-over-btn is-secondary" data-act="necro-no">${canAfford ? 'No' : 'Continue'}</button>
     </div>
   </div>`;
   go.hidden = false;
@@ -2234,7 +2271,7 @@ function startMultiplayerMatch(matchConfig, role, selfClientId) {
     pendingAttack: false,
     hitT: 0, enemyInvertT: 0, cameraPushDistance: 0, cameraShakeT: 0, impactRingT: 0, enemyDefeatT: -1,
     heroHitT: 0, heroHitTintT: 0, heroKnockbackT: -1,
-    deathTimer: 0, enemyAttackedThisTurn: false,
+    deathTimer: 0, enemyAttackedThisTurn: false, lastAnswerCorrect: true,
     flash: { hero: 0, enemy: 0 }, fromReview: false, newUnlocks: [],
     log: mpState.role === 'host'
       ? `Turn 1: YOUR TURN vs ${foe.name} — Choose your move!`
@@ -2471,6 +2508,7 @@ function mpResolveTurn(turn, move) {
       battle.chargeMaxT = 0;
       battle.projectileQueued = false;
       battle.pendingAttack = false;
+  battle.lastAnswerCorrect = false;
     }
     if (move.cardId === 'defend') {
       battle.defendEffectT = move.correct ? DEFEND_EFFECT_FRAMES : 0;
@@ -2721,11 +2759,15 @@ if (gameOverOverlayEl) {
     else if (act === 'necro-yes') {
       const allies = getNecroAllies();
       const maxAllies = getNecromancyMaxAllies();
-      if (battle.necroCandidate && allies.length < maxAllies) {
-        const nextAllies = [...allies, { ...battle.necroCandidate }];
+      const cand = battle.necroCandidate;
+      const manaCost = cand ? (cand.manaCost ?? getNecromancyManaCost(cand)) : 0;
+      if (cand && allies.length < maxAllies && hero.mana >= manaCost) {
+        hero.mana = Math.max(0, hero.mana - manaCost);
+        const nextAllies = [...allies, { ...cand }];
         hero.necroAllies = nextAllies;
         hero.necroAlly = nextAllies[0];
         battle.necroCandidate = null;
+        popup('hero', `-${manaCost} MP`, '#c77dff');
         emitFx(HERO_SPOT.x - 135, HERO_SPOT.y - 60, '#c77dff', 28, 4.2);
         Sound.play('heal');
       } else {

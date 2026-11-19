@@ -1,15 +1,47 @@
 // ===== Practice mode: study by topic without combat =====
 // Answers count toward the topic tracker, skill points, and the review queue, but never cost HP.
 const PRACTICE_DIFFICULTIES = ['adaptive', 'mixed', 'easy', 'medium', 'hard'];
+const DRILL_DONE_STORAGE_KEY = 'bytebound-drill-done-v1';
 const practice = {
-  mode: 'menu',          // 'menu' | 'quiz'
+  mode: 'menu',          // 'menu' | 'quiz' | 'done'
   source: 'all',         // 'all' | 'review' | { category, topic }
   difficulty: 'adaptive',
   current: null,
   picked: null,
+  seen: new Set(),       // question texts answered in the current drill run (never repeats)
+  deckTotal: 0,
   session: { correct: 0, total: 0 },
   skillNote: '',
 };
+
+function getDrillDoneStorageKey() {
+  const name = typeof activePlayerName === 'string' && activePlayerName.trim()
+    ? activePlayerName.trim().toLowerCase()
+    : 'default';
+  return `${DRILL_DONE_STORAGE_KEY}:${encodeURIComponent(name)}`;
+}
+
+function loadDrillDoneSet() {
+  try {
+    const raw = localStorage.getItem(getDrillDoneStorageKey());
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr.filter((t) => typeof t === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDrillDoneSet(doneSet) {
+  try {
+    localStorage.setItem(getDrillDoneStorageKey(), JSON.stringify([...doneSet]));
+  } catch {}
+}
+
+function clearDrillDoneForPool(pool) {
+  const doneSet = loadDrillDoneSet();
+  for (const q of pool) doneSet.delete(q.q);
+  saveDrillDoneSet(doneSet);
+}
 
 function questionsFor(source, difficulty) {
   const isAdaptive = difficulty === 'adaptive';
@@ -28,20 +60,47 @@ function questionsFor(source, difficulty) {
   return pool;
 }
 
-function startPractice(source) {
+function startPractice(source, { forceRedo = false } = {}) {
   practice.source = source;
-  practice.mode = 'quiz';
+  practice.seen = new Set();
   practice.session = { correct: 0, total: 0 };
   practice.current = null;
+  practice.picked = null;
+  practice.skillNote = '';
+
+  const pool = questionsFor(source, practice.difficulty);
+  if (forceRedo && pool.length) {
+    clearDrillDoneForPool(pool);
+  }
+  const doneSet = loadDrillDoneSet();
+  const remaining = pool.filter((q) => !doneSet.has(q.q));
+  if (pool.length > 0 && remaining.length === 0) {
+    practice.deckTotal = pool.length;
+    practice.mode = 'done';
+    return;
+  }
+  practice.deckTotal = remaining.length;
+  practice.mode = 'quiz';
   nextPracticeQuestion();
 }
 
 function nextPracticeQuestion() {
   const pool = questionsFor(practice.source, practice.difficulty);
-  let next = pool.length ? pickWeighted(pool) : null;
-  if (pool.length > 1 && next === practice.current) {
-    next = pickWeighted(pool.filter((q) => q !== practice.current));
+  const doneSet = loadDrillDoneSet();
+  const remaining = pool.filter((q) => !practice.seen.has(q.q) && !doneSet.has(q.q));
+  if (!remaining.length) {
+    practice.current = null;
+    practice.picked = null;
+    practice.skillNote = '';
+    if (pool.length > 0 && practice.mode !== 'done') {
+      practice.mode = 'done';
+      if (typeof recordAchievementProgress === 'function') {
+        recordAchievementProgress('drillCompletions', 1);
+      }
+    }
+    return;
   }
+  const next = pickWeighted(remaining);
   practice.current = typeof withShuffledChoices === 'function' ? withShuffledChoices(next) : next;
   practice.picked = null;
   practice.skillNote = '';
@@ -52,12 +111,19 @@ function answerPractice(index) {
   if (!q || practice.picked !== null) return;
   const correct = index === q.answer;
   practice.picked = index;
+  practice.seen.add(q.q);
+  const doneSet = loadDrillDoneSet();
+  doneSet.add(q.q);
+  saveDrillDoneSet(doneSet);
   practice.session.total++;
   if (correct) practice.session.correct++;
   recordTopicAnswer(q, correct);
   recordReview(q, correct);
   if (typeof adaptive !== 'undefined' && typeof adaptive.calibrateFromProgress === 'function') {
     adaptive.calibrateFromProgress();
+  }
+  if (typeof recordAchievementProgress === 'function') {
+    recordAchievementProgress('drillAnswers', 1);
   }
   if (correct && recordCorrectAnswer(q.category)) {
     practice.skillNote = `${q.category} skill point earned. Press U to spend it.`;
@@ -68,10 +134,12 @@ function answerPractice(index) {
 const capitalize = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 
 function renderPracticeView() {
+  if (practice.mode === 'done') return renderPracticeDone();
   return practice.mode === 'quiz' ? renderPracticeQuiz() : renderPracticeMenu();
 }
 
 function renderPracticeMenu() {
+  const doneSet = loadDrillDoneSet();
   const chips = PRACTICE_DIFFICULTIES.map((difficulty) => `
     <button class="practice-chip" data-practice="difficulty" data-diff="${difficulty}" aria-pressed="${practice.difficulty === difficulty}">${difficulty === 'adaptive' ? 'Adaptive' : difficulty === 'mixed' ? 'Mixed' : capitalize(difficulty)}</button>`).join('');
   const weakList = Object.entries(topicProgress).flatMap(([category, topics]) =>
@@ -88,14 +156,24 @@ function renderPracticeMenu() {
         <button class="practice-go" data-practice="start" data-src="topic" data-category="${esc(weakList[0].category)}" data-topic="${esc(weakList[0].topic)}">Drill Weakest</button>
       </div>`
     : '';
+  const allPool = questionsFor('all', practice.difficulty);
+  const allDoneCount = allPool.filter((q) => doneSet.has(q.q)).length;
+  const allFinished = allPool.length > 0 && allDoneCount >= allPool.length;
   const categories = Object.entries(topicProgress).map(([category, topics]) => {
     const rows = Object.entries(topics).map(([topic, s]) => {
-      const count = questionsFor({ category, topic }, practice.difficulty).length;
+      const topicPool = questionsFor({ category, topic }, practice.difficulty);
+      const count = topicPool.length;
+      const doneCount = topicPool.filter((q) => doneSet.has(q.q)).length;
+      const isDone = count > 0 && doneCount >= count;
       const pctTxt = s?.attempted ? ` · ${Math.round((100 * s.correct) / s.attempted)}%` : '';
-      return `<div class="practice-topic">
-        <span>${esc(topic)}</span>
-        <small>${count} ${count === 1 ? 'question' : 'questions'}${pctTxt}</small>
-        <button class="practice-go" data-practice="start" data-src="topic" data-category="${esc(category)}" data-topic="${esc(topic)}" ${count ? '' : 'disabled'}>Practice</button>
+      const progressTxt = count ? `${doneCount}/${count} done${pctTxt}` : `0 questions${pctTxt}`;
+      const doneBadge = isDone ? `<span class="practice-done-badge">✓ DONE</span>` : '';
+      const btnLabel = isDone ? 'Redo' : 'Practice';
+      const redoAttr = isDone ? 'data-redo="1"' : '';
+      return `<div class="practice-topic${isDone ? ' is-done' : ''}">
+        <span>${esc(topic)} ${doneBadge}</span>
+        <small>${progressTxt}</small>
+        <button class="practice-go" data-practice="start" data-src="topic" data-category="${esc(category)}" data-topic="${esc(topic)}" ${redoAttr} ${count ? '' : 'disabled'}>${btnLabel}</button>
       </div>`;
     }).join('');
     return `<details class="practice-category" open>
@@ -105,21 +183,47 @@ function renderPracticeMenu() {
   }).join('');
   return `<span class="eyebrow">Topic Drill · Non-Combat Study</span>
     <h2>Study without a fight</h2>
-    <p>Drill specific CS topics or your missed-question queue at your own pace. Answers update your Baseline/Tracker and earn Skill Points without combat damage. (Use <em>Practice Mode</em> on Quest Hub for a no-save combat sandbox.)</p>
+    <p>Drill specific CS topics or your missed-question queue without repeating answered questions. Once all questions in a set are answered, it is marked <strong>DONE</strong>.</p>
     <div class="practice-controls"><span>Difficulty</span><div class="practice-chips">${chips}</div></div>
     <div class="practice-start">
-      <button class="leaderboard-action" data-practice="start" data-src="all">Mixed quiz, all topics</button>
+      <button class="leaderboard-action" data-practice="start" data-src="all" ${allFinished ? 'data-redo="1"' : ''}>${allFinished ? `Redo all topics (${allPool.length}/${allPool.length} done)` : `Mixed quiz (${allPool.length - allDoneCount} left)`}</button>
       <button class="leaderboard-action" data-practice="start" data-src="review" ${reviewQueue.length ? '' : 'disabled'}>Review missed (${reviewQueue.length})</button>
     </div>
     ${weakCallout}
     <div class="practice-categories">${categories}</div>`;
 }
 
+function renderPracticeDone() {
+  const sourceLabel = practice.source === 'all'
+    ? 'All Topics'
+    : practice.source === 'review'
+      ? 'Missed Review Queue'
+      : `${practice.source?.category || ''} · ${practice.source?.topic || ''}`;
+  const total = practice.session.total;
+  const correct = practice.session.correct;
+  const pct = total ? Math.round((100 * correct) / total) : 100;
+  return `<div class="practice-bar">
+      <button class="practice-back" data-practice="back">Back to topics</button>
+      <span class="practice-done-badge">✓ DONE</span>
+    </div>
+    <div class="practice-done-card">
+      <span class="eyebrow">Topic Drill Complete</span>
+      <h3>All Questions Answered!</h3>
+      <p>${esc(sourceLabel)} (${esc(practice.difficulty.toUpperCase())}) is now marked <strong>DONE</strong>.</p>
+      ${total ? `<p class="practice-done-score">Session Score: <strong>${correct} / ${total}</strong> (${pct}% accuracy)</p>` : '<p class="practice-done-score">Every question in this set has already been answered.</p>'}
+      <div class="practice-done-actions">
+        <button class="leaderboard-action" data-practice="redo">Practice Again</button>
+        <button class="practice-back" data-practice="back">Back to topics</button>
+      </div>
+    </div>`;
+}
+
 function renderPracticeQuiz() {
   const q = practice.current;
+  const stepNum = Math.min(practice.deckTotal || 1, practice.session.total + (practice.picked === null ? 1 : 0));
   const header = `<div class="practice-bar">
     <button class="practice-back" data-practice="back">Back to topics</button>
-    <span>${practice.session.correct} / ${practice.session.total} correct</span>
+    <span>Question ${stepNum} / ${practice.deckTotal || 1} · ${practice.session.correct} / ${practice.session.total} correct</span>
   </div>`;
   if (!q) return `${header}<p>No questions in this set yet. Try another difficulty or topic.</p>`;
 
@@ -130,12 +234,16 @@ function renderPracticeQuiz() {
     return `<button data-practice="answer" data-val="${i}" class="${state}" ${answered ? 'disabled' : ''}>${i + 1}. ${esc(text)}</button>`;
   }).join('');
   const right = practice.picked === q.answer;
+  const pool = questionsFor(practice.source, practice.difficulty);
+  const doneSet = loadDrillDoneSet();
+  const hasMore = pool.some((item) => !practice.seen.has(item.q) && !doneSet.has(item.q));
+  const nextLabel = hasMore ? 'Next question' : 'Finish & Mark Done';
   const feedback = answered
     ? `<div class="practice-feedback ${right ? 'ok' : 'bad'}">
         <p><strong>${right ? 'Correct!' : 'Not quite.'}</strong> Answer: ${esc(q.choices[q.answer])}.</p>
         <p>${esc(q.explain)}</p>
         ${practice.skillNote ? `<p class="log">${esc(practice.skillNote)}</p>` : ''}
-        <button class="leaderboard-action" data-practice="next">Next question <span class="keyhint">(Enter)</span></button>
+        <button class="leaderboard-action" data-practice="next">${nextLabel} <span class="keyhint">(Enter)</span></button>
       </div>`
     : '';
   const level = QUESTION_DIFFICULTY.get(q.q) || '';
@@ -156,9 +264,14 @@ function handlePracticeClick(event) {
     practice.difficulty = el.dataset.diff;
   } else if (action === 'start') {
     const src = el.dataset.src;
-    startPractice(src === 'topic' ? { category: el.dataset.category, topic: el.dataset.topic } : src);
+    startPractice(
+      src === 'topic' ? { category: el.dataset.category, topic: el.dataset.topic } : src,
+      { forceRedo: el.dataset.redo === '1' }
+    );
     dashboardView = 'practice';
     updateNavigation();
+  } else if (action === 'redo') {
+    startPractice(practice.source, { forceRedo: true });
   } else if (action === 'answer') {
     answerPractice(Number(el.dataset.val));
   } else if (action === 'next') {

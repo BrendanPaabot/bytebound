@@ -5,6 +5,13 @@ const motes = Array.from({ length: 28 }, () => ({ x: Math.random() * 1024, y: Ma
 const fxParticles = [];
 const ARENA_THEMES = {
   arena: './img/map/datacenter/pcbattlearena.jpg',
+  datacenter: './img/map/datacenter/pcbattlearena.jpg',
+  bbcorp: './img/map/bbcorp/corpbattlearena.jpg',
+  mainroad: './img/map/mainroad/streetbattlearena.jpg',
+  netcafe: './img/map/netcafe/cafebattlearena.jpg',
+  hospital: './img/map/hospital/hospibattearena.jpg',
+  bank: './img/map/bank/bankbattlearena.jpg',
+  supply: './img/map/supply/supplybattlearena.jpg',
   terminal_bay: './img/map/datacenter/backgroundLevel1.jpg?v=clean-room',
   server_shaft: './img/map/datacenter/backgroundLevel2.jpg',
   control_deck: './img/map/datacenter/backgroundLevel3.jpg',

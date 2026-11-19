@@ -23,7 +23,7 @@
 - **Remedial Surge Recovery (`0 MP` Action):**
   - Answer `2–5` remedial questions at `0 MP`: answering all correctly grants **Perfect Remedial Surge** (full MP, `35%` HP, `+8 ATK`, `+4 DEF`); answering at least one correctly (`score > 0`, even if the last question is missed) grants proportional **Remedial Recovery**; `0` correct answers fizzles (`0 HP, 0 MP, no buffs`).
 - **Card Battles, Exclusive Skills & Kernel Aegis Accountability:**
-  - All 4 exclusive capstone skills unlock via discipline Skill Trees (`U`): **`Kernel Aegis`** (Computer Systems), **`Packet Lockdown`** (Networking & Security), **`Overburn Execution`** (Programming), and **`Necromancy`** (Database, raising up to `3` sequential undead allies).
+  - All 4 exclusive capstone skills unlock via discipline Skill Trees (`U`): **`Kernel Aegis`** (Computer Systems), **`Packet Lockdown`** (Networking & Security), **`Overburn Execution`** (Programming), and **`Necromancy`** (Database, spending Mana scaled by enemy strength to raise up to `3` sequential undead allies that attack only when you answer correctly).
   - `Kernel Aegis` blocks normal enemy hits for the run, **but careless wrong answers still impose consequences**: draining `-10 MP`, resetting streak/accuracy bonuses, shocking the hero (`-4 HP` Aegis overload), and piercing `Kernel Aegis` for `50%` breach damage during Boss battles.
 - **Authentication, Privacy, & Persistence Scope:**
   - Designed as a classroom-ready prototype with **local storage** (`localStorage`) + optional **Supabase cloud sync** (`users`, `leaderboard_entries`, `pvp_leaderboard_entries`, `multiplayer_rooms`).
