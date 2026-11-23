@@ -748,7 +748,11 @@ function recordCorrectAnswer(category) {
   const previousPoints = Math.floor(skillProgress[key].correct / SKILL_POINT_INTERVAL);
   skillProgress[key].correct++;
   saveSkillProgress();
-  return Math.floor(skillProgress[key].correct / SKILL_POINT_INTERVAL) > previousPoints;
+  const earned = Math.floor(skillProgress[key].correct / SKILL_POINT_INTERVAL) > previousPoints;
+  if (earned && typeof window.ByteboundTutorial?.onSkillPointEarned === 'function') {
+    window.ByteboundTutorial.onSkillPointEarned(category, key);
+  }
+  return earned;
 }
 
 function countSpecializedSkills(key) {
@@ -1035,6 +1039,7 @@ function renderBattle() {
         <button type="button" class="mp-inline-forfeit" data-act="mp-forfeit">Forfeit</button>
       </div>
       <div class="actions">${cards}</div>`);
+    window.ByteboundTutorial?.onBattlePhaseRendered?.('choose');
     return;
   }
   const noManaRemedial = !multiplayerMatchActive && hero.mana <= 0
@@ -1051,6 +1056,7 @@ function renderBattle() {
       <span class="dim">Deck: ${runDeck.length} (${battle.drawPile.length} left)</span>
     </div>
     <div class="actions">${cards}${noManaRemedial}</div>`);
+  window.ByteboundTutorial?.onBattlePhaseRendered?.('choose');
 }
 
 function withShuffledChoices(question) {
@@ -1085,6 +1091,7 @@ function renderQuestion() {
       <span class="tag">${esc(q.category)} · ${esc(q.topic)} · ${esc(diffLabel)} · <span class="adaptive-reason-tag">${esc(reasonBadge)}</span></span>
     </div>
     <div class="choices">${choices}</div>`);
+  window.ByteboundTutorial?.onBattlePhaseRendered?.('question');
 }
 
 function renderFeedback(correct, notes) {
@@ -1097,6 +1104,7 @@ function renderFeedback(correct, notes) {
       </div>
       <button data-act="continue"${attackPending ? ' disabled' : ''}>${attackPending ? 'Resolving...' : 'Continue<span class="keyhint"> (Enter)</span>'}</button>
     </div>`);
+  window.ByteboundTutorial?.onBattlePhaseRendered?.('feedback', { correct, notes });
 }
 
 function renderMenu() {
@@ -1154,6 +1162,7 @@ function renderUpgrades() {
   battle.phase = 'upgrade';
   setPanel(`<div class="battle-bar-head"><span class="ok">Level up! Choose one upgrade (1–3):</span></div>
     <div class="choices card-pick">${battle.upgrades.map((u, i) => `<button data-act="upgrade" data-val="${i}">${i + 1}. ${u.name}<small>${u.text}</small></button>`).join('')}</div>`);
+  window.ByteboundTutorial?.onBattlePhaseRendered?.('upgrade');
 }
 
 function renderCardReward() {
@@ -1165,6 +1174,7 @@ function renderCardReward() {
   }).join('');
   setPanel(`<div class="battle-bar-head"><span class="ok">Choose a card for your deck (1–${battle.rewards.length}):</span><span class="dim">Deck: ${runDeck.length} cards</span></div>
     <div class="choices card-pick">${choices}</div>`);
+  window.ByteboundTutorial?.onBattlePhaseRendered?.('reward');
 }
 
 function showVictory() {
@@ -1230,6 +1240,7 @@ function startBattle(enemy) {
   Sound.play(enemy.isBoss ? 'bossIntro' : 'encounter');
   Sound.music(enemy.isBoss ? 'boss' : 'battle');
   beginIntro();
+  window.ByteboundTutorial?.onBattleStarted?.(enemy);
 }
 
 function chooseCard(index) {
@@ -1252,6 +1263,9 @@ function chooseCard(index) {
   }
   mpState.pendingCardCost = cost;
   hero.mana -= cost;
+  if (cost > 0) {
+    popup('hero', `-${cost} MP`, '#ff9b85', { offsetX: -56, y: HERO_SPOT.y - 54 });
+  }
   if (multiplayerMatchActive) {
     battle.hand = [...STARTING_DECK];
   } else {
@@ -1330,9 +1344,15 @@ function answerQuestion(index) {
     // Performance-based recovery: a correct answer heals HP and restores mana, scaled by streak.
     const heal = 4 + 2 * Math.min(stats.streak, 5) + hero.bonusHeal;
     const previousHp = hero.hp;
+    const previousMana = hero.mana;
     hero.hp = Math.min(hero.maxHp, hero.hp + heal);
     hero.mana = Math.min(hero.maxMana, hero.mana + 5 + hero.bonusMana);
-    showHealFeedback(hero.hp - previousHp, { offsetX: 58, y: HERO_SPOT.y - 78 });
+    const actualHeal = hero.hp - previousHp;
+    const actualManaGain = hero.mana - previousMana;
+    showHealFeedback(actualHeal, { offsetX: 58, y: HERO_SPOT.y - 78 });
+    if (actualManaGain > 0) {
+      popup('hero', `+${actualManaGain} MP`, '#7ef0a2', { offsetX: -56, y: HERO_SPOT.y - 54, style: 'heal' });
+    }
     emitFx(HERO_SPOT.x, HERO_SPOT.y - 80, '#7fd49a', 14, 2.5);
     notes.push(`Focus restores ${heal} HP and 5 mana (streak ${stats.streak}).`);
   } else {
@@ -1527,15 +1547,26 @@ function resolveCard(id, correct) {
     const stunMult = battle.enemyStunTurns > 0 ? 1.5 : 1;
     const dmg = Math.round((hero.attack + (hero.tempAttack || 0)) * card.power * (card.correctMult || 1) * stunMult);
     const note = card.id === 'strike' ? '' : `${card.name}! `;
-    if (card.manaOnCorrect) hero.mana = Math.min(hero.maxMana, hero.mana + card.manaOnCorrect);
-    battle.pendingAttack = true;
+    if (card.manaOnCorrect) {
+      const prevMp = hero.mana;
+      hero.mana = Math.min(hero.maxMana, hero.mana + card.manaOnCorrect);
+      if (hero.mana > prevMp) {
+        popup('hero', `+${hero.mana - prevMp} MP`, '#7ef0a2', { offsetX: -56, y: HERO_SPOT.y - 82, style: 'heal' });
+      }
+    }
+    if (battle.enemy && !battle.enemy.isMultiplayerPlayer) {
+      battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
+      if (battle.enemy.hp <= 0) battle.enemyDefeatT = 0;
+    }
+    popup('enemy', `-${dmg}`, '#ffd27a');
+    battle.pendingAttack = false;
     const chargedAttack = battle.chargeCard;
     battle.lungeT = chargedAttack ? 0 : 1;
     battle.heroAttackT = BATTLE_ATTACK_FRAME_COUNT * BATTLE_ATTACK_FRAME_BUFFER;
     battle.projectileCharged = chargedAttack;
     battle.projectileQueued = chargedAttack;
     battle.projectileT = chargedAttack ? -1 : 0;
-    battle.projectileDamage = dmg;
+    battle.projectileDamage = 0;
     return `${note}You hit for ${dmg}.`;
   }
   if (card.kind === 'defend') {
@@ -1555,9 +1586,10 @@ function resolveCard(id, correct) {
   }
   if (card.kind === 'charge') {
     const gain = correct ? 25 : 10;
+    const prevMp = hero.mana;
     hero.mana = Math.min(hero.maxMana, hero.mana + gain);
-    popup('hero', `+${gain} MP`, '#8fd0dc');
-    emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#8fd0dc', 14, 2);
+    popup('hero', `+${hero.mana - prevMp || gain} MP`, '#7ef0a2', { offsetX: -56, y: HERO_SPOT.y - 70, style: 'heal' });
+    emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#7ef0a2', 14, 2);
     Sound.play('charge');
     return `You charge ${gain} mana.`;
   }
@@ -1573,9 +1605,10 @@ function resolveCard(id, correct) {
   }
   if (card.kind === 'mana') {
     const gain = correct ? card.gain : 2;
+    const prevMp = hero.mana;
     hero.mana = Math.min(hero.maxMana, hero.mana + gain);
-    popup('hero', `+${gain} MP`, '#8fd0dc');
-    emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#8fd0dc', 12, 2);
+    popup('hero', `+${hero.mana - prevMp || gain} MP`, '#7ef0a2', { offsetX: -56, y: HERO_SPOT.y - 70, style: 'heal' });
+    emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#7ef0a2', 12, 2);
     Sound.play('charge');
     return `${card.name} restores ${gain} mana.`;
   }
@@ -1664,13 +1697,18 @@ function resolveCard(id, correct) {
     battle.enemyBurnTurns = 5;
     battle.enemyBurnDamage = 20 * rank;
     battle.burnAnimT = 52;
-    battle.pendingAttack = true;
+    if (battle.enemy && !battle.enemy.isMultiplayerPlayer) {
+      battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
+      if (battle.enemy.hp <= 0) battle.enemyDefeatT = 0;
+    }
+    popup('enemy', `-${dmg}`, '#ff9659');
+    battle.pendingAttack = false;
     battle.lungeT = 0;
     battle.heroAttackT = BATTLE_ATTACK_FRAME_COUNT * BATTLE_ATTACK_FRAME_BUFFER;
     battle.projectileCharged = true;
     battle.projectileQueued = false;
     battle.projectileT = 0;
-    battle.projectileDamage = dmg;
+    battle.projectileDamage = 0;
     emitFx(HERO_SPOT.x + 60, HERO_SPOT.y - 90, '#ff7b47', 16, 3.4);
     Sound.play('heavy');
     return `${card.name} (R${rank})${isExecute ? ' [EXECUTE!]' : ''}! ${dmg} DMG + ${battle.enemyBurnDamage}/turn Burning (${battle.enemyBurnTurns}t).`;
@@ -1926,6 +1964,7 @@ function performEnemyAttack({ fromWrongAnswer = false } = {}) {
 
 function continueBattle() {
   if (battle.phase !== 'feedback' || battle.pendingAttack) return;
+  window.ByteboundTutorial?.onBattleContinue?.();
   if (multiplayerMatchActive) {
     if (mpState.outcome || hero.hp <= 0 || battle.enemy.hp <= 0) {
       mpTriggerFinishSequence();
@@ -2058,6 +2097,7 @@ function afterWin() {
 function pickReward(index) {
   const id = battle.rewards[index];
   if (battle.phase !== 'reward' || !id) return;
+  window.ByteboundTutorial?.onRewardCardPicked?.(index, id);
   runDeck.push(id);
   stats.cardsTaken++;
   Sound.play('pick');
@@ -2071,6 +2111,8 @@ function afterReward() {
 
 function applyUpgrade(i) {
   const up = battle.upgrades[i];
+  if (!up) return;
+  window.ByteboundTutorial?.onUpgradePicked?.(i, up);
   up.apply();
   stats.upgrades.push(up.name);
   recordAchievementProgress('upgrades', 1);
@@ -2724,6 +2766,9 @@ panel.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-act]');
   if (!btn || btn.disabled) return;
   const { act, val } = btn.dataset;
+  if (typeof window.ByteboundTutorial?.interceptCombatAction === 'function') {
+    if (window.ByteboundTutorial.interceptCombatAction(act, val, btn, e)) return;
+  }
   const actions = {
     card: () => chooseCard(Number(val)),
     remedial: () => startRemedialChallenge(),

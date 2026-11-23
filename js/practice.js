@@ -183,7 +183,7 @@ function renderPracticeMenu() {
   }).join('');
   return `<span class="eyebrow">Topic Drill · Non-Combat Study</span>
     <h2>Study without a fight</h2>
-    <p>Drill specific CS topics or your missed-question queue without repeating answered questions. Once all questions in a set are answered, it is marked <strong>DONE</strong>.</p>
+    <p>Practice by topic or review missed questions without losing HP.</p>
     <div class="practice-controls"><span>Difficulty</span><div class="practice-chips">${chips}</div></div>
     <div class="practice-start">
       <button class="leaderboard-action" data-practice="start" data-src="all" ${allFinished ? 'data-redo="1"' : ''}>${allFinished ? `Redo all topics (${allPool.length}/${allPool.length} done)` : `Mixed quiz (${allPool.length - allDoneCount} left)`}</button>
@@ -260,6 +260,9 @@ function handlePracticeClick(event) {
   const el = event.target.closest('[data-practice]');
   if (!el) return false;
   const action = el.dataset.practice;
+  if (typeof window.ByteboundTutorial?.interceptPracticeClick === 'function') {
+    if (window.ByteboundTutorial.interceptPracticeClick(action, el, event)) return true;
+  }
   if (action === 'difficulty') {
     practice.difficulty = el.dataset.diff;
   } else if (action === 'start') {
@@ -280,6 +283,7 @@ function handlePracticeClick(event) {
     practice.mode = 'menu';
   }
   renderDashboard();
+  window.ByteboundTutorial?.onPracticeAction?.(action, el);
   return true;
 }
 
@@ -290,6 +294,7 @@ function handlePracticeKey(key) {
     if (practice.current && practice.picked === null) {
       answerPractice(Number(key) - 1);
       renderDashboard();
+      window.ByteboundTutorial?.onPracticeAction?.('answer', null);
     }
     return true;
   }
@@ -299,6 +304,7 @@ function handlePracticeKey(key) {
     if (practice.picked !== null) {
       nextPracticeQuestion();
       renderDashboard();
+      window.ByteboundTutorial?.onPracticeAction?.('next', null);
     }
     return true;
   }

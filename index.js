@@ -1017,7 +1017,33 @@ const ACHIEVEMENTS = [
   { id: 'soul-binder', category: 'exclusive', theme: 'db', name: 'Soul Binder', description: 'Choose Necromancy Pact (Database Exclusive).', goal: 1, metric: 'exclusiveDb', icon: 'DB' },
   { id: 'vault-keeper', category: 'exclusive', theme: 'db', name: 'Vault Keeper', description: 'Invest 6 total skill ranks in Database.', goal: 6, metric: 'dbSkillRanks', icon: 'DB6' },
   { id: 'apex-specialist', category: 'exclusive', name: 'Apex Specialist', description: 'Upgrade any Exclusive Active Skill to Rank 3/3.', goal: 1, metric: 'exclusiveMaxed', icon: 'MAX' },
+
+  // Onboarding & Tutorial Mastery Achievement
+  {
+    id: 'codex-laureate',
+    category: 'tutorial',
+    theme: 'tutorial',
+    name: 'Codex Laureate',
+    description: 'Complete all 15 guided page tours and gameplay lessons. (Skipped lessons must be replayed and completed to count.)',
+    goal: 15,
+    metric: 'tutorialsCompleted',
+    icon: '✦',
+    isTutorialAchievement: true,
+  },
 ]
+
+function renderTutorialAchievementEmblem() {
+  return `<svg class="tutorial-emblem-svg" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+    <rect x="3" y="6" width="12" height="19" fill="currentColor" opacity="0.22" />
+    <rect x="17" y="6" width="12" height="19" fill="currentColor" opacity="0.22" />
+    <path d="M2 5h13v2H4v17h11v2H2V5zm15 0h13v21H17v-2h11V7H17V5zm-2 2h2v19h-2V7z" fill="currentColor" />
+    <rect x="6" y="10" width="6" height="2" fill="currentColor" />
+    <rect x="6" y="14" width="7" height="2" fill="currentColor" />
+    <rect x="6" y="18" width="5" height="2" fill="currentColor" />
+    <path d="M22 9l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" fill="currentColor" />
+    <rect x="19" y="18" width="7" height="2" fill="currentColor" />
+  </svg>`
+}
 
 function resetAchievementToast() {
   window.clearTimeout(achievementToastTimer)
@@ -1043,7 +1069,17 @@ function showNextAchievementToast() {
   if (!toast || !icon || !title || !description) {
     throw new Error('Achievement toast elements are missing.')
   }
-  icon.textContent = achievement.icon
+  const isTut = Boolean(achievement.isTutorialAchievement || achievement.id === 'codex-laureate')
+  toast.classList.toggle('is-tutorial-toast', isTut)
+  const headerSpan = toast.querySelector('.achievement-toast-copy > span')
+  if (headerSpan) {
+    headerSpan.textContent = isTut ? 'Tutorial Codex Mastered' : 'Achievement unlocked'
+  }
+  if (isTut) {
+    icon.innerHTML = renderTutorialAchievementEmblem()
+  } else {
+    icon.textContent = achievement.icon
+  }
   title.textContent = achievement.name
   description.textContent = achievement.description
   toast.hidden = false
@@ -1191,14 +1227,17 @@ function getAchievementMetrics() {
     exclusivePr: exclusiveSkillTree === 'programming' ? 1 : 0,
     exclusiveDb: exclusiveSkillTree === 'database' ? 1 : 0,
     exclusiveMaxed,
+    tutorialsCompleted: typeof window.ByteboundTutorial?.getCompletedTutorialCount === 'function'
+      ? window.ByteboundTutorial.getCompletedTutorialCount()
+      : 0,
   }
 }
 
 function refreshAchievements({ silent = false } = {}) {
   const metrics = getAchievementMetrics()
-  if (practiceRunActive) return metrics
   let changed = false
   for (const achievement of ACHIEVEMENTS) {
+    if (practiceRunActive && !achievement.isTutorialAchievement) continue
     const value = metrics[achievement.metric]
     const accuracyQualified = achievement.metric !== 'accuracy' || metrics.attempts >= 10
     if (unlockedAchievements[achievement.id] || !accuracyQualified || value < achievement.goal) continue
@@ -1206,7 +1245,15 @@ function refreshAchievements({ silent = false } = {}) {
     if (!silent) queueAchievementToast(achievement)
     changed = true
   }
-  if (changed) saveAchievementProgress()
+  if (changed) {
+    try {
+      localStorage.setItem(activeAchievementStorageKey, JSON.stringify({
+        progress: achievementProgress,
+        unlocked: unlockedAchievements,
+      }))
+      if (!practiceRunActive) scheduleUserProfileSync()
+    } catch {}
+  }
   return metrics
 }
 
@@ -1229,10 +1276,12 @@ function renderCardCollection(metrics) {
 function renderAchievements() {
   const metrics = refreshAchievements({ silent: true })
   const unlockedCount = ACHIEVEMENTS.filter((achievement) => unlockedAchievements[achievement.id]).length
+  const totalTutorials = window.ByteboundTutorial?.REQUIRED_TUTORIAL_IDS?.length || 15
   const sections = [
-    { key: 'general', title: 'General Milestones', badge: 'GENERAL', hint: 'Campaign combat, quizzes, upgrades, and skill progression.' },
-    { key: 'study', title: 'Topic Drill, Tracker & Leaderboard', badge: 'STUDY & RANK', hint: 'Non-combat Topic Drill mastery, Learning Tracker coverage, and Arcade rankings.' },
-    { key: 'pvp', title: '1v1 Competitive Arena', badge: '1V1 ARENA', hint: 'Head-to-head competitive duel, damage, accuracy, and Elo milestones.' },
+    { key: 'tutorial', title: 'Onboarding & Tutorial Mastery', badge: 'CODEX SEAL', hint: `Complete all ${totalTutorials} guided tutorials.` },
+    { key: 'general', title: 'General Milestones', badge: 'GENERAL', hint: 'Campaign combat and skill progression.' },
+    { key: 'study', title: 'Topic Drill, Tracker & Leaderboard', badge: 'STUDY & RANK', hint: 'Topic Drill mastery, Learning Tracker coverage, and Arcade rankings.' },
+    { key: 'pvp', title: '1v1 Competitive Arena', badge: '1V1 ARENA', hint: 'Head-to-head duel, accuracy, and Elo milestones.' },
     { key: 'exclusive', title: 'Role & Exclusive Skill Paths', badge: 'ROLE PATH', hint: 'Discipline role mastery and signature exclusive active skills.' },
   ]
   const sectionsHtml = sections.map((sec) => {
@@ -1241,15 +1290,22 @@ function renderAchievements() {
     const cards = items.map((achievement) => {
       const unlockedAt = unlockedAchievements[achievement.id]
       const value = metrics[achievement.metric] || 0
+      const isTut = Boolean(achievement.isTutorialAchievement)
       const progress = achievement.metric === 'accuracy' && metrics.attempts < 10
         ? Math.floor(metrics.attempts * achievement.goal / 10)
         : Math.min(value, achievement.goal)
-      const progressLabel = achievement.metric === 'accuracy' && metrics.attempts < 10
-        ? `${metrics.attempts} / 10 attempts · ${value}% accuracy`
-        : `${progress} / ${achievement.goal}${achievement.metric === 'accuracy' ? '%' : ''}`
+      const progressLabel = isTut
+        ? `${progress} of ${achievement.goal} tutorials completed`
+        : achievement.metric === 'accuracy' && metrics.attempts < 10
+          ? `${metrics.attempts} / 10 attempts · ${value}% accuracy`
+          : `${progress} / ${achievement.goal}${achievement.metric === 'accuracy' ? '%' : ''}`
       const themeClass = achievement.theme ? ` theme-${achievement.theme}` : ''
-      return `<article class="achievement-card cat-${sec.key}${themeClass} ${unlockedAt ? 'is-unlocked' : 'is-locked'}">
-        <div class="achievement-icon" aria-hidden="true">${achievement.icon}</div>
+      const iconContent = isTut ? renderTutorialAchievementEmblem() : achievement.icon
+      const tutorialBreakdown = isTut && typeof window.ByteboundTutorial?.renderAchievementChecklist === 'function'
+        ? window.ByteboundTutorial.renderAchievementChecklist()
+        : ''
+      return `<article class="achievement-card cat-${sec.key}${themeClass}${isTut ? ' is-tutorial-achievement' : ''} ${unlockedAt ? 'is-unlocked' : 'is-locked'}">
+        <div class="achievement-icon${isTut ? ' is-emblem-icon' : ''}" aria-hidden="true">${iconContent}</div>
         <div class="achievement-copy">
           <div class="achievement-title-row">
             <h3>${esc(achievement.name)}</h3>
@@ -1260,9 +1316,10 @@ function renderAchievements() {
             <i style="width:${Math.min(100, 100 * progress / achievement.goal)}%"></i>
           </div>
           <div class="achievement-meta-row">
-            <small>${unlockedAt ? `Earned ${new Date(unlockedAt).toLocaleDateString()}` : progressLabel}</small>
-            <span class="achievement-state">${unlockedAt ? 'UNLOCKED' : 'LOCKED'}</span>
+            <small>${unlockedAt ? `Earned ${new Date(unlockedAt).toLocaleDateString()} · ${progress} of ${achievement.goal} tutorials completed` : progressLabel}</small>
+            <span class="achievement-state">${unlockedAt ? 'MASTERED' : 'LOCKED'}</span>
           </div>
+          ${tutorialBreakdown}
         </div>
       </article>`
     }).join('')
@@ -1279,9 +1336,45 @@ function renderAchievements() {
   }).join('')
   return `<span class="eyebrow">Achievements</span>
     <h2>Milestones earned</h2>
-    <p class="achievement-summary">${unlockedCount} of ${ACHIEVEMENTS.length} achievements unlocked across General, Topic Drill/Tracker/Leaderboard, 1v1 Arena, and Role Skill Paths.</p>
+    <p class="achievement-summary">${unlockedCount} of ${ACHIEVEMENTS.length} achievements unlocked.</p>
     <div class="achievement-sections">${sectionsHtml}</div>
     ${renderCardCollection(metrics)}`
+}
+
+function renderLeaderboardPodium(entries, { isPvp, activeKey }) {
+  const topThree = entries.slice(0, 3)
+  if (!topThree.length) return ''
+  const ordinals = ['1ST', '2ND', '3RD']
+  const crownSvg = `<svg class="podium-crown" viewBox="0 0 16 12" width="16" height="12" aria-hidden="true">
+    <path d="M1 10L0 3l4 3 4-5 4 5 4-3-1 7H1zm0 2h14v-1H1v1z" fill="currentColor" />
+  </svg>`
+  const cards = topThree.map((entry, idx) => {
+    const rank = idx + 1
+    const isCurrentUser = Boolean(activeKey && String(entry.player_name || '').trim().toLowerCase() === activeKey)
+    const primaryLabel = isPvp ? 'Rating' : 'Score'
+    const primaryValue = isPvp ? entry.rating : entry.score
+    const statsHtml = isPvp
+      ? `<div class="podium-stat"><dt>Record</dt><dd>${entry.wins}W-${entry.losses}L${entry.draws ? `-${entry.draws}D` : ''}</dd></div>
+         <div class="podium-stat"><dt>Win Rate</dt><dd>${entry.win_rate}%</dd></div>
+         <div class="podium-stat"><dt>Accuracy</dt><dd>${entry.accuracy}%</dd></div>`
+      : `<div class="podium-stat"><dt>Viruses</dt><dd>${entry.kills}</dd></div>
+         <div class="podium-stat"><dt>Correct</dt><dd>${entry.correct_answers}/${entry.total_answers}</dd></div>
+         <div class="podium-stat"><dt>Accuracy</dt><dd>${entry.accuracy}%</dd></div>`
+    return `<li class="podium-card is-rank-${rank}${isCurrentUser ? ' is-current-user' : ''}">
+      <div class="podium-card-head">
+        <span class="podium-rank-pill">${rank === 1 ? crownSvg : ''}#${rank} · ${ordinals[idx]}</span>
+        ${isCurrentUser ? '<span class="podium-you-tag">YOU</span>' : ''}
+      </div>
+      <h3 class="podium-player">${esc(entry.player_name)}</h3>
+      <div class="podium-score-block">
+        <span class="podium-score-label">${primaryLabel}</span>
+        <strong class="podium-score-val">${esc(String(primaryValue))}</strong>
+      </div>
+      <dl class="podium-stats">${statsHtml}</dl>
+      <div class="podium-pedestal">${ordinals[idx]} PLACE</div>
+    </li>`
+  }).join('')
+  return `<ol class="leaderboard-podium is-count-${topThree.length}" aria-label="Top ${topThree.length} rankings">${cards}</ol>`
 }
 
 function renderLeaderboard() {
@@ -1302,15 +1395,17 @@ function renderLeaderboard() {
     } else if (!pvpLeaderboardEntries.length) {
       message = '<p class="leaderboard-message">No 1v1 competitive matches recorded yet. Win or complete a 1v1 duel to rank on this board.</p>'
     }
-    const rows = pvpLeaderboardEntries.map((entry, index) => {
+    const podiumHtml = renderLeaderboardPodium(pvpLeaderboardEntries, { isPvp: true, activeKey })
+    const rest = pvpLeaderboardEntries.slice(3)
+    const rows = rest.map((entry, index) => {
       const isCurrentUser = activeKey && String(entry.player_name || '').trim().toLowerCase() === activeKey
       return `<tr>
-        <td>${index + 1}</td>
-        <th scope="row">${esc(entry.player_name)}${isCurrentUser ? ' <small>(You)</small>' : ''}</th>
-        <td>${entry.rating}</td>
-        <td>${entry.wins}W - ${entry.losses}L${entry.draws ? ` - ${entry.draws}D` : ''}</td>
-        <td>${entry.win_rate}%</td>
-        <td>${entry.accuracy}%</td>
+        <td data-label="Rank">${index + 4}</td>
+        <th scope="row" data-label="Player">${esc(entry.player_name)}${isCurrentUser ? ' <small>(You)</small>' : ''}</th>
+        <td data-label="Rating">${entry.rating}</td>
+        <td data-label="Record">${entry.wins}W - ${entry.losses}L${entry.draws ? ` - ${entry.draws}D` : ''}</td>
+        <td data-label="Win Rate">${entry.win_rate}%</td>
+        <td data-label="Accuracy">${entry.accuracy}%</td>
       </tr>`
     }).join('')
     return `<span class="eyebrow">Leaderboard / 1v1 competitive</span>
@@ -1320,7 +1415,8 @@ function renderLeaderboard() {
       </div>
       ${tabsHtml}
       ${message}
-      ${pvpLeaderboardEntries.length ? `<div class="leaderboard-table-wrap"><table class="leaderboard-table">
+      ${podiumHtml}
+      ${rest.length ? `<div class="leaderboard-table-wrap"><table class="leaderboard-table">
         <thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Rating</th><th scope="col">Record</th><th scope="col">Win Rate</th><th scope="col">Accuracy</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>` : ''}
@@ -1339,15 +1435,17 @@ function renderLeaderboard() {
   } else if (!leaderboardEntries.length) {
     message = '<p class="leaderboard-message">No Arcade runs recorded yet. Start an Arcade game and defeat viruses to appear on this leaderboard.</p>'
   }
-  const rows = leaderboardEntries.map((entry, index) => {
+  const podiumHtml = renderLeaderboardPodium(leaderboardEntries, { isPvp: false, activeKey })
+  const rest = leaderboardEntries.slice(3)
+  const rows = rest.map((entry, index) => {
     const isCurrentUser = activeKey && String(entry.player_name || '').trim().toLowerCase() === activeKey
     return `<tr>
-      <td>${index + 1}</td>
-      <th scope="row">${esc(entry.player_name)}${isCurrentUser ? ' <small>(You)</small>' : ''}</th>
-      <td>${entry.score}</td>
-      <td>${entry.kills}</td>
-      <td>${entry.correct_answers} / ${entry.total_answers}</td>
-      <td>${entry.accuracy}%</td>
+      <td data-label="Rank">${index + 4}</td>
+      <th scope="row" data-label="Player">${esc(entry.player_name)}${isCurrentUser ? ' <small>(You)</small>' : ''}</th>
+      <td data-label="Score">${entry.score}</td>
+      <td data-label="Viruses">${entry.kills}</td>
+      <td data-label="Correct">${entry.correct_answers} / ${entry.total_answers}</td>
+      <td data-label="Accuracy">${entry.accuracy}%</td>
     </tr>`
   }).join('')
   return `<span class="eyebrow">Leaderboard / arcade rankings</span>
@@ -1357,7 +1455,8 @@ function renderLeaderboard() {
     </div>
     ${tabsHtml}
     ${message}
-    ${leaderboardEntries.length ? `<div class="leaderboard-table-wrap"><table class="leaderboard-table">
+    ${podiumHtml}
+    ${rest.length ? `<div class="leaderboard-table-wrap"><table class="leaderboard-table">
       <thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Score</th><th scope="col">Viruses</th><th scope="col">Correct</th><th scope="col">Accuracy</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>` : ''}
@@ -2701,6 +2800,9 @@ function drawDoorBubble(door, roomLocked) {
 
 function tryDoor() {
   const door = getDoorAtPlayer()
+  if (typeof window.ByteboundTutorial?.onTryDoor === 'function') {
+    window.ByteboundTutorial.onTryDoor(Boolean(door))
+  }
   if (!door) return false
 
   if (!door.allowWhenLocked && enemies.some((e) => e.alive)) {
@@ -2722,6 +2824,9 @@ function tryDoor() {
 
 function checkEncounter() {
   if (mode !== 'explore' || player.preventInput || grace > 0) return
+  if (typeof window.ByteboundTutorial?.shouldHoldEncounter === 'function' && window.ByteboundTutorial.shouldHoldEncounter()) {
+    return
+  }
   const h = player.hitbox
   if (!h) return
   const foe = enemies.find(
@@ -2921,43 +3026,376 @@ function drawBanner(text, k) {
   c.textAlign = 'left'
 }
 
-// Floating, semi-transparent stat tag drawn above a fighter (only exists during battle).
-function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana) {
+// ===== Character-Head Health & Mana Frames with Smooth Damage & Healing Trails =====
+const headBarAnimState = {
+  hero: {
+    entityRef: null,
+    targetRatio: 1,
+    mainRatio: 1,
+    trailRatio: 1,
+    mode: 'idle', // 'idle' | 'damage' | 'heal'
+    holdTimer: 0,
+    flashTimer: 0,
+    lastHp: null,
+    lastMaxHp: null,
+    lastDelta: 0,
+    manaRatio: 1,
+    lastMana: null,
+  },
+  enemy: {
+    entityRef: null,
+    targetRatio: 1,
+    mainRatio: 1,
+    trailRatio: 1,
+    mode: 'idle',
+    holdTimer: 0,
+    flashTimer: 0,
+    lastHp: null,
+    lastMaxHp: null,
+    lastDelta: 0,
+    manaRatio: 1,
+    lastMana: null,
+  },
+}
+window.ByteboundHeadBars = headBarAnimState
+
+function clampUnitRatio(val) {
+  if (!Number.isFinite(val)) return 0
+  return Math.max(0, Math.min(1, val))
+}
+
+function resetHeadBarState(unitKey, entityRef = null, hp = 100, maxHp = 100, mana = 100, maxMana = 100) {
+  const st = headBarAnimState[unitKey]
+  if (!st) return
+  const r = clampUnitRatio(maxHp > 0 ? hp / maxHp : 0)
+  st.entityRef = entityRef
+  st.targetRatio = r
+  st.mainRatio = r
+  st.trailRatio = r
+  st.mode = 'idle'
+  st.holdTimer = 0
+  st.flashTimer = 0
+  st.lastHp = hp
+  st.lastMaxHp = maxHp
+  st.lastDelta = 0
+  st.manaRatio = clampUnitRatio(maxMana > 0 ? mana / maxMana : 0)
+  st.lastMana = mana
+}
+
+function syncHeadBarTarget(unitKey, entityRef, hp, maxHp, mana, maxMana) {
+  const st = headBarAnimState[unitKey]
+  if (!st) return
+  const safeMax = Math.max(1, Number(maxHp) || 1)
+  const safeHp = Math.max(0, Math.min(safeMax, Number(hp) || 0))
+  const nextRatio = clampUnitRatio(safeHp / safeMax)
+
+  if (st.entityRef !== entityRef || st.lastHp === null || st.lastMaxHp === null) {
+    resetHeadBarState(unitKey, entityRef, safeHp, safeMax, mana ?? 0, maxMana ?? 100)
+    return st
+  }
+
+  const reduced = document.body.classList.contains('reduce-motion') ||
+    (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+
+  if (safeHp !== st.lastHp || safeMax !== st.lastMaxHp) {
+    const rawDelta = safeHp - st.lastHp
+    if (nextRatio < st.targetRatio - 0.0005) {
+      // Health decreased: preserve upper watermark for red trailing afterimage, retargeting cleanly on rapid hits
+      const highMark = st.mode === 'damage'
+        ? Math.max(st.trailRatio, st.mainRatio)
+        : Math.max(st.mainRatio, st.targetRatio)
+      st.trailRatio = clampUnitRatio(highMark)
+      st.targetRatio = nextRatio
+      st.mode = 'damage'
+      st.holdTimer = reduced ? 24 : 16
+      st.flashTimer = 30
+      st.lastDelta = (st.flashTimer > 18 && st.lastDelta < 0) ? (st.lastDelta + rawDelta) : rawDelta
+      if (reduced) {
+        st.mainRatio = nextRatio
+      }
+    } else if (nextRatio > st.targetRatio + 0.0005) {
+      // Health increased: preserve lower baseline so the gained segment [trailRatio .. mainRatio] renders in bright green
+      const lowMark = st.mode === 'heal'
+        ? Math.min(st.trailRatio, st.mainRatio)
+        : Math.min(st.mainRatio, st.targetRatio)
+      st.trailRatio = clampUnitRatio(lowMark)
+      st.targetRatio = nextRatio
+      st.mode = 'heal'
+      st.holdTimer = reduced ? 24 : 18
+      st.flashTimer = 30
+      st.lastDelta = (st.flashTimer > 18 && st.lastDelta > 0) ? (st.lastDelta + rawDelta) : rawDelta
+      if (reduced) {
+        st.mainRatio = nextRatio
+      }
+    } else {
+      st.targetRatio = nextRatio
+    }
+    st.lastHp = safeHp
+    st.lastMaxHp = safeMax
+  }
+
+  if (mana !== undefined && maxMana !== undefined) {
+    const safeMaxMp = Math.max(1, Number(maxMana) || 100)
+    const safeMp = Math.max(0, Math.min(safeMaxMp, Number(mana) || 0))
+    const targetMpRatio = clampUnitRatio(safeMp / safeMaxMp)
+    if (reduced || st.lastMana === null) {
+      st.manaRatio = targetMpRatio
+    } else {
+      st.manaRatio += (targetMpRatio - st.manaRatio) * 0.28
+      if (Math.abs(targetMpRatio - st.manaRatio) < 0.004) st.manaRatio = targetMpRatio
+    }
+    st.lastMana = safeMp
+  }
+
+  return st
+}
+
+function stepHeadBarAnimation(unitKey) {
+  const st = headBarAnimState[unitKey]
+  if (!st) return
+  const reduced = document.body.classList.contains('reduce-motion') ||
+    (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+
+  if (st.flashTimer > 0) st.flashTimer--
+
+  if (reduced) {
+    st.mainRatio = st.targetRatio
+    if (st.holdTimer > 0) {
+      st.holdTimer--
+    } else {
+      st.trailRatio = st.targetRatio
+      st.mode = 'idle'
+    }
+    return
+  }
+
+  if (st.mode === 'damage') {
+    // 1. Smoothly animate main fill down to the new authoritative value
+    st.mainRatio += (st.targetRatio - st.mainRatio) * 0.25
+    if (Math.abs(st.mainRatio - st.targetRatio) < 0.003) {
+      st.mainRatio = st.targetRatio
+    }
+    // 2. Keep red afterimage at previous level briefly, then smoothly catch up and disappear
+    if (st.holdTimer > 0) {
+      st.holdTimer--
+    } else {
+      st.trailRatio += (st.mainRatio - st.trailRatio) * 0.16
+      if (Math.abs(st.trailRatio - st.targetRatio) < 0.003 && st.mainRatio === st.targetRatio) {
+        st.trailRatio = st.targetRatio
+        st.mode = 'idle'
+      }
+    }
+  } else if (st.mode === 'heal') {
+    // 1. Smoothly animate main fill up (showing green gained segment above trailRatio)
+    st.mainRatio += (st.targetRatio - st.mainRatio) * 0.22
+    if (Math.abs(st.mainRatio - st.targetRatio) < 0.003) {
+      st.mainRatio = st.targetRatio
+    }
+    // 2. Once main fill has risen, hold green segment briefly, then resolve trailRatio into normal bar color
+    if (st.holdTimer > 0) {
+      st.holdTimer--
+    } else {
+      st.trailRatio += (st.mainRatio - st.trailRatio) * 0.17
+      if (Math.abs(st.trailRatio - st.targetRatio) < 0.003 && st.mainRatio === st.targetRatio) {
+        st.trailRatio = st.targetRatio
+        st.mode = 'idle'
+      }
+    }
+  } else {
+    st.mainRatio = st.targetRatio
+    st.trailRatio = st.targetRatio
+  }
+}
+
+// Decorative pixel-art character-head status frame drawn above each fighter in battle.
+function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, options = {}) {
   const hasMana = mana !== undefined
+  const unitKey = options.unitKey || (hasMana && nameColor === '#f2bb61' ? 'hero' : 'enemy')
+  const entityRef = options.entityRef || (unitKey === 'hero' ? hero : battle.enemy)
+  const st = syncHeadBarTarget(unitKey, entityRef, hp, maxHp, mana, maxMana)
+  stepHeadBarAnimation(unitKey)
+
+  const isHero = unitKey === 'hero'
+  const isHeavyIntent = Boolean(options.isHeavyIntent)
+  const subText = options.subText || ''
+
   c.save()
   c.font = '10px "Press Start 2P", monospace'
   const hpLabel = `${hp}/${maxHp}`
-  const neededWidth = Math.ceil(c.measureText(String(name || '')).width + c.measureText(hpLabel).width + 32)
-  const w = Math.max(210, neededWidth)
-  const h = hasMana ? 62 : 46
-  const x = cx - w / 2
-  const y = bottom - h
-  const bar = (by, ratio, color, bh) => {
-    c.fillStyle = 'rgba(255, 255, 255, 0.18)'
-    c.fillRect(x + 8, by, w - 16, bh)
-    c.fillStyle = color
-    c.fillRect(x + 8, by, (w - 16) * Math.max(0, Math.min(1, ratio)), bh)
-  }
-  c.globalAlpha = 0.85
-  c.fillStyle = 'rgba(8, 6, 16, 0.4)'
+  const deltaText = (st && st.flashTimer > 0 && st.lastDelta !== 0)
+    ? `${st.lastDelta > 0 ? '+' : ''}${st.lastDelta}`
+    : ''
+  const nameStr = String(name || '').toUpperCase()
+  const headerWidth = Math.ceil(
+    c.measureText(nameStr).width +
+    c.measureText(hpLabel).width +
+    (deltaText ? c.measureText(deltaText).width + 18 : 0) +
+    46
+  )
+  c.font = '8px "Press Start 2P", monospace'
+  const subWidth = subText ? Math.ceil(c.measureText(subText).width + 28) : 0
+  const w = Math.max(228, headerWidth, subWidth)
+  const h = hasMana ? (subText ? 76 : 64) : (subText ? 62 : 50)
+  const x = Math.round(Math.max(12, Math.min(canvas.width - w - 12, cx - w / 2)))
+  const y = Math.round(Math.max(10, Math.min(canvas.height - h - 10, bottom - h)))
+
+  const outerBorder = '#060a0d'
+  const frameBorder = isHero
+    ? '#d9a44a'
+    : (isHeavyIntent ? '#ff784f' : '#cf5978')
+  const cornerColor = isHero
+    ? '#ffe082'
+    : (isHeavyIntent ? '#ffb38a' : '#ff9eb6')
+  const plaqueBg = isHero ? 'rgba(13, 21, 25, 0.94)' : 'rgba(22, 13, 25, 0.94)'
+  const innerBevel = isHero ? 'rgba(242, 187, 97, 0.2)' : 'rgba(232, 148, 162, 0.2)'
+
+  // 1. Pixel drop shadow + outer dark plaque
+  c.fillStyle = 'rgba(3, 6, 8, 0.72)'
+  c.fillRect(x + 4, y + 4, w, h)
+  c.fillStyle = outerBorder
+  c.fillRect(x - 2, y - 2, w + 4, h + 4)
+
+  // 2. Main plaque background & pixel-art double frame
+  c.fillStyle = plaqueBg
   c.fillRect(x, y, w, h)
+  c.strokeStyle = frameBorder
+  c.lineWidth = 2
+  c.strokeRect(x + 1, y + 1, w - 2, h - 2)
+  c.strokeStyle = innerBevel
+  c.lineWidth = 1
+  c.strokeRect(x + 3.5, y + 3.5, w - 7, h - 7)
+
+  // Top accent bar & 4 pixel corner brackets
+  c.fillStyle = frameBorder
+  c.fillRect(x + 2, y + 2, w - 4, 2)
+  c.fillStyle = cornerColor
+  c.fillRect(x, y, 4, 4)
+  c.fillRect(x + w - 4, y, 4, 4)
+  c.fillRect(x, y + h - 4, 4, 4)
+  c.fillRect(x + w - 4, y + h - 4, 4, 4)
+
+  // 3. Name & Authoritative HP reading + delta pill
+  c.font = '10px "Press Start 2P", monospace'
   c.textBaseline = 'middle'
   c.textAlign = 'left'
   c.fillStyle = nameColor
-  c.fillText(name, x + 8, y + 12)
+  c.fillText(nameStr, x + 10, y + 14)
+
   c.textAlign = 'right'
-  c.fillStyle = '#f1eddd'
-  c.fillText(hpLabel, x + w - 8, y + 12)
-  bar(y + 22, hp / maxHp, hasMana ? '#e0735c' : '#e894a2', 8)
+  c.fillStyle = '#f6f2e6'
+  c.fillText(hpLabel, x + w - 10, y + 14)
+
+  if (deltaText && st) {
+    const isHealDelta = st.lastDelta > 0
+    const hpW = c.measureText(hpLabel).width
+    c.font = '8px "Press Start 2P", monospace'
+    const dw = Math.ceil(c.measureText(deltaText).width + 8)
+    const dx = Math.round(x + w - 14 - hpW - dw)
+    const dy = y + 7
+    c.fillStyle = isHealDelta ? 'rgba(32, 128, 66, 0.9)' : 'rgba(164, 36, 36, 0.9)'
+    c.fillRect(dx, dy, dw, 13)
+    c.strokeStyle = isHealDelta ? '#62f596' : '#ff7b73'
+    c.lineWidth = 1
+    c.strokeRect(dx + 0.5, dy + 0.5, dw - 1, 12)
+    c.fillStyle = isHealDelta ? '#9effbe' : '#ffc2bd'
+    c.textAlign = 'center'
+    c.fillText(deltaText, dx + dw / 2, dy + 7)
+  }
+
+  // 4. Health bar with Red Damage Afterimage Trail & Green Healing Trail
+  const barX = x + 10
+  const barY = y + 23
+  const barW = w - 20
+  const barH = 10
+  const mainR = st ? st.mainRatio : clampUnitRatio(maxHp > 0 ? hp / maxHp : 0)
+  const trailR = st ? st.trailRatio : mainR
+  const normalColor = isHero ? '#e06252' : '#d84e78'
+  const normalHi = isHero ? '#ff9687' : '#ff8eb0'
+
+  // Trough
+  c.fillStyle = '#070b0e'
+  c.fillRect(barX - 1, barY - 1, barW + 2, barH + 2)
+  c.fillStyle = 'rgba(255, 255, 255, 0.1)'
+  c.fillRect(barX, barY, barW, barH)
+
+  if (st && st.mode === 'damage' && trailR > mainR + 0.001) {
+    // Red afterimage segment from 0..trailR, then main fill 0..mainR on top
+    const trailW = Math.round(barW * trailR)
+    c.fillStyle = '#ff3636'
+    c.fillRect(barX, barY, trailW, barH)
+    c.fillStyle = '#ff9c9c'
+    c.fillRect(barX, barY, trailW, 2)
+  }
+
+  if (st && st.mode === 'heal' && mainR > trailR + 0.001) {
+    // Green gained-health trailing segment from 0..mainR, then normal fill 0..trailR on top
+    const gainW = Math.round(barW * mainR)
+    c.fillStyle = '#38e878'
+    c.fillRect(barX, barY, gainW, barH)
+    c.fillStyle = '#b4ffd0'
+    c.fillRect(barX, barY, gainW, 2)
+
+    const baseW = Math.round(barW * trailR)
+    if (baseW > 0) {
+      c.fillStyle = normalColor
+      c.fillRect(barX, barY, baseW, barH)
+      c.fillStyle = normalHi
+      c.fillRect(barX, barY, baseW, 2)
+    }
+  } else {
+    const fillW = Math.round(barW * mainR)
+    if (fillW > 0) {
+      c.fillStyle = normalColor
+      c.fillRect(barX, barY, fillW, barH)
+      c.fillStyle = normalHi
+      c.fillRect(barX, barY, fillW, 2)
+    }
+  }
+
+  // Pixel ticks at 25%, 50%, 75%
+  c.fillStyle = 'rgba(7, 11, 14, 0.45)'
+  for (let t = 1; t <= 3; t++) {
+    c.fillRect(Math.round(barX + (barW * t) / 4), barY, 1, barH)
+  }
+
+  // 5. Mana sub-bar (if unit has mana)
+  let nextRowY = barY + barH + 8
   if (hasMana) {
     c.font = '8px "Press Start 2P", monospace'
     c.textAlign = 'left'
-    c.fillStyle = '#8fd0dc'
-    c.fillText('MP', x + 8, y + 41)
+    c.fillStyle = '#8be0f0'
+    c.fillText('MP', barX, nextRowY)
     c.textAlign = 'right'
-    c.fillText(`${mana}/${maxMana}`, x + w - 8, y + 41)
-    bar(y + 49, mana / maxMana, '#7695a2', 5)
+    c.fillStyle = '#d9f0f7'
+    c.fillText(`${mana}/${maxMana}`, barX + barW, nextRowY)
+
+    const mpY = nextRowY + 6
+    const mpH = 5
+    const mpR = st ? st.manaRatio : clampUnitRatio(maxMana > 0 ? mana / maxMana : 0)
+    c.fillStyle = '#070b0e'
+    c.fillRect(barX - 1, mpY - 1, barW + 2, mpH + 2)
+    c.fillStyle = 'rgba(255, 255, 255, 0.1)'
+    c.fillRect(barX, mpY, barW, mpH)
+    const mpW = Math.round(barW * mpR)
+    if (mpW > 0) {
+      c.fillStyle = '#48a4de'
+      c.fillRect(barX, mpY, mpW, mpH)
+      c.fillStyle = '#8ee0ff'
+      c.fillRect(barX, mpY, mpW, 1)
+    }
+    nextRowY = mpY + mpH + 9
+  } else {
+    nextRowY += 2
   }
+
+  // 6. Optional combat stats / enemy intent sub-strip
+  if (subText) {
+    c.font = '8px "Press Start 2P", monospace'
+    c.textAlign = 'left'
+    c.fillStyle = isHeavyIntent ? '#ff9659' : (isHero ? '#cad8ce' : '#dfc6d0')
+    c.fillText(subText, barX, nextRowY)
+  }
+
   c.restore()
 }
 
@@ -3096,9 +3534,11 @@ function drawDefendEffect(cx, heroTop, options = {}) {
 function triggerEnemyImpact() {
   const charged = battle.projectileCharged
   const isMp = typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive
-  if (!isMp) {
-    battle.enemy.hp = Math.max(0, battle.enemy.hp - battle.projectileDamage)
+  const dmgToApply = Number(battle.projectileDamage) || 0
+  if (!isMp && dmgToApply > 0 && battle.enemy) {
+    battle.enemy.hp = Math.max(0, battle.enemy.hp - dmgToApply)
   }
+  battle.projectileDamage = 0
   battle.pendingAttack = false
   battle.hitT = 1
   battle.enemyInvertT = charged ? 12 : 8
@@ -3106,7 +3546,8 @@ function triggerEnemyImpact() {
   battle.cameraPushDistance = charged ? 26 : 18
   battle.cameraShakeT = 1
   battle.impactRingT = 1
-  if (!isMp && battle.enemy.hp <= 0) battle.enemyDefeatT = 0
+  if (!isMp && battle.enemy && battle.enemy.hp <= 0) battle.enemyDefeatT = 0
+  if (typeof renderHud === 'function') renderHud()
   if (isMp && typeof mpState !== 'undefined' && mpState.outcome) {
     emitFx(FOE_SPOT.x, FOE_SPOT.y - 70, charged ? '#ff9659' : '#ffd27a', charged ? 32 : 20, charged ? 5.2 : 4.2)
     emitFx(FOE_SPOT.x, FOE_SPOT.y - 70, '#fff3c4', charged ? 18 : 10, 3.6)
@@ -3120,8 +3561,8 @@ function triggerEnemyImpact() {
     continueButton.disabled = false
     continueButton.innerHTML = 'Continue<span class="keyhint"> (Enter)</span>'
   }
-  if (!isMp) {
-    popup('enemy', `-${battle.projectileDamage}`, '#ffd27a')
+  if (!isMp && dmgToApply > 0) {
+    popup('enemy', `-${dmgToApply}`, '#ffd27a')
   }
   emitFx(FOE_SPOT.x, FOE_SPOT.y - 70, charged ? '#ff9659' : '#ffd27a', charged ? 32 : 20, charged ? 5.2 : 4.2)
   emitFx(FOE_SPOT.x, FOE_SPOT.y - 70, '#fff3c4', charged ? 18 : 10, 3.6)
@@ -3377,7 +3818,18 @@ function drawCombatants(heroX, foeX, shake) {
       hs
     )
   }
-  drawStatTag(hx, hy - heroDrawHeight - 6, activePlayerName || 'PLAYER', hero.hp, hero.maxHp, '#f2bb61', hero.mana, hero.maxMana)
+  const heroMetaText = `ATK ${hero.attack + (hero.tempAttack || 0)} · DEF ${hero.defense + (b.tempDefense || 0)}`
+  drawStatTag(
+    hx,
+    HERO_SPOT.y - heroDrawHeight - 10,
+    activePlayerName || 'PLAYER',
+    hero.hp,
+    hero.maxHp,
+    '#f2bb61',
+    hero.mana,
+    hero.maxMana,
+    { unitKey: 'hero', entityRef: hero, subText: heroMetaText }
+  )
   if (charging || b.chargeMaxT > 0) {
     drawChargeMeter(hx, charging ? chargeProgress : 1)
   }
@@ -3545,7 +3997,11 @@ function drawCombatants(heroX, foeX, shake) {
         ? Math.round(14 * (opponentKingDeath.destinationSize.height / 164) * hs)
         : 0
       drawSheet(opponentKingDeath, FOE_SPOT.x - oppDeathW / 2, FOE_SPOT.y - oppDeathH + floorDrop, hs)
-      drawStatTag(fx, fy - oppDeathH - 6, label, foe.hp, foe.maxHp, labelColor, foe.mana, foe.maxMana)
+      drawStatTag(fx, FOE_SPOT.y - oppDeathH - 10, label, foe.hp, foe.maxHp, labelColor, foe.mana, foe.maxMana, {
+        unitKey: 'enemy',
+        entityRef: foe,
+        subText: `ATK ${foe.attack} · DEF ${foe.defense}`,
+      })
     } else if (defeating) {
       const flatten = Math.min(1, defeatProgress / 0.4)
       const bodyAlpha = Math.max(0, 1 - defeatProgress / 0.42)
@@ -3643,7 +4099,15 @@ function drawCombatants(heroX, foeX, shake) {
         }
         c.restore()
       }
-      drawStatTag(fx, fy - foeHeight - 6, label, foe.hp, foe.maxHp, labelColor, foe.mana, foe.maxMana)
+      const foeMetaText = foe.isMultiplayerPlayer
+        ? `ATK ${foe.attack} · DEF ${foe.defense}`
+        : `${foe.attack} ATK · ${isHeavy(foe) ? '! HEAVY NEXT' : 'NORMAL NEXT'}`
+      drawStatTag(fx, FOE_SPOT.y - foeHeight - 10, label, foe.hp, foe.maxHp, labelColor, foe.mana, foe.maxMana, {
+        unitKey: 'enemy',
+        entityRef: foe,
+        subText: foeMetaText,
+        isHeavyIntent: !foe.isMultiplayerPlayer && isHeavy(foe),
+      })
       if (!foe.isMultiplayerPlayer && ((b.enemyStunTurns || 0) > 0 || (b.enemyBurnTurns || 0) > 0)) {
         const pills = []
         if ((b.enemyStunTurns || 0) > 0) pills.push({ text: `STUNNED ${b.enemyStunTurns}t`, color: '#6fe3e8', bg: '#0e2830' })
@@ -3674,15 +4138,17 @@ function drawCombatants(heroX, foeX, shake) {
 
 function drawPopups() {
   battle.popups = battle.popups.filter((p) => p.life > 0)
+  const isReducedMotion = document.body.classList.contains('reduce-motion') ||
+    (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   c.textAlign = 'center'
   battle.popups.forEach((p) => {
     const progress = 1 - p.life / p.duration
-    p.y = p.originY - p.rise * progress
+    p.y = isReducedMotion ? p.originY : (p.originY - p.rise * progress)
     p.life--
     c.globalAlpha = Math.max(0, p.life / p.duration)
     c.fillStyle = p.color
     if (p.style === 'heal') {
-      const popScale = 1 + 0.24 * Math.max(0, 1 - progress * 6)
+      const popScale = isReducedMotion ? 1 : (1 + 0.24 * Math.max(0, 1 - progress * 6))
       c.font = `${Math.round(13 * popScale)}px "Press Start 2P", monospace`
       c.lineWidth = 3
       c.strokeStyle = '#174d3b'
@@ -4107,6 +4573,124 @@ function deleteSavedRun(runId) {
   renderRunSavesList()
 }
 
+function renderWorldBeacon() {
+  return `<div class="world-beacon">
+    <header class="world-beacon-head">
+      <span class="eyebrow">Citadel Signal</span>
+      <h2>World Beacon</h2>
+      <p class="world-beacon-tagline">Light across the kingdom’s cyber realms.</p>
+    </header>
+    <div class="world-beacon-scene" aria-hidden="true">
+      <div class="world-beacon-backdrop"></div>
+      <div class="world-beacon-scanlines"></div>
+      <svg class="world-beacon-art" viewBox="0 0 320 188" shape-rendering="crispEdges" focusable="false" aria-hidden="true">
+        <!-- Starry pixel sky motes -->
+        <rect class="world-beacon-star is-s1" x="26" y="20" width="4" height="4" />
+        <rect class="world-beacon-star is-s2" x="68" y="34" width="3" height="3" />
+        <rect class="world-beacon-star is-s3" x="112" y="16" width="3" height="3" />
+        <rect class="world-beacon-star is-s1" x="206" y="18" width="3" height="3" />
+        <rect class="world-beacon-star is-s2" x="252" y="28" width="4" height="4" />
+        <rect class="world-beacon-star is-s3" x="288" y="16" width="3" height="3" />
+
+        <!-- Concentric beacon signal pulses -->
+        <rect class="world-beacon-ring is-r3" x="116" y="14" width="88" height="64" fill="none" stroke-width="2" />
+        <rect class="world-beacon-ring is-r2" x="128" y="22" width="64" height="48" fill="none" stroke-width="2" />
+        <rect class="world-beacon-ring is-r1" x="140" y="30" width="40" height="32" fill="none" stroke-width="2" />
+
+        <!-- Vertical sky signal beam -->
+        <rect class="world-beacon-beam" x="156" y="0" width="8" height="44" />
+
+        <!-- Distant realm silhouettes (Data Center, BB Corp, Net Cafe, Vault) -->
+        <g class="world-beacon-skyline">
+          <rect x="14" y="106" width="34" height="58" />
+          <rect x="20" y="98" width="22" height="8" />
+          <rect x="54" y="92" width="38" height="72" />
+          <rect x="62" y="84" width="22" height="8" />
+          <rect x="98" y="114" width="28" height="50" />
+          <rect x="194" y="110" width="30" height="54" />
+          <rect x="230" y="94" width="40" height="70" />
+          <rect x="238" y="86" width="24" height="8" />
+          <rect x="276" y="108" width="30" height="56" />
+        </g>
+
+        <!-- Skyline window & server rack lights -->
+        <g class="world-beacon-windows">
+          <rect x="22" y="114" width="6" height="4" />
+          <rect x="34" y="114" width="6" height="4" />
+          <rect x="22" y="124" width="6" height="4" />
+          <rect x="34" y="134" width="6" height="4" />
+          <rect x="62" y="102" width="6" height="6" />
+          <rect x="76" y="102" width="6" height="6" />
+          <rect x="62" y="116" width="6" height="6" />
+          <rect x="76" y="116" width="6" height="6" />
+          <rect x="62" y="130" width="6" height="6" />
+          <rect x="240" y="104" width="6" height="6" />
+          <rect x="254" y="104" width="6" height="6" />
+          <rect x="240" y="118" width="6" height="6" />
+          <rect x="254" y="132" width="6" height="6" />
+          <rect x="284" y="118" width="6" height="4" />
+          <rect x="284" y="128" width="6" height="4" />
+        </g>
+
+        <!-- Central Citadel Beacon Tower -->
+        <g class="world-beacon-tower">
+          <rect x="126" y="148" width="68" height="16" />
+          <rect x="134" y="122" width="52" height="26" />
+          <rect x="140" y="92" width="40" height="30" />
+          <rect x="146" y="68" width="28" height="24" />
+          <!-- Crenellations -->
+          <rect x="138" y="62" width="8" height="8" />
+          <rect x="156" y="62" width="8" height="8" />
+          <rect x="174" y="62" width="8" height="8" />
+        </g>
+
+        <!-- Tower circuit conduits & rune core -->
+        <g class="world-beacon-circuits">
+          <rect x="158" y="72" width="4" height="76" />
+          <rect x="148" y="100" width="6" height="10" />
+          <rect x="166" y="100" width="6" height="10" />
+          <rect x="144" y="130" width="8" height="12" />
+          <rect x="168" y="130" width="8" height="12" />
+        </g>
+
+        <!-- Floating Beacon Signal Crystal -->
+        <g class="world-beacon-crystal">
+          <rect class="beacon-crystal-outer" x="152" y="38" width="16" height="16" />
+          <rect class="beacon-crystal-core" x="156" y="42" width="8" height="8" />
+          <rect class="beacon-crystal-tip" x="158" y="34" width="4" height="4" />
+          <rect class="beacon-crystal-tip" x="158" y="54" width="4" height="4" />
+          <rect class="beacon-crystal-tip" x="148" y="44" width="4" height="4" />
+          <rect class="beacon-crystal-tip" x="168" y="44" width="4" height="4" />
+        </g>
+
+        <!-- Rising pixel data motes -->
+        <rect class="world-beacon-mote is-m1" x="134" y="50" width="4" height="4" />
+        <rect class="world-beacon-mote is-m2" x="182" y="44" width="4" height="4" />
+        <rect class="world-beacon-mote is-m3" x="144" y="26" width="3" height="3" />
+        <rect class="world-beacon-mote is-m1" x="174" y="28" width="3" height="3" />
+
+        <!-- Horizon ground & grid -->
+        <rect class="world-beacon-ground" x="0" y="164" width="320" height="24" />
+        <rect class="world-beacon-horizon" x="0" y="162" width="320" height="3" />
+        <g class="world-beacon-grid-ticks">
+          <rect x="28" y="170" width="16" height="2" />
+          <rect x="74" y="176" width="22" height="2" />
+          <rect x="144" y="172" width="32" height="2" />
+          <rect x="224" y="176" width="22" height="2" />
+          <rect x="274" y="170" width="16" height="2" />
+        </g>
+      </svg>
+      <div class="world-beacon-pedestal">
+        <span class="world-beacon-pip"></span>
+        <span class="world-beacon-pip is-gold"></span>
+        <span class="world-beacon-pip is-cyan"></span>
+        <span class="world-beacon-pip is-gold"></span>
+        <span class="world-beacon-pip"></span>
+      </div>
+    </div>
+  </div>`
+}
+
 function clonePracticeData(value) {
   return JSON.parse(JSON.stringify(value))
 }
@@ -4213,8 +4797,12 @@ function restorePracticeReturnState() {
   reviewQueue = saved.reviewQueue
   answerCount = saved.answerCount
   activeSkillSpecialization = saved.activeSkillSpecialization
+  const preservedTutorialUnlock = unlockedAchievements['codex-laureate']
   replaceObjectState(achievementProgress, saved.achievementProgress)
   replaceObjectState(unlockedAchievements, saved.unlockedAchievements)
+  if (preservedTutorialUnlock && !unlockedAchievements['codex-laureate']) {
+    unlockedAchievements['codex-laureate'] = preservedTutorialUnlock
+  }
   skillTreeStarted = saved.skillTreeStarted
   selectedSkillNode = saved.selectedSkillNode
   skillMapPan = saved.skillMapPan
@@ -4316,6 +4904,9 @@ function showDashboard(nextView) {
   }
   if (practiceRunActive) {
     restorePracticeReturnState()
+    if (typeof nextView === 'string' && nextView && nextView !== 'play') {
+      dashboardView = nextView
+    }
   } else if (playViewActive) {
     submitLeaderboardRun({ skipReload: true })
     pushUserProfileToSupabase()
@@ -4337,6 +4928,9 @@ function showDashboard(nextView) {
   keys.d.pressed = false
   updateNavigation()
   renderHud()
+  const mainEl = document.querySelector('#app main')
+  if (mainEl) mainEl.scrollTop = 0
+  if (typeof window.scrollTo === 'function') window.scrollTo(0, 0)
 }
 
 function skillTreeDetailMarkup() {
@@ -4827,6 +5421,7 @@ function openSkillTree() {
   document.getElementById('closeSkillTree').focus()
   updateNavigation()
   syncAnimationLoop()
+  window.ByteboundTutorial?.onSkillTreeState?.(true)
 }
 
 function closeSkillTree() {
@@ -4848,6 +5443,7 @@ function closeSkillTree() {
   skillTreeReturnFocus = null
   updateNavigation()
   syncAnimationLoop()
+  window.ByteboundTutorial?.onSkillTreeState?.(false)
 }
 
 document.getElementById('skillTreeOverlay').addEventListener('click', (event) => {
@@ -4859,6 +5455,7 @@ document.getElementById('skillTreeOverlay').addEventListener('click', (event) =>
     skillTreeStarted = true
     renderSkillTree()
     document.querySelector('[data-skill-select="foundation"][data-skill-tree="computerSystems"]')?.focus()
+    window.ByteboundTutorial?.onSkillTreeAction?.('start')
     return
   }
   const node = event.target.closest('[data-skill-select]')
@@ -4870,6 +5467,7 @@ document.getElementById('skillTreeOverlay').addEventListener('click', (event) =>
       skillNode.setAttribute('aria-pressed', String(selected))
     })
     document.getElementById('skillTreeDetail').outerHTML = skillTreeDetailMarkup()
+    window.ByteboundTutorial?.onSkillTreeAction?.('select')
     return
   }
   const button = event.target.closest('[data-skill-purchase]')
@@ -5508,6 +6106,7 @@ function openWorldMap() {
   renderWorldMap()
   document.getElementById('closeWorldMap')?.focus()
   syncAnimationLoop()
+  window.ByteboundTutorial?.onWorldMapState?.(true)
 }
 
 function closeWorldMap() {
@@ -5522,6 +6121,7 @@ function closeWorldMap() {
   if (focusTarget?.isConnected) focusTarget.focus()
   worldMapReturnFocus = null
   syncAnimationLoop()
+  window.ByteboundTutorial?.onWorldMapState?.(false)
 }
 
 document.getElementById('worldMapOverlay')?.addEventListener('click', (event) => {
@@ -5573,28 +6173,133 @@ document.getElementById('worldMapOverlay')?.addEventListener('dblclick', (event)
 })
 
 let lastPlayerHpPercent = null
+let lastPlayerManaPercent = null
+let lastEnemyHpPercent = null
+let lastHudPlayerHp = null
+let lastHudPlayerMana = null
+let lastHudEnemyHp = null
+let lastHudEnemyRef = null
+let lastHudInCombat = false
+const hudDeltaTimers = {
+  playPlayerHpDelta: 0,
+  playPlayerManaDelta: 0,
+  playEnemyHpDelta: 0,
+}
+const hudDeltaState = {
+  playPlayerHpDelta: { val: 0, ts: 0 },
+  playPlayerManaDelta: { val: 0, ts: 0 },
+  playEnemyHpDelta: { val: 0, ts: 0 },
+}
 
-function updatePlayerHpMeter(percent) {
-  const fill = document.getElementById('playPlayerHpFill')
-  const ghost = document.getElementById('playPlayerHpGhost')
+function clearHudDeltaBadge(badgeId) {
+  if (hudDeltaTimers[badgeId]) {
+    window.clearTimeout(hudDeltaTimers[badgeId])
+    hudDeltaTimers[badgeId] = 0
+  }
+  hudDeltaState[badgeId] = { val: 0, ts: 0 }
+  const el = document.getElementById(badgeId)
+  if (!el) return
+  el.hidden = true
+  el.textContent = ''
+  el.classList.remove('is-positive', 'is-negative', 'is-damage', 'is-pop')
+}
+
+function clearAllHudDeltaBadges() {
+  clearHudDeltaBadge('playPlayerHpDelta')
+  clearHudDeltaBadge('playPlayerManaDelta')
+  clearHudDeltaBadge('playEnemyHpDelta')
+}
+
+function showHudDeltaBadge(badgeId, delta, unit = 'HP', { isEnemy = false } = {}) {
+  if (!delta || !Number.isFinite(delta)) return
+  const el = document.getElementById(badgeId)
+  if (!el) return
+
+  const now = performance.now()
+  const prev = hudDeltaState[badgeId]
+  // Coalesce rapid same-sign changes within 160ms so multi-hit or burst recovery never flickers or duplicates
+  let displayVal = Math.round(delta)
+  if (prev && now - prev.ts < 160 && Math.sign(prev.val) === Math.sign(displayVal)) {
+    displayVal = prev.val + displayVal
+  }
+  hudDeltaState[badgeId] = { val: displayVal, ts: now }
+
+  const sign = displayVal > 0 ? '+' : ''
+  el.textContent = `${sign}${displayVal} ${unit}`
+  el.classList.remove('is-positive', 'is-negative', 'is-damage', 'is-pop')
+  if (displayVal > 0) {
+    el.classList.add('is-positive')
+  } else if (isEnemy) {
+    el.classList.add('is-damage', 'is-negative')
+  } else {
+    el.classList.add('is-negative')
+  }
+  el.hidden = false
+  void el.offsetWidth
+  el.classList.add('is-pop')
+
+  if (hudDeltaTimers[badgeId]) {
+    window.clearTimeout(hudDeltaTimers[badgeId])
+  }
+  hudDeltaTimers[badgeId] = window.setTimeout(() => {
+    clearHudDeltaBadge(badgeId)
+  }, 1500)
+}
+
+function animateMeterWithGhost(fillId, ghostId, percent, prevPercent, { instant = false } = {}) {
+  const fill = document.getElementById(fillId)
+  const ghost = document.getElementById(ghostId)
+  if (!fill) return
   const meter = fill.parentElement
-  const width = `${percent}%`
+  const clamped = Math.max(0, Math.min(100, Number(percent) || 0))
+  const width = `${clamped}%`
+  const reduced = document.body.classList.contains('reduce-motion') ||
+    (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
 
-  if (lastPlayerHpPercent === null) {
+  if (instant || prevPercent === null || reduced) {
     fill.style.transition = 'none'
+    if (ghost) ghost.style.transition = 'none'
+    if (meter) meter.classList.remove('is-healing', 'is-damaging')
     fill.style.width = width
-    ghost.style.width = width
+    if (ghost) ghost.style.width = width
     void fill.offsetWidth
     fill.style.removeProperty('transition')
-  } else if (percent !== lastPlayerHpPercent) {
-    const healing = percent > lastPlayerHpPercent
-    meter.classList.remove('is-healing', 'is-damaging')
-    ghost.style.width = `${healing ? percent : lastPlayerHpPercent}%`
-    void meter.offsetWidth
-    meter.classList.add(healing ? 'is-healing' : 'is-damaging')
+    if (ghost) ghost.style.removeProperty('transition')
+    return clamped
+  }
+
+  if (clamped !== prevPercent) {
+    const increasing = clamped > prevPercent
+    if (meter) {
+      meter.classList.remove('is-healing', 'is-damaging')
+    }
+    if (ghost) {
+      // Cancel any in-progress ghost animation and retarget immediately from the prior authoritative percent
+      ghost.style.transition = 'none'
+      ghost.style.width = `${increasing ? clamped : prevPercent}%`
+      void ghost.offsetWidth
+      ghost.style.removeProperty('transition')
+    }
+    if (meter) {
+      meter.classList.add(increasing ? 'is-healing' : 'is-damaging')
+    }
+    fill.style.width = width
+  } else {
     fill.style.width = width
   }
-  lastPlayerHpPercent = percent
+  return clamped
+}
+
+function updatePlayerHpMeter(percent, options = {}) {
+  lastPlayerHpPercent = animateMeterWithGhost('playPlayerHpFill', 'playPlayerHpGhost', percent, lastPlayerHpPercent, options)
+}
+
+function updatePlayerManaMeter(percent, options = {}) {
+  lastPlayerManaPercent = animateMeterWithGhost('playPlayerManaFill', 'playPlayerManaGhost', percent, lastPlayerManaPercent, options)
+}
+
+function updateEnemyHpMeter(percent, options = {}) {
+  lastEnemyHpPercent = animateMeterWithGhost('playEnemyHpFill', 'playEnemyHpGhost', percent, lastEnemyHpPercent, options)
 }
 
 function renderDashboard() {
@@ -5642,40 +6347,14 @@ function renderDashboard() {
   updateNavigation()
   $('playerBadge').textContent = activePlayerName || 'KNIGHT'
   $('playPlayerName').textContent = activePlayerName || 'KNIGHT'
-  $('welcomeEyebrow').textContent = 'Quest hub / your next adventure'
-  $('welcomeTitle').textContent = mode === 'menu' ? `Welcome, ${activePlayerName || 'Knight'}` : mode === 'end' ? `Kingdom cleared, ${activePlayerName || 'Knight'}` : 'Adventure in progress'
-  $('welcomeSubtitle').textContent = mode === 'menu'
-    ? 'Sharpen your mind. Ready your sword.'
-    : isMp ? `1v1 Match in ${mpState.arenaName || 'Cyber Arena'}.` : `Current room: ${room.name}.`
-  if ($('welcomeLevel')) $('welcomeLevel').textContent = String(level).padStart(2, '0')
-  if ($('welcomeQuest')) $('welcomeQuest').textContent = mode === 'end' ? `${room.name} complete` : room.name
-  if ($('welcomeProgress')) $('welcomeProgress').textContent = `${defeated} / ${totalPigs}`
-  if ($('welcomeProgressNote')) {
-    $('welcomeProgressNote').textContent = remaining
-      ? `${remaining} ${remaining === 1 ? 'virus' : 'viruses'} remaining`
-      : 'Room cleared'
-  }
-  if ($('welcomeNextAction')) {
-    $('welcomeNextAction').textContent = remaining
-      ? 'Find a virus'
-      : mode === 'end' ? 'Run complete' : 'Find the exit'
-  }
-  if ($('welcomeNextNote')) {
-    $('welcomeNextNote').textContent = remaining
-      ? 'Touch one to start a battle'
-      : mode === 'end' ? 'All room foes defeated' : 'Enter the open door'
-  }
+  $('welcomeEyebrow').textContent = 'Quest Hub'
+  $('welcomeTitle').textContent = `Welcome, ${activePlayerName || 'Knight'}`
+  $('welcomeSubtitle').textContent = 'Choose a mode or continue a saved campaign run.'
   $('roomTxt').textContent = isMp ? (mpState.arenaName || '1v1 Arena') : room.name
   $('roomTag').textContent = `ROOM ${String(level).padStart(2, '0')}`
   $('previewStatus').textContent = status
-  $('previewHeading').textContent = mode === 'menu'
-    ? 'Your next quest awaits.'
-    : mode === 'end' ? 'The kingdom is safe.' : mode === 'battle' || mode === 'intro' ? 'Knowledge is your weapon.' : `Clear the ${room.name}.`
-  $('previewDescription').textContent = mode === 'menu'
-    ? `Enter the room. Face ${totalPigs} ${totalPigs === 1 ? 'virus' : 'viruses'}.`
-    : mode === 'end' ? 'All room foes defeated. Your run is complete.'
-    : mode === 'battle' || mode === 'intro' ? 'Choose your move, then answer the question.'
-    : `${remaining} ${remaining === 1 ? 'virus' : 'viruses'} remain. Defeat them to unlock the door.`
+  $('previewHeading').textContent = 'Campaign Arena'
+  $('previewDescription').textContent = '16 rooms across 6 IT biomes.'
   $('accuracyNote').textContent = stats.total ? `${stats.correct} of ${stats.total} correct` : 'No battles yet'
   $('playRoomTag').textContent = isMp ? '1V1 DUEL' : `ROOM ${String(level).padStart(2, '0')}`
   $('playRoomName').textContent = isMp ? `${mpState.arenaName || 'Cyber Arena'} (${mpState.roomCode || 'LIVE'})` : room.name
@@ -5689,40 +6368,95 @@ function renderDashboard() {
       spText.textContent = `${spTotal} SP · [U]`
     }
   }
-  $('playPlayerHpText').textContent = `${hero.hp} / ${hero.maxHp}`
-  updatePlayerHpMeter(Math.max(0, Math.min(100, (100 * hero.hp) / hero.maxHp)))
-  $('playPlayerManaText').textContent = `${hero.mana} / ${hero.maxMana}`
-  $('playPlayerManaFill').style.width = `${Math.max(0, Math.min(100, (100 * hero.mana) / hero.maxMana))}%`
-  $('playPlayerMeta').textContent = `ATK ${hero.attack} · DEF ${hero.defense}`
   const activeEnemy = (mode === 'battle' || mode === 'intro') ? battle.enemy : null
-  const remainingEnemies = enemies.filter((enemy) => enemy.alive).length
-  if (activeEnemy && activeEnemy.isMultiplayerPlayer) {
+  const inCombatNow = Boolean(playViewActive && activeEnemy && (mode === 'battle' || mode === 'intro'))
+  const enemyChanged = activeEnemy !== lastHudEnemyRef || !inCombatNow !== !lastHudInCombat
+  const statusGridEl = document.querySelector('#playHud .play-status-grid')
+  if (statusGridEl) {
+    statusGridEl.hidden = inCombatNow
+  }
+
+  if (!inCombatNow) {
+    if (lastHudInCombat) {
+      clearAllHudDeltaBadges()
+    }
+    resetHeadBarState('hero', hero, hero.hp, hero.maxHp, hero.mana, hero.maxMana)
+    resetHeadBarState('enemy', null, 0, 100)
+    lastHudInCombat = false
+    lastHudEnemyRef = null
+    lastHudPlayerHp = hero.hp
+    lastHudPlayerMana = hero.mana
+    lastHudEnemyHp = null
+  } else {
+    if (enemyChanged) {
+      // New encounter or enemy switched: reset enemy delta & snap enemy bar without carrying over previous enemy animation
+      clearHudDeltaBadge('playEnemyHpDelta')
+      resetHeadBarState('enemy', activeEnemy, activeEnemy.hp, activeEnemy.maxHp, activeEnemy.mana, activeEnemy.maxMana)
+      if (!lastHudInCombat) {
+        clearHudDeltaBadge('playPlayerHpDelta')
+        clearHudDeltaBadge('playPlayerManaDelta')
+        resetHeadBarState('hero', hero, hero.hp, hero.maxHp, hero.mana, hero.maxMana)
+        lastHudPlayerHp = hero.hp
+        lastHudPlayerMana = hero.mana
+      }
+      lastHudEnemyRef = activeEnemy
+      lastHudEnemyHp = activeEnemy.hp
+    } else {
+      syncHeadBarTarget('hero', hero, hero.hp, hero.maxHp, hero.mana, hero.maxMana)
+      syncHeadBarTarget('enemy', activeEnemy, activeEnemy.hp, activeEnemy.maxHp, activeEnemy.mana, activeEnemy.maxMana)
+      if (lastHudPlayerHp !== null && hero.hp !== lastHudPlayerHp) {
+        showHudDeltaBadge('playPlayerHpDelta', hero.hp - lastHudPlayerHp, 'HP', { isEnemy: false })
+      }
+      if (lastHudPlayerMana !== null && hero.mana !== lastHudPlayerMana) {
+        showHudDeltaBadge('playPlayerManaDelta', hero.mana - lastHudPlayerMana, 'MP', { isEnemy: false })
+      }
+      if (lastHudEnemyHp !== null && activeEnemy.hp !== lastHudEnemyHp) {
+        showHudDeltaBadge('playEnemyHpDelta', activeEnemy.hp - lastHudEnemyHp, 'HP', { isEnemy: true })
+      }
+      lastHudPlayerHp = hero.hp
+      lastHudPlayerMana = hero.mana
+      lastHudEnemyHp = activeEnemy.hp
+    }
+    lastHudInCombat = true
+  }
+
+  $('playPlayerHpText').textContent = `${hero.hp} / ${hero.maxHp}`
+  updatePlayerHpMeter(Math.max(0, Math.min(100, (100 * hero.hp) / (hero.maxHp || 100))), { instant: !inCombatNow })
+  $('playPlayerManaText').textContent = `${hero.mana} / ${hero.maxMana}`
+  updatePlayerManaMeter(Math.max(0, Math.min(100, (100 * hero.mana) / (hero.maxMana || 100))), { instant: !inCombatNow })
+  $('playPlayerMeta').textContent = `ATK ${hero.attack} · DEF ${hero.defense}`
+  const enemyStatusCard = $('playEnemyStatusCard')
+  if (enemyStatusCard) {
+    enemyStatusCard.hidden = !inCombatNow
+  }
+  if (inCombatNow && activeEnemy && activeEnemy.isMultiplayerPlayer) {
     const oppMana = activeEnemy.mana ?? 100
     $('playEnemyName').textContent = activeEnemy.name.toUpperCase()
     $('playEnemyHpText').textContent = `ROUND ${(typeof mpState !== 'undefined' ? mpState.round : 0) + 1}`
     $('playEnemyLabel').textContent = 'Challenger health'
     $('playEnemyHpValue').textContent = `${activeEnemy.hp} / ${activeEnemy.maxHp}`
-    $('playEnemyHpFill').style.width = `${Math.max(0, Math.min(100, (100 * activeEnemy.hp) / activeEnemy.maxHp))}%`
+    updateEnemyHpMeter(Math.max(0, Math.min(100, (100 * activeEnemy.hp) / (activeEnemy.maxHp || 100))), { instant: enemyChanged })
     $('playEnemyMeta').textContent = `${oppMana} MP · ATK ${activeEnemy.attack} · DEF ${activeEnemy.defense}`
-  } else if (activeEnemy) {
+  } else if (inCombatNow && activeEnemy) {
     $('playEnemyName').textContent = activeEnemy.name.toUpperCase()
     $('playEnemyHpText').textContent = `${activeEnemy.turns} TURNS`
     $('playEnemyLabel').textContent = 'Enemy health'
     $('playEnemyHpValue').textContent = `${activeEnemy.hp} / ${activeEnemy.maxHp}`
-    $('playEnemyHpFill').style.width = `${Math.max(0, Math.min(100, (100 * activeEnemy.hp) / activeEnemy.maxHp))}%`
+    updateEnemyHpMeter(Math.max(0, Math.min(100, (100 * activeEnemy.hp) / (activeEnemy.maxHp || 100))), { instant: enemyChanged })
     $('playEnemyMeta').textContent = `${activeEnemy.attack} ATK · ${isHeavy(activeEnemy) ? 'HEAVY NEXT' : 'NORMAL NEXT'}`
   } else {
-    $('playEnemyName').textContent = 'ROOM FOES'
-    $('playEnemyHpText').textContent = `${remainingEnemies} remaining`
-    $('playEnemyLabel').textContent = 'Encounter status'
-    $('playEnemyHpValue').textContent = mode === 'end' ? 'Complete' : 'Explore'
-    $('playEnemyHpFill').style.width = remainingEnemies ? '100%' : '0%'
-    $('playEnemyMeta').textContent = remainingEnemies
-      ? 'Find a virus to begin combat.'
-      : mode === 'end' ? 'The kingdom is safe.' : 'Room clear. Find the door to continue.'
+    clearHudDeltaBadge('playEnemyHpDelta')
+    $('playEnemyName').textContent = ''
+    $('playEnemyHpText').textContent = ''
+    $('playEnemyLabel').textContent = ''
+    $('playEnemyHpValue').textContent = ''
+    $('playEnemyMeta').textContent = ''
+    updateEnemyHpMeter(0, { instant: true })
+    lastEnemyHpPercent = null
   }
   $('dashboardAside').innerHTML = renderDashboardView(dashboardView, room, totalPigs, defeated, remaining)
   syncAnimationLoop()
+  window.ByteboundTutorial?.onDashboardRendered?.(dashboardView, playViewActive, mode)
 }
 
 function renderDashboardView(view, room, totalPigs, defeated, remaining) {
@@ -5741,7 +6475,6 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
           : `Synced (${esc(activePlayerName || 'Player')})`
     return `<span class="eyebrow">Settings</span>
       <h2>Game &amp; Profile Settings</h2>
-      <p class="achievement-summary">Adjust appearance, audio, controls, and your player profile.</p>
       <div class="settings-grid">
         <section class="settings-card tone-gold" aria-label="Appearance settings">
           <header class="settings-card-head">
@@ -5824,18 +6557,7 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
         </section>
       </div>`
   }
-  const questTitle = mode === 'end' ? 'Kingdom cleared' : `Clear the ${room.name}`
-  const step = remaining === totalPigs ? 1 : remaining > 0 ? 2 : 3
-  return `<span class="eyebrow">Current quest</span>
-    <h2>${esc(questTitle)}</h2>
-    <p>${remaining ? (room.boss ? 'Defeat the mini boss to unlock the door.' : 'Defeat every virus to unlock the door.') : 'All room foes are defeated. Find the door to continue.'}</p>
-    <div class="quest-progress" role="progressbar" aria-label="Room enemies defeated" aria-valuenow="${defeated}" aria-valuemin="0" aria-valuemax="${totalPigs}"><i style="width:${progress}%"></i></div>
-    <p>${defeated} / ${totalPigs} ${room.boss ? 'mini boss' : totalPigs === 1 ? 'virus' : 'viruses'} defeated</p>
-    <div class="quest-steps">
-      <div class="quest-step ${step === 1 ? 'is-current' : ''}"><span class="step-number">01</span><div><strong>Find a virus</strong><small>${room.boss ? 'Touch the mini boss to start a battle.' : 'Touch a virus to start a battle.'}</small></div></div>
-      <div class="quest-step ${step === 2 ? 'is-current' : ''}"><span class="step-number">02</span><div><strong>Answer &amp; battle</strong><small>Play cards, answer, and defeat the foes.</small></div></div>
-      <div class="quest-step ${step === 3 ? 'is-current' : ''}"><span class="step-number">03</span><div><strong>Unlock the door</strong><small>${remaining ? `${remaining} foes left in this room.` : 'The door is ready to enter.'}</small></div></div>
-    </div>`
+  return renderWorldBeacon()
 }
 
 function openResetConfirmModal() {
@@ -5982,10 +6704,11 @@ function getTopicBankCounts() {
 }
 
 function buildCapabilityRadarSvg(disciplineMetrics) {
-  const size = 264
-  const cx = size / 2
-  const cy = size / 2
-  const maxR = 66
+  const width = 380
+  const height = 286
+  const cx = width / 2
+  const cy = height / 2
+  const maxR = 72
   // 4 axes: Top (0), Right (1), Bottom (2), Left (3)
   const angles = [-Math.PI / 2, 0, Math.PI / 2, Math.PI]
   const shortLabels = ['COMP SYS', 'NET & SEC', 'PROGRAMMING', 'DATABASE']
@@ -6017,23 +6740,23 @@ function buildCapabilityRadarSvg(disciplineMetrics) {
     const metric = disciplineMetrics[idx]
     const ratio = metric ? (metric.accuracyPct / 100) : 0.08
     const [px, py] = pointAt(idx, ratio).split(',')
-    return `<rect class="cap-radar-vertex" x="${(Number(px) - 3.5).toFixed(1)}" y="${(Number(py) - 3.5).toFixed(1)}" width="7" height="7" />`
+    return `<rect class="cap-radar-vertex" x="${(Number(px) - 4).toFixed(1)}" y="${(Number(py) - 4).toFixed(1)}" width="8" height="8" />`
   }).join('')
 
   const labelCoords = [
-    { x: cx, y: 20, anchor: 'middle' },
-    { x: size - 6, y: cy + 4, anchor: 'end' },
-    { x: cx, y: size - 10, anchor: 'middle' },
-    { x: 6, y: cy + 4, anchor: 'start' },
+    { x: cx, y: 26, anchor: 'middle' },
+    { x: cx + maxR + 14, y: cy - 4, anchor: 'start' },
+    { x: cx, y: height - 28, anchor: 'middle' },
+    { x: cx - maxR - 14, y: cy - 4, anchor: 'end' },
   ]
   const labels = [0, 1, 2, 3].map((idx) => {
     const metric = disciplineMetrics[idx]
     const coord = labelCoords[idx]
     const score = metric ? `${metric.accuracyPct}%` : '0%'
-    return `<text class="cap-radar-label" x="${coord.x}" y="${coord.y}" text-anchor="${coord.anchor}">${esc(shortLabels[idx])} (${score})</text>`
+    return `<text class="cap-radar-label" x="${coord.x}" y="${coord.y}" text-anchor="${coord.anchor}"><tspan x="${coord.x}" dy="0">${esc(shortLabels[idx])}</tspan><tspan class="cap-radar-score" x="${coord.x}" dy="16">${score}</tspan></text>`
   }).join('')
 
-  return `<svg class="cap-radar-svg" viewBox="0 0 ${size} ${size}" role="img" aria-label="Four-discipline capability radar chart">
+  return `<svg class="cap-radar-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Four-discipline capability radar chart">
     ${rings}
     ${axes}
     <polygon class="cap-radar-area" points="${currentPoints}" />
@@ -6411,6 +7134,14 @@ function showUiHoverBubble(targetEl) {
     hideUiHoverBubble()
     return
   }
+  if (window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches) {
+    hideUiHoverBubble()
+    return
+  }
+  if (document.body.classList.contains('is-tutorial-active')) {
+    hideUiHoverBubble()
+    return
+  }
   const isSidebarBtn = Boolean(targetEl.closest('#mainSidebar'))
   if (isSidebarBtn && !navMenuOpen) {
     hideUiHoverBubble()
@@ -6473,9 +7204,19 @@ function setNavMenuOpen(open) {
   if (!navMenuOpen) hideUiHoverBubble()
   const appEl = document.getElementById('app')
   const toggleBtn = document.getElementById('navToggleButton')
+  const sidebarEl = document.getElementById('mainSidebar')
   if (appEl) appEl.classList.toggle('is-nav-open', navMenuOpen)
   if (toggleBtn) toggleBtn.setAttribute('aria-expanded', String(navMenuOpen))
+  if (sidebarEl) {
+    sidebarEl.setAttribute('aria-hidden', String(!navMenuOpen))
+    if ('inert' in sidebarEl) sidebarEl.inert = !navMenuOpen
+    if (!navMenuOpen && sidebarEl.contains(document.activeElement) && !document.body.classList.contains('is-tutorial-active')) {
+      toggleBtn?.focus?.({ preventScroll: true })
+    }
+  }
+  window.ByteboundTutorial?.onSidebarState?.(navMenuOpen)
 }
+setNavMenuOpen(false)
 function toggleNavMenu() {
   setNavMenuOpen(!navMenuOpen)
 }
@@ -6631,6 +7372,9 @@ document.querySelectorAll('[data-view]').forEach((button) => {
     playViewActive = false
     dashboardView = button.dataset.view
     renderDashboard()
+    const mainEl = document.querySelector('#app main')
+    if (mainEl) mainEl.scrollTop = 0
+    if (typeof window.scrollTo === 'function') window.scrollTo(0, 0)
     const tabContent = document.getElementById('dashboardAside')
     tabContent.classList.remove('is-tab-entering')
     void tabContent.offsetWidth
@@ -6666,6 +7410,9 @@ document.getElementById('resetConfirmOverlay')?.addEventListener('click', (event
 })
 window.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return
+  if (typeof window.ByteboundTutorial?.interceptEscape === 'function') {
+    if (window.ByteboundTutorial.interceptEscape(event)) return
+  }
   const runModal = document.getElementById('runSavesOverlay')
   if (runModal && !runModal.hidden) {
     closeRunSavesModal()
@@ -7066,6 +7813,7 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
 })
 
 function switchPlayerProfile() {
+  window.ByteboundTutorial?.onProfileSwitch?.()
   if (typeof hideUiHoverBubble === 'function') hideUiHoverBubble()
   setNavMenuOpen(false)
   if (!practiceRunActive && hasRecordableGameplayRun()) {
@@ -7171,4 +7919,19 @@ function animate(now) {
 
 renderMenu()
 document.addEventListener('visibilitychange', syncAnimationLoop)
+let responsiveResizeTimer = 0
+window.addEventListener('resize', () => {
+  hideUiHoverBubble()
+  window.clearTimeout(responsiveResizeTimer)
+  responsiveResizeTimer = window.setTimeout(() => {
+    if (worldMapOpen) {
+      worldMapPan = null
+      renderWorldMap()
+    }
+    if (skillTreeOpen) {
+      skillMapPan = null
+      renderSkillTree()
+    }
+  }, 160)
+})
 syncAnimationLoop()

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=14" />
+  <link rel="stylesheet" href="css/styles.css?v=21" />
 </head>
 <body>
   <section class="login-screen" id="loginScreen" aria-labelledby="loginTitle">
@@ -36,7 +36,7 @@
         <p id="loginLead">Choose any username — duplicate names auto-assign a unique #tag (like Xbox).</p>
         <div class="login-mode-tabs" role="tablist" aria-label="Account mode">
           <button type="button" class="login-mode-tab is-active" id="authModeRegisterTab" role="tab" aria-selected="true" data-auth-mode="register">New Player</button>
-          <button type="button" class="login-mode-tab" id="authModeLoginTab" role="tab" aria-selected="false" data-auth-mode="login">Returning Player</button>
+          <button type="button" class="login-mode-tab" id="authModeLoginTab" role="tab" aria-selected="false" data-auth-mode="login">Sign In</button>
         </div>
         <form class="login-form" id="loginForm">
           <label for="usernameInput">Username</label>
@@ -63,6 +63,7 @@
         <span class="brand-subtitle">CITCS QUEST / LEARN TO FIGHT</span>
       </div>
       <div class="profile-actions">
+        <button class="topbar-tour-button" id="topbarTourButton" type="button" aria-label="Replay page tutorial" title="Replay page tutorial">? Tour</button>
         <span class="player-badge" id="playerBadge">KNIGHT</span>
       </div>
     </header>
@@ -71,7 +72,7 @@
       <aside class="sidebar" id="mainSidebar">
         <p class="side-label">Navigation</p>
         <nav class="side-nav" aria-label="Main navigation">
-          <button class="nav-button" data-view="quest" aria-current="page" data-bubble-tag="HUB PAGE" data-bubble-title="Quest Hub" data-bubble-desc="View room progress, adaptive difficulty status, controls, and launch Campaign, 1v1, or Practice."><span class="nav-number">01</span><span class="nav-name">Quest Hub</span></button>
+          <button class="nav-button" data-view="quest" aria-current="page" data-bubble-tag="HUB PAGE" data-bubble-title="Quest Hub" data-bubble-desc="Check adaptive difficulty and controls, or launch Campaign, 1v1 Multiplayer, and Practice Mode."><span class="nav-number">01</span><span class="nav-name">Quest Hub</span></button>
           <button class="nav-button" data-view="practice" data-bubble-tag="STUDY PAGE" data-bubble-title="Topic Drill" data-bubble-desc="Non-combat study quiz across 20 IT topics, Weak Topic Spotlight, and your Missed Review Queue."><span class="nav-number">02</span><span class="nav-name">Topic Drill</span></button>
           <button class="nav-button" data-view="tracker" data-bubble-tag="ANALYTICS PAGE" data-bubble-title="Learning Tracker" data-bubble-desc="Inspect your 4-discipline Capability Radar, Baseline vs. Post-Baseline gains, and export a CSV report."><span class="nav-number">03</span><span class="nav-name">Tracker</span></button>
           <button class="nav-button" data-view="leaderboards" data-bubble-tag="RANKINGS PAGE" data-bubble-title="Leaderboards" data-bubble-desc="Compare Arcade Campaign efficiency runs and 1v1 Competitive Elo ratings across players."><span class="nav-number">04</span><span class="nav-name">Leaderboards</span></button>
@@ -87,9 +88,9 @@
         <section class="welcome-row">
           <div class="welcome-header-bar">
             <div class="welcome-heading">
-              <span class="eyebrow" id="welcomeEyebrow">Quest hub / your next adventure</span>
+              <span class="eyebrow" id="welcomeEyebrow">Quest Hub</span>
               <h1 id="welcomeTitle">Welcome, Knight</h1>
-              <p id="welcomeSubtitle">Sharpen your mind. Ready your sword.</p>
+              <p id="welcomeSubtitle">Choose a mode or continue a saved campaign run.</p>
             </div>
             <div class="welcome-actions" aria-label="Choose a game mode">
               <button class="start-button cta" id="startGameButton" type="button" data-bubble-tag="CAMPAIGN" data-bubble-title="Start Game" data-bubble-desc="Create a new Campaign save slot or resume an adventure across 16 adaptive IT rooms.">Start game</button>
@@ -98,16 +99,12 @@
               <button class="exit-game-button cta" id="exitGameButton" type="button" data-bubble-tag="LOG OUT" data-bubble-title="Exit &amp; Log Out" data-bubble-desc="Save progress and log out of your current account back to the login screen.">Exit</button>
             </div>
           </div>
-          <div class="welcome-insights" aria-label="Run overview">
-            <article class="welcome-insight">
-              <div><span class="welcome-insight-label">ROOM PROGRESS</span><strong>Room <span id="welcomeLevel">01</span> · <span id="welcomeProgress">0 / 2</span></strong><small id="welcomeProgressNote">Viruses remaining</small></div>
-              <span class="welcome-insight-mark" aria-hidden="true">LV</span>
-            </article>
+          <div class="welcome-insights" aria-label="Difficulty and controls">
             <article class="welcome-insight difficulty-insight">
-              <div><span class="welcome-insight-label">DIFFICULTY</span><strong id="diffTxt">EASY</strong><small>Adapts to your answers</small></div>
+              <div><span class="welcome-insight-label">ADAPTIVE DIFFICULTY</span><strong id="diffTxt">EASY</strong><small>Scales with your accuracy</small></div>
               <span class="welcome-insight-mark" aria-hidden="true">AD</span>
             </article>
-            <article class="welcome-insight">
+            <article class="welcome-insight controls-insight">
               <div><span class="welcome-insight-label">CONTROLS</span><strong>A/D · W · ↑ · M · U · 1-4</strong><small>Move, jump, door, map, skills, answer</small></div>
               <span class="welcome-insight-mark" aria-hidden="true">KEY</span>
             </article>
@@ -144,21 +141,22 @@
                 <div class="play-hud-room"><span id="playRoomTag">ROOM 01</span><strong id="playRoomName">Terminal Bay</strong></div>
                 <button id="worldMapHudButton" class="play-map-badge" type="button" title="Open World Map (M)">MAP · [M]</button>
                 <button id="skillPointHudBadge" class="play-sp-badge" type="button" hidden title="Open Skill Tree (U)"><span class="play-sp-diamond" aria-hidden="true">◆</span><span id="skillPointHudText">1 SP · [U]</span></button>
+                <button id="hudTourButton" class="play-guide-badge" type="button" aria-label="Replay gameplay tutorial" title="Replay gameplay tutorial">? Guide</button>
                 <span class="play-hud-status" id="playModeStatus">READY</span>
               </div>
               <div class="play-status-grid">
                 <section class="play-status-card" aria-label="Player status">
                   <div class="play-status-title"><span id="playPlayerName">KNIGHT</span></div>
-                  <div class="play-meter-label"><span>Health</span><span id="playPlayerHpText">100 / 100</span></div>
+                  <div class="play-meter-label"><span>Health</span><span class="play-meter-reading"><span class="hud-delta-badge" id="playPlayerHpDelta" hidden></span><span id="playPlayerHpText">100 / 100</span></span></div>
                   <div class="play-meter"><i id="playPlayerHpGhost" aria-hidden="true"></i><i id="playPlayerHpFill"></i></div>
-                  <div class="play-meter-label"><span>Mana</span><span id="playPlayerManaText">0 / 100</span></div>
-                  <div class="play-meter"><i id="playPlayerManaFill"></i></div>
+                  <div class="play-meter-label"><span>Mana</span><span class="play-meter-reading"><span class="hud-delta-badge" id="playPlayerManaDelta" hidden></span><span id="playPlayerManaText">0 / 100</span></span></div>
+                  <div class="play-meter"><i id="playPlayerManaGhost" aria-hidden="true"></i><i id="playPlayerManaFill"></i></div>
                   <div class="play-combat-meta" id="playPlayerMeta">ATK 12 · DEF 2</div>
                 </section>
-                <section class="play-status-card" aria-label="Enemy status">
+                <section class="play-status-card" id="playEnemyStatusCard" aria-label="Enemy status" hidden>
                   <div class="play-status-title"><span id="playEnemyName">ROOM FOES</span><span id="playEnemyHpText">2 remaining</span></div>
-                  <div class="play-meter-label"><span id="playEnemyLabel">Encounter status</span><span id="playEnemyHpValue">Explore</span></div>
-                  <div class="play-meter"><i id="playEnemyHpFill"></i></div>
+                  <div class="play-meter-label"><span id="playEnemyLabel">Encounter status</span><span class="play-meter-reading"><span class="hud-delta-badge" id="playEnemyHpDelta" hidden></span><span id="playEnemyHpValue">Explore</span></span></div>
+                  <div class="play-meter"><i id="playEnemyHpGhost" aria-hidden="true"></i><i id="playEnemyHpFill"></i></div>
                   <div class="play-combat-meta" id="playEnemyMeta">Find a virus to begin combat.</div>
                 </section>
               </div>
@@ -185,8 +183,8 @@
             </div>
             <div class="preview-footer">
               <div>
-                <h2 id="previewHeading">Your next quest awaits.</h2>
-                <p id="previewDescription">Enter the room. Face your first virus.</p>
+                <h2 id="previewHeading">Campaign Arena</h2>
+                <p id="previewDescription">16 rooms across 6 IT biomes.</p>
               </div>
             </div>
             <div class="game-over-overlay" id="gameOverOverlay" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle" hidden></div>
@@ -309,6 +307,42 @@
     <p class="ui-hover-bubble-desc" id="uiHoverBubbleDesc"></p>
   </aside>
 
+  <div class="tutorial-layer" id="tutorialLayer" hidden aria-hidden="true">
+    <div class="tutorial-dim tutorial-dim-top" id="tutorialDimTop" aria-hidden="true"></div>
+    <div class="tutorial-dim tutorial-dim-bottom" id="tutorialDimBottom" aria-hidden="true"></div>
+    <div class="tutorial-dim tutorial-dim-left" id="tutorialDimLeft" aria-hidden="true"></div>
+    <div class="tutorial-dim tutorial-dim-right" id="tutorialDimRight" aria-hidden="true"></div>
+    <div class="tutorial-spotlight" id="tutorialSpotlight" aria-hidden="true">
+      <span class="tutorial-spotlight-corner is-tl"></span>
+      <span class="tutorial-spotlight-corner is-tr"></span>
+      <span class="tutorial-spotlight-corner is-bl"></span>
+      <span class="tutorial-spotlight-corner is-br"></span>
+      <span class="tutorial-spotlight-badge" id="tutorialSpotlightBadge">TARGET</span>
+    </div>
+    <section
+      class="tutorial-bubble"
+      id="tutorialBubble"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="tutorialBubbleTitle"
+      aria-describedby="tutorialBubbleDesc"
+      tabindex="-1"
+    >
+      <header class="tutorial-bubble-head">
+        <span class="tutorial-bubble-tag" id="tutorialBubbleTag">TUTORIAL</span>
+        <span class="tutorial-bubble-progress" id="tutorialBubbleProgress" aria-label="Tutorial step progress">1 of 5</span>
+      </header>
+      <h3 class="tutorial-bubble-title" id="tutorialBubbleTitle"></h3>
+      <p class="tutorial-bubble-desc" id="tutorialBubbleDesc"></p>
+      <p class="tutorial-action-prompt" id="tutorialActionPrompt" hidden></p>
+      <footer class="tutorial-bubble-actions">
+        <button type="button" class="tutorial-btn is-skip" id="tutorialSkipButton">Skip tutorial</button>
+        <button type="button" class="tutorial-btn is-next" id="tutorialNextButton">Next</button>
+      </footer>
+    </section>
+    <div class="sr-only" id="tutorialLiveAnnouncer" aria-live="polite" aria-atomic="true"></div>
+  </div>
+
   <script
     src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.1/gsap.min.js"
     integrity="sha512-Mf/xUqfWvDIr+1B6zfnIDIiG7XHzyP/guXUWgV6PgaQoIFeXkJQR5XWh9fqAiCiRCpemabt3naV4jhDWVnuYDQ=="
@@ -326,13 +360,14 @@
   <script src="js/audio.js?v=13"></script>
   <script src="js/cards.js?v=7"></script>
   <script src="js/arena.js?v=11"></script>
-  <script src="js/combat.js?v=60"></script>
-  <script src="js/practice.js?v=6"></script>
-  <script src="js/eventListeners.js?v=16"></script>
+  <script src="js/combat.js?v=63"></script>
+  <script src="js/practice.js?v=9"></script>
+  <script src="js/eventListeners.js?v=17"></script>
   <script src="supabase-config.js?v=1"></script>
   <script src="js/mp-network.js?v=3"></script>
   <script src="js/mp-matchmaking.js?v=6"></script>
   <script src="js/mp-ui.js?v=4"></script>
-  <script src="index.js?v=152"></script>
+  <script src="index.js?v=159"></script>
+  <script src="js/tutorials.js?v=6"></script>
 </body>
 </html>

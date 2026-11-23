@@ -5,6 +5,10 @@ const CONFIRM_KEYS = ['enter', 'w', 'e', 'space', 'up'];
 function handleKey(rawKey, down, repeat = false) {
   const key = KEY_ALIASES[rawKey] || String(rawKey).toLowerCase();
 
+  if (typeof window.ByteboundTutorial?.interceptKey === 'function') {
+    if (window.ByteboundTutorial.interceptKey(key, rawKey, down, repeat)) return;
+  }
+
   if (window.mpUI?.isOpen) {
     if (!down && (key === 'a' || key === 'd')) keys[key].pressed = false;
     return;
@@ -85,9 +89,16 @@ function handleKey(rawKey, down, repeat = false) {
 window.addEventListener('keydown', (e) => {
   if (window.mpUI?.isOpen) return;
   if (e.target && e.target.closest && e.target.closest('input, textarea, select, #multiplayerOverlay')) return;
+  if (e.target && e.target.closest && e.target.closest('#tutorialBubble')) {
+    if (e.key === 'Tab' || e.key === 'Enter' || e.key === ' ') return;
+  }
   // A focused panel button handles Enter/Space itself.
   if (e.target.closest && e.target.closest('[data-act]') && e.key.toLowerCase() !== 'u') return;
-  if (playViewActive && !e.repeat && (e.key === 'f' || e.key === 'F')) { toggleFullscreen(); return; }
+  if (playViewActive && !e.repeat && (e.key === 'f' || e.key === 'F')) {
+    if (window.ByteboundTutorial?.isActionLocked?.()) return;
+    toggleFullscreen();
+    return;
+  }
   if (playViewActive && e.key in KEY_ALIASES) e.preventDefault();
   handleKey(e.key, true, e.repeat);
 });
@@ -149,6 +160,10 @@ touchButtons.forEach((btn) => {
   const key = btn.dataset.k;
   const isDir = key === 'a' || key === 'd';
   btn.addEventListener('pointerdown', (e) => {
+    if (typeof window.ByteboundTutorial?.interceptTouchButton === 'function') {
+      if (window.ByteboundTutorial.interceptTouchButton(key, btn, e)) return;
+    }
+    btn._lastPtrDownAt = performance.now();
     e.preventDefault();
     if (btn.setPointerCapture) {
       try { btn.setPointerCapture(e.pointerId); } catch (_) {}
@@ -160,6 +175,25 @@ touchButtons.forEach((btn) => {
       btn.classList.add('is-pressed');
       handleKey(key, true);
     }
+    window.ByteboundTutorial?.onTouchButtonAction?.(key, btn, 'pointerdown');
+  });
+  btn.addEventListener('click', (e) => {
+    if (performance.now() - (btn._lastPtrDownAt || 0) < 420) return;
+    if (typeof window.ByteboundTutorial?.interceptTouchButton === 'function') {
+      if (window.ByteboundTutorial.interceptTouchButton(key, btn, e)) return;
+    }
+    if (isDir) {
+      keys[key].pressed = true;
+      btn.classList.add('is-pressed');
+      window.setTimeout(() => {
+        keys[key].pressed = false;
+        btn.classList.remove('is-pressed');
+      }, 240);
+    } else {
+      handleKey(key, true, false);
+      window.setTimeout(() => handleKey(key, false, false), 80);
+    }
+    window.ByteboundTutorial?.onTouchButtonAction?.(key, btn, 'click');
   });
   if (isDir) {
     // Allow smooth thumb sliding between LEFT and RIGHT on the D-pad without lifting
