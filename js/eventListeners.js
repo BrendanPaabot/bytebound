@@ -6,7 +6,7 @@ function handleKey(rawKey, down, repeat = false) {
   const key = KEY_ALIASES[rawKey] || String(rawKey).toLowerCase();
 
   if (typeof window.ByteboundTutorial?.interceptKey === 'function') {
-    if (window.ByteboundTutorial.interceptKey(key, rawKey, down, repeat)) return;
+    if (window.ByteboundTutorial.interceptKey(key, rawKey, down, repeat)) return true;
   }
 
   if (window.mpUI?.isOpen) {
@@ -93,14 +93,17 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Tab' || e.key === 'Enter' || e.key === ' ') return;
   }
   // A focused panel button handles Enter/Space itself.
-  if (e.target.closest && e.target.closest('[data-act]') && e.key.toLowerCase() !== 'u') return;
+  if (e.target.closest && e.target.closest('[data-act]') && e.key.toLowerCase() !== 'u' && !window.ByteboundTutorial?.isActionLocked?.()) return;
   if (playViewActive && !e.repeat && (e.key === 'f' || e.key === 'F')) {
     if (window.ByteboundTutorial?.isActionLocked?.()) return;
     toggleFullscreen();
     return;
   }
   if (playViewActive && e.key in KEY_ALIASES) e.preventDefault();
-  handleKey(e.key, true, e.repeat);
+  const tutorialHandled = handleKey(e.key, true, e.repeat);
+  if (tutorialHandled) {
+    e.stopImmediatePropagation();
+  }
 });
 window.addEventListener('keyup', (e) => handleKey(e.key, false));
 

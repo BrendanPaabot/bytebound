@@ -117,7 +117,21 @@
       title: 'World Map Tutorial',
       shortTitle: 'World Map',
       category: 'Overlay Lesson',
-      summary: 'Current and cleared rooms, branching street routes, pan/zoom, room inspector, and closing.',
+      summary: 'Current and cleared rooms, branching street routes, room inspector, mouse-wheel zoom, and closing.',
+    },
+    {
+      id: 'guide_skill_tree',
+      title: 'Skill Tree Guide',
+      shortTitle: 'Skill Tree Guide',
+      category: 'Overlay Guide',
+      summary: 'Skill points, topic branches, upgrade choices, and closing the Skill Tree.',
+    },
+    {
+      id: 'guide_world_map',
+      title: 'World Map Guide',
+      shortTitle: 'Map Guide',
+      category: 'Overlay Guide',
+      summary: 'Room status, routes, room inspection, map controls, and closing.',
     },
   ];
 
@@ -303,7 +317,7 @@
             tag: 'NAVIGATION',
             title: 'Open the Sidebar Menu',
             desc: 'Bytebound’s sidebar holds all six main pages. Open the menu to slide it into view.',
-            actionPrompt: 'Action required: Click or tap the highlighted menu button to open the sidebar.',
+            actionPrompt: 'Action required: Click or tap the highlighted menu button, or press Enter or Space, to open the sidebar.',
             actionRequired: true,
             target: ['#navToggleButton'],
             allowClickSelector: '#navToggleButton',
@@ -680,7 +694,7 @@
             tag: 'CORE CONTROLS · 3',
             title: 'Interact with a Door',
             desc: 'Approach a door and use the door control to enter it. Room exit doors stay locked until all viruses in the room are defeated.',
-            actionPrompt: 'Action required: Tap the highlighted DOOR button or press Up Arrow / W.',
+            actionPrompt: 'Action required: Move toward the door with A / D or LEFT / RIGHT, then tap DOOR or press Up Arrow / W.',
             actionRequired: true,
             showTouchControls: true,
             holdEncounter: true,
@@ -694,7 +708,7 @@
             tag: 'CORE CONTROLS · 4',
             title: 'Approach & Engage an Enemy',
             desc: 'Walk into any patrolling virus in the room to start a battle encounter.',
-            actionPrompt: 'Action required: Move toward a virus using A / D or LEFT / RIGHT to touch it.',
+            actionPrompt: 'Action required: Move toward a virus with A / D or LEFT / RIGHT; use JUMP, W, or Space if needed.',
             actionRequired: true,
             showTouchControls: true,
             holdEncounter: false,
@@ -733,7 +747,7 @@
             desc: mp
               ? 'Pick an action card for this round. Both players select a card and answer the same IT question.'
               : 'Check the enemy’s next attack intent above, then choose an action card from your hand.',
-            actionPrompt: 'Action required: Click a highlighted card or press keys 1–4.',
+            actionPrompt: 'Action required: Choose a highlighted card (1–4), or start a Remedial challenge with R when available.',
             actionRequired: true,
             target: ['#panel .actions', '#panel'],
             allowClickSelector: '#panel [data-act="card"]:not(:disabled), #panel [data-act="remedial"]:not(:disabled)',
@@ -760,7 +774,7 @@
             tag: mp ? '1V1 ARENA' : 'BATTLE ARENA',
             title: 'Read Feedback & Continue',
             desc: 'Review the answer explanation, combat log, and character-head health bars, then continue to the next turn.',
-            actionPrompt: 'Action required: Click "Continue" or press Enter.',
+            actionPrompt: 'Action required: Click "Continue" or press Enter, W, E, Space, or Up Arrow.',
             actionRequired: true,
             target: ['#panel .battle-feedback-row', '#panel [data-act="continue"]', '#panel'],
             allowClickSelector: '#panel [data-act="continue"]:not(:disabled)',
@@ -969,7 +983,11 @@
               },
               '#skillMapViewport',
             ],
-            allowClickSelector: '#startSkillTree:not(:disabled), #skillMapWorld [data-skill-select]',
+            get allowClickSelector() {
+              return typeof skillTreeStarted !== 'undefined' && !skillTreeStarted
+                ? '#startSkillTree:not(:disabled)'
+                : '#skillMapWorld [data-skill-select]';
+            },
             preferPlacement: 'top',
           },
           {
@@ -1027,7 +1045,7 @@
             id: 'map_viewport_routes',
             tag: 'WORLD MAP',
             title: 'Routes, Panning & Zooming',
-            desc: 'Drag to pan and scroll (or pinch) to zoom across the 16 rooms and branching street routes.',
+            desc: 'Drag to pan and use the mouse wheel to zoom across the 16 rooms and branching street routes.',
             target: ['#worldMapViewport'],
             preferPlacement: 'top',
           },
@@ -1047,6 +1065,96 @@
             actionPrompt: 'Action required: Click "Close · M" (or press M or Escape).',
             actionRequired: true,
             target: ['#closeWorldMap', '.world-map-actions'],
+            allowClickSelector: '#closeWorldMap',
+            allowedKeys: ['m', 'escape'],
+            preferPlacement: 'bottom',
+          },
+        ];
+      }
+
+      case 'guide_skill_tree': {
+        return [
+          {
+            id: 'guide_skill_points',
+            tag: 'SKILL TREE GUIDE',
+            title: 'Skill Points',
+            desc: 'Every five correct answers in a discipline earns one Skill Point (SP), which can be spent in that discipline’s tree.',
+            target: ['#skillTreeSummary .skill-points-overview'],
+            preferPlacement: 'bottom',
+          },
+          {
+            id: 'guide_skill_topics',
+            tag: 'SKILL TREE GUIDE',
+            title: 'Topic Trees',
+            desc: 'The four branches represent Computer Systems, Networking & Security, Programming, and Database; revealed skills follow their prerequisites.',
+            target: ['#skillMapViewport'],
+            preferPlacement: 'top',
+          },
+          {
+            id: 'guide_skill_choices',
+            tag: 'SKILL TREE GUIDE',
+            title: 'Upgrade Choices',
+            desc: 'Outside this guide, select a revealed skill to review its effect, rank, and point cost. GET SKILL or UPGRADE SKILL spends one point; an exclusive skill commits you to its topic.',
+            target: ['#skillTreeDetail'],
+            preferPlacement: 'left',
+          },
+          {
+            id: 'guide_skill_close',
+            tag: 'ACTION STEP',
+            title: 'Close the Skill Tree',
+            desc: 'Use Close · U, press U, or press Escape to return to the game.',
+            actionPrompt: 'Action required: Close the Skill Tree with its button, U, or Escape.',
+            actionRequired: true,
+            target: ['#closeSkillTree'],
+            allowClickSelector: '#closeSkillTree',
+            allowedKeys: ['u', 'escape'],
+            preferPlacement: 'bottom',
+          },
+        ];
+      }
+
+      case 'guide_world_map': {
+        return [
+          {
+            id: 'guide_map_status',
+            tag: 'WORLD MAP GUIDE',
+            title: 'Room Status',
+            desc: 'The legend distinguishes your current room, completed rooms, unlocked routes, locked rooms, and Boss Sanctums.',
+            target: ['#worldMapOverlay .world-map-legend'],
+            preferPlacement: 'bottom',
+          },
+          {
+            id: 'guide_map_routes',
+            tag: 'WORLD MAP GUIDE',
+            title: 'Routes',
+            desc: 'Lines connect rooms you can reach, including the branching streets; locked rooms show what is still required.',
+            target: ['#worldMapViewport'],
+            preferPlacement: 'top',
+          },
+          {
+            id: 'guide_map_inspect',
+            tag: 'WORLD MAP GUIDE',
+            title: 'Room Inspection',
+            desc: 'Outside this guide, selecting a room card shows its status, enemies, exits, and unlock requirement. The inspector offers travel when the room is unlocked.',
+            target: ['#worldMapInspector'],
+            preferPlacement: 'top',
+          },
+          {
+            id: 'guide_map_controls',
+            tag: 'WORLD MAP GUIDE',
+            title: 'Pan, Zoom & Close',
+            desc: 'Drag to pan and use the mouse wheel to zoom. The close button, M, or Escape returns to exploration.',
+            target: ['#worldMapViewport'],
+            preferPlacement: 'top',
+          },
+          {
+            id: 'guide_map_close',
+            tag: 'ACTION STEP',
+            title: 'Close the World Map',
+            desc: 'Use Close · M, press M, or press Escape to return to exploration.',
+            actionPrompt: 'Action required: Close the map with its button, M, or Escape.',
+            actionRequired: true,
+            target: ['#closeWorldMap'],
             allowClickSelector: '#closeWorldMap',
             allowedKeys: ['m', 'escape'],
             preferPlacement: 'bottom',
@@ -1104,13 +1212,102 @@
     return Boolean(typeof step.actionRequired === 'function' ? step.actionRequired() : step.actionRequired);
   }
 
+  function isOverlayGuide() {
+    return state.activeId === 'guide_skill_tree' || state.activeId === 'guide_world_map';
+  }
+
+  function hasVisibleActionPrompt(step = currentStep()) {
+    if (!step || !isStepActionRequired(step)) return false;
+    const prompt = getEls().actionPrompt;
+    return Boolean(prompt && !prompt.hidden && prompt.textContent.trim());
+  }
+
+  function isActionPromptKey(step, key, rawKey) {
+    if (!hasVisibleActionPrompt(step)) return false;
+    const allowedKeys = Array.isArray(step.allowedKeys) ? step.allowedKeys : [];
+    return allowedKeys.includes(String(key || '').toLowerCase()) ||
+      allowedKeys.includes(String(rawKey || '').toLowerCase());
+  }
+
+  function normalizeTutorialKey(key) {
+    const raw = String(key || '').toLowerCase();
+    return ({ arrowleft: 'a', arrowright: 'd', arrowup: 'up', ' ': 'space' })[raw] || raw;
+  }
+
+  function isKeyboardActivation(key, rawKey) {
+    const raw = String(rawKey || '').toLowerCase();
+    return key === 'enter' || key === 'space' || raw === ' ' || raw === 'spacebar';
+  }
+
+  function getAllowedActionControl(target, step = currentStep()) {
+    if (!target || !step || !hasVisibleActionPrompt(step) || !step.allowClickSelector) return null;
+    const control = target.closest(step.allowClickSelector);
+    if (!control || !isElementVisible(control) || control.matches(':disabled, [aria-disabled="true"]')) return null;
+    if (
+      state.activeId === 'game_skill_tree' &&
+      step.id === 'sp_find_and_inspect' &&
+      state.targetEl &&
+      state.targetEl !== control &&
+      !state.targetEl.contains(control)
+    ) return null;
+    return control;
+  }
+
+  function isAllowedTutorialTarget(target, step = currentStep()) {
+    if (!target || !step || !state.activeId) return false;
+    const els = getEls();
+    if (els.nextBtn && !els.nextBtn.hidden && target.closest('#tutorialNextButton')) return true;
+    return Boolean(getAllowedActionControl(target, step));
+  }
+
+  function getTutorialFocusTargets(step = currentStep()) {
+    const els = getEls();
+    const targets = [];
+    if (els.nextBtn && !els.nextBtn.hidden) targets.push(els.nextBtn);
+    if (hasVisibleActionPrompt(step) && step.allowClickSelector) {
+      document.querySelectorAll(step.allowClickSelector).forEach((target) => {
+        if (isAllowedTutorialTarget(target, step) && !targets.includes(target)) targets.push(target);
+      });
+    }
+    return targets;
+  }
+
+  function getTutorialFocusTarget() {
+    const els = getEls();
+    return els.nextBtn && !els.nextBtn.hidden ? els.nextBtn : els.bubble;
+  }
+
+  function focusTutorialTarget(event) {
+    const focusTargets = getTutorialFocusTargets();
+    if (!focusTargets.length) return;
+    const activeIndex = focusTargets.indexOf(document.activeElement);
+    const direction = event.shiftKey ? -1 : 1;
+    const nextIndex = activeIndex < 0
+      ? (direction < 0 ? focusTargets.length - 1 : 0)
+      : (activeIndex + direction + focusTargets.length) % focusTargets.length;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    focusTargets[nextIndex].focus({ preventScroll: true });
+  }
+
   function syncBodyAndAppClasses() {
     const appEl = document.getElementById('app');
     const step = currentStep();
     const active = Boolean(state.activeId && step);
     document.body.classList.toggle('is-tutorial-active', active);
+    const els = getEls();
+    if (els.layer) els.layer.classList.toggle('is-no-skip-guide', active);
+    if (els.skipBtn) els.skipBtn.hidden = active;
+    if (els.bubble) els.bubble.setAttribute('aria-modal', String(active));
     if (appEl) {
       appEl.classList.toggle('is-tutorial-touch-visible', Boolean(active && step.showTouchControls));
+    }
+    if (active) {
+      if (typeof releaseAllTouchControls === 'function') releaseAllTouchControls();
+      if (typeof keys !== 'undefined') {
+        keys.a.pressed = false;
+        keys.d.pressed = false;
+      }
     }
     if (typeof syncTouchVisibility === 'function') {
       syncTouchVisibility();
@@ -1149,7 +1346,8 @@
     const targetEl = resolveFirstVisible(step.target);
     if (!targetEl) return;
     state.targetEl = targetEl;
-    const actionReq = isStepActionRequired(step);
+    const actionReq = hasVisibleActionPrompt(step);
+    els.bubble.setAttribute('aria-modal', 'true');
 
     const vw = window.innerWidth || document.documentElement.clientWidth || 1024;
     const vh = window.innerHeight || document.documentElement.clientHeight || 768;
@@ -1179,7 +1377,7 @@
     const hlW = Math.max(16, hlRight - hlLeft);
     const hlH = Math.max(16, hlBottom - hlTop);
 
-    // 1. Position 4 surrounding dim panels so the target hole is 100% interactive
+    // 1. Position the dim panels for visual emphasis; input is gated independently.
     els.dimTop.style.top = '0px';
     els.dimTop.style.left = '0px';
     els.dimTop.style.width = `${vw}px`;
@@ -1323,6 +1521,10 @@
   function renderCurrentStep({ focusBubble = false } = {}) {
     const els = getEls();
     if (!els.layer || !state.activeId) return;
+    if (els.actionPrompt) {
+      els.actionPrompt.textContent = '';
+      els.actionPrompt.hidden = true;
+    }
 
     while (state.stepIndex < state.steps.length) {
       const candidate = state.steps[state.stepIndex];
@@ -1355,8 +1557,7 @@
         return;
       }
       state.retryCount = 0;
-      state.stepIndex++;
-      renderCurrentStep({ focusBubble });
+      stopActiveTutorial({ restoreFocus: false });
       return;
     }
 
@@ -1378,7 +1579,9 @@
     els.desc.textContent = typeof step.desc === 'function' ? step.desc() : (step.desc || '');
 
     const promptText = typeof step.actionPrompt === 'function' ? step.actionPrompt() : (step.actionPrompt || '');
-    if (actionReq && promptText) {
+    const actionPromptActive = actionReq && Boolean(String(promptText).trim());
+    const showActionPrompt = actionPromptActive;
+    if (showActionPrompt) {
       els.actionPrompt.textContent = promptText;
       els.actionPrompt.hidden = false;
     } else {
@@ -1386,15 +1589,10 @@
       els.actionPrompt.hidden = true;
     }
 
-    els.bubble.classList.toggle('is-action-step', actionReq);
-
-    if (actionReq) {
-      els.nextBtn.hidden = true;
-    } else {
-      els.nextBtn.hidden = false;
-      const isLast = currentPos === totalCount;
-      els.nextBtn.textContent = isLast ? 'Finish' : 'Next';
-    }
+    els.bubble.classList.toggle('is-action-step', actionPromptActive);
+    els.nextBtn.hidden = false;
+    const isLast = currentPos === totalCount;
+    els.nextBtn.textContent = isLast ? 'Finish' : 'Next';
 
     els.layer.hidden = false;
     els.layer.setAttribute('aria-hidden', 'false');
@@ -1410,13 +1608,7 @@
     if (focusBubble) {
       window.requestAnimationFrame(() => {
         if (!state.activeId) return;
-        if (!actionReq && !els.nextBtn.hidden) {
-          els.nextBtn.focus({ preventScroll: true });
-        } else if (targetEl && typeof targetEl.focus === 'function' && targetEl.matches('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')) {
-          targetEl.focus({ preventScroll: true });
-        } else {
-          els.bubble.focus({ preventScroll: true });
-        }
+        getTutorialFocusTarget()?.focus({ preventScroll: true });
       });
     }
   }
@@ -1424,9 +1616,23 @@
   function stopActiveTutorial({ restoreFocus = true } = {}) {
     stopPositionTracking();
     const els = getEls();
+    if (state.activeId) {
+      if (typeof releaseAllTouchControls === 'function') releaseAllTouchControls();
+      if (typeof keys !== 'undefined') {
+        keys.a.pressed = false;
+        keys.d.pressed = false;
+      }
+    }
     if (els.layer) {
       els.layer.hidden = true;
       els.layer.setAttribute('aria-hidden', 'true');
+      els.layer.classList.remove('is-no-skip-guide');
+    }
+    if (els.skipBtn) els.skipBtn.hidden = false;
+    if (els.bubble) els.bubble.setAttribute('aria-modal', 'false');
+    if (els.actionPrompt) {
+      els.actionPrompt.textContent = '';
+      els.actionPrompt.hidden = true;
     }
     state.activeId = null;
     state.steps = [];
@@ -1467,6 +1673,8 @@
         if (typeof mode !== 'undefined' && mode === 'battle') {
           maybeTriggerContextualTutorial();
         }
+      } else if (finishedId === 'guide_skill_tree' || finishedId === 'guide_world_map') {
+        return;
       } else if (finishedId === 'game_battle' && status === 'completed' && typeof playViewActive !== 'undefined' && playViewActive) {
         if (!isTutorialFinished('game_hud')) {
           startTutorial('game_hud');
@@ -1763,8 +1971,7 @@
 
   // --- Input Gating & Event Hooks ---
   function isActionLocked() {
-    const step = currentStep();
-    return Boolean(state.activeId && step && isStepActionRequired(step));
+    return Boolean(state.activeId && currentStep());
   }
 
   function shouldHoldEncounter() {
@@ -1775,35 +1982,38 @@
   function interceptKey(normalizedKey, rawKey, down, repeat) {
     const step = currentStep();
     if (!state.activeId || !step) return false;
-    const actionReq = isStepActionRequired(step);
-
     const k = String(normalizedKey || '').toLowerCase();
     const rk = String(rawKey || '').toLowerCase();
+    const actionPromptActive = hasVisibleActionPrompt(step);
+    const actionButtonFocused = actionPromptActive &&
+      document.activeElement instanceof Element &&
+      Boolean(getAllowedActionControl(document.activeElement, step)) &&
+      isKeyboardActivation(k, rk);
+
+    if (isOverlayGuide()) {
+      if (!down) return true;
+      if (actionPromptActive && (isActionPromptKey(step, k, rk) || actionButtonFocused)) {
+        const tutorialId = state.activeId;
+        setTutorialStatus(tutorialId, 'completed');
+        stopActiveTutorial({ restoreFocus: false });
+        if (tutorialId === 'guide_skill_tree' && typeof closeSkillTree === 'function') closeSkillTree();
+        else if (typeof closeWorldMap === 'function') closeWorldMap();
+      }
+      return true;
+    }
 
     if (!down) {
       if ((k === 'a' || k === 'd') && typeof keys !== 'undefined' && keys[k]) {
         keys[k].pressed = false;
       }
-      return false;
+      return actionPromptActive && isActionPromptKey(step, k, rk) ? false : true;
     }
 
-    if (!actionReq) {
-      // Allow picking a reward card or level-up upgrade with keys 1-3 even while reading Step 1 of game_card_reward / game_level_up
-      if ((state.activeId === 'game_card_reward' || state.activeId === 'game_level_up') && ['1', '2', '3'].includes(k)) {
-        return false;
-      }
-      if (!repeat && (k === 'enter' || k === 'space' || rk === ' ')) {
-        advanceStep();
-      }
-      if (typeof playViewActive !== 'undefined' && playViewActive) {
-        return true;
-      }
-      return false;
-    }
+    if (!actionPromptActive) return true;
+    if (actionButtonFocused) return true;
+    if (repeat) return true;
 
-    const allowed = Array.isArray(step.allowedKeys) ? step.allowedKeys : [];
-    const isAllowed = allowed.includes(k) || allowed.includes(rk);
-    if (!isAllowed) {
+    if (!isActionPromptKey(step, k, rk)) {
       if (typeof keys !== 'undefined') {
         keys.a.pressed = false;
         keys.d.pressed = false;
@@ -1887,6 +2097,19 @@
   function interceptEscape(event) {
     const step = currentStep();
     if (!state.activeId || !step) return false;
+    if (!hasVisibleActionPrompt(step) || !isActionPromptKey(step, 'escape', 'escape')) {
+      event.preventDefault();
+      return true;
+    }
+    if (isOverlayGuide()) {
+      event.preventDefault();
+      const tutorialId = state.activeId;
+      setTutorialStatus(tutorialId, 'completed');
+      stopActiveTutorial({ restoreFocus: false });
+      if (tutorialId === 'guide_skill_tree' && typeof closeSkillTree === 'function') closeSkillTree();
+      else if (typeof closeWorldMap === 'function') closeWorldMap();
+      return true;
+    }
     if (state.activeId === 'game_skill_tree' && step.id === 'sp_close_tree') {
       event.preventDefault();
       setTutorialStatus('game_skill_tree', 'completed');
@@ -1905,16 +2128,14 @@
       event.preventDefault();
       return true;
     }
-    return false;
+    event.preventDefault();
+    return true;
   }
 
   function interceptTouchButton(key, btn, event) {
     const step = currentStep();
     if (!state.activeId || !step) return false;
-    if (!isStepActionRequired(step)) return true;
-    if (step.allowClickSelector && btn && btn.matches(step.allowClickSelector)) {
-      return false;
-    }
+    if (getAllowedActionControl(btn, step)) return false;
     if (event && typeof event.preventDefault === 'function') event.preventDefault();
     return true;
   }
@@ -1955,11 +2176,7 @@
   function interceptPracticeClick(action, el) {
     const step = currentStep();
     if (!state.activeId || !step) return false;
-    if (!isStepActionRequired(step)) return false;
-    if (step.allowClickSelector && el && el.matches(step.allowClickSelector)) {
-      return false;
-    }
-    return true;
+    return !getAllowedActionControl(el, step);
   }
 
   function onPracticeAction(action) {
@@ -1991,18 +2208,7 @@
   function interceptCombatAction(act, val, btn) {
     const step = currentStep();
     if (!state.activeId || !step) return false;
-    // Never block claiming a card reward or level-up upgrade during their contextual reward tutorials
-    if (state.activeId === 'game_card_reward' && act === 'pickcard') {
-      return false;
-    }
-    if (state.activeId === 'game_level_up' && act === 'upgrade') {
-      return false;
-    }
-    if (!isStepActionRequired(step)) return true;
-    if (step.allowClickSelector && btn && btn.matches(step.allowClickSelector)) {
-      return false;
-    }
-    return true;
+    return !getAllowedActionControl(btn, step);
   }
 
   function onRewardCardPicked() {
@@ -2120,6 +2326,12 @@
     syncGuideButtonsVisibility();
     if (isOpen) {
       window.setTimeout(() => maybeTriggerContextualTutorial(), 80);
+    } else if (state.activeId === 'guide_skill_tree') {
+      const step = currentStep();
+      if (step && step.id === 'guide_skill_close') {
+        setTutorialStatus('guide_skill_tree', 'completed');
+      }
+      stopActiveTutorial({ restoreFocus: false });
     } else if (state.activeId === 'game_skill_tree') {
       const step = currentStep();
       if (step && step.id === 'sp_close_tree') {
@@ -2137,6 +2349,7 @@
       if (action === 'start') {
         const eligibleNode = findFirstEligibleSkillNode();
         if (eligibleNode && eligibleNode.dataset.skillSelect && eligibleNode.dataset.skillTree) {
+          renderCurrentStep();
           eligibleNode.click();
           return;
         }
@@ -2149,6 +2362,12 @@
     syncGuideButtonsVisibility();
     if (isOpen) {
       window.setTimeout(() => maybeTriggerContextualTutorial(), 80);
+    } else if (state.activeId === 'guide_world_map') {
+      const step = currentStep();
+      if (step && step.id === 'guide_map_close') {
+        setTutorialStatus('guide_world_map', 'completed');
+      }
+      stopActiveTutorial({ restoreFocus: false });
     } else if (state.activeId === 'game_world_map') {
       const step = currentStep();
       if (step && step.id === 'map_close') {
@@ -2248,35 +2467,120 @@
       replayCurrentContextTutorial();
     });
 
+    document.getElementById('skillTreeGuideButton')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startTutorial('guide_skill_tree', { force: true });
+    });
+
+    document.getElementById('worldMapGuideButton')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startTutorial('guide_world_map', { force: true });
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (!state.activeId) return;
+      if (event.key === 'Tab') {
+        focusTutorialTarget(event);
+        return;
+      }
+
+      const step = currentStep();
+      if (!step) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const rawKey = String(event.key || '').toLowerCase();
+      const key = normalizeTutorialKey(rawKey);
+      const hasModifier = event.altKey || event.ctrlKey || event.metaKey;
+      const keyboardActivation = isKeyboardActivation(key, rawKey);
+      const nextActivation = !hasModifier &&
+        target?.closest('#tutorialNextButton') &&
+        !getEls().nextBtn?.hidden &&
+        keyboardActivation;
+      const actionActivation = !hasModifier &&
+        keyboardActivation &&
+        Boolean(getAllowedActionControl(target, step));
+      const editableTarget = target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])');
+      const matchingActionKey = !hasModifier &&
+        !editableTarget &&
+        isActionPromptKey(step, key, rawKey);
+
+      if (!event.repeat && (nextActivation || actionActivation || matchingActionKey)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if ((key === 'a' || key === 'd') && typeof keys !== 'undefined') {
+        keys.a.pressed = false;
+        keys.d.pressed = false;
+      }
+    }, true);
+
+    document.addEventListener('keyup', (event) => {
+      if (!state.activeId) return;
+      const step = currentStep();
+      if (!step) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const rawKey = String(event.key || '').toLowerCase();
+      const key = normalizeTutorialKey(rawKey);
+      const hasModifier = event.altKey || event.ctrlKey || event.metaKey;
+      const keyboardActivation = isKeyboardActivation(key, rawKey);
+      const nextActivation = !hasModifier &&
+        target?.closest('#tutorialNextButton') &&
+        !getEls().nextBtn?.hidden &&
+        keyboardActivation;
+      const actionActivation = !hasModifier &&
+        keyboardActivation &&
+        Boolean(getAllowedActionControl(target, step));
+      const matchingActionKey = !hasModifier && isActionPromptKey(step, key, rawKey);
+
+      if (nextActivation || actionActivation || matchingActionKey) return;
+      if ((key === 'a' || key === 'd') && typeof keys !== 'undefined') {
+        keys.a.pressed = false;
+        keys.d.pressed = false;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
+
+    document.addEventListener('focusin', (event) => {
+      if (!state.activeId) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (!isAllowedTutorialTarget(target)) {
+        getTutorialFocusTarget()?.focus({ preventScroll: true });
+      }
+    }, true);
+
+    const pointerActivationEvents = new Set([
+      'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'touchmove',
+    ]);
+    const blockUnintendedTutorialInput = (event) => {
+      if (!state.activeId) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (pointerActivationEvents.has(event.type) && isAllowedTutorialTarget(target)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+
+    [
+      'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend', 'touchmove',
+      'wheel', 'dblclick', 'contextmenu', 'auxclick', 'dragstart', 'submit',
+    ].forEach((eventName) => {
+      document.addEventListener(eventName, blockUnintendedTutorialInput, { capture: true, passive: false });
+    });
+
     document.addEventListener('click', (e) => {
       const step = currentStep();
       if (!state.activeId || !step) return;
       const target = e.target instanceof Element ? e.target : null;
-      if (!target) return;
-
-      if (target.closest('#tutorialBubble')) return;
-      if (target.closest('#topbarTourButton, #hudTourButton')) return;
-
-      // Special handling when clicking a Skill Tree purchase button during Step 4
-      if (state.activeId === 'game_skill_tree' && step.id === 'sp_select_upgrade' && target.closest('#skillTreeDetail [data-skill-purchase]:not(:disabled)')) {
-        window.setTimeout(() => {
-          if (state.activeId === 'game_skill_tree' && currentStep()?.id === 'sp_select_upgrade') {
-            advanceStep();
-          }
-        }, 120);
+      if (isAllowedTutorialTarget(target, step)) {
+        if (state.activeId === 'game_skill_tree' && step.id === 'sp_select_upgrade' && target.closest('#skillTreeDetail [data-skill-purchase]:not(:disabled)')) {
+          window.setTimeout(() => {
+            if (state.activeId === 'game_skill_tree' && currentStep()?.id === 'sp_select_upgrade') {
+              advanceStep();
+            }
+          }, 120);
+        }
         return;
       }
-
-      if (isStepActionRequired(step)) {
-        if (step.allowClickSelector && target.closest(step.allowClickSelector)) {
-          return;
-        }
-        if (!step.allowClickSelector && state.targetEl && state.targetEl.contains(target)) {
-          return;
-        }
-        e.stopPropagation();
-        e.preventDefault();
-      }
+      e.stopImmediatePropagation();
+      e.preventDefault();
     }, true);
 
     window.addEventListener('resize', () => {

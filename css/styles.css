@@ -1095,7 +1095,6 @@ button {
 .skill-map-edge.tree-programming { stroke: var(--green); }
 .skill-map-edge.tree-database { stroke: var(--red); }
 .skill-map-center { position: absolute; z-index: 2; width: 152px; height: 152px; animation: skillCorePulse 3.2s ease-in-out infinite; }
-/* Stepped pixel-art circle clip-path so center stays an authentic pixel circle even when border-radius is 0 */
 .skill-map-start {
   display: grid;
   justify-items: center;
@@ -1106,12 +1105,10 @@ button {
   border: 0 !important;
   border-radius: 0 !important;
   clip-path: polygon(
-    30% 0%, 70% 0%,
-    70% 6%, 82% 6%, 82% 14%, 90% 14%, 90% 24%, 96% 24%, 96% 36%, 100% 36%,
-    100% 64%, 96% 64%, 96% 76%, 90% 76%, 90% 86%, 82% 86%, 82% 94%, 70% 94%,
-    70% 100%, 30% 100%,
-    30% 94%, 18% 94%, 18% 86%, 10% 86%, 10% 76%, 4% 76%, 4% 64%, 0% 64%,
-    0% 36%, 4% 36%, 4% 24%, 10% 24%, 10% 14%, 18% 14%, 18% 6%, 30% 6%
+    12% 0%, 88% 0%, 88% 4%, 96% 4%, 96% 12%, 100% 12%,
+    100% 88%, 96% 88%, 96% 96%, 88% 96%, 88% 100%,
+    12% 100%, 12% 96%, 4% 96%, 4% 88%, 0% 88%,
+    0% 12%, 4% 12%, 4% 4%, 12% 4%
   );
   background: radial-gradient(circle at 50% 40%, #375347, #111d1b 75%);
   color: var(--gold);
@@ -10643,7 +10640,7 @@ body.reduce-motion .world-beacon-mote {
   }
 
   .tutorial-btn {
-    min-height: 36px;
+    min-height: 44px;
     padding: 6px 10px;
     font-size: 10.5px;
   }
@@ -11325,4 +11322,509 @@ body.reduce-motion .podium-card {
     order: 0;
     min-height: 0;
   }
+}
+
+/* Bytebound polish: concise skill copy, high-contrast cards, and overlay guides */
+.skill-tree-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skill-tree-header button.skill-tree-guide-button,
+.world-map-guide {
+  min-width: 76px;
+  min-height: 44px;
+  padding: 8px 11px;
+  border: 1px solid #65aab0;
+  background: #193b40;
+  color: #d7fbf7;
+  font: 700 11px/1.15 var(--pixel);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .7);
+}
+
+.skill-tree-header button.skill-tree-guide-button:hover,
+.world-map-guide:hover {
+  border-color: #9de5e7;
+  background: #24535a;
+  color: #fff;
+}
+
+.skill-tree-header button.skill-tree-guide-button:focus-visible,
+.world-map-guide:focus-visible {
+  outline: 3px solid #f2bb61;
+  outline-offset: 3px;
+}
+
+.world-map-guide {
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.skill-tree-header h1,
+.world-map-header h1,
+.card-collection h3 {
+  text-shadow: 1px 1px 0 rgba(5, 9, 10, .72), 0 0 8px rgba(242, 187, 97, .16);
+}
+
+.skill-detail-description {
+  min-height: 0;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  line-height: 1.4;
+}
+
+.skill-map-center {
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .48)) drop-shadow(0 0 12px rgba(242, 187, 97, .2));
+}
+
+.skill-map-start {
+  gap: 5px;
+  background:
+    linear-gradient(45deg, transparent 47%, rgba(111, 227, 232, .13) 48% 52%, transparent 53%),
+    radial-gradient(circle at 50% 42%, #354d43, #111b1b 76%);
+  box-shadow:
+    inset 0 0 0 5px rgba(242, 187, 97, .64),
+    inset 0 0 0 9px rgba(111, 227, 232, .19),
+    inset 0 0 0 13px rgba(5, 10, 12, .5);
+}
+
+.skill-map-start:focus-visible {
+  outline: 3px solid #fff2bd;
+  outline-offset: 4px;
+  filter: brightness(1.12);
+}
+
+.skill-core-mark {
+  display: block;
+  width: 40px;
+  height: 40px;
+  overflow: visible;
+  clip-path: none;
+  background: transparent;
+  color: #ffe07a;
+}
+
+.skill-core-mark path:first-child {
+  fill: rgba(242, 187, 97, .13);
+  stroke: #ffe07a;
+  stroke-width: 1.5;
+  shape-rendering: crispEdges;
+}
+
+.skill-core-mark path:nth-child(2) {
+  fill: #ffe07a;
+  stroke: #1a2522;
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.skill-core-mark path:last-child {
+  fill: none;
+  stroke: #9de5e7;
+  stroke-width: 1.4;
+  shape-rendering: crispEdges;
+}
+
+.skill-map-start strong {
+  text-shadow: 1px 1px 0 #111819;
+}
+
+.skill-map-start small {
+  max-width: 118px;
+  overflow-wrap: anywhere;
+}
+
+.skill-map-node.is-exclusive-active:focus-visible {
+  outline: 3px solid #fff6cf;
+  outline-offset: 3px;
+  filter: brightness(1.08);
+}
+
+.skill-map-node.is-exclusive-active:disabled,
+.skill-map-node.is-exclusive-active[aria-disabled="true"] {
+  opacity: .78;
+}
+
+.game-panel button.is-exclusive-card,
+.game-panel button.is-exclusive-card:hover:not(:disabled),
+.game-panel button.is-exclusive-card:focus-visible:not(:disabled),
+.game-panel button.is-exclusive-card:active:not(:disabled) {
+  color: #fff5d6 !important;
+  filter: none;
+}
+
+.game-panel button.is-exclusive-card small,
+.game-panel button.is-exclusive-card:hover small,
+.game-panel button.is-exclusive-card:focus-visible small,
+.game-panel button.is-exclusive-card:active small,
+.game-panel button.is-exclusive-card:disabled small,
+.game-panel button.is-exclusive-card:disabled:hover small {
+  color: #e6e9df !important;
+}
+
+.game-panel button.is-exclusive-card:focus-visible {
+  outline: 3px solid #fff6cf;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 2px #111819, 0 0 16px rgba(255, 246, 207, .5) !important;
+}
+
+.game-panel button.is-exclusive-card:disabled,
+.game-panel button.is-exclusive-card:disabled:hover {
+  opacity: .72;
+  cursor: not-allowed;
+}
+
+.card-collection h3 {
+  color: var(--ink);
+}
+
+.card-collection > .achievement-summary {
+  color: var(--muted);
+}
+
+.card-list li {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  overflow-wrap: anywhere;
+}
+
+.card-list-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.card-list li strong {
+  margin: 0;
+  color: var(--ink);
+}
+
+.card-list li small {
+  color: var(--muted);
+}
+
+.card-collection-state {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border: 1px solid #6f9c79;
+  background: rgba(92, 224, 137, .12);
+  color: #b7dcae;
+  font: 700 8px/1.2 var(--pixel);
+}
+
+.card-collection-cost {
+  width: fit-content;
+  padding: 3px 6px;
+  border: 1px solid rgba(169, 189, 143, .34);
+  background: rgba(7, 16, 17, .24);
+  color: #dce8df;
+  font: 600 13px/1.25 var(--body);
+}
+
+.card-list li.is-locked .card-collection-state {
+  border-color: #b08a4d;
+  background: rgba(242, 187, 97, .12);
+  color: #f0cc86;
+}
+
+:root[data-theme="dark"] .card-list li.is-locked {
+  opacity: .82;
+}
+
+:root:not([data-theme="dark"]) .card-collection h3 {
+  color: #24292c;
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, .72), 0 0 7px rgba(139, 100, 40, .12);
+}
+
+:root:not([data-theme="dark"]) .card-collection > .achievement-summary {
+  color: #4b534d;
+}
+
+:root:not([data-theme="dark"]) .card-list li {
+  border-color: #c9c4b1;
+  background: #fffaf0;
+  color: #24292c;
+}
+
+:root:not([data-theme="dark"]) .card-list li strong {
+  color: #24292c;
+}
+
+:root:not([data-theme="dark"]) .card-list li small {
+  color: #3f4942;
+}
+
+:root:not([data-theme="dark"]) .card-list li.is-locked {
+  opacity: 1;
+  border-style: dashed;
+  background: #f0ecdd;
+}
+
+:root:not([data-theme="dark"]) .card-list li.is-locked strong {
+  color: #4e554f;
+}
+
+:root:not([data-theme="dark"]) .card-list li.is-locked small {
+  color: #5a625b;
+}
+
+:root:not([data-theme="dark"]) .card-collection-state {
+  border-color: #397348;
+  background: #e1f1e4;
+  color: #225b32;
+}
+
+:root:not([data-theme="dark"]) .card-collection-cost {
+  border-color: #c9c4b1;
+  background: #f7f3e7;
+  color: #34443b;
+}
+
+:root:not([data-theme="dark"]) .card-list li.is-locked .card-collection-state {
+  border-color: #956136;
+  background: #f4e8d0;
+  color: #69451d;
+}
+
+:root:not([data-theme="dark"]) .skill-tree-header h1,
+:root:not([data-theme="dark"]) .world-map-header h1 {
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, .8), 0 0 7px rgba(139, 100, 40, .14);
+}
+
+:root:not([data-theme="dark"]) .skill-tree-header button.skill-tree-guide-button,
+:root:not([data-theme="dark"]) .world-map-guide {
+  border-color: #2a7078;
+  background: #e2f2ef;
+  color: #164850;
+  text-shadow: none;
+}
+
+:root:not([data-theme="dark"]) .skill-tree-header button.skill-tree-guide-button:hover,
+:root:not([data-theme="dark"]) .world-map-guide:hover {
+  border-color: #19545c;
+  background: #c8e8e4;
+  color: #103c42;
+}
+
+:root:not([data-theme="dark"]) .skill-map-start {
+  background:
+    linear-gradient(45deg, transparent 47%, rgba(38, 108, 124, .12) 48% 52%, transparent 53%),
+    radial-gradient(circle at 50% 42%, #fff8e9, #e5dfc9 76%);
+  box-shadow:
+    inset 0 0 0 5px rgba(185, 130, 50, .58),
+    inset 0 0 0 9px rgba(38, 108, 124, .2),
+    inset 0 0 0 13px rgba(71, 76, 64, .1);
+}
+
+:root:not([data-theme="dark"]) .skill-core-mark path:first-child {
+  fill: rgba(185, 130, 50, .13);
+  stroke: #8b6428;
+}
+
+:root:not([data-theme="dark"]) .skill-core-mark path:nth-child(2) {
+  fill: #8b6428;
+  stroke: #fff8e9;
+}
+
+:root:not([data-theme="dark"]) .skill-core-mark path:last-child {
+  stroke: #266c7c;
+}
+
+:root:not([data-theme="dark"]) .skill-map-start strong {
+  color: #62491f;
+  text-shadow: 1px 1px 0 #fff8e9;
+}
+
+:root:not([data-theme="dark"]) .skill-map-node.is-exclusive-active:focus-visible {
+  outline-color: #1d2729;
+  box-shadow: 0 0 0 2px #fffaf0, 0 0 0 5px #1d2729;
+}
+
+@media (max-width: 679px) {
+  .skill-tree-actions {
+    gap: 6px;
+  }
+
+  .skill-tree-header button.skill-tree-guide-button,
+  .skill-tree-header #closeSkillTree {
+    min-width: 74px;
+    min-height: 44px;
+    padding: 7px 8px;
+    font-size: 10px;
+  }
+
+  .world-map-actions {
+    width: 100%;
+  }
+
+  .world-map-actions > button {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px 6px;
+    font-size: 10px;
+  }
+
+  .skill-map-center {
+    transform: scale(.9);
+    transform-origin: center;
+  }
+
+  .skill-detail-description {
+    font-size: 16px;
+  }
+}
+
+.tutorial-layer.is-no-skip-guide #tutorialSkipButton {
+  display: none;
+}
+
+/* Pixel-square skill-tree core */
+.skill-map-start {
+  --core-gold: #ffe07a;
+  --core-aqua: #9de5e7;
+  --core-night: #101b19;
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(135deg, rgba(111, 227, 232, .08), transparent 42%),
+    radial-gradient(circle at 50% 42%, #304c40, #101b19 76%);
+  box-shadow:
+    inset 0 0 0 3px #101b19,
+    inset 0 0 0 6px rgba(242, 187, 97, .76),
+    inset 0 0 0 9px rgba(111, 227, 232, .3),
+    inset 0 0 0 13px rgba(5, 10, 12, .58);
+}
+
+.skill-map-start::before,
+.skill-map-start::after {
+  position: absolute;
+  content: "";
+  pointer-events: none;
+  clip-path: polygon(
+    12% 0%, 88% 0%, 88% 4%, 96% 4%, 96% 12%, 100% 12%,
+    100% 88%, 96% 88%, 96% 96%, 88% 96%, 88% 100%,
+    12% 100%, 12% 96%, 4% 96%, 4% 88%, 0% 88%,
+    0% 12%, 4% 12%, 4% 4%, 12% 4%
+  );
+}
+
+.skill-map-start::before {
+  inset: 5px;
+  z-index: 0;
+  border: 1px solid rgba(242, 187, 97, .72);
+  box-shadow: inset 0 0 0 4px rgba(242, 187, 97, .08);
+}
+
+.skill-map-start::after {
+  inset: 15px;
+  z-index: 0;
+  border: 1px solid rgba(111, 227, 232, .5);
+  box-shadow: inset 0 0 0 4px rgba(111, 227, 232, .07);
+}
+
+.skill-map-start > * {
+  position: relative;
+  z-index: 1;
+}
+
+.skill-map-start:not(:disabled):hover {
+  background:
+    linear-gradient(135deg, rgba(111, 227, 232, .14), transparent 42%),
+    radial-gradient(circle at 50% 42%, #426451, #172723 76%);
+}
+
+.skill-map-start:focus-visible {
+  outline: 3px solid #fff2bd;
+  outline-offset: 4px;
+}
+
+.skill-map-start .skill-core-mark {
+  width: 40px;
+  height: 40px;
+  overflow: visible;
+  background: transparent;
+  color: var(--core-gold);
+  filter: drop-shadow(0 1px 0 #101b19);
+}
+
+.skill-map-start .skill-core-mark path.skill-core-frame {
+  fill: rgba(242, 187, 97, .1);
+  stroke: var(--core-gold);
+  stroke-width: 1.5;
+  shape-rendering: crispEdges;
+}
+
+.skill-map-start .skill-core-mark path.skill-core-links {
+  fill: none;
+  stroke: var(--core-aqua);
+  stroke-width: 1.6;
+  stroke-linecap: square;
+  shape-rendering: crispEdges;
+}
+
+.skill-map-start .skill-core-mark path.skill-core-node {
+  fill: var(--core-gold);
+  stroke: var(--core-night);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.skill-map-start .skill-core-mark path.skill-core-terminals {
+  fill: var(--core-night);
+  stroke: var(--core-aqua);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+:root:not([data-theme="dark"]) .skill-map-start {
+  --core-gold: #8b6428;
+  --core-aqua: #266c7c;
+  --core-night: #fff8e9;
+  background:
+    linear-gradient(135deg, rgba(38, 108, 124, .08), transparent 42%),
+    radial-gradient(circle at 50% 42%, #fff8e9, #e5dfc9 76%);
+  box-shadow:
+    inset 0 0 0 3px #e5dfc9,
+    inset 0 0 0 6px rgba(185, 130, 50, .72),
+    inset 0 0 0 9px rgba(38, 108, 124, .24),
+    inset 0 0 0 13px rgba(255, 250, 240, .7);
+}
+
+:root:not([data-theme="dark"]) .skill-map-start::before {
+  border-color: rgba(185, 130, 50, .72);
+  box-shadow: inset 0 0 0 4px rgba(185, 130, 50, .08);
+}
+
+:root:not([data-theme="dark"]) .skill-map-start::after {
+  border-color: rgba(38, 108, 124, .48);
+  box-shadow: inset 0 0 0 4px rgba(38, 108, 124, .06);
+}
+
+:root:not([data-theme="dark"]) .skill-map-start:not(:disabled):hover {
+  background:
+    linear-gradient(135deg, rgba(38, 108, 124, .14), transparent 42%),
+    radial-gradient(circle at 50% 42%, #fff3d4, #e8dfc7 76%);
+}
+
+:root:not([data-theme="dark"]) .skill-map-start:focus-visible {
+  outline-color: #1d2729;
+  box-shadow: 0 0 0 2px #fffaf0, 0 0 0 5px #1d2729;
+}
+
+:root:not([data-theme="dark"]) .skill-map-start .skill-core-mark {
+  background: transparent;
+}
+
+:root:not([data-theme="dark"]) .skill-map-start .skill-core-mark path.skill-core-frame {
+  fill: rgba(185, 130, 50, .08);
 }

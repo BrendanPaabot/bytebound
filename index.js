@@ -1263,7 +1263,16 @@ function renderCardCollection(metrics) {
     .map((card) => {
       const unlocked = cardUnlocked(card, metrics)
       const detail = unlocked ? esc(card.text) : `Locked: ${esc(card.unlock?.text || 'Unlock via gameplay')}`
-      return `<li class="${unlocked ? 'is-unlocked' : 'is-locked'}"><strong>${esc(card.name)}</strong> <small>${detail}</small></li>`
+      const stateLabel = unlocked ? 'UNLOCKED' : 'LOCKED'
+      const cost = esc(cardCostLabel(card, hero))
+      return `<li class="${unlocked ? 'is-unlocked' : 'is-locked'}">
+        <div class="card-list-heading">
+          <strong>${esc(card.name)}</strong>
+          <span class="card-collection-state">${stateLabel}</span>
+        </div>
+        <span class="card-collection-cost">Cost · ${cost}</span>
+        <small>${detail}</small>
+      </li>`
     })
     .join('')
   return `<section class="card-collection">
@@ -1276,7 +1285,7 @@ function renderCardCollection(metrics) {
 function renderAchievements() {
   const metrics = refreshAchievements({ silent: true })
   const unlockedCount = ACHIEVEMENTS.filter((achievement) => unlockedAchievements[achievement.id]).length
-  const totalTutorials = window.ByteboundTutorial?.REQUIRED_TUTORIAL_IDS?.length || 15
+  const totalTutorials = window.ByteboundTutorial?.REQUIRED_TUTORIAL_IDS?.length || 17
   const sections = [
     { key: 'tutorial', title: 'Onboarding & Tutorial Mastery', badge: 'CODEX SEAL', hint: `Complete all ${totalTutorials} guided tutorials.` },
     { key: 'general', title: 'General Milestones', badge: 'GENERAL', hint: 'Campaign combat and skill progression.' },
@@ -2840,6 +2849,50 @@ function checkEncounter() {
   if (foe) startBattle(foe)
 }
 
+function drawExplorePlayerMeters(position) {
+  if (mode !== 'explore' || !position || !hero) return
+  const artWidth = player.destinationSize?.width || player.width || 76
+  const artTop = position.y + (player.drawOffset?.y || 0)
+  const centerX = position.x + (player.drawOffset?.x || 0) + artWidth / 2
+  const panelX = Math.round(centerX - 33)
+  const panelY = Math.round(artTop - 20)
+  const panelWidth = 66
+  const panelHeight = 17
+  const barX = panelX + 16
+  const barWidth = 46
+  const values = [
+    { label: 'HP', value: hero.hp, max: hero.maxHp, color: '#e65f59', y: panelY + 3 },
+    { label: 'MP', value: hero.mana, max: hero.maxMana, color: '#55c9dc', y: panelY + 10 },
+  ]
+
+  c.save()
+  c.fillStyle = 'rgba(8, 13, 16, .94)'
+  c.fillRect(panelX - 1, panelY - 1, panelWidth + 2, panelHeight + 2)
+  c.strokeStyle = '#89958c'
+  c.lineWidth = 1
+  c.strokeRect(panelX - 0.5, panelY - 0.5, panelWidth + 1, panelHeight + 1)
+  c.font = '5px "Press Start 2P", monospace'
+  c.textBaseline = 'middle'
+  values.forEach(({ label, value, max, color, y }) => {
+    c.fillStyle = '#f2f0df'
+    c.textAlign = 'left'
+    c.fillText(label, panelX + 3, y + 2)
+    c.fillStyle = '#263238'
+    c.fillRect(barX, y, barWidth, 4)
+    const ratio = Math.max(0, Math.min(1, (Number(value) || 0) / (Number(max) || 1)))
+    c.fillStyle = color
+    c.fillRect(barX, y, Math.round(barWidth * ratio), 4)
+    c.strokeStyle = '#05090b'
+    c.strokeRect(barX - 0.5, y - 0.5, barWidth + 1, 5)
+    c.fillStyle = 'rgba(8, 13, 16, .42)'
+    for (let segment = 1; segment < 6; segment++) {
+      const segmentX = barX + Math.round((barWidth * segment) / 6)
+      c.fillRect(segmentX, y, 1, 4)
+    }
+  })
+  c.restore()
+}
+
 function drawExplore() {
   if (grace > 0) grace--
   updateExploreCamera()
@@ -2867,6 +2920,7 @@ function drawExplore() {
   })
   player.handleInput(keys)
   player.draw()
+  const playerDrawPosition = { x: player.position.x, y: player.position.y }
   player.update()
   if (mode === 'explore' && !player.preventInput && doors.length) {
     const bubbleDoors = new Set()
@@ -2923,6 +2977,7 @@ function drawExplore() {
     }
   }
   checkEncounter()
+  drawExplorePlayerMeters(playerDrawPosition)
   c.restore()
 }
 
@@ -5159,7 +5214,12 @@ function renderSkillTree() {
         <svg class="skill-map-links" width="${mapWidth}" height="${mapHeight}" viewBox="0 0 ${mapWidth} ${mapHeight}" aria-hidden="true">${edges.join('')}</svg>
         <div class="skill-map-center" style="left:${centerX - 76}px;top:${centerY - 76}px">
           <button type="button" class="skill-map-start" id="startSkillTree" ${skillTreeStarted ? 'disabled' : ''}>
-            <span class="skill-core-mark" aria-hidden="true">✦</span>
+            <svg class="skill-core-mark" viewBox="0 0 40 40" aria-hidden="true">
+              <path class="skill-core-frame" d="M8 3H32V8H37V32H32V37H8V32H3V8H8Z" />
+              <path class="skill-core-links" d="M20 17V12M20 20 11 11M20 20 29 11M20 23V28" />
+              <path class="skill-core-node" d="M16 16H24V24H16Z" />
+              <path class="skill-core-terminals" d="M7 5H15V13H7ZM25 5H33V13H25ZM16 27H24V35H16Z" />
+            </svg>
             <strong>${skillTreeStarted ? 'PATH OPEN' : 'START'}</strong>
             <small>${skillTreeStarted ? 'Choose a revealed skill' : 'Begin at the center'}</small>
           </button>
@@ -6318,6 +6378,7 @@ function renderDashboard() {
   }[mode] || 'QUEST HUB'
 
   $('app').classList.toggle('is-playing', playViewActive)
+  $('app').classList.toggle('is-exploring', Boolean(playViewActive && mode === 'explore'))
   $('app').classList.toggle('is-subview', dashboardView !== 'quest' && !playViewActive)
   $('app').classList.toggle('is-tracker', dashboardView === 'tracker' && !playViewActive)
   $('app').classList.toggle('is-topic-tracker', dashboardView === 'tracker' && !playViewActive)
@@ -6373,7 +6434,7 @@ function renderDashboard() {
   const enemyChanged = activeEnemy !== lastHudEnemyRef || !inCombatNow !== !lastHudInCombat
   const statusGridEl = document.querySelector('#playHud .play-status-grid')
   if (statusGridEl) {
-    statusGridEl.hidden = inCombatNow
+    statusGridEl.hidden = inCombatNow || (playViewActive && mode === 'explore')
   }
 
   if (!inCombatNow) {

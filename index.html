@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=21" />
+  <link rel="stylesheet" href="css/styles.css?v=22" />
 </head>
 <body>
   <section class="login-screen" id="loginScreen" aria-labelledby="loginTitle">
@@ -227,7 +227,10 @@
           <h1 id="skillTreeTitle">Skill Tree</h1>
           <p>Build skills in the topics you master.</p>
         </div>
-        <button type="button" id="closeSkillTree">Close · U</button>
+        <div class="skill-tree-actions">
+          <button type="button" class="skill-tree-guide-button" id="skillTreeGuideButton" aria-label="Open Skill Tree Guide" title="Open Skill Tree Guide">Guide</button>
+          <button type="button" id="closeSkillTree">Close · U</button>
+        </div>
       </header>
       <div class="skill-tree-summary" id="skillTreeSummary"></div>
       <div class="skill-tree-grid" id="skillTreeGrid"></div>
@@ -242,6 +245,7 @@
           <p id="worldMapSubtitle">Drag to pan, scroll to zoom, and click a room to inspect connections.</p>
         </div>
         <div class="world-map-actions">
+          <button type="button" class="world-map-guide" id="worldMapGuideButton" aria-label="Open World Map Guide" title="Open World Map Guide">Guide</button>
           <button type="button" class="world-map-reset" id="resetWorldMapView">Center View</button>
           <button type="button" class="world-map-close" id="closeWorldMap">Close · M</button>
         </div>
@@ -360,14 +364,14 @@
   <script src="js/audio.js?v=13"></script>
   <script src="js/cards.js?v=7"></script>
   <script src="js/arena.js?v=11"></script>
-  <script src="js/combat.js?v=63"></script>
+  <script src="js/combat.js?v=64"></script>
   <script src="js/practice.js?v=9"></script>
-  <script src="js/eventListeners.js?v=17"></script>
+  <script src="js/eventListeners.js?v=18"></script>
   <script src="supabase-config.js?v=1"></script>
   <script src="js/mp-network.js?v=3"></script>
   <script src="js/mp-matchmaking.js?v=6"></script>
   <script src="js/mp-ui.js?v=4"></script>
-  <script src="index.js?v=159"></script>
-  <script src="js/tutorials.js?v=6"></script>
+  <script src="index.js?v=160"></script>
+  <script src="js/tutorials.js?v=7"></script>
 </body>
 </html>
