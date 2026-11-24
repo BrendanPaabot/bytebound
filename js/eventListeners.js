@@ -49,7 +49,8 @@ function handleKey(rawKey, down, repeat = false) {
     // Enter starts the game only when no nav button or setting has focus.
     const focused = document.activeElement;
     const onControl = focused && focused !== document.body && focused.closest('button, input, select, textarea, a');
-    if (key === 'enter' && !onControl) startGame();
+    const runSavesOpen = Boolean(document.getElementById('runSavesOverlay') && !document.getElementById('runSavesOverlay').hidden);
+    if (key === 'enter' && !onControl && !runSavesOpen) startGame();
     return;
   }
 

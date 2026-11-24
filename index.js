@@ -4837,18 +4837,56 @@ function renderRunSavesList() {
   }).join('')
 }
 
+function normalizeRunSaveName(raw) {
+  return String(raw ?? '').replace(/\s+/g, ' ').trim()
+}
+
+function validateNewRunName({ showEmptyError = false, overrideName } = {}) {
+  const nameInput = document.getElementById('newRunNameInput')
+  const createBtn = document.getElementById('createNewRunButton')
+  const errorEl = document.getElementById('newRunNameError')
+  const rawValue = overrideName !== undefined ? overrideName : (nameInput?.value ?? '')
+  const runName = normalizeRunSaveName(rawValue)
+  const store = loadRunSaves()
+  const lower = runName.toLowerCase()
+  const isDuplicate = Boolean(
+    runName &&
+    store.saves.some((save) => normalizeRunSaveName(save?.name).toLowerCase() === lower)
+  )
+
+  let reason = ''
+  let visibleError = ''
+  if (!runName) {
+    reason = 'empty'
+    if (showEmptyError) visibleError = 'Please enter a name for your run data.'
+  } else if (isDuplicate) {
+    reason = 'duplicate'
+    visibleError = `A run named "${runName}" already exists. Choose a different name.`
+  }
+
+  const valid = !reason
+  if (createBtn) createBtn.disabled = !valid
+  if (nameInput) nameInput.setAttribute('aria-invalid', visibleError ? 'true' : 'false')
+  if (errorEl) {
+    errorEl.textContent = visibleError
+    errorEl.hidden = !visibleError
+  }
+  return { valid, runName, reason }
+}
+
 function openRunSavesModal() {
   const modal = document.getElementById('runSavesOverlay')
   if (!modal) {
     startGame()
     return
   }
-  const store = loadRunSaves()
   const nameInput = document.getElementById('newRunNameInput')
-  if (nameInput) nameInput.value = `Run ${store.saves.length + 1}`
+  if (nameInput) nameInput.value = ''
   renderRunSavesList()
+  validateNewRunName({ showEmptyError: false })
   modal.hidden = false
   modal.setAttribute('aria-hidden', 'false')
+  nameInput?.focus()
 }
 
 function closeRunSavesModal() {
@@ -4859,11 +4897,14 @@ function closeRunSavesModal() {
 }
 
 function createAndStartNewRun(options = {}) {
-  if (!activePlayerName) return
+  if (!activePlayerName) return false
   const nameInput = document.getElementById('newRunNameInput')
-  const store = loadRunSaves()
-  const customName = String(options.name ?? nameInput?.value ?? '').trim()
-  const runName = customName || `Run ${store.saves.length + 1}`
+  const check = validateNewRunName({ showEmptyError: true, overrideName: options.name })
+  if (!check.valid) {
+    nameInput?.focus()
+    return false
+  }
+  const runName = check.runName
 
   saveCurrentRunSlot()
   activeRunSaveId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
@@ -4873,6 +4914,7 @@ function createAndStartNewRun(options = {}) {
   closeRunSavesModal()
   startGame()
   saveCurrentRunSlot()
+  return true
 }
 
 function continueSavedRun(runId) {
@@ -4961,6 +5003,7 @@ function deleteSavedRun(runId) {
     }
   }
   renderRunSavesList()
+  validateNewRunName({ showEmptyError: false })
 }
 
 function renderWorldBeacon() {
@@ -7822,6 +7865,13 @@ window.addEventListener('pagehide', () => {
 })
 document.getElementById('closeRunSavesButton')?.addEventListener('click', closeRunSavesModal)
 document.getElementById('createNewRunButton')?.addEventListener('click', () => createAndStartNewRun())
+document.getElementById('newRunNameInput')?.addEventListener('input', () => validateNewRunName({ showEmptyError: false }))
+document.getElementById('newRunNameInput')?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    createAndStartNewRun()
+  }
+})
 document.getElementById('runSavesList')?.addEventListener('click', (event) => {
   const btn = event.target.closest('[data-run-act]')
   if (!btn) return
