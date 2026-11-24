@@ -127,7 +127,7 @@ function drawKingCrolue(ctx, cx, feetY, height, opts = {}) {
     frameIndex = KING_CROLUE_ATTACK_TIMELINE[step];
     frameData = KING_CROLUE_ATTACK_FRAMES[frameIndex];
   } else {
-    frameIndex = Math.floor(performance.now() / KING_CROLUE_IDLE_MS) % KING_CROLUE_IDLE_FRAMES.length;
+    frameIndex = opts.frozen ? 0 : Math.floor(performance.now() / KING_CROLUE_IDLE_MS) % KING_CROLUE_IDLE_FRAMES.length;
     frameData = KING_CROLUE_IDLE_FRAMES[frameIndex];
   }
 
@@ -187,7 +187,9 @@ function drawBossArt(ctx, boss, cx, feetY, height, opts = {}) {
 
   const frame = attacking
     ? Math.min(sheet.frames - 1, Math.floor((opts.attackElapsed || 0) / BOSS_ATTACK_BUFFER))
-    : Math.floor(performance.now() / BOSS_IDLE.msPerFrame) % sheet.frames;
+    : opts.frozen
+      ? 0
+      : Math.floor(performance.now() / BOSS_IDLE.msPerFrame) % sheet.frames;
   const col = frame % sheet.cols;
   const row = Math.floor(frame / sheet.cols);
   // One scale for both sheets, so the attack pose matches the idle size.
@@ -245,12 +247,12 @@ class Boss extends Enemy {
     }
   }
 
-  draw() {
+  draw(frozen = false) {
     if (!this.alive) return;
     if (this.grenu) {
-      drawPig(c, this.x, this.y, this.h / PIG_H, this.dir < 0, { animated: true, grenu: true });
+      drawPig(c, this.x, this.y, this.h / PIG_H, this.dir < 0, { animated: !frozen, idle: frozen, grenu: true });
       return;
     }
-    drawBossArt(c, this, this.x + this.w / 2, this.y + this.h, this.h, { faceLeft: this.dir < 0 });
+    drawBossArt(c, this, this.x + this.w / 2, this.y + this.h, this.h, { faceLeft: this.dir < 0, frozen });
   }
 }

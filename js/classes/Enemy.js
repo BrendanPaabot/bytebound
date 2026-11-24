@@ -388,7 +388,7 @@ class Enemy {
     if (this.x > this.maxX) { this.x = this.maxX; this.dir = -1; }
   }
 
-  draw() {
-    if (this.alive) drawPig(c, this.x, this.y, this.scale, this.dir < 0, { animated: true, brute: this.brute, nyrmed: this.nyrmed, grenu: this.grenu });
+  draw(frozen = false) {
+    if (this.alive) drawPig(c, this.x, this.y, this.scale, this.dir < 0, { animated: !frozen, idle: frozen, brute: this.brute, nyrmed: this.nyrmed, grenu: this.grenu });
   }
 }

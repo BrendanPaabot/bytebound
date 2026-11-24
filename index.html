@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=22" />
+  <link rel="stylesheet" href="css/styles.css?v=26" />
 </head>
 <body>
   <section class="login-screen" id="loginScreen" aria-labelledby="loginTitle">
@@ -161,7 +161,6 @@
                 </section>
               </div>
               <p class="play-hint" id="playHint"></p>
-              <div class="play-explore-banner" id="playExploreBanner" role="status" aria-live="polite" hidden></div>
             </div>
             <div class="preview-head">
               <div class="preview-room"><span class="eyebrow" id="roomTag">ROOM 01</span><strong id="roomTxt">Terminal Bay</strong></div>
@@ -323,6 +322,8 @@
       <span class="tutorial-spotlight-corner is-br"></span>
       <span class="tutorial-spotlight-badge" id="tutorialSpotlightBadge">TARGET</span>
     </div>
+    <div class="tutorial-multi-spotlights" id="tutorialMultiSpotlights" hidden aria-hidden="true"></div>
+    <div class="tutorial-silent-cue" id="tutorialSilentCue" hidden aria-hidden="true"></div>
     <section
       class="tutorial-bubble"
       id="tutorialBubble"
@@ -359,19 +360,19 @@
   <script src="js/classes/CollisionBlock.js?v=8"></script>
   <script src="js/classes/Sprite.js?v=7"></script>
   <script src="js/classes/Player.js?v=14"></script>
-  <script src="js/classes/Enemy.js?v=14"></script>
-  <script src="js/classes/Boss.js?v=6"></script>
+  <script src="js/classes/Enemy.js?v=15"></script>
+  <script src="js/classes/Boss.js?v=7"></script>
   <script src="js/audio.js?v=13"></script>
   <script src="js/cards.js?v=7"></script>
   <script src="js/arena.js?v=11"></script>
-  <script src="js/combat.js?v=64"></script>
+  <script src="js/combat.js?v=67"></script>
   <script src="js/practice.js?v=9"></script>
   <script src="js/eventListeners.js?v=18"></script>
   <script src="supabase-config.js?v=1"></script>
   <script src="js/mp-network.js?v=3"></script>
   <script src="js/mp-matchmaking.js?v=6"></script>
   <script src="js/mp-ui.js?v=4"></script>
-  <script src="index.js?v=160"></script>
-  <script src="js/tutorials.js?v=7"></script>
+  <script src="index.js?v=163"></script>
+  <script src="js/tutorials.js?v=12"></script>
 </body>
 </html>

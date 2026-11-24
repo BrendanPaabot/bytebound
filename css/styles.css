@@ -1,4 +1,8 @@
 :root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
   --ink: #24292c;
   --ink-soft: #343a3b;
   --paper: #f1eddd;
@@ -10145,6 +10149,90 @@ summary:focus-visible,
   bottom: -23px;
 }
 
+.tutorial-spotlight.is-silent-target .tutorial-spotlight-badge {
+  display: none;
+}
+
+.tutorial-multi-spotlights:not([hidden]) {
+  position: fixed;
+  inset: 0;
+  z-index: 243;
+  pointer-events: none;
+}
+
+.tutorial-card-outline {
+  position: fixed;
+  box-sizing: border-box;
+  border: 3px solid #6fe3e8;
+  border-radius: 0;
+  background: rgba(111, 227, 232, 0.05);
+  box-shadow:
+    0 0 0 2px #0d1417,
+    0 0 20px rgba(111, 227, 232, 0.56),
+    inset 0 0 12px rgba(111, 227, 232, 0.2);
+  pointer-events: none;
+  animation: tutorialPulseSquare 1.65s ease-in-out infinite;
+}
+
+.tutorial-silent-cue:not([hidden]) {
+  position: fixed;
+  z-index: 244;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 2px solid #0d1417;
+  background: rgba(15, 24, 28, 0.9);
+  box-shadow: 0 0 0 2px #6fe3e8, 4px 4px 0 rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  user-select: none;
+}
+
+.tutorial-silent-cue.is-touch-cue {
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 9px;
+}
+
+.tutorial-silent-keycap {
+  display: inline-grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border: 2px solid #ffe48f;
+  background: #f2bb61;
+  color: #151e21;
+  font: 700 13px/1 var(--pixel);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+}
+
+.tutorial-silent-arrows {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #6fe3e8;
+  font: 700 13px/1 var(--pixel);
+  animation: tutorialSilentNudgeRight 0.95s ease-in-out infinite;
+}
+
+.tutorial-silent-arrow-down {
+  color: #6fe3e8;
+  font: 700 13px/1 var(--pixel);
+  line-height: 1;
+  animation: tutorialSilentNudgeDown 0.95s ease-in-out infinite;
+}
+
+@keyframes tutorialSilentNudgeRight {
+  0%, 100% { transform: translateX(0); opacity: 0.78; }
+  50% { transform: translateX(5px); opacity: 1; }
+}
+
+@keyframes tutorialSilentNudgeDown {
+  0%, 100% { transform: translateY(0); opacity: 0.78; }
+  50% { transform: translateY(4px); opacity: 1; }
+}
+
 @keyframes tutorialPulseSquare {
   0%, 100% {
     transform: scale(1);
@@ -10607,11 +10695,16 @@ body.reduce-motion .world-beacon-mote {
   transform: none !important;
 }
 
+.tutorial-bubble-actions[hidden] {
+  display: none !important;
+}
+
 /* Compact adjustments for short landscape & narrow phones */
 @media (max-width: 640px), (orientation: landscape) and (max-height: 580px) {
   .tutorial-bubble {
-    width: min(350px, calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)));
-    padding: 9px 12px;
+    width: min(336px, calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+    max-height: min(44dvh, 240px);
+    padding: 9px 11px;
   }
 
   .tutorial-bubble-head {
@@ -10619,28 +10712,28 @@ body.reduce-motion .world-beacon-mote {
   }
 
   .tutorial-bubble-title {
-    font-size: 12.5px;
+    font-size: 12px;
     margin-bottom: 3px;
   }
 
   .tutorial-bubble-desc {
-    font-size: 14.5px;
-    line-height: 1.32;
+    font-size: 14px;
+    line-height: 1.3;
   }
 
   .tutorial-action-prompt:not([hidden]) {
     margin-top: 5px;
     padding: 4px 8px;
-    font-size: 13.5px;
+    font-size: 13px;
   }
 
   .tutorial-bubble-actions {
-    margin-top: 7px;
+    margin-top: 6px;
     padding-top: 6px;
   }
 
   .tutorial-btn {
-    min-height: 44px;
+    min-height: 40px;
     padding: 6px 10px;
     font-size: 10.5px;
   }
@@ -10649,6 +10742,9 @@ body.reduce-motion .world-beacon-mote {
 /* Reduced Motion: replace pulsing & sliding with static highlight & instant placement */
 @media (prefers-reduced-motion: reduce) {
   .tutorial-spotlight,
+  .tutorial-card-outline,
+  .tutorial-silent-arrows,
+  .tutorial-silent-arrow-down,
   .tutorial-dim,
   .tutorial-bubble {
     animation: none !important;
@@ -10657,9 +10753,13 @@ body.reduce-motion .world-beacon-mote {
 }
 
 body.reduce-motion .tutorial-spotlight,
+body.reduce-motion .tutorial-card-outline,
+body.reduce-motion .tutorial-silent-arrows,
+body.reduce-motion .tutorial-silent-arrow-down,
 body.reduce-motion .tutorial-dim,
 body.reduce-motion .tutorial-bubble,
 .tutorial-layer.is-instant-place .tutorial-spotlight,
+.tutorial-layer.is-instant-place .tutorial-card-outline,
 .tutorial-layer.is-instant-place .tutorial-dim,
 .tutorial-layer.is-instant-place .tutorial-bubble {
   animation: none !important;
@@ -11825,6 +11925,381 @@ body.reduce-motion .podium-card {
   background: transparent;
 }
 
-:root:not([data-theme="dark"]) .skill-map-start .skill-core-mark path.skill-core-frame {
-  fill: rgba(185, 130, 50, .08);
+/* Crisp Square Pixel-Art Skill Tree Center Point & Settings Replay Card */
+.skill-map-center {
+  position: absolute;
+  z-index: 2;
+  width: 156px;
+  height: 156px;
+}
+
+.skill-center-port {
+  position: absolute;
+  z-index: 2;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #0d1417;
+  background: #f2bb61;
+  box-shadow: 0 0 8px rgba(242, 187, 97, .45);
+  pointer-events: none;
+}
+
+.skill-center-port.is-north {
+  top: -6px;
+  left: calc(50% - 6px);
+  background: #f2bb61;
+}
+
+.skill-center-port.is-east {
+  right: -6px;
+  top: calc(50% - 6px);
+  background: #6fe3e8;
+  box-shadow: 0 0 8px rgba(111, 227, 232, .45);
+}
+
+.skill-center-port.is-south {
+  bottom: -6px;
+  left: calc(50% - 6px);
+  background: #8bc78e;
+  box-shadow: 0 0 8px rgba(139, 199, 142, .45);
+}
+
+.skill-center-port.is-west {
+  left: -6px;
+  top: calc(50% - 6px);
+  background: #cf8b7b;
+  box-shadow: 0 0 8px rgba(207, 139, 123, .45);
+}
+
+.skill-map-start {
+  --core-gold: #ffe07a;
+  --core-aqua: #6fe3e8;
+  --core-green: #8bc78e;
+  --core-red: #cf8b7b;
+  --core-night: #101b19;
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 5px;
+  width: 100%;
+  height: 100%;
+  padding: 12px 10px;
+  clip-path: none !important;
+  border: 3px solid #f2bb61 !important;
+  border-radius: 0 !important;
+  background:
+    linear-gradient(135deg, rgba(111, 227, 232, .12), transparent 44%),
+    linear-gradient(180deg, #213631 0%, #101b19 100%) !important;
+  color: var(--core-gold);
+  box-shadow:
+    inset 0 0 0 3px #0c1415,
+    inset 0 0 0 5px rgba(111, 227, 232, .42),
+    4px 4px 0 rgba(5, 10, 12, .62) !important;
+  cursor: pointer;
+}
+
+.skill-map-start::before {
+  inset: 8px;
+  clip-path: none !important;
+  border: 1px solid rgba(242, 187, 97, .42);
+  box-shadow: none;
+}
+
+.skill-map-start::after {
+  display: none;
+  content: none;
+}
+
+.skill-center-corner {
+  position: absolute;
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  border: 3px solid #ffe48f;
+  pointer-events: none;
+}
+
+.skill-center-corner.is-tl { top: -2px; left: -2px; border-right: 0; border-bottom: 0; }
+.skill-center-corner.is-tr { top: -2px; right: -2px; border-left: 0; border-bottom: 0; }
+.skill-center-corner.is-bl { bottom: -2px; left: -2px; border-right: 0; border-top: 0; }
+.skill-center-corner.is-br { bottom: -2px; right: -2px; border-left: 0; border-top: 0; }
+
+.skill-map-start:not(:disabled):hover {
+  transform: translate(-1px, -1px);
+  border-color: #ffe899 !important;
+  background:
+    linear-gradient(135deg, rgba(111, 227, 232, .18), transparent 46%),
+    linear-gradient(180deg, #2b473f 0%, #152420 100%) !important;
+  filter: none;
+}
+
+.skill-map-start:focus-visible {
+  outline: 3px solid #6fe3e8;
+  outline-offset: 4px;
+}
+
+.skill-map-start .skill-core-mark {
+  width: 42px;
+  height: 42px;
+  clip-path: none;
+  background: transparent;
+  filter: drop-shadow(0 2px 0 #0a1213);
+}
+
+.skill-core-outer {
+  fill: rgba(242, 187, 97, .08);
+  stroke: var(--core-gold);
+  stroke-width: 1.5;
+  shape-rendering: crispEdges;
+}
+
+.skill-core-inner {
+  fill: rgba(16, 27, 25, .85);
+  stroke: var(--core-aqua);
+  stroke-width: 1.4;
+  shape-rendering: crispEdges;
+}
+
+.skill-core-conduits {
+  fill: none;
+  stroke: var(--core-aqua);
+  stroke-width: 1.5;
+  shape-rendering: crispEdges;
+}
+
+.skill-core-node-n { fill: var(--core-gold); stroke: var(--core-night); stroke-width: 1; }
+.skill-core-node-e { fill: var(--core-aqua); stroke: var(--core-night); stroke-width: 1; }
+.skill-core-node-s { fill: var(--core-green); stroke: var(--core-night); stroke-width: 1; }
+.skill-core-node-w { fill: var(--core-red); stroke: var(--core-night); stroke-width: 1; }
+
+.skill-core-gem {
+  fill: var(--core-gold);
+  stroke: var(--core-night);
+  stroke-width: 1.2;
+}
+
+.skill-core-spark {
+  fill: #fff8de;
+}
+
+.skill-map-start strong {
+  color: var(--core-gold);
+  font: 700 11px/1.15 var(--pixel);
+  letter-spacing: 0.06em;
+  text-shadow: 2px 2px 0 #0a1213;
+}
+
+.skill-map-start small {
+  max-width: 122px;
+  color: #cfe0d4;
+  font: 500 13.5px/1.18 var(--body);
+  text-shadow: 1px 1px 0 #0a1213;
+}
+
+:root:not([data-theme="dark"]) .skill-center-port {
+  border-color: #24292c;
+}
+
+:root:not([data-theme="dark"]) .skill-center-port.is-north { background: #c58826; }
+:root:not([data-theme="dark"]) .skill-center-port.is-east { background: #3b899b; }
+:root:not([data-theme="dark"]) .skill-center-port.is-south { background: #4c7d51; }
+:root:not([data-theme="dark"]) .skill-center-port.is-west { background: #b44c3c; }
+
+:root:not([data-theme="dark"]) .skill-map-start {
+  --core-gold: #8b5b16;
+  --core-aqua: #236877;
+  --core-green: #3f6d43;
+  --core-red: #9f3e2e;
+  --core-night: #fffaf0;
+  border-color: #9e6b1d !important;
+  background:
+    linear-gradient(135deg, rgba(35, 104, 119, .09), transparent 44%),
+    linear-gradient(180deg, #fffaf0 0%, #ebe2c8 100%) !important;
+  box-shadow:
+    inset 0 0 0 3px #e6dec5,
+    inset 0 0 0 5px rgba(35, 104, 119, .32),
+    4px 4px 0 rgba(36, 41, 44, .22) !important;
+}
+
+:root:not([data-theme="dark"]) .skill-center-corner {
+  border-color: #8b5b16;
+}
+
+:root:not([data-theme="dark"]) .skill-map-start::before {
+  border-color: rgba(158, 107, 29, .45);
+}
+
+:root:not([data-theme="dark"]) .skill-map-start:not(:disabled):hover {
+  border-color: #70490f !important;
+  background:
+    linear-gradient(135deg, rgba(35, 104, 119, .14), transparent 46%),
+    linear-gradient(180deg, #fff5dc 0%, #e9dec0 100%) !important;
+}
+
+:root:not([data-theme="dark"]) .skill-core-inner {
+  fill: rgba(255, 250, 240, .92);
+}
+
+:root:not([data-theme="dark"]) .skill-core-spark {
+  fill: #fffdf6;
+}
+
+:root:not([data-theme="dark"]) .skill-map-start .skill-core-mark {
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, .85));
+}
+
+:root:not([data-theme="dark"]) .skill-map-start strong {
+  color: #6b4610;
+  text-shadow: 1px 1px 0 #fffaf0;
+}
+
+:root:not([data-theme="dark"]) .skill-map-start small {
+  color: #3d4841;
+  text-shadow: none;
+}
+
+body.reduce-motion .skill-map-center,
+body.reduce-motion .skill-map-start {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Settings Replay Full Tutorials Card */
+.settings-tutorials-card {
+  grid-column: 1 / -1;
+}
+
+.settings-tutorials-note {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font: 400 15.5px/1.4 var(--body);
+}
+
+.settings-replay-tour,
+.settings-replay-game {
+  min-height: 44px;
+}
+
+.settings-replay-tour {
+  border-color: #2f7e8f !important;
+  background: rgba(111, 227, 232, .14) !important;
+  color: #c8f6f8 !important;
+}
+
+.settings-replay-tour:hover:not(:disabled) {
+  background: #6fe3e8 !important;
+  color: #102124 !important;
+}
+
+:root:not([data-theme="dark"]) .settings-replay-tour {
+  border-color: #2a7078 !important;
+  background: #e2f2ef !important;
+  color: #164850 !important;
+}
+
+:root:not([data-theme="dark"]) .settings-replay-tour:hover:not(:disabled) {
+  background: #c8e8e4 !important;
+  color: #0e383e !important;
+}
+
+/* Compact Approach-Enemy Tutorial Action Prompt */
+.tutorial-silent-cue.is-approach-prompt {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(460px, calc(100vw - 24px));
+  padding: 7px 10px;
+  border: 2px solid #0d1417;
+  background: rgba(14, 24, 28, 0.94);
+  color: #eef5ee;
+  box-shadow: 0 0 0 2px #6fe3e8, 4px 4px 0 rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+
+.tutorial-compact-tag {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border: 1px solid #ffe48f;
+  background: #f2bb61;
+  color: #151e21;
+  font: 700 9px/1 var(--pixel);
+  letter-spacing: 0.04em;
+}
+
+.tutorial-compact-text {
+  font: 500 14.5px/1.25 var(--body);
+  color: #eef5ee;
+}
+
+.tutorial-compact-skip {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border: 2px solid rgba(111, 227, 232, 0.55);
+  background: rgba(25, 42, 46, 0.9);
+  color: #cdeff1;
+  font: 700 9px/1 var(--pixel);
+  cursor: pointer;
+}
+
+.tutorial-compact-skip:hover {
+  background: #6fe3e8;
+  color: #0d181a;
+}
+
+.tutorial-compact-skip:focus-visible {
+  outline: 2px solid #ffe48f;
+  outline-offset: 2px;
+}
+
+:root:not([data-theme="dark"]) .tutorial-silent-cue.is-approach-prompt {
+  background: rgba(255, 250, 240, 0.97);
+  color: #1f2629;
+  box-shadow: 0 0 0 2px #236877, 4px 4px 0 rgba(36, 41, 44, 0.25);
+}
+
+:root:not([data-theme="dark"]) .tutorial-compact-text {
+  color: #1f2629;
+}
+
+:root:not([data-theme="dark"]) .tutorial-compact-skip {
+  border-color: #236877;
+  background: #e4f2ef;
+  color: #14434c;
+}
+
+:root:not([data-theme="dark"]) .tutorial-compact-skip:hover {
+  background: #236877;
+  color: #fffaf0;
+}
+
+@media (max-width: 679px) {
+  .tutorial-silent-cue.is-approach-prompt {
+    gap: 7px;
+    padding: 6px 8px;
+  }
+
+  .tutorial-compact-text {
+    font-size: 13px;
+  }
+}
+
+/* Silver Defense-Buff Health Meter Treatment */
+.play-meter.is-def-buffed {
+  border: 2px solid #dce8f5;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 0 8px rgba(210, 228, 246, 0.35);
+}
+
+.play-meter.is-def-buffed::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(240, 248, 255, 0.28) 0%, rgba(160, 184, 208, 0.08) 100%);
+  pointer-events: none;
+}
+
+body.reduce-motion .play-meter.is-def-buffed {
+  box-shadow: none;
 }

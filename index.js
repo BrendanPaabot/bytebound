@@ -1024,8 +1024,8 @@ const ACHIEVEMENTS = [
     category: 'tutorial',
     theme: 'tutorial',
     name: 'Codex Laureate',
-    description: 'Complete all 15 guided page tours and gameplay lessons. (Skipped lessons must be replayed and completed to count.)',
-    goal: 15,
+    description: 'Complete all 17 guided page tours and gameplay lessons. (Skipped lessons must be replayed and completed to count.)',
+    goal: 17,
     metric: 'tutorialsCompleted',
     icon: '✦',
     isTutorialAchievement: true,
@@ -2908,15 +2908,16 @@ function drawExplore() {
   doors.forEach((door) => door.draw())
   c.globalAlpha = 1
 
+  const freezeEnemies = Boolean(window.ByteboundTutorial?.shouldFreezeEnemies?.())
   enemies.forEach((e) => {
-    if (mode !== 'end') e.update()
+    if (mode !== 'end' && !freezeEnemies) e.update()
     if (e.alive && e.nyrmed) {
       const fScale = 1.9
       const fx = e.x - e.dir * 52
       const fy = e.y + (e.h - PIG_H * fScale)
-      drawPig(c, fx, fy, fScale, e.dir < 0, { animated: true, grenu: true })
+      drawPig(c, fx, fy, fScale, e.dir < 0, { animated: !freezeEnemies, idle: freezeEnemies, grenu: true })
     }
-    e.draw()
+    e.draw(freezeEnemies)
   })
   player.handleInput(keys)
   player.draw()
@@ -3133,6 +3134,7 @@ function resetHeadBarState(unitKey, entityRef = null, hp = 100, maxHp = 100, man
   st.lastHp = hp
   st.lastMaxHp = maxHp
   st.lastDelta = 0
+  st.defBuffActive = false
   st.manaRatio = clampUnitRatio(maxMana > 0 ? mana / maxMana : 0)
   st.lastMana = mana
 }
@@ -3262,6 +3264,69 @@ function stepHeadBarAnimation(unitKey) {
   }
 }
 
+function isReducedMotionActive() {
+  return Boolean(
+    document.body.classList.contains('reduce-motion') ||
+    (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  )
+}
+
+function hasHeroFullDefenseBuff() {
+  if (typeof battle === 'undefined' || !battle) return false
+  return Boolean((battle.block || 0) >= 0.75 || battle.remedialDefenseBuff)
+}
+
+const PIXEL_SHIELD_MAP = [
+  '..OOOOOOO..',
+  '.OHHHHHHHO.',
+  'OHSSWWWWSHO',
+  'OHSSWWWWSHO',
+  'OHWWWWWWWWO',
+  'OHWWWWWWWWO',
+  'OHSSWWWWSHO',
+  '.OHSSWWSHO.',
+  '.OHSSWWSHO.',
+  '..OHSSSSO..',
+  '...OHSSO...',
+  '....OHO....',
+  '.....O.....',
+]
+
+function drawPixelShield(cx, cy, pixelSize = 4, options = {}) {
+  const alpha = options.alpha ?? 1
+  const highlight = Boolean(options.highlight)
+  const palette = highlight
+    ? { O: '#131c24', H: '#ffffff', S: '#b4cbe0', W: '#ffffff' }
+    : { O: '#131c24', H: '#eef5fc', S: '#7d93a8', W: '#dce8f5' }
+  const rows = PIXEL_SHIELD_MAP.length
+  const cols = PIXEL_SHIELD_MAP[0].length
+  const startX = Math.round(cx - (cols * pixelSize) / 2)
+  const startY = Math.round(cy - (rows * pixelSize) / 2)
+
+  c.save()
+  c.globalAlpha *= alpha
+  for (let r = 0; r < rows; r++) {
+    const row = PIXEL_SHIELD_MAP[r]
+    for (let col = 0; col < cols; col++) {
+      const ch = row[col]
+      if (ch === '.') continue
+      c.fillStyle = palette[ch] || palette.S
+      c.fillRect(startX + col * pixelSize, startY + r * pixelSize, pixelSize, pixelSize)
+    }
+  }
+  if (!isReducedMotionActive() && !highlight) {
+    const gleamBand = Math.floor((arenaT * 0.35) % 16)
+    c.fillStyle = 'rgba(255, 255, 255, 0.55)'
+    for (let r = 1; r < rows - 2; r++) {
+      const col = gleamBand - r
+      if (col >= 1 && col < cols - 1 && PIXEL_SHIELD_MAP[r][col] !== '.' && PIXEL_SHIELD_MAP[r][col] !== 'O') {
+        c.fillRect(startX + col * pixelSize, startY + r * pixelSize, pixelSize, pixelSize)
+      }
+    }
+  }
+  c.restore()
+}
+
 // Decorative pixel-art character-head status frame drawn above each fighter in battle.
 function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, options = {}) {
   const hasMana = mana !== undefined
@@ -3272,6 +3337,8 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
 
   const isHero = unitKey === 'hero'
   const isHeavyIntent = Boolean(options.isHeavyIntent)
+  const defBuffActive = Boolean(options.defBuffActive)
+  if (st) st.defBuffActive = defBuffActive
   const subText = options.subText || ''
 
   c.save()
@@ -3285,6 +3352,7 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
     c.measureText(nameStr).width +
     c.measureText(hpLabel).width +
     (deltaText ? c.measureText(deltaText).width + 18 : 0) +
+    (defBuffActive ? 44 : 0) +
     46
   )
   c.font = '8px "Press Start 2P", monospace'
@@ -3295,14 +3363,16 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
   const y = Math.round(Math.max(10, Math.min(canvas.height - h - 10, bottom - h)))
 
   const outerBorder = '#060a0d'
-  const frameBorder = isHero
-    ? '#d9a44a'
-    : (isHeavyIntent ? '#ff784f' : '#cf5978')
-  const cornerColor = isHero
-    ? '#ffe082'
-    : (isHeavyIntent ? '#ffb38a' : '#ff9eb6')
+  const frameBorder = defBuffActive
+    ? '#c8d6e5'
+    : (isHero ? '#d9a44a' : (isHeavyIntent ? '#ff784f' : '#cf5978'))
+  const cornerColor = defBuffActive
+    ? '#f4f9ff'
+    : (isHero ? '#ffe082' : (isHeavyIntent ? '#ffb38a' : '#ff9eb6'))
   const plaqueBg = isHero ? 'rgba(13, 21, 25, 0.94)' : 'rgba(22, 13, 25, 0.94)'
-  const innerBevel = isHero ? 'rgba(242, 187, 97, 0.2)' : 'rgba(232, 148, 162, 0.2)'
+  const innerBevel = defBuffActive
+    ? 'rgba(220, 232, 245, 0.34)'
+    : (isHero ? 'rgba(242, 187, 97, 0.2)' : 'rgba(232, 148, 162, 0.2)')
 
   // 1. Pixel drop shadow + outer dark plaque
   c.fillStyle = 'rgba(3, 6, 8, 0.72)'
@@ -3329,7 +3399,7 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
   c.fillRect(x, y + h - 4, 4, 4)
   c.fillRect(x + w - 4, y + h - 4, 4, 4)
 
-  // 3. Name & Authoritative HP reading + delta pill
+  // 3. Name & Authoritative HP reading + DEF pill + delta pill
   c.font = '10px "Press Start 2P", monospace'
   c.textBaseline = 'middle'
   c.textAlign = 'left'
@@ -3340,12 +3410,30 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
   c.fillStyle = '#f6f2e6'
   c.fillText(hpLabel, x + w - 10, y + 14)
 
+  let rightAccessoryX = x + w - 14 - c.measureText(hpLabel).width
+  if (defBuffActive) {
+    c.font = '7px "Press Start 2P", monospace'
+    const defW = 34
+    const dx = Math.round(rightAccessoryX - defW)
+    const dy = y + 7
+    c.fillStyle = '#2b3947'
+    c.fillRect(dx, dy, defW, 13)
+    c.strokeStyle = '#dce8f5'
+    c.lineWidth = 1
+    c.strokeRect(dx + 0.5, dy + 0.5, defW - 1, 12)
+    c.fillStyle = '#f4f9ff'
+    c.fillRect(dx, dy, 2, 2)
+    c.fillRect(dx + defW - 2, dy, 2, 2)
+    c.textAlign = 'center'
+    c.fillText('DEF', dx + defW / 2, dy + 7)
+    rightAccessoryX = dx - 4
+  }
+
   if (deltaText && st) {
     const isHealDelta = st.lastDelta > 0
-    const hpW = c.measureText(hpLabel).width
     c.font = '8px "Press Start 2P", monospace'
     const dw = Math.ceil(c.measureText(deltaText).width + 8)
-    const dx = Math.round(x + w - 14 - hpW - dw)
+    const dx = Math.round(rightAccessoryX - dw)
     const dy = y + 7
     c.fillStyle = isHealDelta ? 'rgba(32, 128, 66, 0.9)' : 'rgba(164, 36, 36, 0.9)'
     c.fillRect(dx, dy, dw, 13)
@@ -3357,7 +3445,7 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
     c.fillText(deltaText, dx + dw / 2, dy + 7)
   }
 
-  // 4. Health bar with Red Damage Afterimage Trail & Green Healing Trail
+  // 4. Health bar with Red Damage Afterimage Trail, Green Healing Trail, & Silver Defense-Buff Frame
   const barX = x + 10
   const barY = y + 23
   const barW = w - 20
@@ -3374,7 +3462,6 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
   c.fillRect(barX, barY, barW, barH)
 
   if (st && st.mode === 'damage' && trailR > mainR + 0.001) {
-    // Red afterimage segment from 0..trailR, then main fill 0..mainR on top
     const trailW = Math.round(barW * trailR)
     c.fillStyle = '#ff3636'
     c.fillRect(barX, barY, trailW, barH)
@@ -3383,7 +3470,6 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
   }
 
   if (st && st.mode === 'heal' && mainR > trailR + 0.001) {
-    // Green gained-health trailing segment from 0..mainR, then normal fill 0..trailR on top
     const gainW = Math.round(barW * mainR)
     c.fillStyle = '#38e878'
     c.fillRect(barX, barY, gainW, barH)
@@ -3411,6 +3497,36 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
   c.fillStyle = 'rgba(7, 11, 14, 0.45)'
   for (let t = 1; t <= 3; t++) {
     c.fillRect(Math.round(barX + (barW * t) / 4), barY, 1, barH)
+  }
+
+  // Metallic silver armor border & glaze overlay when a full defense buff is active (HP fill remains accurate)
+  if (defBuffActive) {
+    c.fillStyle = '#7b90a6'
+    c.fillRect(barX - 2, barY - 2, barW + 4, 2)
+    c.fillRect(barX - 2, barY + barH, barW + 4, 2)
+    c.fillRect(barX - 2, barY, 2, barH)
+    c.fillRect(barX + barW, barY, 2, barH)
+    c.fillStyle = '#eef5fc'
+    c.fillRect(barX - 1, barY - 1, barW + 2, 1)
+    c.fillRect(barX - 2, barY - 2, 3, 3)
+    c.fillRect(barX + barW - 1, barY - 2, 3, 3)
+    c.fillRect(barX - 2, barY + barH - 1, 3, 3)
+    c.fillRect(barX + barW - 1, barY + barH - 1, 3, 3)
+
+    // Subtle brushed-silver glaze stripe that signals shielding without obscuring fill ratio
+    c.save()
+    c.fillStyle = 'rgba(225, 240, 255, 0.24)'
+    c.fillRect(barX, barY, barW, 3)
+    if (!isReducedMotionActive()) {
+      const scanX = Math.round(barX + ((arenaT * 3) % (barW + 28)) - 20)
+      const clipL = Math.max(barX, scanX)
+      const clipR = Math.min(barX + barW, scanX + 16)
+      if (clipR > clipL) {
+        c.fillStyle = 'rgba(255, 255, 255, 0.42)'
+        c.fillRect(clipL, barY, clipR - clipL, barH)
+      }
+    }
+    c.restore()
   }
 
   // 5. Mana sub-bar (if unit has mana)
@@ -3525,61 +3641,32 @@ function drawDefendEffect(cx, heroTop, options = {}) {
   if (timer <= 0) return
   const facingLeft = Boolean(options.facingLeft)
   const labelText = options.text || 'BLOCKED!'
+  const reduced = isReducedMotionActive()
   const progress = 1 - timer / DEFEND_EFFECT_FRAMES
   const alpha = Math.min(1, timer / 6)
   const shieldX = Math.round(cx + (facingLeft ? -52 : 52))
-  const shieldY = Math.round(heroTop + 43)
-  const scale = progress < 0.2
-    ? 0.76 + progress * 1.2
-    : 1 + Math.sin(progress * Math.PI) * 0.035
+  const heroDrawH = typeof options.heroHeight === 'number' ? options.heroHeight : 128
+  const shieldY = Math.round(heroTop + heroDrawH * 0.52)
+  const pixelSize = 4
+
+  drawPixelShield(shieldX, shieldY, pixelSize, {
+    alpha,
+    highlight: !reduced && progress < 0.14,
+  })
 
   c.save()
-  c.globalCompositeOperation = 'lighter'
-  c.globalAlpha = alpha
-  c.translate(shieldX, shieldY)
-  c.scale(scale, scale)
-  c.lineJoin = 'miter'
-  c.beginPath()
-  c.moveTo(0, -28)
-  c.lineTo(20, -20)
-  c.lineTo(18, 5)
-  c.lineTo(10, 20)
-  c.lineTo(0, 29)
-  c.lineTo(-10, 20)
-  c.lineTo(-18, 5)
-  c.lineTo(-20, -20)
-  c.closePath()
-  c.fillStyle = progress < 0.16 ? 'rgba(242, 253, 255, .86)' : 'rgba(76, 190, 255, .48)'
-  c.strokeStyle = progress < 0.16 ? '#ffffff' : '#8beaff'
-  c.lineWidth = 4
-  c.shadowColor = '#a4f2ff'
-  c.shadowBlur = progress < 0.2 ? 12 : 4
-  c.fill()
-  c.stroke()
-  c.shadowBlur = 0
-  c.strokeStyle = 'rgba(255, 255, 255, .9)'
-  c.lineWidth = 2
-  c.beginPath()
-  c.moveTo(0, -17)
-  c.lineTo(0, 17)
-  c.moveTo(-10, -7)
-  c.lineTo(10, -7)
-  c.stroke()
-  c.restore()
-
-  c.save()
-  const textProgress = Math.min(1, progress * 2.5)
-  const textScale = 1 + 0.22 * Math.max(0, 1 - textProgress * 5)
+  const textProgress = reduced ? 0.5 : Math.min(1, progress * 2.2)
+  const textScale = reduced ? 1 : (1 + 0.14 * Math.max(0, 1 - textProgress * 5))
   c.globalAlpha = Math.min(1, timer / 8)
-  c.translate(cx, heroTop - 78 - textProgress * 18)
+  c.translate(shieldX + (facingLeft ? -6 : 6), Math.round(shieldY - 36 - (reduced ? 4 : textProgress * 12)))
   c.scale(textScale, textScale)
   c.textAlign = 'center'
   c.textBaseline = 'middle'
-  c.font = '11px "Press Start 2P", monospace'
+  c.font = '9px "Press Start 2P", monospace'
   c.lineWidth = 4
-  c.strokeStyle = '#143a55'
+  c.strokeStyle = '#131c24'
   c.strokeText(labelText, 0, 0)
-  c.fillStyle = '#effcff'
+  c.fillStyle = '#eef5fc'
   c.fillText(labelText, 0, 0)
   c.restore()
   c.textAlign = 'left'
@@ -3690,6 +3777,248 @@ function drawEnemyProjectile() {
   }
 }
 
+function drawCardActionAnim() {
+  const anim = battle.cardAnim
+  if (!anim || anim.t <= 0) return
+  const dur = Math.max(1, anim.duration || 28)
+  const progress = 1 - anim.t / dur
+  const alpha = Math.min(1, anim.t / 6)
+  const reduced = isReducedMotionActive()
+  const hx = HERO_SPOT.x
+  const hy = HERO_SPOT.y - 68
+  const ex = FOE_SPOT.x
+  const ey = FOE_SPOT.y - 66
+
+  c.save()
+  c.globalAlpha *= alpha
+
+  if (reduced) {
+    // Reduced-motion mode: concise, brief static pixel glyph distinct per card action
+    const drawPixelCross = (cx, cy, color, sz = 4) => {
+      c.fillStyle = color
+      c.fillRect(Math.round(cx - sz * 1.5), Math.round(cy - sz * 0.5), sz * 3, sz)
+      c.fillRect(Math.round(cx - sz * 0.5), Math.round(cy - sz * 1.5), sz, sz * 3)
+    }
+    if (anim.type === 'power' || anim.type === 'heavy') {
+      const col = anim.type === 'heavy' ? '#ff594f' : '#ff9f43'
+      c.fillStyle = col
+      for (let i = -3; i <= 3; i++) {
+        c.fillRect(Math.round(ex + i * 8 - 4), Math.round(ey + i * 7 - 4), 8, 8)
+        if (anim.type === 'power') c.fillRect(Math.round(ex - i * 8 - 4), Math.round(ey + i * 7 - 4), 8, 8)
+      }
+    } else if (anim.type === 'strike' || anim.type === 'quick') {
+      c.fillStyle = anim.type === 'quick' ? '#6fe3e8' : '#ffe07a'
+      c.fillRect(Math.round(ex - 28), Math.round(ey - 4), 56, 6)
+      if (anim.type === 'quick') {
+        c.fillRect(Math.round(ex - 22), Math.round(ey - 16), 44, 4)
+        c.fillRect(Math.round(ex - 22), Math.round(ey + 10), 44, 4)
+      }
+    } else if (anim.type === 'overclock') {
+      c.fillStyle = '#6fe3e8'
+      for (let i = 0; i < 6; i++) {
+        const px = Math.round(hx + 70 + ((ex - hx - 90) * i) / 5)
+        const py = Math.round(hy + (i % 2 === 0 ? -8 : 8))
+        c.fillRect(px - 4, py - 4, 8, 8)
+      }
+    } else if (anim.type === 'defend') {
+      drawPixelShield(hx + 52, HERO_SPOT.y - 62, 4, { highlight: false, alpha: 0.9 })
+    } else if (anim.type === 'charge' || anim.type === 'siphon') {
+      drawPixelCross(hx, hy - 34, anim.type === 'siphon' ? '#c77dff' : '#6fe3e8', 5)
+    } else if (anim.type === 'mend') {
+      drawPixelCross(hx, hy - 36, '#62f596', 5)
+    } else if (anim.type === 'fortify' || anim.type === 'remedial_surge') {
+      c.strokeStyle = '#dce8f5'
+      c.lineWidth = 3
+      c.strokeRect(Math.round(hx - 40), Math.round(HERO_SPOT.y - 108), 80, 96)
+    }
+    c.restore()
+    return
+  }
+
+  switch (anim.type) {
+    case 'power': {
+      // Forceful golden-orange cross-cleave + ground shockwave + ember chunks
+      c.globalCompositeOperation = 'lighter'
+      const span = 58
+      const stepEnd = Math.min(1, progress * 2.1)
+      const count = 9
+      for (let i = 0; i < count; i++) {
+        const r = i / (count - 1)
+        if (r > stepEnd) break
+        const sx1 = Math.round(ex - span + r * span * 2)
+        const sy1 = Math.round(ey - span + r * span * 2)
+        c.fillStyle = i % 2 === 0 ? '#ff8f3a' : '#fff3c4'
+        c.fillRect(sx1 - 6, sy1 - 6, 12, 12)
+        const sx2 = Math.round(ex + span - r * span * 2)
+        c.fillStyle = i % 2 === 0 ? '#ffd27a' : '#ff683b'
+        c.fillRect(sx2 - 5, sy1 - 5, 10, 10)
+      }
+      const waveW = Math.round(28 + progress * 86)
+      c.fillStyle = 'rgba(255, 210, 122, 0.72)'
+      c.fillRect(Math.round(FOE_SPOT.x - waveW), FOE_SPOT.y - 8, waveW * 2, 6)
+      c.fillStyle = '#fff5cf'
+      c.fillRect(Math.round(FOE_SPOT.x - waveW * 0.65), FOE_SPOT.y - 6, Math.round(waveW * 1.3), 3)
+      break
+    }
+
+    case 'strike': {
+      // Clean swift single diagonal steel blade slash
+      const span = 44
+      const tCut = Math.min(1, progress * 2.4)
+      for (let i = 0; i < 7; i++) {
+        const r = i / 6
+        if (r > tCut) break
+        const sx = Math.round(ex - span + r * span * 2)
+        const sy = Math.round(ey - span * 0.8 + r * span * 1.6)
+        c.fillStyle = i > 4 ? '#ffffff' : '#dce8f5'
+        c.fillRect(sx - 4, sy - 4, 8, 8)
+      }
+      break
+    }
+
+    case 'quick': {
+      // Triple rapid horizontal jab streaks + fast mana glint toward hero
+      const streaks = [-18, 0, 18]
+      streaks.forEach((dy, idx) => {
+        const local = Math.max(0, Math.min(1, progress * 2.6 - idx * 0.25))
+        if (local <= 0) return
+        const xPos = Math.round(ex - 42 + local * 84)
+        c.fillStyle = idx === 1 ? '#ffffff' : '#6fe3e8'
+        c.fillRect(xPos - 14, Math.round(ey + dy - 3), 28, 6)
+      })
+      const orbX = Math.round(ex + (hx - ex) * Math.min(1, progress * 1.25))
+      const orbY = Math.round(ey - Math.sin(progress * Math.PI) * 32)
+      c.fillStyle = '#7ef0a2'
+      c.fillRect(orbX - 4, orbY - 4, 8, 8)
+      break
+    }
+
+    case 'heavy': {
+      // Crushing crimson-gold vertical pillar + fracture bricks at base
+      const slamH = Math.round(140 * Math.min(1, progress * 2.4))
+      c.fillStyle = 'rgba(255, 89, 79, 0.78)'
+      c.fillRect(Math.round(FOE_SPOT.x - 16), Math.round(FOE_SPOT.y - slamH), 32, slamH)
+      c.fillStyle = '#ffe07a'
+      c.fillRect(Math.round(FOE_SPOT.x - 8), Math.round(FOE_SPOT.y - slamH), 16, slamH)
+      const spread = Math.round(progress * 68)
+      c.fillStyle = '#ff9659'
+      c.fillRect(Math.round(FOE_SPOT.x - 24 - spread), FOE_SPOT.y - 10, 10, 10)
+      c.fillRect(Math.round(FOE_SPOT.x + 14 + spread), FOE_SPOT.y - 10, 10, 10)
+      break
+    }
+
+    case 'overclock': {
+      // Electric pixel lightning bolt across arena with static glitch squares
+      const segments = 9
+      let prevX = hx + 36
+      let prevY = hy
+      c.strokeStyle = '#6fe3e8'
+      c.lineWidth = 4
+      c.beginPath()
+      c.moveTo(prevX, prevY)
+      for (let i = 1; i <= segments; i++) {
+        const r = i / segments
+        const nx = Math.round(hx + 36 + (ex - hx - 36) * r)
+        const ny = Math.round(hy + (ey - hy) * r + (i < segments ? Math.sin(i * 2.5 + arenaT * 0.8) * 16 : 0))
+        c.lineTo(nx, ny)
+        c.fillStyle = i % 2 === 0 ? '#ff89d6' : '#aef8ff'
+        c.fillRect(nx - 3, ny - 3, 6, 6)
+      }
+      c.stroke()
+      break
+    }
+
+    case 'defend': {
+      // Crisp silver-steel perimeter shimmer around hero shield
+      const expand = Math.round(progress * 26)
+      c.strokeStyle = anim.correct ? '#eef5fc' : '#7d93a8'
+      c.lineWidth = 2
+      c.strokeRect(
+        Math.round(hx + 52 - 22 - expand * 0.5),
+        Math.round(HERO_SPOT.y - 86 - expand * 0.5),
+        44 + expand,
+        52 + expand
+      )
+      break
+    }
+
+    case 'charge': {
+      // Converging cyan pixel prisms + vertical mana rise at hero
+      for (let i = 0; i < 8; i++) {
+        const ang = (Math.PI * 2 * i) / 8 + progress * 2.4
+        const rad = Math.max(8, 56 * (1 - progress))
+        const px = Math.round(hx + Math.cos(ang) * rad)
+        const py = Math.round(hy + Math.sin(ang) * rad)
+        c.fillStyle = i % 2 === 0 ? '#6fe3e8' : '#7ef0a2'
+        c.fillRect(px - 3, py - 3, 6, 6)
+      }
+      const pillarH = Math.round(88 * (1 - Math.abs(progress * 2 - 1)))
+      if (pillarH > 0) {
+        c.fillStyle = 'rgba(111, 227, 232, 0.36)'
+        c.fillRect(Math.round(hx - 18), HERO_SPOT.y - pillarH - 6, 36, pillarH)
+      }
+      break
+    }
+
+    case 'siphon': {
+      // Teal-violet pixel orbs siphoned from enemy back into hero
+      for (let i = 0; i < 6; i++) {
+        const local = Math.max(0, Math.min(1, progress * 1.4 - i * 0.08))
+        const px = Math.round(ex + (hx - ex) * local)
+        const py = Math.round(ey + (hy - ey) * local - Math.sin(local * Math.PI) * 34)
+        c.fillStyle = i % 2 === 0 ? '#c77dff' : '#6fe3e8'
+        c.fillRect(px - 4, py - 4, 8, 8)
+      }
+      break
+    }
+
+    case 'mend': {
+      // Rising green pixel '+' crosses around hero
+      const offsets = [-28, -12, 4, 22, 34]
+      offsets.forEach((ox, idx) => {
+        const py = Math.round(HERO_SPOT.y - 18 - ((progress * 74 + idx * 14) % 80))
+        const px = Math.round(hx + ox)
+        c.fillStyle = idx % 2 === 0 ? '#62f596' : '#d2ffe4'
+        c.fillRect(px - 5, py - 2, 10, 4)
+        c.fillRect(px - 2, py - 5, 4, 10)
+      })
+      break
+    }
+
+    case 'fortify': {
+      // Twin metallic-lavender bastion plates locking onto hero sides
+      const slide = Math.round((1 - Math.min(1, progress * 2)) * 28)
+      c.fillStyle = 'rgba(201, 182, 255, 0.72)'
+      c.fillRect(Math.round(hx - 48 - slide), HERO_SPOT.y - 98, 8, 66)
+      c.fillRect(Math.round(hx + 40 + slide), HERO_SPOT.y - 98, 8, 66)
+      c.fillStyle = '#eef5fc'
+      c.fillRect(Math.round(hx - 48 - slide), HERO_SPOT.y - 98, 8, 6)
+      c.fillRect(Math.round(hx + 40 + slide), HERO_SPOT.y - 98, 8, 6)
+      break
+    }
+
+    case 'remedial_surge': {
+      // Bright silver-teal-gold ascending surge bars around hero
+      for (let i = 0; i < 4; i++) {
+        const px = Math.round(hx - 36 + i * 24)
+        const barH = Math.round(92 * Math.sin(Math.min(1, progress) * Math.PI))
+        c.fillStyle = i % 2 === 0 ? '#dce8f5' : '#ffe07a'
+        c.fillRect(px, HERO_SPOT.y - barH - 6, 5, barH)
+      }
+      break
+    }
+
+    default: {
+      // Subtle pixel diamond flash fallback for exclusive skills (paired with their dedicated timers)
+      c.fillStyle = '#ffe07a'
+      c.fillRect(Math.round(ex - 10), Math.round(ey - 10), 20, 20)
+      break
+    }
+  }
+
+  c.restore()
+}
+
 function drawImpactRings() {
   if (battle.impactRingT > 0) {
     const progress = 1 - battle.impactRingT
@@ -3792,12 +4121,11 @@ function drawCombatants(heroX, foeX, shake) {
   c.fill()
 
   if (charging) drawChargeEffects(hx, chargeProgress)
-  if (b.block > 0) {
-    c.strokeStyle = `rgba(111, 227, 232, ${0.6 + 0.3 * Math.sin(arenaT * 0.2)})`
-    c.lineWidth = 5
-    c.beginPath()
-    c.arc(hx + 80, hy - 70, 100, -Math.PI / 2.4, Math.PI / 2.4)
-    c.stroke()
+  if (b.block > 0 && b.defendEffectT <= 0) {
+    drawPixelShield(hx + 52, hy - heroDrawHeight * 0.48, b.block >= 0.75 ? 4 : 3, {
+      alpha: b.block >= 0.75 ? 0.94 : 0.62,
+      highlight: false,
+    })
   }
   const drawHero = (...args) => {
     const hitElapsed = Math.max(0, HERO_HIT_IFRAME_TICKS - b.heroHitT)
@@ -3883,12 +4211,12 @@ function drawCombatants(heroX, foeX, shake) {
     '#f2bb61',
     hero.mana,
     hero.maxMana,
-    { unitKey: 'hero', entityRef: hero, subText: heroMetaText }
+    { unitKey: 'hero', entityRef: hero, subText: heroMetaText, defBuffActive: hasHeroFullDefenseBuff() }
   )
   if (charging || b.chargeMaxT > 0) {
     drawChargeMeter(hx, charging ? chargeProgress : 1)
   }
-  if (b.defendEffectT > 0) drawDefendEffect(hx, hy - heroDrawHeight)
+  if (b.defendEffectT > 0) drawDefendEffect(hx, hy - heroDrawHeight, { heroHeight: heroDrawHeight })
   if ((typeof hero !== 'undefined' && hero.runInvincible) || b.aegisAnimT > 0) {
     c.save()
     c.globalCompositeOperation = 'lighter'
@@ -4105,15 +4433,12 @@ function drawCombatants(heroX, foeX, shake) {
         }
         if (typeof mpState !== 'undefined' && mpState?.fighters) {
           const oppRole = mpState.role === 'host' ? 'guest' : 'host'
-          if ((mpState.fighters[oppRole]?.block || 0) > 0) {
-            c.save()
-            c.strokeStyle = '#6fe3e8'
-            c.lineWidth = 3
-            c.globalAlpha = 0.72
-            c.beginPath()
-            c.arc(fx - 20, fy - oppH * 0.48, 38, Math.PI * 0.65, Math.PI * 1.35)
-            c.stroke()
-            c.restore()
+          const oppBlock = mpState.fighters[oppRole]?.block || 0
+          if (oppBlock > 0) {
+            drawPixelShield(fx - 46, fy - oppH * 0.48, oppBlock >= 0.75 ? 4 : 3, {
+              alpha: oppBlock >= 0.75 ? 0.94 : 0.62,
+              highlight: false,
+            })
           }
         }
         if (b.enemyDefendEffectT > 0) {
@@ -4157,11 +4482,18 @@ function drawCombatants(heroX, foeX, shake) {
       const foeMetaText = foe.isMultiplayerPlayer
         ? `ATK ${foe.attack} · DEF ${foe.defense}`
         : `${foe.attack} ATK · ${isHeavy(foe) ? '! HEAVY NEXT' : 'NORMAL NEXT'}`
+      const mpOppDefBuff = Boolean(
+        foe.isMultiplayerPlayer &&
+        typeof mpState !== 'undefined' &&
+        mpState?.fighters &&
+        (mpState.fighters[mpState.role === 'host' ? 'guest' : 'host']?.block || 0) >= 0.75
+      )
       drawStatTag(fx, FOE_SPOT.y - foeHeight - 10, label, foe.hp, foe.maxHp, labelColor, foe.mana, foe.maxMana, {
         unitKey: 'enemy',
         entityRef: foe,
         subText: foeMetaText,
         isHeavyIntent: !foe.isMultiplayerPlayer && isHeavy(foe),
+        defBuffActive: mpOppDefBuff,
       })
       if (!foe.isMultiplayerPlayer && ((b.enemyStunTurns || 0) > 0 || (b.enemyBurnTurns || 0) > 0)) {
         const pills = []
@@ -4232,14 +4564,15 @@ function drawBattle() {
     b.chargeCard = false
     b.chargeMaxT = 10
   }
-  const shake = b.flash.enemy > 0 ? Math.sin((12 - b.flash.enemy) * 2.6) * 3 : 0
-  const hitProgress = b.hitT > 0 ? Math.sin((1 - b.hitT) * Math.PI) : 0
+  const reducedMotion = isReducedMotionActive()
+  const shake = !reducedMotion && b.flash.enemy > 0 ? Math.sin((12 - b.flash.enemy) * 2.6) * 3 : 0
+  const hitProgress = !reducedMotion && b.hitT > 0 ? Math.sin((1 - b.hitT) * Math.PI) : 0
   const zoom = 1 + hitProgress * 0.075
   const cameraPush = hitProgress * b.cameraPushDistance
-  const cameraShakeX = b.cameraShakeT > 0
+  const cameraShakeX = !reducedMotion && b.cameraShakeT > 0
     ? Math.sin((1 - b.cameraShakeT) * Math.PI * 6) * b.cameraShakeT * 6
     : 0
-  const cameraShakeY = b.cameraShakeT > 0
+  const cameraShakeY = !reducedMotion && b.cameraShakeT > 0
     ? Math.cos((1 - b.cameraShakeT) * Math.PI * 6) * b.cameraShakeT * 3
     : 0
   c.save()
@@ -4251,6 +4584,7 @@ function drawBattle() {
   drawAttackProjectile()
   drawEnemyProjectile()
   drawImpactRings()
+  drawCardActionAnim()
   drawFx()
   drawPopups()
   c.restore()
@@ -4287,6 +4621,7 @@ function drawBattle() {
   if (b.aegisAnimT > 0) b.aegisAnimT--
   if (b.stunAnimT > 0) b.stunAnimT--
   if (b.burnAnimT > 0) b.burnAnimT--
+  if (b.cardAnim && b.cardAnim.t > 0) b.cardAnim.t--
   if (b.enemyLungeT > 0) b.enemyLungeT -= 0.04
   if (b.enemyFollower && b.enemyFollower.lungeT > 0) b.enemyFollower.lungeT = Math.max(0, b.enemyFollower.lungeT - 0.05)
   if (b.hitT > 0) b.hitT = Math.max(0, b.hitT - 0.065)
@@ -5212,16 +5547,29 @@ function renderSkillTree() {
       <div class="skill-map-zoom-status" id="skillMapZoomStatus"></div>
       <div class="skill-map-world" id="skillMapWorld" style="width:${mapWidth}px;height:${mapHeight}px">
         <svg class="skill-map-links" width="${mapWidth}" height="${mapHeight}" viewBox="0 0 ${mapWidth} ${mapHeight}" aria-hidden="true">${edges.join('')}</svg>
-        <div class="skill-map-center" style="left:${centerX - 76}px;top:${centerY - 76}px">
+        <div class="skill-map-center${skillTreeStarted ? ' is-started' : ''}" style="left:${centerX - 78}px;top:${centerY - 78}px">
+          <span class="skill-center-port is-north" aria-hidden="true"></span>
+          <span class="skill-center-port is-east" aria-hidden="true"></span>
+          <span class="skill-center-port is-south" aria-hidden="true"></span>
+          <span class="skill-center-port is-west" aria-hidden="true"></span>
           <button type="button" class="skill-map-start" id="startSkillTree" ${skillTreeStarted ? 'disabled' : ''}>
-            <svg class="skill-core-mark" viewBox="0 0 40 40" aria-hidden="true">
-              <path class="skill-core-frame" d="M8 3H32V8H37V32H32V37H8V32H3V8H8Z" />
-              <path class="skill-core-links" d="M20 17V12M20 20 11 11M20 20 29 11M20 23V28" />
-              <path class="skill-core-node" d="M16 16H24V24H16Z" />
-              <path class="skill-core-terminals" d="M7 5H15V13H7ZM25 5H33V13H25ZM16 27H24V35H16Z" />
+            <span class="skill-center-corner is-tl" aria-hidden="true"></span>
+            <span class="skill-center-corner is-tr" aria-hidden="true"></span>
+            <span class="skill-center-corner is-bl" aria-hidden="true"></span>
+            <span class="skill-center-corner is-br" aria-hidden="true"></span>
+            <svg class="skill-core-mark" viewBox="0 0 44 44" aria-hidden="true">
+              <path class="skill-core-outer" d="M6 6H38V38H6Z" />
+              <path class="skill-core-inner" d="M12 12H32V32H12Z" />
+              <path class="skill-core-conduits" d="M22 4V16M22 28V40M4 22H16M28 22H40" />
+              <rect class="skill-core-node-n" x="19" y="2" width="6" height="6" />
+              <rect class="skill-core-node-e" x="36" y="19" width="6" height="6" />
+              <rect class="skill-core-node-s" x="19" y="36" width="6" height="6" />
+              <rect class="skill-core-node-w" x="2" y="19" width="6" height="6" />
+              <path class="skill-core-gem" d="M22 14L30 22L22 30L14 22Z" />
+              <rect class="skill-core-spark" x="20" y="20" width="4" height="4" />
             </svg>
             <strong>${skillTreeStarted ? 'PATH OPEN' : 'START'}</strong>
-            <small>${skillTreeStarted ? 'Choose a revealed skill' : 'Begin at the center'}</small>
+            <small>${skillTreeStarted ? 'Select a revealed node' : 'Awaken the nexus'}</small>
           </button>
         </div>
         ${nodes}
@@ -6483,6 +6831,7 @@ function renderDashboard() {
 
   $('playPlayerHpText').textContent = `${hero.hp} / ${hero.maxHp}`
   updatePlayerHpMeter(Math.max(0, Math.min(100, (100 * hero.hp) / (hero.maxHp || 100))), { instant: !inCombatNow })
+  $('playPlayerHpFill')?.parentElement?.classList.toggle('is-def-buffed', hasHeroFullDefenseBuff())
   $('playPlayerManaText').textContent = `${hero.mana} / ${hero.maxMana}`
   updatePlayerManaMeter(Math.max(0, Math.min(100, (100 * hero.mana) / (hero.maxMana || 100))), { instant: !inCombatNow })
   $('playPlayerMeta').textContent = `ATK ${hero.attack} · DEF ${hero.defense}`
@@ -6616,6 +6965,20 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
             </div>
           </div>
         </section>
+
+        <section class="settings-card tone-gold settings-tutorials-card" aria-label="Tutorials and guides">
+          <header class="settings-card-head">
+            <span class="eyebrow">Guides &amp; Tours</span>
+            <h3>Replay Full Tutorials</h3>
+          </header>
+          <div class="settings-content">
+            <p class="settings-tutorials-note">Replaying starts from Step 1, can be skipped anytime, and does not change stats, rewards, or achievement progress.</p>
+            <div class="settings-actions-row">
+              <button class="leaderboard-action settings-replay-tour" id="replayFullTourButton" type="button" data-tutorial-sequence="tour">Replay Full Page Tour</button>
+              <button class="leaderboard-action settings-replay-game" id="replayFullGameGuideButton" type="button" data-tutorial-sequence="game">Replay Full In-Game Guide</button>
+            </div>
+          </div>
+        </section>
       </div>`
   }
   return renderWorldBeacon()
@@ -6722,6 +7085,7 @@ async function executeCurrentProfileReset() {
 
     activeSkillSpecialization = null
     exclusiveSkillTree = null
+    window.ByteboundTutorial?.resetPlayerTutorials?.(profileId)
     selectSkillProfile(profileId)
     selectAchievementProfile(profileId)
     skillTreeStarted = false
@@ -7376,6 +7740,10 @@ document.getElementById('dashboardAside').addEventListener('click', (event) => {
     else loadLeaderboard()
   } else if (event.target.closest('#resetProfileDataButton')) {
     resetCurrentProfileData()
+  } else if (event.target.closest('#replayFullTourButton')) {
+    window.ByteboundTutorial?.replayFullPageTour?.()
+  } else if (event.target.closest('#replayFullGameGuideButton')) {
+    window.ByteboundTutorial?.replayFullGameGuide?.()
   }
 })
 

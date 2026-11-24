@@ -75,7 +75,7 @@
       title: 'Core Controls Tutorial',
       shortTitle: 'Core Controls',
       category: 'Gameplay Lesson',
-      summary: 'Move (A/D), Jump (W/Space), Door interaction (Up/W), and engaging an enemy.',
+      summary: 'Interactive A/D, W, and Up exploration lessons followed by approaching an enemy.',
     },
     {
       id: 'game_battle',
@@ -89,28 +89,28 @@
       title: 'In-Game HUD Tutorial',
       shortTitle: 'Game HUD',
       category: 'Gameplay Lesson',
-      summary: 'Room header, Menu/Fullscreen controls, Map & Skill Tree badges, character-head frames, and action hints.',
+      summary: 'Menu/Fullscreen controls, World Map & Skill Tree badges, and the Help Guide button.',
     },
     {
       id: 'game_card_reward',
       title: 'Card Reward Tutorial',
       shortTitle: 'Card Reward',
       category: 'Reward Lesson',
-      summary: 'Inspecting an offered reward card’s cost and effect and adding it to your run deck.',
+      summary: 'Reviewing the post-battle card reward panel and choosing a new deck card.',
     },
     {
       id: 'game_level_up',
       title: 'Level-Up Selection Tutorial',
       shortTitle: 'Level Up',
       category: 'Reward Lesson',
-      summary: 'Why a Level Up appears every 2 virus defeats and selecting a permanent stat upgrade.',
+      summary: 'Reviewing the Level-Up reward panel and choosing a permanent run buff.',
     },
     {
       id: 'game_skill_tree',
-      title: 'Skill-Point & Skill Tree Tutorial',
+      title: 'Skill Tree First-Visit Guide',
       shortTitle: 'Skill Tree',
       category: 'Overlay Lesson',
-      summary: 'Earning 1 SP per 5 correct answers, opening with [U], inspecting/buying upgrades, and closing.',
+      summary: 'Topic branches, upgrade details, costs, and closing the Skill Tree.',
     },
     {
       id: 'game_world_map',
@@ -137,6 +137,45 @@
 
   const REQUIRED_TUTORIAL_IDS = TUTORIAL_CATALOG.map((t) => t.id);
 
+  const FULL_PAGE_TOUR_SEQUENCE = [
+    'tour_sidebar_nav',
+    'tour_quest',
+    'tour_practice_menu',
+    'tour_tracker',
+    'tour_leaderboards',
+    'tour_rewards',
+    'tour_settings',
+  ];
+
+  const TOUR_SEQUENCE_VIEW_MAP = {
+    tour_sidebar_nav: 'quest',
+    tour_quest: 'quest',
+    tour_practice_menu: 'practice',
+    tour_tracker: 'tracker',
+    tour_leaderboards: 'leaderboards',
+    tour_rewards: 'rewards',
+    tour_settings: 'settings',
+  };
+
+  const FULL_GAME_GUIDE_SEQUENCE = [
+    'game_core',
+    'game_battle',
+    'game_remedial_drill',
+    'game_hud',
+    'game_card_reward',
+    'game_level_up',
+    'game_skill_tree',
+    'game_world_map',
+  ];
+
+  const SKIPPABLE_CORE_GAME_SEQUENCE = [
+    'game_core',
+    'game_battle',
+    'game_hud',
+    'game_card_reward',
+    'game_level_up',
+  ];
+
   // --- Per-player storage helpers ---
   function getActiveProfileId() {
     const raw = (typeof activePlayerName === 'string' && activePlayerName)
@@ -152,18 +191,19 @@
 
   function loadStore(profileId = getActiveProfileId()) {
     const key = getStorageKey(profileId);
-    if (!key) return { completed: {}, progress: {}, spGuideTriggered: false };
+    if (!key) return { completed: {}, progress: {}, spGuideTriggered: false, postResetGameSequence: false };
     try {
       const raw = localStorage.getItem(key);
-      if (!raw) return { completed: {}, progress: {}, spGuideTriggered: false };
+      if (!raw) return { completed: {}, progress: {}, spGuideTriggered: false, postResetGameSequence: false };
       const parsed = JSON.parse(raw);
       return {
         completed: (parsed && typeof parsed.completed === 'object' && parsed.completed) ? parsed.completed : {},
         progress: (parsed && typeof parsed.progress === 'object' && parsed.progress) ? parsed.progress : {},
         spGuideTriggered: Boolean(parsed?.spGuideTriggered),
+        postResetGameSequence: Boolean(parsed?.postResetGameSequence),
       };
     } catch {
-      return { completed: {}, progress: {}, spGuideTriggered: false };
+      return { completed: {}, progress: {}, spGuideTriggered: false, postResetGameSequence: false };
     }
   }
 
@@ -175,8 +215,43 @@
         completed: store.completed || {},
         progress: store.progress || {},
         spGuideTriggered: Boolean(store.spGuideTriggered),
+        postResetGameSequence: Boolean(store.postResetGameSequence),
       }));
     } catch {}
+  }
+
+  function resetPlayerTutorials(profileId = getActiveProfileId()) {
+    const normalized = String(profileId || getActiveProfileId()).trim().toLowerCase();
+    if (!normalized) return false;
+    const isCurrent = normalized === getActiveProfileId();
+    if (isCurrent) {
+      state.pendingSkillPointAwards = [];
+      state.seenSkillPointAwardIds = new Set();
+      state.activeSkillPointAward = null;
+      state.pendingRemedialTutorial = false;
+      if (state.spPopupTimer) {
+        window.clearTimeout(state.spPopupTimer);
+        state.spPopupTimer = 0;
+      }
+      state.sequence = null;
+      state.activeIsReplay = false;
+      state.suppressAutoTourView = 'settings';
+      stopActiveTutorial({ restoreFocus: false });
+    }
+    const key = getStorageKey(normalized);
+    if (key) {
+      try { localStorage.removeItem(key); } catch {}
+    }
+    saveStore({
+      completed: {},
+      progress: {},
+      spGuideTriggered: false,
+      postResetGameSequence: true,
+    }, normalized);
+    if (isCurrent && typeof refreshAchievements === 'function') {
+      try { refreshAchievements({ silent: true }); } catch {}
+    }
+    return true;
   }
 
   function getTutorialStatus(tutorialId) {
@@ -220,6 +295,7 @@
   }
 
   function saveStepProgress(tutorialId, stepId) {
+    if (tutorialId === 'game_sp_earned') return;
     const store = loadStore();
     if (store.completed[tutorialId]) return;
     store.progress[tutorialId] = { stepId, updatedAt: Date.now() };
@@ -291,6 +367,24 @@
       title: el?.dataset?.bubbleTitle || fallbackTitle,
       desc: el?.dataset?.bubbleDesc || fallbackDesc,
     };
+  }
+
+  function isTouchControlsVisible() {
+    return Boolean(resolveFirstVisible('.touch-dir[data-k="d"]'));
+  }
+
+  function getCardChoiceButton(actionName, index) {
+    const btn = document.querySelector(`#panel .choices.card-pick button[data-act="${actionName}"][data-val="${index}"]`);
+    return (btn && isElementVisible(btn)) ? btn : null;
+  }
+
+  function resolveStepMultiTargets(step) {
+    if (!step || !step.multiTargetSelector) return [];
+    const selector = typeof step.multiTargetSelector === 'function'
+      ? step.multiTargetSelector()
+      : step.multiTargetSelector;
+    if (!selector) return [];
+    return [...document.querySelectorAll(selector)].filter((el) => isElementVisible(el));
   }
 
   function findFirstEligibleSkillNode() {
@@ -662,77 +756,82 @@
       case 'game_core': {
         return [
           {
-            id: 'core_move',
-            tag: 'CORE CONTROLS · 1',
-            title: 'Move Left & Right',
-            desc: 'Let’s practice the four room controls in order. First, move your knight horizontally across the floor.',
-            actionPrompt: 'Action required: Tap LEFT / RIGHT or press A / D (or Left / Right Arrow).',
+            id: 'core_move_lr',
+            tag: 'MOVEMENT 1 / 3',
+            title: () => isTouchControlsVisible() ? 'Move Left & Right' : 'Move with A / D',
+            desc: () => isTouchControlsVisible()
+              ? 'Use LEFT and RIGHT to walk across the room.'
+              : 'Use A and D (or Left / Right Arrow) to move left and right.',
+            actionPrompt: () => isTouchControlsVisible()
+              ? 'Action required: Tap LEFT or RIGHT.'
+              : 'Action required: Press A or D.',
             actionRequired: true,
-            showTouchControls: true,
+            freezeEnemies: true,
             holdEncounter: true,
-            target: ['.touch-dpad', '.preview-frame canvas'],
-            allowClickSelector: '.touch-dpad [data-k="a"], .touch-dpad [data-k="d"]',
+            noSpotlight: () => !isTouchControlsVisible(),
+            target: [
+              () => isTouchControlsVisible() ? document.querySelector('.touch-dpad') : null,
+              '.preview-frame canvas',
+            ],
+            allowClickSelector: '.touch-dir[data-k="a"], .touch-dir[data-k="d"]',
             allowedKeys: ['a', 'd', 'arrowleft', 'arrowright'],
-            preferPlacement: 'top',
+            preferPlacement: () => isTouchControlsVisible() ? 'top' : 'bottom',
           },
           {
             id: 'core_jump',
-            tag: 'CORE CONTROLS · 2',
-            title: 'Jump',
-            desc: 'Jump to climb platforms and reach upper walkways.',
-            actionPrompt: 'Action required: Tap the highlighted JUMP button or press W or Space.',
+            tag: 'MOVEMENT 2 / 3',
+            title: () => isTouchControlsVisible() ? 'Jump' : 'Jump with W',
+            desc: () => isTouchControlsVisible()
+              ? 'Use JUMP to leap onto higher platforms and clear obstacles.'
+              : 'Press W (or Space) to jump onto platforms.',
+            actionPrompt: () => isTouchControlsVisible()
+              ? 'Action required: Tap JUMP.'
+              : 'Action required: Press W or Space.',
             actionRequired: true,
-            showTouchControls: true,
+            freezeEnemies: true,
             holdEncounter: true,
-            target: ['.touch-jump', '.preview-frame canvas'],
+            noSpotlight: () => !isTouchControlsVisible(),
+            target: [
+              () => isTouchControlsVisible() ? document.querySelector('.touch-jump[data-k="w"]') : null,
+              '.preview-frame canvas',
+            ],
             allowClickSelector: '.touch-jump[data-k="w"]',
             allowedKeys: ['w', 'space', ' '],
-            preferPlacement: 'top',
+            preferPlacement: () => isTouchControlsVisible() ? 'top' : 'bottom',
           },
           {
             id: 'core_door',
-            tag: 'CORE CONTROLS · 3',
-            title: 'Interact with a Door',
-            desc: 'Approach a door and use the door control to enter it. Room exit doors stay locked until all viruses in the room are defeated.',
-            actionPrompt: 'Action required: Move toward the door with A / D or LEFT / RIGHT, then tap DOOR or press Up Arrow / W.',
+            tag: 'MOVEMENT 3 / 3',
+            title: () => isTouchControlsVisible() ? 'Enter Doors' : 'Interact with Up Arrow',
+            desc: () => isTouchControlsVisible()
+              ? 'Stand in front of an unlocked exit and tap DOOR to enter.'
+              : 'Press Up Arrow when standing at an unlocked door to enter it.',
+            actionPrompt: () => isTouchControlsVisible()
+              ? 'Action required: Tap DOOR.'
+              : 'Action required: Press Up Arrow.',
+            condition: () => typeof doors !== 'undefined' && Array.isArray(doors) && doors.length > 0,
             actionRequired: true,
-            showTouchControls: true,
+            freezeEnemies: true,
             holdEncounter: true,
-            target: ['.touch-door', '.preview-frame canvas'],
-            allowClickSelector: '.touch-door[data-k="up"], .touch-dpad [data-k="a"], .touch-dpad [data-k="d"]',
-            allowedKeys: ['up', 'arrowup', 'w', 'a', 'd', 'arrowleft', 'arrowright'],
-            preferPlacement: 'top',
+            noSpotlight: () => !isTouchControlsVisible(),
+            target: [
+              () => isTouchControlsVisible() ? document.querySelector('.touch-door[data-k="up"]') : null,
+              '.preview-frame canvas',
+            ],
+            allowClickSelector: '.touch-door[data-k="up"]',
+            allowedKeys: ['up', 'arrowup'],
+            preferPlacement: () => isTouchControlsVisible() ? 'top' : 'bottom',
           },
           {
-            id: 'core_attack',
-            tag: 'CORE CONTROLS · 4',
-            title: 'Approach & Engage an Enemy',
-            desc: 'Walk into any patrolling virus in the room to start a battle encounter.',
-            actionPrompt: 'Action required: Move toward a virus with A / D or LEFT / RIGHT; use JUMP, W, or Space if needed.',
+            id: 'core_approach_enemy',
+            tag: 'APPROACH ENEMY',
+            compactPrompt: true,
             actionRequired: true,
-            showTouchControls: true,
+            freezeEnemies: false,
             holdEncounter: false,
-            target: ['.touch-dpad', '.preview-frame canvas'],
-            allowClickSelector: '.touch-dpad [data-k="a"], .touch-dpad [data-k="d"], .touch-jump[data-k="w"]',
-            allowedKeys: ['a', 'd', 'arrowleft', 'arrowright', 'w', 'space', ' '],
-            preferPlacement: 'top',
-          },
-          {
-            id: 'core_transition',
-            tag: 'BATTLE STARTING',
-            title: 'Entering the Battle Arena',
-            desc: 'Touching a virus switches from room exploration into turn-based combat, where answering IT questions powers your cards.',
-            actionRequired: false,
-            showTouchControls: false,
-            holdEncounter: false,
-            target: ['.preview-frame', '#playHud'],
-            preferPlacement: 'bottom',
-            onNext: () => {
-              if (typeof mode !== 'undefined' && mode === 'intro' && typeof INTRO_END !== 'undefined' && typeof drawIntro === 'function') {
-                introT = INTRO_END;
-                drawIntro();
-              }
-            },
+            target: ['.preview-frame canvas'],
+            allowClickSelector: '.touch-btn[data-k], #tutorialCompactSkipBtn',
+            allowedKeys: ['a', 'd', 'w', 'space', ' ', 'up', 'arrowleft', 'arrowright', 'arrowup'],
           },
         ];
       }
@@ -749,7 +848,8 @@
               : 'Check the enemy’s next attack intent above, then choose an action card from your hand.',
             actionPrompt: 'Action required: Choose a highlighted card (1–4), or start a Remedial challenge with R when available.',
             actionRequired: true,
-            target: ['#panel .actions', '#panel'],
+            multiTargetSelector: '#panel .actions button[data-act="card"]:not(:disabled), #panel .actions button[data-act="remedial"]:not(:disabled)',
+            target: [() => resolveFirstVisible('#panel .actions button[data-act="card"]:not(:disabled), #panel .actions button[data-act="remedial"]:not(:disabled)')],
             allowClickSelector: '#panel [data-act="card"]:not(:disabled), #panel [data-act="remedial"]:not(:disabled)',
             allowedKeys: ['1', '2', '3', '4', 'r'],
             preferPlacement: 'top',
@@ -788,16 +888,6 @@
         const mp = isMultiplayer();
         return [
           {
-            id: 'hud_room_status',
-            tag: 'HUD GUIDE',
-            title: 'Room Info & Mode Status',
-            desc: mp
-              ? 'Displays the active 1v1 arena name, room code, and ONLINE DUEL status.'
-              : 'Shows your current room number, room name, and whether you are EXPLORING or IN BATTLE.',
-            target: ['#playHud .play-hud-room', '#playHud .play-hud-header'],
-            preferPlacement: 'bottom',
-          },
-          {
             id: 'hud_menu_fullscreen',
             tag: 'HUD GUIDE',
             title: 'Menu & Fullscreen Controls',
@@ -809,27 +899,19 @@
             id: 'hud_map_skills',
             tag: 'HUD GUIDE',
             title: 'World Map [M] & Skill Tree [U]',
-            desc: 'Use MAP · [M] to view room routes, and press [U] (or click the gold SP badge when earned) to open your Skill Tree.',
-            target: ['#worldMapHudButton', '#skillPointHudBadge'],
-            condition: () => !isMultiplayer() && Boolean(resolveFirstVisible('#worldMapHudButton')),
-            preferPlacement: 'bottom',
-          },
-          {
-            id: 'hud_character_frames',
-            tag: 'HUD GUIDE',
-            title: 'Character-Head Health & Mana Frames',
             desc: mp
-              ? 'The pixel-art frames above both knights show live HP, Mana, red damage trails, and green healing gains.'
-              : 'The pixel-art frames above your knight and the enemy display live HP, Mana, enemy attack intent, red damage afterimages, and green healing trails.',
-            target: ['.preview-frame canvas', '.preview-frame'],
+              ? 'Review live match controls and scoreboard indicators along the top bar.'
+              : 'Use MAP · [M] to view room routes, and press [U] (or click the gold SP badge when earned) to open your Skill Tree.',
+            target: ['#worldMapHudButton', '#skillPointHudBadge', '#playHud .play-hud-header'],
+            condition: () => !mp && Boolean(resolveFirstVisible('#worldMapHudButton')),
             preferPlacement: 'bottom',
           },
           {
-            id: 'hud_action_hints',
+            id: 'hud_guide_button',
             tag: 'HUD GUIDE',
-            title: 'Action Hints & Room Objective',
-            desc: 'Check this banner for available keybind hints and room objectives as you clear viruses to unlock the exit door.',
-            target: ['#playExploreBanner:not([hidden])', '#playHint:not(:empty)', '#playHud'],
+            title: 'Replay In-Game Help',
+            desc: 'Select ? Guide anytime during gameplay to revisit the controls or screen help for your current phase.',
+            target: ['#hudTourButton', '#playHud .play-hud-header'],
             preferPlacement: 'bottom',
           },
         ];
@@ -838,48 +920,11 @@
       case 'game_card_reward': {
         return [
           {
-            id: 'card_reward_explain',
+            id: 'card_reward_panel',
             tag: 'CARD REWARD',
-            title: () => {
-              const firstId = (typeof battle !== 'undefined' && Array.isArray(battle.rewards)) ? battle.rewards[0] : null;
-              const card = (firstId && typeof CARD_LIBRARY !== 'undefined') ? CARD_LIBRARY[firstId] : null;
-              return card ? `Offered Card: ${card.name}` : 'Defeat Reward: New Deck Card';
-            },
-            desc: () => {
-              const firstId = (typeof battle !== 'undefined' && Array.isArray(battle.rewards)) ? battle.rewards[0] : null;
-              const card = (firstId && typeof CARD_LIBRARY !== 'undefined') ? CARD_LIBRARY[firstId] : null;
-              if (card) {
-                const costTxt = (typeof cardCostLabel === 'function' && typeof hero !== 'undefined')
-                  ? cardCostLabel(card, hero)
-                  : (card.cost ? `${card.cost} mana` : 'Free');
-                const effectTxt = (typeof describeCard === 'function' && typeof hero !== 'undefined')
-                  ? describeCard(card, hero)
-                  : (card.text || '');
-                return `Defeating a virus lets you draft 1 card into your run deck. ${card.name} (${costTxt}) — ${effectTxt}`;
-              }
-              return 'Defeating a virus lets you draft 1 new action card into your run deck, showing its Mana cost and combat effect.';
-            },
-            target: [
-              '#panel .choices.card-pick [data-act="pickcard"][data-val="0"]',
-              '#panel .choices.card-pick button:first-child',
-              '#panel .choices.card-pick',
-            ],
-            preferPlacement: 'top',
-          },
-          {
-            id: 'card_reward_select',
-            tag: 'ACTION STEP',
-            title: 'Select a Card for Your Deck',
-            desc: 'Choose one of the offered reward cards to add it to your run deck and continue.',
-            actionPrompt: 'Action required: Click any offered card or press keys 1–3.',
-            actionRequired: true,
-            target: [
-              '#panel .choices.card-pick',
-              '#panel [data-act="pickcard"]',
-              '#panel',
-            ],
-            allowClickSelector: '#panel [data-act="pickcard"]:not(:disabled)',
-            allowedKeys: ['1', '2', '3'],
+            title: 'Draft a Reward Card',
+            desc: 'This reward panel lets you add a new card to your run deck. Each card shows its own Mana cost and effect description—read your choices and pick whichever you prefer.',
+            target: ['#panel'],
             preferPlacement: 'top',
           },
         ];
@@ -888,43 +933,76 @@
       case 'game_level_up': {
         return [
           {
-            id: 'level_up_explain',
+            id: 'level_up_panel',
             tag: 'LEVEL UP',
-            title: () => {
-              const up0 = (typeof battle !== 'undefined' && Array.isArray(battle.upgrades)) ? battle.upgrades[0] : null;
-              return up0 ? `Level-Up Bonus: ${up0.name}` : 'Level Up! Permanent Stat Upgrade';
-            },
+            title: 'Choose a Level-Up Buff',
+            desc: 'Defeating two viruses grants a Level Up in this panel. Each buff card displays its own bonus description—read the options and pick the upgrade you want.',
+            target: ['#panel'],
+            preferPlacement: 'top',
+          },
+        ];
+      }
+
+      case 'game_sp_earned': {
+        return [
+          {
+            id: 'sp_earned_popup',
+            tag: 'SKILL POINT EARNED',
+            title: '+1 Skill Point Earned!',
             desc: () => {
-              const up0 = (typeof battle !== 'undefined' && Array.isArray(battle.upgrades)) ? battle.upgrades[0] : null;
-              const allText = (typeof battle !== 'undefined' && Array.isArray(battle.upgrades) && battle.upgrades.length)
-                ? battle.upgrades.map((u) => `${u.name} (${u.text})`).join(', ')
-                : '';
-              if (up0) {
-                return `Defeating 2 viruses triggers a Level Up! Each choice grants a permanent run upgrade: ${allText}.`;
-              }
-              return 'Defeating 2 viruses triggers a Level Up, offering 3 permanent stat upgrades for your current run.';
+              const cat = state.activeSkillPointAward?.category;
+              return cat
+                ? `You earned 1 Skill Point in ${cat}. Open the Skill Tree whenever you’re ready to spend it.`
+                : 'You earned 1 Skill Point. Open the Skill Tree whenever you’re ready to spend it.';
             },
+            nextLabel: 'Open Skill Tree',
+            skipLabel: 'Dismiss',
+            actionRequired: false,
             target: [
-              '#panel .choices.card-pick [data-act="upgrade"][data-val="0"]',
-              '#panel .choices.card-pick button:first-child',
-              '#panel .choices.card-pick',
+              '#skillPointHudBadge:not([hidden])',
+              '#spEarnedBanner:not([hidden])',
+              '#mainSidebar [data-view="skilltree"]',
+              '#playHud .play-hud-header',
+              '#dashboardAside',
             ],
+            allowClickSelector: '#skillPointHudBadge, #spEarnedBanner',
+            allowedKeys: ['u', 'escape'],
+            preferPlacement: 'bottom',
+          },
+        ];
+      }
+
+      case 'game_remedial_drill': {
+        return [
+          {
+            id: 'remedial_overview',
+            tag: 'REMEDIAL DRILL',
+            title: 'Remedial Surge Challenge',
+            desc: () => {
+              const totalQ = (typeof battle !== 'undefined' && battle.remedial?.questions?.length)
+                ? battle.remedial.questions.length
+                : 0;
+              const countPhrase = totalQ ? `${totalQ} consecutive IT questions` : 'a quick streak of IT questions';
+              return `Out of Mana? Remedial Drill triggers automatically with ${countPhrase}. Answer every prompt correctly for Perfect Remedial Surge (full Mana, HP recovery, +8 ATK, and +4 DEF), or earn partial HP and Mana recovery from each correct answer.`;
+            },
+            target: ['#panel'],
             preferPlacement: 'top',
           },
           {
-            id: 'level_up_select',
-            tag: 'ACTION STEP',
-            title: 'Choose Your Level-Up Upgrade',
-            desc: 'Select one of the three upgrades below to apply its stat bonus and resume your adventure.',
-            actionPrompt: 'Action required: Click an upgrade choice or press keys 1–3.',
+            id: 'remedial_answer',
+            tag: 'REMEDIAL DRILL',
+            title: 'Answer the Remedial Prompt',
+            desc: () => {
+              const rem = typeof battle !== 'undefined' ? battle.remedial : null;
+              const cur = rem ? (rem.index + 1) : 1;
+              const tot = rem?.questions?.length || 2;
+              return `You are on question ${cur} of ${tot}. Read the question in the Remedial panel and choose an answer to continue your surge.`;
+            },
+            actionPrompt: 'Action required: Click an answer option or press keys 1–4.',
             actionRequired: true,
-            target: [
-              '#panel .choices.card-pick',
-              '#panel [data-act="upgrade"]',
-              '#panel',
-            ],
-            allowClickSelector: '#panel [data-act="upgrade"]:not(:disabled)',
-            allowedKeys: ['1', '2', '3'],
+            target: ['#panel'],
+            allowClickSelector: '#panel [data-act="remedial-answer"]:not(:disabled)',
+            allowedKeys: ['1', '2', '3', '4'],
             preferPlacement: 'top',
           },
         ];
@@ -933,99 +1011,35 @@
       case 'game_skill_tree': {
         return [
           {
-            id: 'sp_earned_intro',
-            tag: 'SKILL POINT',
-            title: 'Skill Point Earned!',
-            desc: 'Every 5 correct answers in an IT discipline earns 1 Skill Point (SP). You can spend SP on permanent stat bonuses and active combat skills in that subject’s branch.',
-            target: [
-              () => (typeof skillTreeOpen !== 'undefined' && skillTreeOpen)
-                ? document.querySelector('#skillTreeSummary .skill-points-overview')
-                : (resolveFirstVisible('#spEarnedBanner:not([hidden])') ||
-                   resolveFirstVisible('#skillPointHudBadge:not([hidden])') ||
-                   resolveFirstVisible('#playHud') ||
-                   resolveFirstVisible('#dashboardAside')),
-            ],
+            id: 'sp_skill_points',
+            tag: 'SKILL TREE',
+            title: 'Skill Points & Discipline Totals',
+            desc: 'Earn 1 Skill Point (SP) for every 5 correct answers in a topic. Your available and earned points for each discipline appear here.',
+            target: ['#skillTreeSummary .skill-points-overview', '#skillTreeSummary'],
             preferPlacement: 'bottom',
           },
           {
-            id: 'sp_open_tree',
-            tag: 'ACTION STEP',
-            title: 'Open the Skill Tree [U]',
-            desc: 'Use the Skill Tree control or press U on your keyboard to open the Skill Tree overlay.',
-            actionPrompt: 'Action required: Click the highlighted Skill Tree control or press U.',
-            actionRequired: true,
-            condition: () => typeof skillTreeOpen === 'undefined' || !skillTreeOpen,
-            target: [
-              '#skillPointHudBadge:not([hidden])',
-              '#spEarnedBanner:not([hidden])',
-              '#worldMapHudButton',
-              '#playHud .play-hud-header',
-              '#dashboardAside',
-            ],
-            allowClickSelector: '#skillPointHudBadge, #spEarnedBanner',
-            allowedKeys: ['u'],
-            preferPlacement: 'bottom',
-          },
-          {
-            id: 'sp_find_and_inspect',
-            tag: 'ACTION STEP',
-            title: 'Find an Eligible Tree & Inspect an Upgrade',
-            desc: 'The four branches match the four IT disciplines. Click START at the center (if closed), then click a skill node in your eligible branch to inspect it.',
-            actionPrompt: () => (typeof skillTreeStarted !== 'undefined' && !skillTreeStarted)
-              ? 'Action required: Click the highlighted "START" button at the center of the map.'
-              : 'Action required: Click the highlighted skill node to inspect its upgrade details.',
-            actionRequired: true,
-            target: [
-              () => {
-                const startBtn = document.getElementById('startSkillTree');
-                if (startBtn && !startBtn.disabled && isElementVisible(startBtn)) return startBtn;
-                return findFirstEligibleSkillNode();
-              },
-              '#skillMapViewport',
-            ],
-            get allowClickSelector() {
-              return typeof skillTreeStarted !== 'undefined' && !skillTreeStarted
-                ? '#startSkillTree:not(:disabled)'
-                : '#skillMapWorld [data-skill-select]';
-            },
+            id: 'sp_topic_trees',
+            tag: 'SKILL TREE',
+            title: 'Topic Branches & Prerequisites',
+            desc: 'The four branches match Computer Systems, Networking & Security, Programming, and Database. Press START at the center anytime to reveal starter nodes and unlock connected skills.',
+            target: ['#skillMapViewport', '#skillTreeGrid'],
             preferPlacement: 'top',
           },
           {
-            id: 'sp_select_upgrade',
-            tag: 'SKILL UPGRADE',
-            title: 'Review Effect & Unlock Upgrade',
-            desc: () => {
-              const titleEl = document.getElementById('selectedSkillTitle');
-              const effectEl = document.querySelector('#skillTreeDetail .skill-detail-effect strong');
-              const btn = document.querySelector('#skillTreeDetail [data-skill-purchase]:not(:disabled)');
-              const skillLabel = titleEl ? titleEl.textContent.trim() : 'This upgrade';
-              const effectLabel = effectEl ? ` (${effectEl.textContent.trim()})` : '';
-              return btn
-                ? `${skillLabel}${effectLabel} is ready to unlock for 1 SP. Click the purchase button below to learn it!`
-                : `${skillLabel}${effectLabel} shows its rank effect and point cost here. When you have 1 SP in this discipline, click GET SKILL to unlock it.`;
-            },
-            actionPrompt: 'Action required: Click "GET SKILL · 1 POINT" (or "UPGRADE SKILL") to spend your point.',
-            get actionRequired() {
-              return Boolean(resolveFirstVisible('#skillTreeDetail [data-skill-purchase]:not(:disabled)'));
-            },
-            target: [
-              '#skillTreeDetail [data-skill-purchase]:not(:disabled)',
-              '#skillTreeDetail',
-            ],
-            unionWith: '#skillTreeDetail',
-            allowClickSelector: '#skillTreeDetail [data-skill-purchase]:not(:disabled)',
+            id: 'sp_upgrade_details',
+            tag: 'SKILL TREE',
+            title: 'Upgrade Descriptions & Costs',
+            desc: 'Selecting any revealed node displays its rank effect and 1 SP cost here. Choosing an upgrade is optional, and exclusive midpoint skills lock the other three topics.',
+            target: ['#skillTreeDetail', '#skillTreeGrid'],
             preferPlacement: 'left',
           },
           {
             id: 'sp_close_tree',
-            tag: 'ACTION STEP',
-            title: 'Close the Skill Tree',
-            desc: 'Your skill bonuses apply immediately. Close the Skill Tree to return to your game.',
-            actionPrompt: 'Action required: Click "Close · U" (or press U or Escape).',
-            actionRequired: true,
+            tag: 'SKILL TREE',
+            title: 'Upgrade or Close Anytime',
+            desc: 'Finish this guide to spend points on your own or close the tree whenever you are ready using Close · U, U, or Escape.',
             target: ['#closeSkillTree', '.skill-tree-header'],
-            allowClickSelector: '#closeSkillTree',
-            allowedKeys: ['u', 'escape'],
             preferPlacement: 'bottom',
           },
         ];
@@ -1100,14 +1114,10 @@
           },
           {
             id: 'guide_skill_close',
-            tag: 'ACTION STEP',
-            title: 'Close the Skill Tree',
-            desc: 'Use Close · U, press U, or press Escape to return to the game.',
-            actionPrompt: 'Action required: Close the Skill Tree with its button, U, or Escape.',
-            actionRequired: true,
+            tag: 'SKILL TREE GUIDE',
+            title: 'Close Whenever Ready',
+            desc: 'Finish this guide to choose upgrades on your own, or use Close · U, U, or Escape to return to the game.',
             target: ['#closeSkillTree'],
-            allowClickSelector: '#closeSkillTree',
-            allowedKeys: ['u', 'escape'],
             preferPlacement: 'bottom',
           },
         ];
@@ -1177,8 +1187,17 @@
     rafId: 0,
     retryTimer: 0,
     retryCount: 0,
-    pendingSkillPointGuide: false,
+    silentMoveTimer: 0,
+    physicalRightHeld: false,
+    pendingSkillPointAwards: [],
+    seenSkillPointAwardIds: new Set(),
+    activeSkillPointAward: null,
+    pendingRemedialTutorial: false,
+    spPopupTimer: 0,
     pendingSkillTreeKey: null,
+    activeIsReplay: false,
+    sequence: null, // { kind: 'tour' | 'game', queue?: string[], pending?: Set<string>, isReplay: boolean }
+    suppressAutoTourView: null,
   };
 
   function getEls() {
@@ -1190,12 +1209,15 @@
       dimRight: document.getElementById('tutorialDimRight'),
       spotlight: document.getElementById('tutorialSpotlight'),
       spotlightBadge: document.getElementById('tutorialSpotlightBadge'),
+      multiSpotlights: document.getElementById('tutorialMultiSpotlights'),
+      silentCue: document.getElementById('tutorialSilentCue'),
       bubble: document.getElementById('tutorialBubble'),
       tag: document.getElementById('tutorialBubbleTag'),
       progress: document.getElementById('tutorialBubbleProgress'),
       title: document.getElementById('tutorialBubbleTitle'),
       desc: document.getElementById('tutorialBubbleDesc'),
       actionPrompt: document.getElementById('tutorialActionPrompt'),
+      actionsRow: document.querySelector('#tutorialBubble .tutorial-bubble-actions'),
       skipBtn: document.getElementById('tutorialSkipButton'),
       nextBtn: document.getElementById('tutorialNextButton'),
       announcer: document.getElementById('tutorialLiveAnnouncer'),
@@ -1216,14 +1238,27 @@
     return state.activeId === 'guide_skill_tree' || state.activeId === 'guide_world_map';
   }
 
+  function isSequenceSkipMode() {
+    const store = loadStore();
+    return Boolean(
+      state.sequence ||
+      (store.postResetGameSequence && FULL_GAME_GUIDE_SEQUENCE.includes(state.activeId))
+    );
+  }
+
+  function isSkipControlAllowed(step = currentStep()) {
+    if (!state.activeId || !step || step.silentCue) return false;
+    if (isSequenceSkipMode()) return true;
+    return !isOverlayGuide();
+  }
+
   function hasVisibleActionPrompt(step = currentStep()) {
-    if (!step || !isStepActionRequired(step)) return false;
-    const prompt = getEls().actionPrompt;
-    return Boolean(prompt && !prompt.hidden && prompt.textContent.trim());
+    return Boolean(step && isStepActionRequired(step));
   }
 
   function isActionPromptKey(step, key, rawKey) {
-    if (!hasVisibleActionPrompt(step)) return false;
+    if (!step) return false;
+    if (!hasVisibleActionPrompt(step) && state.activeId !== 'game_sp_earned') return false;
     const allowedKeys = Array.isArray(step.allowedKeys) ? step.allowedKeys : [];
     return allowedKeys.includes(String(key || '').toLowerCase()) ||
       allowedKeys.includes(String(rawKey || '').toLowerCase());
@@ -1240,16 +1275,10 @@
   }
 
   function getAllowedActionControl(target, step = currentStep()) {
-    if (!target || !step || !hasVisibleActionPrompt(step) || !step.allowClickSelector) return null;
+    if (!target || !step || !step.allowClickSelector) return null;
+    if (!hasVisibleActionPrompt(step) && state.activeId !== 'game_sp_earned') return null;
     const control = target.closest(step.allowClickSelector);
     if (!control || !isElementVisible(control) || control.matches(':disabled, [aria-disabled="true"]')) return null;
-    if (
-      state.activeId === 'game_skill_tree' &&
-      step.id === 'sp_find_and_inspect' &&
-      state.targetEl &&
-      state.targetEl !== control &&
-      !state.targetEl.contains(control)
-    ) return null;
     return control;
   }
 
@@ -1257,12 +1286,19 @@
     if (!target || !step || !state.activeId) return false;
     const els = getEls();
     if (els.nextBtn && !els.nextBtn.hidden && target.closest('#tutorialNextButton')) return true;
+    if (els.skipBtn && !els.skipBtn.hidden && target.closest('#tutorialSkipButton')) return true;
+    if (step.compactPrompt && target.closest('#tutorialCompactSkipBtn')) return true;
     return Boolean(getAllowedActionControl(target, step));
   }
 
   function getTutorialFocusTargets(step = currentStep()) {
     const els = getEls();
     const targets = [];
+    if (step?.compactPrompt) {
+      const compactSkip = document.getElementById('tutorialCompactSkipBtn');
+      if (compactSkip && isElementVisible(compactSkip)) targets.push(compactSkip);
+    }
+    if (els.skipBtn && !els.skipBtn.hidden) targets.push(els.skipBtn);
     if (els.nextBtn && !els.nextBtn.hidden) targets.push(els.nextBtn);
     if (hasVisibleActionPrompt(step) && step.allowClickSelector) {
       document.querySelectorAll(step.allowClickSelector).forEach((target) => {
@@ -1272,9 +1308,18 @@
     return targets;
   }
 
-  function getTutorialFocusTarget() {
+  function getTutorialFocusTarget(step = currentStep()) {
     const els = getEls();
-    return els.nextBtn && !els.nextBtn.hidden ? els.nextBtn : els.bubble;
+    if (step?.compactPrompt) {
+      return document.getElementById('tutorialCompactSkipBtn') || document.querySelector('.preview-frame canvas') || els.layer;
+    }
+    if (step?.silentCue) {
+      const touchD = isTouchControlsVisible() ? resolveFirstVisible('.touch-dir[data-k="d"]') : null;
+      return touchD || document.querySelector('.preview-frame canvas') || els.layer;
+    }
+    if (els.nextBtn && !els.nextBtn.hidden) return els.nextBtn;
+    const focusTargets = getTutorialFocusTargets(step);
+    return focusTargets[0] || els.bubble;
   }
 
   function focusTutorialTarget(event) {
@@ -1294,11 +1339,15 @@
     const appEl = document.getElementById('app');
     const step = currentStep();
     const active = Boolean(state.activeId && step);
+    const allowSkip = isSkipControlAllowed(step);
     document.body.classList.toggle('is-tutorial-active', active);
     const els = getEls();
-    if (els.layer) els.layer.classList.toggle('is-no-skip-guide', active);
-    if (els.skipBtn) els.skipBtn.hidden = active;
-    if (els.bubble) els.bubble.setAttribute('aria-modal', String(active));
+    if (els.layer) els.layer.classList.toggle('is-no-skip-guide', active && !allowSkip);
+    if (els.skipBtn) {
+      els.skipBtn.hidden = !active || !allowSkip;
+      els.skipBtn.textContent = step?.skipLabel || (isSequenceSkipMode() ? 'Skip sequence' : 'Skip tutorial');
+    }
+    if (els.bubble) els.bubble.setAttribute('aria-modal', String(active && !step.silentCue && !step.compactPrompt));
     if (appEl) {
       appEl.classList.toggle('is-tutorial-touch-visible', Boolean(active && step.showTouchControls));
     }
@@ -1306,7 +1355,9 @@
       if (typeof releaseAllTouchControls === 'function') releaseAllTouchControls();
       if (typeof keys !== 'undefined') {
         keys.a.pressed = false;
-        keys.d.pressed = false;
+        if (!state.physicalRightHeld || (step?.id !== 'core_move_lr' && step?.id !== 'core_approach_enemy')) {
+          keys.d.pressed = false;
+        }
       }
     }
     if (typeof syncTouchVisibility === 'function') {
@@ -1338,163 +1389,443 @@
     }
   }
 
+  function getVisibleViewportBox() {
+    const vv = window.visualViewport;
+    const vLeft = vv ? vv.offsetLeft : 0;
+    const vTop = vv ? vv.offsetTop : 0;
+    const vW = vv ? vv.width : (window.innerWidth || document.documentElement.clientWidth || 1024);
+    const vH = vv ? vv.height : (window.innerHeight || document.documentElement.clientHeight || 768);
+    const rootStyle = window.getComputedStyle(document.documentElement);
+    const sat = parseFloat(rootStyle.getPropertyValue('--sat')) || 0;
+    const sar = parseFloat(rootStyle.getPropertyValue('--sar')) || 0;
+    const sab = parseFloat(rootStyle.getPropertyValue('--sab')) || 0;
+    const sal = parseFloat(rootStyle.getPropertyValue('--sal')) || 0;
+    const left = Math.round(vLeft + sal);
+    const top = Math.round(vTop + sat);
+    const right = Math.max(left + 120, Math.round(vLeft + vW - sar));
+    const bottom = Math.max(top + 120, Math.round(vTop + vH - sab));
+    return { left, top, right, bottom, width: right - left, height: bottom - top };
+  }
+
+  function getExplorePlayerScreenRect() {
+    if (typeof playViewActive === 'undefined' || !playViewActive || typeof mode === 'undefined' || mode !== 'explore') return null;
+    if (typeof player === 'undefined' || !player || typeof canvas === 'undefined' || !canvas || !isElementVisible(canvas)) return null;
+    const cr = canvas.getBoundingClientRect();
+    if (!canvas.width || !canvas.height || cr.width <= 1 || cr.height <= 1) return null;
+    const sx = cr.width / canvas.width;
+    const sy = cr.height / canvas.height;
+    const camX = typeof exploreCamera !== 'undefined' ? (exploreCamera.x || 0) : 0;
+    const camY = typeof exploreCamera !== 'undefined' ? (exploreCamera.y || 0) : 0;
+    const artW = player.destinationSize?.width || player.width || 76;
+    const artH = player.destinationSize?.height || player.height || 72;
+    const artX = player.position.x + (player.drawOffset?.x || 0);
+    const artY = player.position.y + (player.drawOffset?.y || 0);
+    const artLeft = cr.left + (artX - camX) * sx;
+    const artTop = cr.top + (artY - camY) * sy;
+    const artRight = cr.left + (artX + artW - camX) * sx;
+    const artBottom = cr.top + (artY + artH - camY) * sy;
+    // Include overhead HP/MP meters (~24px above sprite) so tutorial bubbles stay clear of them
+    const fullTop = cr.top + (artY - 24 - camY) * sy;
+    return {
+      left: artLeft,
+      top: fullTop,
+      right: artRight,
+      bottom: artBottom,
+      artLeft,
+      artTop,
+      artRight,
+      artBottom,
+    };
+  }
+
+  function rectOverlapArea(a, b) {
+    if (!a || !b) return 0;
+    const ox = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+    const oy = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    return ox * oy;
+  }
+
+  function positionSilentCue(els, step, vp) {
+    if (!els.silentCue) return;
+    [els.dimTop, els.dimBottom, els.dimLeft, els.dimRight].forEach((d) => {
+      if (d) d.hidden = true;
+    });
+    if (els.multiSpotlights) {
+      els.multiSpotlights.hidden = true;
+      els.multiSpotlights.innerHTML = '';
+    }
+    els.bubble.hidden = true;
+
+    const touchD = isTouchControlsVisible() ? resolveFirstVisible('.touch-dir[data-k="d"]') : null;
+    if (touchD) {
+      const dr = touchD.getBoundingClientRect();
+      const pad = vp.height <= 500 ? 4 : 6;
+      const hlLeft = Math.max(2, Math.round(dr.left - pad));
+      const hlTop = Math.max(2, Math.round(dr.top - pad));
+      const hlRight = Math.min(vp.right - 2, Math.round(dr.right + pad));
+      const hlBottom = Math.min(vp.bottom - 2, Math.round(dr.bottom + pad));
+      els.spotlight.hidden = false;
+      els.spotlight.style.left = `${hlLeft}px`;
+      els.spotlight.style.top = `${hlTop}px`;
+      els.spotlight.style.width = `${Math.max(16, hlRight - hlLeft)}px`;
+      els.spotlight.style.height = `${Math.max(16, hlBottom - hlTop)}px`;
+      els.spotlight.classList.add('is-action-required', 'is-silent-target');
+
+      if (!els.silentCue.classList.contains('is-touch-cue')) {
+        els.silentCue.classList.remove('is-desktop-cue');
+        els.silentCue.classList.add('is-touch-cue');
+        els.silentCue.innerHTML = '<span class="tutorial-silent-keycap">D</span><span class="tutorial-silent-arrow-down" aria-hidden="true">▼</span>';
+      }
+      els.silentCue.hidden = false;
+      const cw = els.silentCue.offsetWidth || 54;
+      const ch = els.silentCue.offsetHeight || 58;
+      const cueLeft = Math.max(vp.left + 4, Math.min(vp.right - cw - 4, Math.round(dr.left + dr.width / 2 - cw / 2)));
+      const cueTop = Math.max(vp.top + 4, Math.round(hlTop - ch - 6));
+      els.silentCue.style.left = `${cueLeft}px`;
+      els.silentCue.style.top = `${cueTop}px`;
+      return;
+    }
+
+    els.spotlight.hidden = true;
+    els.spotlight.classList.remove('is-silent-target');
+    if (!els.silentCue.classList.contains('is-desktop-cue')) {
+      els.silentCue.classList.remove('is-touch-cue');
+      els.silentCue.classList.add('is-desktop-cue');
+      els.silentCue.innerHTML = '<span class="tutorial-silent-keycap">D</span><span class="tutorial-silent-arrows" aria-hidden="true">▶▶</span>';
+    }
+    els.silentCue.hidden = false;
+    const cw = els.silentCue.offsetWidth || 88;
+    const ch = els.silentCue.offsetHeight || 42;
+    const playerRect = getExplorePlayerScreenRect();
+    const canvasEl = document.querySelector('.preview-frame canvas');
+    const cr = canvasEl ? canvasEl.getBoundingClientRect() : { left: vp.left, top: vp.top, width: vp.width, height: vp.height };
+    let cueLeft = playerRect ? Math.round(playerRect.artLeft + (playerRect.artRight - playerRect.artLeft) * 0.25) : Math.round(cr.left + cr.width * 0.44);
+    let cueTop = playerRect ? Math.round(playerRect.top - ch - 8) : Math.round(cr.top + cr.height * 0.42);
+    if (cueTop < vp.top + 6 && playerRect) {
+      cueLeft = Math.round(playerRect.artRight + 14);
+      cueTop = Math.round((playerRect.artTop + playerRect.artBottom) / 2 - ch / 2);
+    }
+    cueLeft = Math.max(vp.left + 6, Math.min(vp.right - cw - 6, cueLeft));
+    cueTop = Math.max(vp.top + 6, Math.min(vp.bottom - ch - 6, cueTop));
+    els.silentCue.style.left = `${cueLeft}px`;
+    els.silentCue.style.top = `${cueTop}px`;
+  }
+
+  function renderMultiSpotlights(els, rects) {
+    if (!els.multiSpotlights) return;
+    els.multiSpotlights.hidden = false;
+    while (els.multiSpotlights.children.length > rects.length) {
+      els.multiSpotlights.lastElementChild.remove();
+    }
+    while (els.multiSpotlights.children.length < rects.length) {
+      const box = document.createElement('div');
+      box.className = 'tutorial-card-outline';
+      box.innerHTML =
+        '<span class="tutorial-spotlight-corner is-tl"></span>' +
+        '<span class="tutorial-spotlight-corner is-tr"></span>' +
+        '<span class="tutorial-spotlight-corner is-bl"></span>' +
+        '<span class="tutorial-spotlight-corner is-br"></span>';
+      els.multiSpotlights.appendChild(box);
+    }
+    rects.forEach((r, idx) => {
+      const box = els.multiSpotlights.children[idx];
+      box.style.left = `${r.left}px`;
+      box.style.top = `${r.top}px`;
+      box.style.width = `${r.width}px`;
+      box.style.height = `${r.height}px`;
+    });
+  }
+
+  function checkApproachEnemyProximity() {
+    if (typeof mode === 'undefined' || mode !== 'explore') return false;
+    if (typeof player === 'undefined' || !player?.hitbox) return false;
+    if (typeof enemies === 'undefined' || !Array.isArray(enemies)) return false;
+    const h = player.hitbox;
+    const hLeft = h.position.x;
+    const hRight = h.position.x + h.width;
+    const hTop = h.position.y;
+    const hBottom = h.position.y + h.height;
+    return enemies.some((e) => {
+      if (!e || !e.alive) return false;
+      const dx = Math.max(0, e.x - hRight, hLeft - (e.x + e.w));
+      const dy = Math.max(0, e.y - hBottom, hTop - (e.y + e.h));
+      return dx <= 48 && dy <= 64;
+    });
+  }
+
+  function positionCompactApproachPrompt(els, step, vp) {
+    if (!els.silentCue) return;
+    [els.dimTop, els.dimBottom, els.dimLeft, els.dimRight].forEach((d) => {
+      if (d) d.hidden = true;
+    });
+    if (els.multiSpotlights) {
+      els.multiSpotlights.hidden = true;
+      els.multiSpotlights.innerHTML = '';
+    }
+    els.spotlight.hidden = true;
+    els.spotlight.classList.remove('is-silent-target');
+    els.bubble.hidden = true;
+
+    const touchMode = isTouchControlsVisible();
+    const expectedMsg = touchMode
+      ? 'Approach a virus using LEFT / RIGHT and JUMP.'
+      : 'Approach a virus using A / D and W to jump.';
+    if (!els.silentCue.classList.contains('is-approach-prompt')) {
+      els.silentCue.classList.remove('is-touch-cue', 'is-desktop-cue');
+      els.silentCue.classList.add('is-approach-prompt');
+      els.silentCue.innerHTML =
+        '<span class="tutorial-compact-tag">MOVE</span>' +
+        `<span class="tutorial-compact-text">${expectedMsg}</span>` +
+        '<button type="button" class="tutorial-compact-skip" id="tutorialCompactSkipBtn">Skip</button>';
+    } else {
+      const txtEl = els.silentCue.querySelector('.tutorial-compact-text');
+      if (txtEl && txtEl.textContent !== expectedMsg) txtEl.textContent = expectedMsg;
+    }
+    els.silentCue.hidden = false;
+
+    const cw = els.silentCue.offsetWidth || 320;
+    const ch = els.silentCue.offsetHeight || 40;
+    const hudHeaderEl = resolveFirstVisible('#playHud .play-hud-header');
+    const hudHeaderRect = hudHeaderEl ? hudHeaderEl.getBoundingClientRect() : null;
+    const touchRect = touchMode ? resolveFirstVisible('.touch')?.getBoundingClientRect() : null;
+    const playerRect = getExplorePlayerScreenRect();
+    const topBase = hudHeaderRect ? Math.round(hudHeaderRect.bottom + 8) : vp.top + 10;
+    const edge = 8;
+
+    const candidates = [
+      { left: Math.round(vp.left + (vp.width - cw) / 2), top: topBase },
+      { left: Math.round(vp.right - cw - edge), top: topBase },
+      { left: Math.round(vp.left + edge), top: topBase },
+      {
+        left: Math.round(vp.left + (vp.width - cw) / 2),
+        top: Math.round(touchRect ? touchRect.top - ch - 10 : vp.bottom - ch - 12),
+      },
+    ];
+    let chosen = candidates[0];
+    let bestOverlap = Infinity;
+    for (const c of candidates) {
+      const clampedLeft = Math.max(vp.left + edge, Math.min(vp.right - cw - edge, c.left));
+      const clampedTop = Math.max(vp.top + edge, Math.min(vp.bottom - ch - edge, c.top));
+      const box = { left: clampedLeft, top: clampedTop, right: clampedLeft + cw, bottom: clampedTop + ch };
+      const overlap =
+        (playerRect ? rectOverlapArea(box, playerRect) * 2 : 0) +
+        (touchRect ? rectOverlapArea(box, touchRect) * 2 : 0);
+      if (overlap < bestOverlap) {
+        bestOverlap = overlap;
+        chosen = { left: clampedLeft, top: clampedTop };
+      }
+    }
+    els.silentCue.style.left = `${chosen.left}px`;
+    els.silentCue.style.top = `${chosen.top}px`;
+
+    if (step.id === 'core_approach_enemy' && checkApproachEnemyProximity()) {
+      completeActiveTutorial('completed');
+    }
+  }
+
   function positionSpotlightAndBubble() {
     const els = getEls();
     const step = currentStep();
     if (!els.layer || !step || !state.activeId) return;
 
-    const targetEl = resolveFirstVisible(step.target);
+    const vp = getVisibleViewportBox();
+    if (step.compactPrompt) {
+      positionCompactApproachPrompt(els, step, vp);
+      return;
+    }
+    if (step.silentCue) {
+      positionSilentCue(els, step, vp);
+      return;
+    }
+
+    if (els.silentCue) {
+      els.silentCue.hidden = true;
+      els.silentCue.classList.remove('is-approach-prompt');
+    }
+    els.spotlight.classList.remove('is-silent-target');
+    els.bubble.hidden = false;
+
+    const noSpot = typeof step.noSpotlight === 'function' ? Boolean(step.noSpotlight()) : Boolean(step.noSpotlight);
+    const multiEls = step.multiTargetSelector ? resolveStepMultiTargets(step) : [];
+    const targetEl = multiEls[0] || resolveFirstVisible(step.target);
     if (!targetEl) return;
     state.targetEl = targetEl;
+
     const actionReq = hasVisibleActionPrompt(step);
-    els.bubble.setAttribute('aria-modal', 'true');
+    els.bubble.setAttribute('aria-modal', String(!noSpot));
 
-    const vw = window.innerWidth || document.documentElement.clientWidth || 1024;
-    const vh = window.innerHeight || document.documentElement.clientHeight || 768;
-    const rawRect = targetEl.getBoundingClientRect();
-    let boxLeft = rawRect.left;
-    let boxTop = rawRect.top;
-    let boxRight = rawRect.right;
-    let boxBottom = rawRect.bottom;
+    const pad = vp.height <= 500 ? 4 : 6;
+    let boxLeft;
+    let boxTop;
+    let boxRight;
+    let boxBottom;
 
-    if (step.unionWith) {
-      const extraEl = resolveFirstVisible(step.unionWith);
-      if (extraEl) {
-        const er = extraEl.getBoundingClientRect();
-        boxLeft = Math.min(boxLeft, er.left);
-        boxTop = Math.min(boxTop, er.top);
-        boxRight = Math.max(boxRight, er.right);
-        boxBottom = Math.max(boxBottom, er.bottom);
+    if (multiEls.length) {
+      const outlineRects = multiEls.map((el) => {
+        const r = el.getBoundingClientRect();
+        const l = Math.max(vp.left + 2, Math.round(r.left - 3));
+        const t = Math.max(vp.top + 2, Math.round(r.top - 3));
+        const ri = Math.min(vp.right - 2, Math.round(r.right + 3));
+        const bo = Math.min(vp.bottom - 2, Math.round(r.bottom + 3));
+        return { left: l, top: t, right: ri, bottom: bo, width: Math.max(16, ri - l), height: Math.max(16, bo - t) };
+      });
+      renderMultiSpotlights(els, outlineRects);
+      els.spotlight.hidden = true;
+      boxLeft = Math.min(...outlineRects.map((r) => r.left));
+      boxTop = Math.min(...outlineRects.map((r) => r.top));
+      boxRight = Math.max(...outlineRects.map((r) => r.right));
+      boxBottom = Math.max(...outlineRects.map((r) => r.bottom));
+    } else {
+      if (els.multiSpotlights) {
+        els.multiSpotlights.hidden = true;
+        els.multiSpotlights.innerHTML = '';
+      }
+      const rawRect = targetEl.getBoundingClientRect();
+      boxLeft = rawRect.left;
+      boxTop = rawRect.top;
+      boxRight = rawRect.right;
+      boxBottom = rawRect.bottom;
+      if (step.unionWith) {
+        const extraEl = resolveFirstVisible(step.unionWith);
+        if (extraEl) {
+          const er = extraEl.getBoundingClientRect();
+          boxLeft = Math.min(boxLeft, er.left);
+          boxTop = Math.min(boxTop, er.top);
+          boxRight = Math.max(boxRight, er.right);
+          boxBottom = Math.max(boxBottom, er.bottom);
+        }
       }
     }
 
-    const pad = vh <= 500 ? 4 : 6;
-
-    const hlLeft = Math.max(2, Math.round(boxLeft - pad));
-    const hlTop = Math.max(2, Math.round(boxTop - pad));
-    const hlRight = Math.min(vw - 2, Math.round(boxRight + pad));
-    const hlBottom = Math.min(vh - 2, Math.round(boxBottom + pad));
+    const hlLeft = Math.max(vp.left + 2, Math.round(multiEls.length ? boxLeft : boxLeft - pad));
+    const hlTop = Math.max(vp.top + 2, Math.round(multiEls.length ? boxTop : boxTop - pad));
+    const hlRight = Math.min(vp.right - 2, Math.round(multiEls.length ? boxRight : boxRight + pad));
+    const hlBottom = Math.min(vp.bottom - 2, Math.round(multiEls.length ? boxBottom : boxBottom + pad));
     const hlW = Math.max(16, hlRight - hlLeft);
     const hlH = Math.max(16, hlBottom - hlTop);
+    const vw = window.innerWidth || document.documentElement.clientWidth || 1024;
+    const vh = window.innerHeight || document.documentElement.clientHeight || 768;
 
-    // 1. Position the dim panels for visual emphasis; input is gated independently.
-    els.dimTop.style.top = '0px';
-    els.dimTop.style.left = '0px';
-    els.dimTop.style.width = `${vw}px`;
-    els.dimTop.style.height = `${hlTop}px`;
+    if (noSpot && !multiEls.length) {
+      [els.dimTop, els.dimBottom, els.dimLeft, els.dimRight].forEach((d) => {
+        if (d) d.hidden = true;
+      });
+      els.spotlight.hidden = true;
+    } else {
+      [els.dimTop, els.dimBottom, els.dimLeft, els.dimRight].forEach((d) => {
+        if (d) d.hidden = false;
+      });
+      els.dimTop.style.top = '0px';
+      els.dimTop.style.left = '0px';
+      els.dimTop.style.width = `${vw}px`;
+      els.dimTop.style.height = `${Math.max(0, hlTop)}px`;
 
-    els.dimBottom.style.top = `${hlBottom}px`;
-    els.dimBottom.style.left = '0px';
-    els.dimBottom.style.width = `${vw}px`;
-    els.dimBottom.style.height = `${Math.max(0, vh - hlBottom)}px`;
+      els.dimBottom.style.top = `${hlBottom}px`;
+      els.dimBottom.style.left = '0px';
+      els.dimBottom.style.width = `${vw}px`;
+      els.dimBottom.style.height = `${Math.max(0, vh - hlBottom)}px`;
 
-    els.dimLeft.style.top = `${hlTop}px`;
-    els.dimLeft.style.left = '0px';
-    els.dimLeft.style.width = `${hlLeft}px`;
-    els.dimLeft.style.height = `${hlH}px`;
+      els.dimLeft.style.top = `${hlTop}px`;
+      els.dimLeft.style.left = '0px';
+      els.dimLeft.style.width = `${Math.max(0, hlLeft)}px`;
+      els.dimLeft.style.height = `${hlH}px`;
 
-    els.dimRight.style.top = `${hlTop}px`;
-    els.dimRight.style.left = `${hlRight}px`;
-    els.dimRight.style.width = `${Math.max(0, vw - hlRight)}px`;
-    els.dimRight.style.height = `${hlH}px`;
+      els.dimRight.style.top = `${hlTop}px`;
+      els.dimRight.style.left = `${hlRight}px`;
+      els.dimRight.style.width = `${Math.max(0, vw - hlRight)}px`;
+      els.dimRight.style.height = `${hlH}px`;
 
-    // 2. Position square pulsing spotlight border
-    els.spotlight.style.left = `${hlLeft}px`;
-    els.spotlight.style.top = `${hlTop}px`;
-    els.spotlight.style.width = `${hlW}px`;
-    els.spotlight.style.height = `${hlH}px`;
-    els.spotlight.classList.toggle('is-action-required', actionReq);
-    if (els.spotlightBadge) {
-      els.spotlightBadge.textContent = actionReq ? '▶ ACTION REQUIRED' : '◆ TARGET';
+      if (!multiEls.length) {
+        els.spotlight.hidden = false;
+        els.spotlight.style.left = `${hlLeft}px`;
+        els.spotlight.style.top = `${hlTop}px`;
+        els.spotlight.style.width = `${hlW}px`;
+        els.spotlight.style.height = `${hlH}px`;
+        els.spotlight.classList.toggle('is-action-required', actionReq);
+        if (els.spotlightBadge) {
+          els.spotlightBadge.textContent = actionReq ? '▶ ACTION REQUIRED' : '◆ TARGET';
+        }
+      }
     }
 
-    // 3. Position description bubble without covering the highlighted control or battle panel
-    const bw = els.bubble.offsetWidth || Math.min(380, vw - 20);
-    const bh = els.bubble.offsetHeight || 190;
-    const gap = vh <= 500 ? 8 : 16;
-    const topGap = vh <= 500 ? 8 : 26;
-    const edge = vh <= 500 ? 6 : 10;
+    // Score bubble placements against visible viewport, target, player, touch controls, and battle panel
+    const bw = els.bubble.offsetWidth || Math.min(340, vp.width - 16);
+    const bh = els.bubble.offsetHeight || 160;
+    const isCompact = vp.width <= 640 || vp.height <= 540;
+    const gap = isCompact ? 8 : 16;
+    const topGap = isCompact ? 8 : 26;
+    const edge = isCompact ? 8 : 10;
 
     const inBattlePanel = targetEl.closest('#panel');
     const panelRect = inBattlePanel ? inBattlePanel.getBoundingClientRect() : null;
     const avoidTop = panelRect ? Math.min(hlTop, Math.round(panelRect.top - 4)) : hlTop;
     const avoidLeft = panelRect ? Math.min(hlLeft, Math.round(panelRect.left - 4)) : hlLeft;
 
-    const clampX = (x) => Math.max(edge, Math.min(vw - bw - edge, Math.round(x)));
-    const clampY = (y) => Math.max(edge, Math.min(vh - bh - edge, Math.round(y)));
+    const clampX = (x) => Math.max(vp.left + edge, Math.min(vp.right - bw - edge, Math.round(x)));
+    const clampY = (y) => Math.max(vp.top + edge, Math.min(vp.bottom - bh - edge, Math.round(y)));
 
     const centerX = hlLeft + hlW / 2 - bw / 2;
     const centerY = hlTop + hlH / 2 - bh / 2;
+    const targetRect = { left: hlLeft, top: hlTop, right: hlRight, bottom: hlBottom };
+    const playerRect = getExplorePlayerScreenRect();
+    const touchEl = (typeof playViewActive !== 'undefined' && playViewActive && typeof mode !== 'undefined' && mode === 'explore')
+      ? resolveFirstVisible('.touch')
+      : null;
+    const touchRect = touchEl ? touchEl.getBoundingClientRect() : null;
+    const hudHeaderEl = (typeof playViewActive !== 'undefined' && playViewActive)
+      ? resolveFirstVisible('#playHud .play-hud-header')
+      : null;
+    const hudHeaderRect = hudHeaderEl ? hudHeaderEl.getBoundingClientRect() : null;
+    const belowHudTop = hudHeaderRect ? Math.round(hudHeaderRect.bottom + 8) : vp.top + edge;
 
-    const candidates = {
-      bottom: {
-        left: clampX(centerX),
-        top: hlBottom + gap,
-        fits: hlBottom + gap + bh <= vh - edge,
-        space: vh - hlBottom,
-      },
-      top: {
-        left: clampX(centerX),
-        top: avoidTop - topGap - bh,
-        fits: avoidTop - topGap - bh >= edge,
-        space: avoidTop,
-      },
-      right: {
-        left: hlRight + gap,
-        top: clampY(centerY),
-        fits: hlRight + gap + bw <= vw - edge,
-        space: vw - hlRight,
-      },
-      left: {
-        left: avoidLeft - gap - bw,
-        top: clampY(centerY),
-        fits: avoidLeft - gap - bw >= edge,
-        space: avoidLeft,
-      },
-    };
+    const avoidList = noSpot ? [] : [{ rect: targetRect, weight: 22 }];
+    if (panelRect) avoidList.push({ rect: panelRect, weight: 14 });
+    if (playerRect) avoidList.push({ rect: playerRect, weight: 24 });
+    if (touchRect) avoidList.push({ rect: touchRect, weight: 18 });
 
-    const order = [];
-    if (step.preferPlacement && candidates[step.preferPlacement]) {
-      order.push(step.preferPlacement);
-    }
-    for (const dir of ['bottom', 'top', 'right', 'left']) {
-      if (!order.includes(dir)) order.push(dir);
+    const prefRaw = typeof step.preferPlacement === 'function' ? step.preferPlacement() : step.preferPlacement;
+    const preferredOrder = [];
+    if (prefRaw && ['bottom', 'top', 'right', 'left'].includes(prefRaw)) preferredOrder.push(prefRaw);
+    for (const d of ['bottom', 'top', 'right', 'left']) {
+      if (!preferredOrder.includes(d)) preferredOrder.push(d);
     }
 
-    let chosen = null;
-    for (const dir of order) {
-      if (candidates[dir].fits) {
-        chosen = { dir, left: candidates[dir].left, top: candidates[dir].top };
-        break;
+    const rawCandidates = [
+      { dir: 'bottom', left: clampX(centerX), top: clampY(hlBottom + gap), priority: preferredOrder.indexOf('bottom') },
+      { dir: 'top', left: clampX(centerX), top: clampY(avoidTop - topGap - bh), priority: preferredOrder.indexOf('top') },
+      { dir: 'right', left: clampX(hlRight + gap), top: clampY(centerY), priority: preferredOrder.indexOf('right') },
+      { dir: 'left', left: clampX(avoidLeft - gap - bw), top: clampY(centerY), priority: preferredOrder.indexOf('left') },
+      { dir: 'top', left: clampX(vp.left + (vp.width - bw) / 2), top: clampY(belowHudTop), priority: 5 },
+      { dir: 'top', left: clampX(vp.left + edge), top: clampY(belowHudTop), priority: 6 },
+      { dir: 'top', left: clampX(vp.right - bw - edge), top: clampY(belowHudTop), priority: 7 },
+      { dir: 'bottom', left: clampX(vp.left + (vp.width - bw) / 2), top: clampY(touchRect ? touchRect.top - gap - bh : vp.bottom - bh - edge), priority: 8 },
+    ];
+
+    let best = rawCandidates[0];
+    let bestScore = Infinity;
+    const targetCx = hlLeft + hlW / 2;
+    const targetCy = hlTop + hlH / 2;
+    for (const cand of rawCandidates) {
+      const box = { left: cand.left, top: cand.top, right: cand.left + bw, bottom: cand.top + bh };
+      let penalty = 0;
+      for (const item of avoidList) {
+        penalty += rectOverlapArea(box, item.rect) * item.weight;
+      }
+      if (hudHeaderRect && state.activeId === 'game_core') {
+        penalty += rectOverlapArea(box, hudHeaderRect) * 4;
+      }
+      const dist = Math.hypot((box.left + bw / 2) - targetCx, (box.top + bh / 2) - targetCy);
+      const score = penalty + cand.priority * 40 + dist * 0.08;
+      if (score < bestScore) {
+        bestScore = score;
+        best = cand;
       }
     }
 
-    if (!chosen) {
-      const bestDir = [...order].sort((a, b) => candidates[b].space - candidates[a].space)[0];
-      let left = clampX(candidates[bestDir].left);
-      let top = clampY(candidates[bestDir].top);
-
-      const overlapsTarget =
-        left < hlRight &&
-        left + bw > hlLeft &&
-        top < hlBottom &&
-        top + bh > hlTop;
-
-      if (overlapsTarget) {
-        const targetMidY = hlTop + hlH / 2;
-        if (targetMidY >= vh * 0.48) {
-          top = edge;
-        } else {
-          top = Math.max(edge, vh - bh - edge);
-        }
-      }
-      chosen = { dir: bestDir, left, top };
-    }
-
-    els.spotlight.classList.toggle('is-badge-bottom', hlTop < 28 || (chosen.dir === 'top' && hlBottom + 26 < vh));
-    els.bubble.dataset.placement = chosen.dir;
-    els.bubble.style.left = `${chosen.left}px`;
-    els.bubble.style.top = `${chosen.top}px`;
+    els.spotlight.classList.toggle('is-badge-bottom', hlTop < vp.top + 28 || (best.dir === 'top' && hlBottom + 26 < vp.bottom));
+    els.bubble.dataset.placement = best.dir;
+    els.bubble.style.left = `${best.left}px`;
+    els.bubble.style.top = `${best.top}px`;
   }
 
   function startPositionTracking() {
@@ -1515,6 +1846,10 @@
     if (state.retryTimer) {
       window.clearTimeout(state.retryTimer);
       state.retryTimer = 0;
+    }
+    if (state.silentMoveTimer) {
+      window.clearTimeout(state.silentMoveTimer);
+      state.silentMoveTimer = 0;
     }
   }
 
@@ -1547,9 +1882,11 @@
       }
     }
     const actionReq = isStepActionRequired(step);
+    const isSilent = Boolean(step.silentCue || step.compactPrompt);
     syncBodyAndAppClasses();
 
-    const targetEl = resolveFirstVisible(step.target);
+    const multiEls = step.multiTargetSelector ? resolveStepMultiTargets(step) : [];
+    const targetEl = multiEls[0] || resolveFirstVisible(step.target);
     if (!targetEl) {
       if (state.retryCount < 10) {
         state.retryCount++;
@@ -1572,27 +1909,41 @@
     const totalCount = Math.max(currentPos, eligibleSteps.length);
     const progressLabel = `${currentPos} of ${totalCount}`;
 
-    const resolvedTitle = typeof step.title === 'function' ? step.title() : (step.title || '');
-    els.tag.textContent = step.tag || 'TUTORIAL';
-    els.progress.textContent = progressLabel;
-    els.title.textContent = resolvedTitle;
-    els.desc.textContent = typeof step.desc === 'function' ? step.desc() : (step.desc || '');
-
-    const promptText = typeof step.actionPrompt === 'function' ? step.actionPrompt() : (step.actionPrompt || '');
-    const actionPromptActive = actionReq && Boolean(String(promptText).trim());
-    const showActionPrompt = actionPromptActive;
-    if (showActionPrompt) {
-      els.actionPrompt.textContent = promptText;
-      els.actionPrompt.hidden = false;
+    if (isSilent) {
+      els.bubble.hidden = true;
+      els.bubble.classList.remove('is-action-step');
+      els.nextBtn.hidden = true;
+      if (els.actionsRow) els.actionsRow.hidden = true;
     } else {
-      els.actionPrompt.textContent = '';
-      els.actionPrompt.hidden = true;
-    }
+      els.bubble.hidden = false;
+      const resolvedTitle = typeof step.title === 'function' ? step.title() : (step.title || '');
+      els.tag.textContent = step.tag || 'TUTORIAL';
+      els.progress.textContent = progressLabel;
+      els.title.textContent = resolvedTitle;
+      els.desc.textContent = typeof step.desc === 'function' ? step.desc() : (step.desc || '');
 
-    els.bubble.classList.toggle('is-action-step', actionPromptActive);
-    els.nextBtn.hidden = false;
-    const isLast = currentPos === totalCount;
-    els.nextBtn.textContent = isLast ? 'Finish' : 'Next';
+      const promptText = typeof step.actionPrompt === 'function' ? step.actionPrompt() : (step.actionPrompt || '');
+      const actionPromptActive = actionReq && Boolean(String(promptText).trim());
+      if (actionPromptActive) {
+        els.actionPrompt.textContent = promptText;
+        els.actionPrompt.hidden = false;
+      } else {
+        els.actionPrompt.textContent = '';
+        els.actionPrompt.hidden = true;
+      }
+
+      els.bubble.classList.toggle('is-action-step', actionReq);
+      els.nextBtn.hidden = actionReq;
+      const isLast = currentPos === totalCount;
+      els.nextBtn.textContent = step.nextLabel || (isLast ? 'Finish' : 'Next');
+      if (els.actionsRow) {
+        els.actionsRow.hidden = Boolean(els.nextBtn.hidden && (!els.skipBtn || els.skipBtn.hidden));
+      }
+
+      if (els.announcer) {
+        els.announcer.textContent = `${resolvedTitle}. Step ${progressLabel}. ${els.desc.textContent} ${actionReq ? promptText : ''}`.trim();
+      }
+    }
 
     els.layer.hidden = false;
     els.layer.setAttribute('aria-hidden', 'false');
@@ -1601,14 +1952,10 @@
     positionSpotlightAndBubble();
     startPositionTracking();
 
-    if (els.announcer) {
-      els.announcer.textContent = `${resolvedTitle}. Step ${progressLabel}. ${els.desc.textContent} ${actionReq ? promptText : ''}`.trim();
-    }
-
     if (focusBubble) {
       window.requestAnimationFrame(() => {
         if (!state.activeId) return;
-        getTutorialFocusTarget()?.focus({ preventScroll: true });
+        getTutorialFocusTarget(step)?.focus({ preventScroll: true });
       });
     }
   }
@@ -1620,7 +1967,7 @@
       if (typeof releaseAllTouchControls === 'function') releaseAllTouchControls();
       if (typeof keys !== 'undefined') {
         keys.a.pressed = false;
-        keys.d.pressed = false;
+        if (!state.physicalRightHeld) keys.d.pressed = false;
       }
     }
     if (els.layer) {
@@ -1628,8 +1975,25 @@
       els.layer.setAttribute('aria-hidden', 'true');
       els.layer.classList.remove('is-no-skip-guide');
     }
+    if (els.spotlight) {
+      els.spotlight.hidden = false;
+      els.spotlight.classList.remove('is-silent-target');
+    }
+    if (els.multiSpotlights) {
+      els.multiSpotlights.hidden = true;
+      els.multiSpotlights.innerHTML = '';
+    }
+    if (els.silentCue) {
+      els.silentCue.hidden = true;
+      els.silentCue.innerHTML = '';
+      els.silentCue.classList.remove('is-desktop-cue', 'is-touch-cue');
+    }
     if (els.skipBtn) els.skipBtn.hidden = false;
-    if (els.bubble) els.bubble.setAttribute('aria-modal', 'false');
+    if (els.actionsRow) els.actionsRow.hidden = false;
+    if (els.bubble) {
+      els.bubble.hidden = false;
+      els.bubble.setAttribute('aria-modal', 'false');
+    }
     if (els.actionPrompt) {
       els.actionPrompt.textContent = '';
       els.actionPrompt.hidden = true;
@@ -1649,14 +2013,42 @@
     state.returnFocusEl = null;
   }
 
+  function clearProgressForRestart(tutorialId) {
+    const store = loadStore();
+    if (store.progress && store.progress[tutorialId]) {
+      delete store.progress[tutorialId];
+      saveStore(store);
+    }
+  }
+
   function completeActiveTutorial(status = 'completed') {
     const finishedId = state.activeId;
     if (!finishedId) return;
-    setTutorialStatus(finishedId, status);
+    const wasReplay = Boolean(state.activeIsReplay || state.sequence?.isReplay);
+    const existingStatus = getTutorialStatus(finishedId);
+    if (!wasReplay || (status === 'completed' && existingStatus !== 'completed')) {
+      setTutorialStatus(finishedId, status);
+    } else {
+      clearProgressForRestart(finishedId);
+    }
+    state.activeIsReplay = false;
     stopActiveTutorial({ restoreFocus: true });
 
     if (finishedId === 'tour_sidebar_nav' && typeof setNavMenuOpen === 'function' && typeof navMenuOpen !== 'undefined' && navMenuOpen) {
       setNavMenuOpen(false);
+    }
+
+    if (state.sequence?.kind === 'game' && state.sequence.pending) {
+      state.sequence.pending.delete(finishedId);
+      if (state.sequence.pending.size === 0) {
+        state.sequence = null;
+      }
+    }
+
+    const postStore = loadStore();
+    if (postStore.postResetGameSequence && FULL_GAME_GUIDE_SEQUENCE.every((id) => Boolean(postStore.completed[id]))) {
+      postStore.postResetGameSequence = false;
+      saveStore(postStore);
     }
 
     if (typeof dashboardView !== 'undefined' && (dashboardView === 'settings' || dashboardView === 'rewards') && typeof playViewActive !== 'undefined' && !playViewActive && typeof renderDashboard === 'function') {
@@ -1664,9 +2056,30 @@
     }
 
     window.setTimeout(() => {
-      if (state.pendingSkillPointGuide && !isTutorialFinished('game_skill_tree')) {
-        state.pendingSkillPointGuide = false;
-        startTutorial('game_skill_tree', { startAtStepId: 'sp_earned_intro' });
+      if (state.sequence?.kind === 'tour' && status === 'completed') {
+        if (state.sequence.queue && state.sequence.queue.length > 0) {
+          const nextTourId = state.sequence.queue.shift();
+          const nextView = TOUR_SEQUENCE_VIEW_MAP[nextTourId] || 'quest';
+          if (typeof dashboardView !== 'undefined' && dashboardView !== nextView && typeof showDashboard === 'function') {
+            showDashboard(nextView);
+            window.setTimeout(() => {
+              startTutorial(nextTourId, { force: true, isReplay: state.sequence?.isReplay !== false });
+            }, 140);
+          } else {
+            startTutorial(nextTourId, { force: true, isReplay: state.sequence?.isReplay !== false });
+          }
+          return;
+        }
+        state.sequence = null;
+        return;
+      }
+      if (state.pendingRemedialTutorial && !state.activeId && typeof battle !== 'undefined' && battle.phase === 'remedial') {
+        state.pendingRemedialTutorial = false;
+        startTutorial('game_remedial_drill');
+        return;
+      }
+      if (state.pendingSkillPointAwards.length > 0 && canShowQueuedSkillPointPopup()) {
+        flushPendingSkillPointPopup(0);
         return;
       }
       if (finishedId === 'game_core' && typeof playViewActive !== 'undefined' && playViewActive) {
@@ -1675,21 +2088,92 @@
         }
       } else if (finishedId === 'guide_skill_tree' || finishedId === 'guide_world_map') {
         return;
-      } else if (finishedId === 'game_battle' && status === 'completed' && typeof playViewActive !== 'undefined' && playViewActive) {
-        if (!isTutorialFinished('game_hud')) {
-          startTutorial('game_hud');
-        } else {
-          maybeTriggerContextualTutorial();
-        }
       } else {
         maybeTriggerContextualTutorial();
       }
     }, 120);
   }
 
+  function skipActiveTutorialOrSequence() {
+    const activeId = state.activeId;
+    if (!activeId) return;
+    if (activeId === 'game_sp_earned') {
+      state.activeSkillPointAward = null;
+      stopActiveTutorial({ restoreFocus: true });
+      if (state.pendingSkillPointAwards.length > 0) {
+        flushPendingSkillPointPopup(140);
+      }
+      return;
+    }
+    const isReplaySeq = Boolean(state.sequence?.isReplay || state.activeIsReplay);
+    const store = loadStore();
+    const skipEntireGameSeq = Boolean(
+      !isReplaySeq &&
+      ((state.sequence?.kind === 'game') ||
+        (store.postResetGameSequence && FULL_GAME_GUIDE_SEQUENCE.includes(activeId)) ||
+        (!state.sequence && activeId === 'game_core'))
+    );
+
+    if (isReplaySeq) {
+      clearProgressForRestart(activeId);
+      state.sequence = null;
+      state.activeIsReplay = false;
+      stopActiveTutorial({ restoreFocus: true });
+      if (activeId === 'tour_sidebar_nav' && typeof setNavMenuOpen === 'function' && typeof navMenuOpen !== 'undefined' && navMenuOpen) {
+        setNavMenuOpen(false);
+      }
+      if (state.pendingSkillPointAwards.length > 0) {
+        flushPendingSkillPointPopup(140);
+      }
+      return;
+    }
+
+    if (skipEntireGameSeq) {
+      for (const gid of SKIPPABLE_CORE_GAME_SEQUENCE) {
+        if (store.completed[gid] !== 'completed') {
+          store.completed[gid] = 'skipped';
+        }
+        delete store.progress[gid];
+      }
+      if (activeId && !SKIPPABLE_CORE_GAME_SEQUENCE.includes(activeId)) {
+        if (store.completed[activeId] !== 'completed') store.completed[activeId] = 'skipped';
+        delete store.progress[activeId];
+      }
+      store.postResetGameSequence = false;
+      saveStore(store);
+      state.sequence = null;
+      state.activeIsReplay = false;
+      stopActiveTutorial({ restoreFocus: true });
+      if (typeof refreshAchievements === 'function') {
+        try { refreshAchievements({ silent: true }); } catch {}
+      }
+      if (typeof dashboardView !== 'undefined' && (dashboardView === 'settings' || dashboardView === 'rewards') && typeof playViewActive !== 'undefined' && !playViewActive && typeof renderDashboard === 'function') {
+        renderDashboard();
+      }
+      if (state.pendingRemedialTutorial && typeof battle !== 'undefined' && battle.phase === 'remedial') {
+        state.pendingRemedialTutorial = false;
+        startTutorial('game_remedial_drill');
+        return;
+      }
+      if (state.pendingSkillPointAwards.length > 0) {
+        flushPendingSkillPointPopup(140);
+      }
+      return;
+    }
+
+    state.sequence = null;
+    completeActiveTutorial('skipped');
+  }
+
   function advanceStep() {
     const step = currentStep();
     if (!step) return;
+    if (state.activeId === 'game_sp_earned') {
+      state.activeSkillPointAward = null;
+      stopActiveTutorial({ restoreFocus: false });
+      if (typeof openSkillTree === 'function') openSkillTree();
+      return;
+    }
     if (typeof step.onNext === 'function') {
       try { step.onNext(); } catch {}
     }
@@ -1702,15 +2186,19 @@
     }
   }
 
-  function startTutorial(tutorialId, { force = false, startAtStepId = null } = {}) {
+  function startTutorial(tutorialId, { force = false, startAtStepId = null, isReplay = false } = {}) {
     if (!isAppReadyWithProfile()) return false;
-    if (!force && isTutorialFinished(tutorialId)) return false;
+    if (tutorialId !== 'game_sp_earned' && !force && !isReplay && isTutorialFinished(tutorialId)) return false;
 
-    if (force) {
-      setTutorialStatus(tutorialId, null);
+    if (force || isReplay) {
+      state.suppressAutoTourView = null;
     }
 
-    if (tutorialId === 'tour_sidebar_nav' && force && typeof setNavMenuOpen === 'function') {
+    if (tutorialId !== 'game_sp_earned') {
+      clearProgressForRestart(tutorialId);
+    }
+
+    if (tutorialId === 'tour_sidebar_nav' && (force || isReplay) && typeof setNavMenuOpen === 'function') {
       setNavMenuOpen(false);
     }
 
@@ -1721,11 +2209,12 @@
 
     state.returnFocusEl = document.activeElement;
     state.activeId = tutorialId;
+    state.activeIsReplay = Boolean(isReplay || state.sequence?.isReplay);
     state.steps = steps;
     state.retryCount = 0;
 
     let startIdx = 0;
-    const resumeStepId = startAtStepId || (!force ? getSavedStepId(tutorialId) : null);
+    const resumeStepId = startAtStepId || (!force && !isReplay ? getSavedStepId(tutorialId) : null);
     if (resumeStepId) {
       const foundIdx = steps.findIndex((s) => s.id === resumeStepId);
       if (foundIdx >= 0) startIdx = foundIdx;
@@ -1755,68 +2244,157 @@
     return true;
   }
 
-  // --- Skill-Point Earned Trigger ---
-  function onSkillPointEarned(category, treeKey) {
-    if (!isAppReadyWithProfile()) return;
-    const store = loadStore();
-    if (store.spGuideTriggered || isTutorialFinished('game_skill_tree')) return;
-    store.spGuideTriggered = true;
-    saveStore(store);
-    state.pendingSkillTreeKey = treeKey || null;
+  function replayFullPageTour() {
+    if (!isAppReadyWithProfile()) return false;
+    if (typeof skillTreeOpen !== 'undefined' && skillTreeOpen && typeof closeSkillTree === 'function') closeSkillTree();
+    if (typeof worldMapOpen !== 'undefined' && worldMapOpen && typeof closeWorldMap === 'function') closeWorldMap();
+    if (typeof playViewActive !== 'undefined' && playViewActive && typeof showDashboard === 'function') {
+      showDashboard('quest');
+    }
+    state.suppressAutoTourView = null;
+    state.sequence = {
+      kind: 'tour',
+      queue: FULL_PAGE_TOUR_SEQUENCE.slice(1),
+      isReplay: true,
+    };
+    const firstTourId = FULL_PAGE_TOUR_SEQUENCE[0];
+    if (typeof dashboardView !== 'undefined' && dashboardView !== 'quest' && typeof showDashboard === 'function') {
+      showDashboard('quest');
+    }
+    if (typeof setNavMenuOpen === 'function') setNavMenuOpen(false);
+    return startTutorial(firstTourId, { force: true, isReplay: true });
+  }
 
-    // If no other tutorial is currently active and we are not in the middle of battle feedback, start immediately
-    if (!state.activeId && !(typeof mode !== 'undefined' && mode === 'battle' && typeof battle !== 'undefined' && battle.phase === 'feedback')) {
+  function replayFullGameGuide() {
+    if (!isAppReadyWithProfile()) return false;
+    if (typeof skillTreeOpen !== 'undefined' && skillTreeOpen && typeof closeSkillTree === 'function') closeSkillTree();
+    if (typeof worldMapOpen !== 'undefined' && worldMapOpen && typeof closeWorldMap === 'function') closeWorldMap();
+    if (typeof setNavMenuOpen === 'function' && typeof navMenuOpen !== 'undefined' && navMenuOpen) setNavMenuOpen(false);
+    state.suppressAutoTourView = null;
+    const pendingSet = new Set(FULL_GAME_GUIDE_SEQUENCE);
+    pendingSet.delete('game_core');
+    state.sequence = {
+      kind: 'game',
+      pending: pendingSet,
+      isReplay: true,
+    };
+    if (typeof playViewActive === 'undefined' || !playViewActive) {
+      if (typeof startPracticeAdventure === 'function') {
+        startPracticeAdventure();
+      }
       window.setTimeout(() => {
-        if (!state.activeId && !isTutorialFinished('game_skill_tree')) {
-          startTutorial('game_skill_tree', { startAtStepId: 'sp_earned_intro' });
+        if (typeof playViewActive !== 'undefined' && playViewActive) {
+          startTutorial('game_core', { force: true, isReplay: true });
         }
       }, 140);
+      return true;
+    }
+    return startTutorial('game_core', { force: true, isReplay: true });
+  }
+
+  // --- Skill-Point Earned Trigger & Queue ---
+  function canShowQueuedSkillPointPopup() {
+    if (!isAppReadyWithProfile() || state.activeId) return false;
+    if (typeof skillTreeOpen !== 'undefined' && skillTreeOpen) return false;
+    if (typeof worldMapOpen !== 'undefined' && worldMapOpen) return false;
+    if (isOverlayModalBlockingPageTours()) return false;
+    if (typeof mode !== 'undefined' && mode === 'battle' && typeof battle !== 'undefined') {
+      if (['feedback', 'remedial', 'reward', 'upgrade', 'won', 'lost', 'dying'].includes(battle.phase)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function flushPendingSkillPointPopup(delayMs = 120) {
+    if (!state.pendingSkillPointAwards.length) return false;
+    if (state.spPopupTimer) {
+      window.clearTimeout(state.spPopupTimer);
+      state.spPopupTimer = 0;
+    }
+    const run = () => {
+      state.spPopupTimer = 0;
+      if (!state.pendingSkillPointAwards.length || !canShowQueuedSkillPointPopup()) return;
+      const nextAward = state.pendingSkillPointAwards.shift();
+      state.activeSkillPointAward = nextAward;
+      state.pendingSkillTreeKey = nextAward.treeKey || null;
+      startTutorial('game_sp_earned', { force: true });
+    };
+    if (delayMs <= 0) {
+      run();
     } else {
-      state.pendingSkillPointGuide = true;
+      state.spPopupTimer = window.setTimeout(run, delayMs);
+    }
+    return true;
+  }
+
+  function onSkillPointEarned(category, treeKey, awardId) {
+    if (!isAppReadyWithProfile()) return;
+    let resolvedId = awardId ? String(awardId) : '';
+    if (!resolvedId) {
+      let earnedCount = 0;
+      if (treeKey && typeof skillProgress !== 'undefined' && skillProgress?.[treeKey]) {
+        const interval = typeof SKILL_POINT_INTERVAL === 'number' && SKILL_POINT_INTERVAL > 0 ? SKILL_POINT_INTERVAL : 5;
+        earnedCount = Math.floor((skillProgress[treeKey].correct || 0) / interval);
+      }
+      resolvedId = `${treeKey || category || 'sp'}:${earnedCount}`;
+    }
+    if (state.seenSkillPointAwardIds.has(resolvedId)) return;
+    state.seenSkillPointAwardIds.add(resolvedId);
+    state.pendingSkillPointAwards.push({
+      category: category || '',
+      treeKey: treeKey || null,
+      awardId: resolvedId,
+    });
+    if (canShowQueuedSkillPointPopup()) {
+      flushPendingSkillPointPopup(140);
     }
   }
 
   // --- Automatic First-Visit Context Detection ---
   function maybeTriggerContextualTutorial() {
     if (!isAppReadyWithProfile()) return;
+    const gameSeq = state.sequence?.kind === 'game' ? state.sequence : null;
+    const takeGameSeq = (id) => {
+      if (!gameSeq?.pending?.has(id)) return false;
+      gameSeq.pending.delete(id);
+      if (gameSeq.pending.size === 0) state.sequence = null;
+      return true;
+    };
 
     // 1. Check active overlays first (Skill Tree & World Map)
     if (typeof skillTreeOpen !== 'undefined' && skillTreeOpen) {
-      if (state.activeId === 'game_skill_tree') {
-        const step = currentStep();
-        if (step && (step.id === 'sp_earned_intro' || step.id === 'sp_open_tree')) {
-          const idx = state.steps.findIndex((s) => s.id === 'sp_find_and_inspect');
-          if (idx >= 0) {
-            state.stepIndex = idx;
-            renderCurrentStep({ focusBubble: true });
-          }
-        }
-        return;
-      }
-      if (state.activeId && state.activeId !== 'game_skill_tree') {
+      state.suppressAutoTourView = null;
+      if (state.activeId === 'guide_skill_tree' || state.activeId === 'game_skill_tree') return;
+      if (state.activeId === 'game_sp_earned') {
+        state.activeSkillPointAward = null;
+        stopActiveTutorial({ restoreFocus: false });
+      } else if (state.activeId && state.activeId !== 'game_skill_tree') {
         stopActiveTutorial({ restoreFocus: false });
       }
-      if (!state.activeId && !isTutorialFinished('game_skill_tree')) {
-        startTutorial('game_skill_tree');
+      if (!state.activeId && (takeGameSeq('game_skill_tree') || !isTutorialFinished('game_skill_tree'))) {
+        startTutorial('game_skill_tree', { force: Boolean(gameSeq), isReplay: Boolean(gameSeq?.isReplay) });
       }
       return;
     }
 
     if (typeof worldMapOpen !== 'undefined' && worldMapOpen) {
-      if (state.activeId && state.activeId !== 'game_world_map') {
+      state.suppressAutoTourView = null;
+      if (state.activeId === 'guide_world_map') return;
+      if (state.activeId === 'game_sp_earned') {
+        state.activeSkillPointAward = null;
+        stopActiveTutorial({ restoreFocus: false });
+      } else if (state.activeId && state.activeId !== 'game_world_map') {
         stopActiveTutorial({ restoreFocus: false });
       }
-      if (!state.activeId && !isTutorialFinished('game_world_map')) {
-        startTutorial('game_world_map');
+      if (!state.activeId && (takeGameSeq('game_world_map') || !isTutorialFinished('game_world_map'))) {
+        startTutorial('game_world_map', { force: Boolean(gameSeq), isReplay: Boolean(gameSeq?.isReplay) });
       }
       return;
     }
 
     if (state.activeId === 'game_skill_tree' && typeof skillTreeOpen !== 'undefined' && !skillTreeOpen) {
-      const step = currentStep();
-      if (step && step.id !== 'sp_earned_intro' && step.id !== 'sp_open_tree') {
-        stopActiveTutorial({ restoreFocus: false });
-      }
+      stopActiveTutorial({ restoreFocus: false });
     }
     if (state.activeId === 'game_world_map') {
       stopActiveTutorial({ restoreFocus: false });
@@ -1824,30 +2402,40 @@
 
     if (isOverlayModalBlockingPageTours()) return;
 
-    // Pending Skill-Point Earned guide takes priority once current battle feedback or active tour finishes
-    if (state.pendingSkillPointGuide && !state.activeId && !isTutorialFinished('game_skill_tree')) {
-      const inFeedback = typeof mode !== 'undefined' && mode === 'battle' && typeof battle !== 'undefined' && battle.phase === 'feedback';
-      if (!inFeedback) {
-        state.pendingSkillPointGuide = false;
-        startTutorial('game_skill_tree', { startAtStepId: 'sp_earned_intro' });
-        return;
-      }
+    if (typeof battle === 'undefined' || battle.phase !== 'remedial') {
+      state.pendingRemedialTutorial = false;
+    }
+
+    // Pending Remedial Drill tutorial takes priority once active tutorial finishes during remedial phase
+    if (state.pendingRemedialTutorial && !state.activeId && typeof battle !== 'undefined' && battle.phase === 'remedial') {
+      state.pendingRemedialTutorial = false;
+      startTutorial('game_remedial_drill');
+      return;
+    }
+
+    // Pending Skill-Point Earned popup takes priority once any active tutorial or battle feedback clears
+    if (state.pendingSkillPointAwards.length > 0 && canShowQueuedSkillPointPopup()) {
+      flushPendingSkillPointPopup(0);
+      return;
     }
 
     // 2. In-Play Gameplay Lessons
     if (typeof playViewActive !== 'undefined' && playViewActive) {
+      state.suppressAutoTourView = null;
+      if (state.sequence?.kind === 'tour') state.sequence = null;
       if (state.activeId && state.activeId.startsWith('tour_')) {
         stopActiveTutorial({ restoreFocus: false });
       }
 
       if (typeof mode !== 'undefined' && mode === 'explore' && !isMultiplayer()) {
         if (!state.activeId) {
-          if (!isTutorialFinished('game_core')) {
-            startTutorial('game_core');
+          if (takeGameSeq('game_core') || !isTutorialFinished('game_core')) {
+            startTutorial('game_core', { force: Boolean(gameSeq), isReplay: Boolean(gameSeq?.isReplay) });
             return;
           }
-          if (!isTutorialFinished('game_hud')) {
-            startTutorial('game_hud');
+          if (isTutorialFinished('game_core') && isTutorialFinished('game_battle') &&
+              (takeGameSeq('game_hud') || !isTutorialFinished('game_hud'))) {
+            startTutorial('game_hud', { force: Boolean(gameSeq), isReplay: Boolean(gameSeq?.isReplay) });
             return;
           }
         }
@@ -1856,23 +2444,30 @@
 
       if (typeof mode !== 'undefined' && mode === 'battle') {
         if (state.activeId === 'game_core') {
-          const step = currentStep();
-          if (step && step.id === 'core_attack') {
-            advanceStep();
-          }
           return;
         }
+        if (state.activeId === 'game_hud') {
+          stopActiveTutorial({ restoreFocus: false });
+        }
         if (!state.activeId && typeof battle !== 'undefined') {
-          if (battle.phase === 'reward' && !isTutorialFinished('game_card_reward')) {
-            startTutorial('game_card_reward');
+          if (battle.phase === 'remedial') {
+            if (takeGameSeq('game_remedial_drill') || !isTutorialFinished('game_remedial_drill')) {
+              startTutorial('game_remedial_drill', { force: Boolean(gameSeq), isReplay: Boolean(gameSeq?.isReplay) });
+              return;
+            }
             return;
           }
-          if (battle.phase === 'upgrade' && !isTutorialFinished('game_level_up')) {
-            startTutorial('game_level_up');
+          if (battle.phase === 'reward' && (takeGameSeq('game_card_reward') || !isTutorialFinished('game_card_reward'))) {
+            startTutorial('game_card_reward', { force: Boolean(gameSeq), isReplay: Boolean(gameSeq?.isReplay) });
             return;
           }
-          if (!isTutorialFinished('game_battle') && (battle.phase === 'choose' || battle.phase === 'question' || battle.phase === 'feedback')) {
-            startTutorial('game_battle');
+          if (battle.phase === 'upgrade' && (takeGameSeq('game_level_up') || !isTutorialFinished('game_level_up'))) {
+            startTutorial('game_level_up', { force: Boolean(gameSeq), isReplay: Boolean(gameSeq?.isReplay) });
+            return;
+          }
+          if ((battle.phase === 'choose' || battle.phase === 'question' || battle.phase === 'feedback') &&
+              (takeGameSeq('game_battle') || !isTutorialFinished('game_battle'))) {
+            startTutorial('game_battle', { force: Boolean(gameSeq), isReplay: Boolean(gameSeq?.isReplay) });
             return;
           }
         }
@@ -1882,11 +2477,16 @@
     }
 
     // 3. Dashboard Page Tours (when !playViewActive)
+    if (state.sequence?.kind === 'game') state.sequence = null;
     if (state.activeId && state.activeId.startsWith('game_') && state.activeId !== 'game_skill_tree') {
       stopActiveTutorial({ restoreFocus: false });
     }
 
     const view = typeof dashboardView !== 'undefined' ? dashboardView : 'quest';
+    if (state.suppressAutoTourView) {
+      if (view === state.suppressAutoTourView) return;
+      state.suppressAutoTourView = null;
+    }
 
     if (state.activeId === 'tour_sidebar_nav') {
       return;
@@ -1974,9 +2574,24 @@
     return Boolean(state.activeId && currentStep());
   }
 
+  function shouldFreezeEnemies() {
+    const step = currentStep();
+    return Boolean(state.activeId === 'game_core' && step && step.freezeEnemies);
+  }
+
   function shouldHoldEncounter() {
     const step = currentStep();
-    return Boolean(state.activeId === 'game_core' && step && step.holdEncounter);
+    return Boolean(shouldFreezeEnemies() || (state.activeId === 'game_core' && step && step.holdEncounter));
+  }
+
+  function scheduleCoreStepAdvance(expectedStepId, delayMs = 220) {
+    if (state.silentMoveTimer) return;
+    state.silentMoveTimer = window.setTimeout(() => {
+      state.silentMoveTimer = 0;
+      if (state.activeId === 'game_core' && currentStep()?.id === expectedStepId) {
+        advanceStep();
+      }
+    }, delayMs);
   }
 
   function interceptKey(normalizedKey, rawKey, down, repeat) {
@@ -2003,74 +2618,74 @@
     }
 
     if (!down) {
+      if (k === 'd' || rk === 'arrowright') state.physicalRightHeld = false;
       if ((k === 'a' || k === 'd') && typeof keys !== 'undefined' && keys[k]) {
         keys[k].pressed = false;
       }
       return actionPromptActive && isActionPromptKey(step, k, rk) ? false : true;
     }
 
-    if (!actionPromptActive) return true;
+    if (!actionPromptActive && state.activeId !== 'game_sp_earned') return true;
     if (actionButtonFocused) return true;
     if (repeat) return true;
+
+    if (state.activeId === 'game_sp_earned') {
+      if (k === 'u') {
+        state.activeSkillPointAward = null;
+        stopActiveTutorial({ restoreFocus: false });
+        if (typeof openSkillTree === 'function') openSkillTree();
+        return true;
+      }
+      if (rk === 'escape') {
+        skipActiveTutorialOrSequence();
+        return true;
+      }
+      return true;
+    }
 
     if (!isActionPromptKey(step, k, rk)) {
       if (typeof keys !== 'undefined') {
         keys.a.pressed = false;
-        keys.d.pressed = false;
+        if (!state.physicalRightHeld) keys.d.pressed = false;
       }
       return true;
     }
 
     if (state.activeId === 'game_core') {
-      if (step.id === 'core_move' && (k === 'a' || k === 'd')) {
-        keys[k].pressed = true;
-        window.setTimeout(() => {
-          if (state.activeId === 'game_core' && currentStep()?.id === 'core_move') {
-            advanceStep();
-          }
-        }, 180);
-        return false;
-      }
-      if (step.id === 'core_jump' && (k === 'w' || k === 'space')) {
-        if (typeof player !== 'undefined' && player.velocity && player.velocity.y === 0) {
-          player.velocity.y = -22;
+      if (step.id === 'core_move_lr') {
+        if (k === 'a' || k === 'd' || rk === 'arrowleft' || rk === 'arrowright') {
+          if (k === 'd' || rk === 'arrowright') state.physicalRightHeld = true;
+          scheduleCoreStepAdvance('core_move_lr', 220);
+          return false;
         }
-        window.setTimeout(() => {
-          if (state.activeId === 'game_core' && currentStep()?.id === 'core_jump') {
-            advanceStep();
+        return true;
+      }
+      if (step.id === 'core_jump') {
+        if (k === 'w' || k === 'space' || rk === ' ') {
+          if (typeof player !== 'undefined' && player && player.velocity.y === 0) {
+            player.velocity.y = -22;
           }
-        }, 120);
+          scheduleCoreStepAdvance('core_jump', 220);
+          return true;
+        }
         return true;
       }
       if (step.id === 'core_door') {
-        if (k === 'up' || rk === 'arrowup' || k === 'w') {
-          triggerTutorialDoorFeedback();
-          window.setTimeout(() => {
-            if (state.activeId === 'game_core' && currentStep()?.id === 'core_door') {
-              advanceStep();
-            }
-          }, 120);
+        if (k === 'up' || rk === 'arrowup') {
+          if (typeof tryDoor === 'function') tryDoor();
+          scheduleCoreStepAdvance('core_door', 160);
           return true;
         }
-        return false;
+        return true;
       }
-      if (step.id === 'core_attack') {
-        if (k === 'a' || k === 'd') {
-          nudgePlayerTowardNearestEnemy(k);
-        }
-        return false;
+      if (step.id === 'core_approach_enemy') {
+        return !isActionPromptKey(step, k, rk);
       }
     }
 
     if (state.activeId === 'game_skill_tree') {
       if (step.id === 'sp_open_tree' && k === 'u') {
         if (typeof openSkillTree === 'function') openSkillTree();
-        return true;
-      }
-      if (step.id === 'sp_close_tree' && (k === 'u' || rk === 'escape')) {
-        setTutorialStatus('game_skill_tree', 'completed');
-        stopActiveTutorial({ restoreFocus: false });
-        if (typeof closeSkillTree === 'function') closeSkillTree();
         return true;
       }
     }
@@ -2097,6 +2712,11 @@
   function interceptEscape(event) {
     const step = currentStep();
     if (!state.activeId || !step) return false;
+    if (state.activeId === 'game_sp_earned') {
+      event.preventDefault();
+      skipActiveTutorialOrSequence();
+      return true;
+    }
     if (!hasVisibleActionPrompt(step) || !isActionPromptKey(step, 'escape', 'escape')) {
       event.preventDefault();
       return true;
@@ -2108,13 +2728,6 @@
       stopActiveTutorial({ restoreFocus: false });
       if (tutorialId === 'guide_skill_tree' && typeof closeSkillTree === 'function') closeSkillTree();
       else if (typeof closeWorldMap === 'function') closeWorldMap();
-      return true;
-    }
-    if (state.activeId === 'game_skill_tree' && step.id === 'sp_close_tree') {
-      event.preventDefault();
-      setTutorialStatus('game_skill_tree', 'completed');
-      stopActiveTutorial({ restoreFocus: false });
-      if (typeof closeSkillTree === 'function') closeSkillTree();
       return true;
     }
     if (state.activeId === 'game_world_map' && step.id === 'map_close') {
@@ -2143,32 +2756,13 @@
   function onTouchButtonAction(key) {
     const step = currentStep();
     if (!state.activeId || !step) return;
-
     if (state.activeId === 'game_core') {
-      if (step.id === 'core_move' && (key === 'a' || key === 'd')) {
-        window.setTimeout(() => {
-          if (state.activeId === 'game_core' && currentStep()?.id === 'core_move') {
-            advanceStep();
-          }
-        }, 160);
+      if (step.id === 'core_move_lr' && (key === 'a' || key === 'd')) {
+        scheduleCoreStepAdvance('core_move_lr', 220);
       } else if (step.id === 'core_jump' && key === 'w') {
-        if (typeof player !== 'undefined' && player.velocity && player.velocity.y === 0) {
-          player.velocity.y = -22;
-        }
-        window.setTimeout(() => {
-          if (state.activeId === 'game_core' && currentStep()?.id === 'core_jump') {
-            advanceStep();
-          }
-        }, 120);
+        scheduleCoreStepAdvance('core_jump', 220);
       } else if (step.id === 'core_door' && key === 'up') {
-        triggerTutorialDoorFeedback();
-        window.setTimeout(() => {
-          if (state.activeId === 'game_core' && currentStep()?.id === 'core_door') {
-            advanceStep();
-          }
-        }, 120);
-      } else if (step.id === 'core_attack' && (key === 'a' || key === 'd')) {
-        nudgePlayerTowardNearestEnemy(key);
+        scheduleCoreStepAdvance('core_door', 160);
       }
     }
   }
@@ -2228,8 +2822,8 @@
   function onBattleStarted() {
     if (state.activeId === 'game_core') {
       const step = currentStep();
-      if (step && step.id === 'core_attack') {
-        advanceStep();
+      if (step && (step.id === 'core_approach_enemy' || step.id === 'core_attack')) {
+        completeActiveTutorial('completed');
       }
     }
   }
@@ -2244,6 +2838,9 @@
     if (typeof playViewActive !== 'undefined' && playViewActive) {
       if (isMultiplayer()) return null;
       if (typeof mode !== 'undefined' && mode === 'battle') {
+        if (typeof battle !== 'undefined' && battle.phase === 'remedial') {
+          return 'game_remedial_drill';
+        }
         if (typeof battle !== 'undefined' && battle.phase === 'reward') {
           return 'game_card_reward';
         }
@@ -2308,9 +2905,52 @@
         advanceStep();
         return;
       }
+      if (phase === 'choose' && step && step.id === 'battle_choose_card') {
+        renderCurrentStep({ focusBubble: false });
+        return;
+      }
+    }
+
+    if (state.activeId === 'game_card_reward' && phase === 'reward') {
+      renderCurrentStep({ focusBubble: false });
+      return;
+    }
+
+    if (state.activeId === 'game_level_up' && phase === 'upgrade') {
+      renderCurrentStep({ focusBubble: false });
+      return;
+    }
+
+    if (phase === 'remedial') {
+      if (state.activeId === 'game_remedial_drill') {
+        renderCurrentStep({ focusBubble: false });
+        return;
+      }
+      if (!isTutorialFinished('game_remedial_drill') || state.sequence?.pending?.has('game_remedial_drill')) {
+        if (state.activeId) {
+          state.pendingRemedialTutorial = true;
+          return;
+        }
+      } else {
+        return;
+      }
+    } else {
+      state.pendingRemedialTutorial = false;
+      if (state.activeId === 'game_remedial_drill') {
+        stopActiveTutorial({ restoreFocus: false });
+      }
     }
 
     window.setTimeout(() => maybeTriggerContextualTutorial(), 60);
+  }
+
+  function onRemedialAnswer() {
+    if (state.activeId === 'game_remedial_drill') {
+      const step = currentStep();
+      if (step && step.id === 'remedial_answer') {
+        completeActiveTutorial('completed');
+      }
+    }
   }
 
   function onBattleContinue() {
@@ -2325,6 +2965,7 @@
   function onSkillTreeState(isOpen) {
     syncGuideButtonsVisibility();
     if (isOpen) {
+      window.requestAnimationFrame(() => maybeTriggerContextualTutorial());
       window.setTimeout(() => maybeTriggerContextualTutorial(), 80);
     } else if (state.activeId === 'guide_skill_tree') {
       const step = currentStep();
@@ -2332,29 +2973,22 @@
         setTutorialStatus('guide_skill_tree', 'completed');
       }
       stopActiveTutorial({ restoreFocus: false });
+      flushPendingSkillPointPopup(140);
     } else if (state.activeId === 'game_skill_tree') {
       const step = currentStep();
       if (step && step.id === 'sp_close_tree') {
         setTutorialStatus('game_skill_tree', 'completed');
       }
       stopActiveTutorial({ restoreFocus: false });
+      flushPendingSkillPointPopup(140);
+    } else {
+      flushPendingSkillPointPopup(140);
     }
   }
 
-  function onSkillTreeAction(action) {
-    if (state.activeId !== 'game_skill_tree') return;
-    const step = currentStep();
-    if (!step) return;
-    if (step.id === 'sp_find_and_inspect' && (action === 'start' || action === 'select')) {
-      if (action === 'start') {
-        const eligibleNode = findFirstEligibleSkillNode();
-        if (eligibleNode && eligibleNode.dataset.skillSelect && eligibleNode.dataset.skillTree) {
-          renderCurrentStep();
-          eligibleNode.click();
-          return;
-        }
-      }
-      advanceStep();
+  function onSkillTreeAction() {
+    if (state.activeId === 'game_skill_tree' || state.activeId === 'guide_skill_tree') {
+      positionSpotlightAndBubble();
     }
   }
 
@@ -2368,22 +3002,22 @@
         setTutorialStatus('guide_world_map', 'completed');
       }
       stopActiveTutorial({ restoreFocus: false });
+      flushPendingSkillPointPopup(140);
     } else if (state.activeId === 'game_world_map') {
       const step = currentStep();
       if (step && step.id === 'map_close') {
         setTutorialStatus('game_world_map', 'completed');
       }
       stopActiveTutorial({ restoreFocus: false });
+      flushPendingSkillPointPopup(140);
+    } else {
+      flushPendingSkillPointPopup(140);
     }
   }
 
   function onTryDoor() {
     if (state.activeId === 'game_core' && currentStep()?.id === 'core_door') {
-      window.setTimeout(() => {
-        if (state.activeId === 'game_core' && currentStep()?.id === 'core_door') {
-          advanceStep();
-        }
-      }, 100);
+      scheduleCoreStepAdvance('core_door', 120);
     }
   }
 
@@ -2411,7 +3045,16 @@
   }
 
   function onProfileSwitch() {
-    state.pendingSkillPointGuide = false;
+    state.pendingSkillPointAwards = [];
+    state.seenSkillPointAwardIds = new Set();
+    state.activeSkillPointAward = null;
+    state.pendingRemedialTutorial = false;
+    if (state.spPopupTimer) {
+      window.clearTimeout(state.spPopupTimer);
+      state.spPopupTimer = 0;
+    }
+    state.sequence = null;
+    state.suppressAutoTourView = null;
     stopActiveTutorial({ restoreFocus: false });
     syncGuideButtonsVisibility();
   }
@@ -2449,7 +3092,14 @@
 
     els.skipBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
-      completeActiveTutorial('skipped');
+      skipActiveTutorialOrSequence();
+    });
+
+    els.silentCue?.addEventListener('click', (e) => {
+      if (e.target instanceof Element && e.target.closest('#tutorialCompactSkipBtn')) {
+        e.stopPropagation();
+        skipActiveTutorialOrSequence();
+      }
     });
 
     document.getElementById('topbarTourButton')?.addEventListener('click', (e) => {
@@ -2478,6 +3128,8 @@
     });
 
     document.addEventListener('keydown', (event) => {
+      const rawKeyDown = String(event.key || '').toLowerCase();
+      if (rawKeyDown === 'd' || rawKeyDown === 'arrowright') state.physicalRightHeld = true;
       if (!state.activeId) return;
       if (event.key === 'Tab') {
         focusTutorialTarget(event);
@@ -2495,6 +3147,10 @@
         target?.closest('#tutorialNextButton') &&
         !getEls().nextBtn?.hidden &&
         keyboardActivation;
+      const skipActivation = !hasModifier && keyboardActivation && (
+        (target?.closest('#tutorialSkipButton') && !getEls().skipBtn?.hidden) ||
+        Boolean(target?.closest('#tutorialCompactSkipBtn'))
+      );
       const actionActivation = !hasModifier &&
         keyboardActivation &&
         Boolean(getAllowedActionControl(target, step));
@@ -2503,16 +3159,18 @@
         !editableTarget &&
         isActionPromptKey(step, key, rawKey);
 
-      if (!event.repeat && (nextActivation || actionActivation || matchingActionKey)) return;
+      if (!event.repeat && (nextActivation || skipActivation || actionActivation || matchingActionKey)) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       if ((key === 'a' || key === 'd') && typeof keys !== 'undefined') {
         keys.a.pressed = false;
-        keys.d.pressed = false;
+        if (!state.physicalRightHeld) keys.d.pressed = false;
       }
     }, true);
 
     document.addEventListener('keyup', (event) => {
+      const rawKeyUp = String(event.key || '').toLowerCase();
+      if (rawKeyUp === 'd' || rawKeyUp === 'arrowright') state.physicalRightHeld = false;
       if (!state.activeId) return;
       const step = currentStep();
       if (!step) return;
@@ -2525,15 +3183,19 @@
         target?.closest('#tutorialNextButton') &&
         !getEls().nextBtn?.hidden &&
         keyboardActivation;
+      const skipActivation = !hasModifier && keyboardActivation && (
+        (target?.closest('#tutorialSkipButton') && !getEls().skipBtn?.hidden) ||
+        Boolean(target?.closest('#tutorialCompactSkipBtn'))
+      );
       const actionActivation = !hasModifier &&
         keyboardActivation &&
         Boolean(getAllowedActionControl(target, step));
       const matchingActionKey = !hasModifier && isActionPromptKey(step, key, rawKey);
 
-      if (nextActivation || actionActivation || matchingActionKey) return;
+      if (nextActivation || skipActivation || actionActivation || matchingActionKey) return;
       if ((key === 'a' || key === 'd') && typeof keys !== 'undefined') {
         keys.a.pressed = false;
-        keys.d.pressed = false;
+        if (!state.physicalRightHeld) keys.d.pressed = false;
       }
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -2541,9 +3203,11 @@
 
     document.addEventListener('focusin', (event) => {
       if (!state.activeId) return;
+      const step = currentStep();
+      if (step?.silentCue || step?.compactPrompt) return;
       const target = event.target instanceof Element ? event.target : null;
-      if (!isAllowedTutorialTarget(target)) {
-        getTutorialFocusTarget()?.focus({ preventScroll: true });
+      if (!isAllowedTutorialTarget(target, step)) {
+        getTutorialFocusTarget(step)?.focus({ preventScroll: true });
       }
     }, true);
 
@@ -2570,13 +3234,6 @@
       if (!state.activeId || !step) return;
       const target = e.target instanceof Element ? e.target : null;
       if (isAllowedTutorialTarget(target, step)) {
-        if (state.activeId === 'game_skill_tree' && step.id === 'sp_select_upgrade' && target.closest('#skillTreeDetail [data-skill-purchase]:not(:disabled)')) {
-          window.setTimeout(() => {
-            if (state.activeId === 'game_skill_tree' && currentStep()?.id === 'sp_select_upgrade') {
-              advanceStep();
-            }
-          }, 120);
-        }
         return;
       }
       e.stopImmediatePropagation();
@@ -2586,6 +3243,21 @@
     window.addEventListener('resize', () => {
       if (state.activeId) positionSpotlightAndBubble();
     });
+    window.addEventListener('orientationchange', () => {
+      if (state.activeId) {
+        window.setTimeout(() => {
+          if (state.activeId) positionSpotlightAndBubble();
+        }, 120);
+      }
+    });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', () => {
+        if (state.activeId) positionSpotlightAndBubble();
+      });
+      window.visualViewport.addEventListener('scroll', () => {
+        if (state.activeId) positionSpotlightAndBubble();
+      });
+    }
   }
 
   bindTutorialDomEvents();
@@ -2601,6 +3273,7 @@
     renderAchievementChecklist,
     onSkillPointEarned,
     isActionLocked,
+    shouldFreezeEnemies,
     shouldHoldEncounter,
     interceptKey,
     interceptEscape,
@@ -2613,6 +3286,7 @@
     onUpgradePicked,
     onBattleStarted,
     onBattlePhaseRendered,
+    onRemedialAnswer,
     onBattleContinue,
     onSkillTreeState,
     onSkillTreeAction,
@@ -2624,6 +3298,10 @@
     getRelevantContextTutorialId,
     syncGuideButtonsVisibility,
     replayCurrentContextTutorial,
+    replayFullPageTour,
+    replayFullGameGuide,
+    resetPlayerTutorials,
+    skipActiveTutorialOrSequence,
     REQUIRED_TUTORIAL_IDS,
     TUTORIAL_CATALOG,
     get state() {

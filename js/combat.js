@@ -748,9 +748,10 @@ function recordCorrectAnswer(category) {
   const previousPoints = Math.floor(skillProgress[key].correct / SKILL_POINT_INTERVAL);
   skillProgress[key].correct++;
   saveSkillProgress();
-  const earned = Math.floor(skillProgress[key].correct / SKILL_POINT_INTERVAL) > previousPoints;
+  const newPoints = Math.floor(skillProgress[key].correct / SKILL_POINT_INTERVAL);
+  const earned = newPoints > previousPoints;
   if (earned && typeof window.ByteboundTutorial?.onSkillPointEarned === 'function') {
-    window.ByteboundTutorial.onSkillPointEarned(category, key);
+    window.ByteboundTutorial.onSkillPointEarned(category, key, `${key}:${newPoints}`);
   }
   return earned;
 }
@@ -811,6 +812,7 @@ const hero = {};
 const stats = {};
 const battle = {
   enemy: null, enemyFollower: null, phase: 'choose', card: null, question: null, block: 0, tempDefense: 0,
+  remedialDefenseBuff: false, cardAnim: null,
   defendCooldownTurns: 0, defendUsedThisTurn: false, defendEffectT: 0,
   heroHealFlashT: 0, heroHealTintT: 0,
   log: '', popups: [], hand: [], drawPile: [], discard: [], rewards: [], upgrades: [],
@@ -950,11 +952,11 @@ function fillHand() {
 }
 
 // ===== Panel and HUD rendering =====
-function setExploreBanner(text) {
+function setExploreBanner() {
   const banner = document.getElementById('playExploreBanner');
   if (!banner) return;
-  banner.textContent = text || '';
-  banner.hidden = !text;
+  banner.textContent = '';
+  banner.hidden = true;
 }
 
 function hideGameOverOverlay() {
@@ -994,23 +996,8 @@ function renderHud() {
   renderDashboard();
 }
 
-function renderExplore(msg) {
-  const left = enemies.filter((e) => e.alive).length;
-  const boss = currentRoom.boss;
-  const aliveBoss = boss ? enemies.find((e) => e.alive) : null;
-  const fallback = left
-    ? (boss
-      ? (currentRoom.final
-        ? `${typeof FINAL_BOSS_NAME !== 'undefined' ? FINAL_BOSS_NAME : 'King Crolue'}, Lord of the Loop, awaits ahead — touch him to begin the battle.`
-        : `${aliveBoss?.name || 'Mini Boss Kor'} ahead — touch to battle.`)
-      : 'Touch a virus to battle and unlock the way.')
-    : (currentRoom.edgeExits
-      ? 'Room cleared! Walk off the left or right road to continue.'
-      : 'Room cleared! Walk to the door to continue.');
-  const noun = boss ? 'boss' : (left === 1 ? 'virus' : 'viruses');
-  const statusPrefix = left > 0 ? `${left} ${noun} left · ` : '';
+function renderExplore() {
   setPanel('');
-  setExploreBanner(`${currentRoom.name}: ${statusPrefix}${msg || fallback}`);
 }
 
 function renderBattle() {
@@ -1220,6 +1207,7 @@ function startBattle(enemy) {
         }
       : null,
     phase: 'intro', card: null, question: null, remedial: null, block: 0, popups: [], tempDefense: 0,
+    remedialDefenseBuff: false, cardAnim: null,
     defendCooldownTurns: 0, defendUsedThisTurn: false, defendEffectT: 0,
     exclusiveCooldownTurns: 0, exclusiveUsedThisTurn: false,
     enemyStunTurns: 0, enemyBurnTurns: 0, enemyBurnDamage: 0,
@@ -1450,6 +1438,7 @@ function renderRemedialQuestion() {
       <span class="tag">${esc(q.category)} · ${esc(q.topic)} · ${esc(String(q.difficulty || 'easy').toUpperCase())} · <span class="adaptive-reason-tag">${esc(q.remedialSource || 'REMEDIAL DRILL')}</span></span>
     </div>
     <div class="choices">${choices}</div>`);
+  window.ByteboundTutorial?.onBattlePhaseRendered?.('remedial');
 }
 
 function answerRemedialQuestion(index) {
@@ -1457,6 +1446,7 @@ function answerRemedialQuestion(index) {
   const rem = battle.remedial;
   const q = rem.questions[rem.index];
   if (!q) return;
+  window.ByteboundTutorial?.onRemedialAnswer?.();
   const correct = index === q.answer;
   stats.total++;
   if (correct) stats.correct++;
@@ -1493,6 +1483,8 @@ function answerRemedialQuestion(index) {
     const defBuff = 4;
     hero.tempAttack = (hero.tempAttack || 0) + atkBuff;
     battle.tempDefense += defBuff;
+    battle.remedialDefenseBuff = true;
+    battle.cardAnim = { type: 'remedial_surge', cardId: 'remedial', t: 34, duration: 34, correct: true };
     const mpGain = Math.max(0, hero.maxMana - hero.mana);
     hero.mana = hero.maxMana;
     const prevHp = hero.hp;
@@ -1534,6 +1526,32 @@ function answerRemedialQuestion(index) {
   }
 }
 
+function triggerCardActionAnim(cardId, correct) {
+  const durations = {
+    strike: 24,
+    power: 36,
+    quick: 22,
+    heavy: 38,
+    overclock: 32,
+    defend: 30,
+    charge: 30,
+    siphon: 30,
+    mend: 32,
+    fortify: 30,
+    kernel_aegis: 44,
+    packet_lockdown: 40,
+    plasma_compile: 40,
+  };
+  const dur = durations[cardId] || 28;
+  battle.cardAnim = {
+    type: cardId,
+    cardId,
+    t: dur,
+    duration: dur,
+    correct: Boolean(correct),
+  };
+}
+
 // Resolves the card played this turn and returns a short description of what happened.
 function resolveCard(id, correct) {
   const card = CARD_LIBRARY[id];
@@ -1567,10 +1585,15 @@ function resolveCard(id, correct) {
     battle.projectileQueued = chargedAttack;
     battle.projectileT = chargedAttack ? -1 : 0;
     battle.projectileDamage = 0;
+    triggerCardActionAnim(card.id, true);
+    if (card.id === 'power' && !document.body.classList.contains('reduce-motion')) {
+      battle.cameraShakeT = Math.max(battle.cameraShakeT, 0.85);
+    }
     return `${note}You hit for ${dmg}.`;
   }
   if (card.kind === 'defend') {
     battle.block = correct ? 0.75 : 0.25;
+    triggerCardActionAnim(card.id, correct);
     if (correct) {
       battle.defendEffectT = DEFEND_EFFECT_FRAMES;
       if (!document.body.classList.contains('reduce-motion')) {
@@ -1588,6 +1611,7 @@ function resolveCard(id, correct) {
     const gain = correct ? 25 : 10;
     const prevMp = hero.mana;
     hero.mana = Math.min(hero.maxMana, hero.mana + gain);
+    triggerCardActionAnim(card.id, correct);
     popup('hero', `+${hero.mana - prevMp || gain} MP`, '#7ef0a2', { offsetX: -56, y: HERO_SPOT.y - 70, style: 'heal' });
     emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#7ef0a2', 14, 2);
     Sound.play('charge');
@@ -1598,6 +1622,7 @@ function resolveCard(id, correct) {
     const previousHp = hero.hp;
     hero.hp = Math.min(hero.maxHp, hero.hp + heal);
     const healed = hero.hp - previousHp;
+    triggerCardActionAnim(card.id, correct);
     showHealFeedback(healed, { offsetX: -60, y: HERO_SPOT.y - 62 });
     emitFx(HERO_SPOT.x, HERO_SPOT.y - 80, '#7fd49a', 12, 2);
     Sound.play('heal');
@@ -1607,6 +1632,7 @@ function resolveCard(id, correct) {
     const gain = correct ? card.gain : 2;
     const prevMp = hero.mana;
     hero.mana = Math.min(hero.maxMana, hero.mana + gain);
+    triggerCardActionAnim(card.id, correct);
     popup('hero', `+${hero.mana - prevMp || gain} MP`, '#7ef0a2', { offsetX: -56, y: HERO_SPOT.y - 70, style: 'heal' });
     emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#7ef0a2', 12, 2);
     Sound.play('charge');
@@ -1615,6 +1641,7 @@ function resolveCard(id, correct) {
   if (card.kind === 'buff') {
     const bonus = correct ? card.defense : 1;
     battle.tempDefense += bonus;
+    triggerCardActionAnim(card.id, correct);
     emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#c9b6ff', 12, 2);
     Sound.play('block');
     return `${card.name}: +${bonus} defense for this battle.`;
@@ -1635,6 +1662,7 @@ function resolveCard(id, correct) {
     hero.tempAttack = (hero.tempAttack || 0) + atkSurge;
     battle.tempDefense += defSurge;
     battle.aegisAnimT = 56;
+    triggerCardActionAnim(card.id, true);
     if (battle.enemy && battle.enemy.hp > 0) {
       battle.enemy.hp = Math.max(0, battle.enemy.hp - shockDmg);
       battle.flash.enemy = Math.max(battle.flash.enemy, 10);
@@ -1665,6 +1693,7 @@ function resolveCard(id, correct) {
     const mpGain = Math.min(hero.maxMana - hero.mana, 20);
     hero.mana += mpGain;
     battle.stunAnimT = 50;
+    triggerCardActionAnim(card.id, true);
     battle.flash.enemy = 10;
     if (battle.enemy && battle.enemy.hp > 0) {
       battle.enemy.hp = Math.max(0, battle.enemy.hp - breachDmg);
@@ -1697,6 +1726,7 @@ function resolveCard(id, correct) {
     battle.enemyBurnTurns = 5;
     battle.enemyBurnDamage = 20 * rank;
     battle.burnAnimT = 52;
+    triggerCardActionAnim(card.id, true);
     if (battle.enemy && !battle.enemy.isMultiplayerPlayer) {
       battle.enemy.hp = Math.max(0, battle.enemy.hp - dmg);
       if (battle.enemy.hp <= 0) battle.enemyDefeatT = 0;
@@ -2303,6 +2333,7 @@ function startMultiplayerMatch(matchConfig, role, selfClientId) {
 
   Object.assign(battle, {
     enemy: foe, phase: 'intro', card: null, question: null, block: 0, popups: [], tempDefense: 0,
+    remedialDefenseBuff: false, cardAnim: null,
     defendCooldownTurns: 0, defendUsedThisTurn: false, defendEffectT: 0,
     enemyDefendEffectT: 0, enemyHealTintT: 0, enemyChargeT: 0,
     enemyProjectileT: -1, enemyProjectileCharged: false, enemyImpactRingT: 0, enemyPreviewCard: null,
