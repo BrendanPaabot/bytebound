@@ -1,3 +1,19 @@
+@font-face {
+  font-family: 'Home Video';
+  src: url('../assets/fonts/HomeVideo-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Home Video';
+  src: url('../assets/fonts/HomeVideo-Bold.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
 :root {
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
@@ -65,8 +81,9 @@
   --intent-copy: #9b5b39;
   --success-copy: #507049;
   --error-copy: #a94737;
-  --pixel: 'Silkscreen', monospace;
-  --body: 'Pixelify Sans', sans-serif;
+  --font-home-video: 'Home Video', monospace;
+  --pixel: var(--font-home-video);
+  --body: var(--font-home-video);
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -5393,6 +5410,108 @@ html.is-theme-transitioning *::after {
   border: 1px solid #8bc78e;
   color: #8bc78e;
   font: 700 8px/1 var(--pixel);
+}
+.run-save-status-pill {
+  padding: 3px 7px;
+  border: 1px solid #d4a64a;
+  background: rgba(212, 166, 74, 0.16);
+  color: #ffe08a;
+  font: 700 8px/1.1 var(--pixel);
+  text-transform: uppercase;
+}
+.run-save-status-pill.is-battle {
+  border-color: #e07a68;
+  background: rgba(224, 122, 104, 0.18);
+  color: #ffb8aa;
+}
+.run-save-status-pill.is-reward {
+  border-color: #f2bb61;
+  background: rgba(242, 187, 97, 0.2);
+  color: #ffe29e;
+}
+.run-save-status-pill.is-lost {
+  border-color: #d95d5d;
+  background: rgba(217, 93, 93, 0.2);
+  color: #ffb2b2;
+}
+.run-save-status-pill.is-victory {
+  border-color: #6ce392;
+  background: rgba(108, 227, 146, 0.18);
+  color: #b7f7cb;
+}
+:root:not([data-theme="dark"]) .run-save-status-pill {
+  background: #f8edd1;
+  color: #7d520c;
+}
+:root:not([data-theme="dark"]) .run-save-status-pill.is-battle {
+  border-color: #c85241;
+  background: #fdeae7;
+  color: #9b2919;
+}
+:root:not([data-theme="dark"]) .run-save-status-pill.is-reward {
+  border-color: #b87e1b;
+  background: #fcf1d4;
+  color: #7c4f08;
+}
+:root:not([data-theme="dark"]) .run-save-status-pill.is-lost {
+  border-color: #b83b3b;
+  background: #fde8e8;
+  color: #8f1d1d;
+}
+:root:not([data-theme="dark"]) .run-save-status-pill.is-victory {
+  border-color: #2f7d4b;
+  background: #e6f7ec;
+  color: #1f5c35;
+}
+.run-recovery-notice {
+  position: fixed;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(92vw, 620px);
+  padding: 10px 14px;
+  border: 2px solid var(--gold);
+  background: #1c2423;
+  color: #f2efe4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  font: 500 14px/1.35 var(--body);
+}
+.run-recovery-tag {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  background: var(--gold);
+  color: #1c2423;
+  font: 700 8px/1.2 var(--pixel);
+}
+.run-recovery-text {
+  flex: 1 1 auto;
+}
+.run-recovery-dismiss {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid #8a958d;
+  background: #2b3634;
+  color: #f2efe4;
+  font: 700 9px/1 var(--pixel);
+  cursor: pointer;
+}
+.run-recovery-dismiss:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+:root:not([data-theme="dark"]) .run-recovery-notice {
+  background: #fbf7eb;
+  color: #24292c;
+  box-shadow: 0 8px 20px rgba(36, 41, 44, 0.22);
+}
+:root:not([data-theme="dark"]) .run-recovery-dismiss {
+  border-color: #9b927c;
+  background: #efe8d5;
+  color: #24292c;
 }
 .run-save-role-pill {
   padding: 3px 7px;
@@ -12375,4 +12494,61 @@ body.reduce-motion .skill-map-start {
 
 body.reduce-motion .play-meter.is-def-buffed {
   box-shadow: none;
+}
+
+/* Text-only status labels should not paint their own background. */
+.battle-buff-pill,
+.remedial-badge,
+.ally-turn-pill,
+.enemy-follower-pill,
+.world-map-track-tag,
+.biome-node-boss-tag,
+.biome-node-meta,
+.biome-node-pill,
+.wmp-status-badge,
+.wmp-tag,
+.adaptive-reason-tag,
+.cap-rank-badge,
+.tracker-cap-badge,
+.review-due-badge,
+.achievement-cat-pill,
+.achievement-state,
+.podium-rank-pill,
+.podium-you-tag,
+.podium-score-label,
+.card-collection-state,
+.login-status.is-tag,
+.run-save-active-pill,
+.run-save-role-pill,
+.mp-turn-pill,
+.mp-conn-pill,
+.mp-status-badge,
+.mp-vis-badge,
+.mp-sr-label,
+.mp-room-meta,
+.mp-room-status,
+.mp-ready-pill,
+.tutorial-spotlight-badge,
+.tutorial-bubble-tag,
+.tutorial-compact-tag,
+.ui-hover-bubble-tag,
+.practice-done-badge,
+.practice-done-score {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+  color: inherit !important;
+  text-shadow: none;
+}
+
+.world-map-track-tag {
+  color: #eef5ee !important;
+  text-shadow: 0 1px 3px #10161a;
+}
+
+*, *::before, *::after {
+  font-family: var(--font-home-video) !important;
+  font-weight: 400 !important;
+  font-synthesis: none !important;
 }

@@ -168,12 +168,10 @@
     'game_world_map',
   ];
 
+  // Skipping exploration controls (game_core) only skips exploration itself—never pre-skip
+  // the first battle encounter tutorial (game_battle) or reward/level-up tutorials.
   const SKIPPABLE_CORE_GAME_SEQUENCE = [
     'game_core',
-    'game_battle',
-    'game_hud',
-    'game_card_reward',
-    'game_level_up',
   ];
 
   // --- Per-player storage helpers ---
@@ -2443,10 +2441,7 @@
       }
 
       if (typeof mode !== 'undefined' && mode === 'battle') {
-        if (state.activeId === 'game_core') {
-          return;
-        }
-        if (state.activeId === 'game_hud') {
+        if (state.activeId === 'game_core' || state.activeId === 'game_hud') {
           stopActiveTutorial({ restoreFocus: false });
         }
         if (!state.activeId && typeof battle !== 'undefined') {
@@ -2824,7 +2819,11 @@
       const step = currentStep();
       if (step && (step.id === 'core_approach_enemy' || step.id === 'core_attack')) {
         completeActiveTutorial('completed');
+      } else {
+        stopActiveTutorial({ restoreFocus: false });
       }
+    } else if (state.activeId === 'game_hud') {
+      stopActiveTutorial({ restoreFocus: false });
     }
   }
 
@@ -2941,6 +2940,10 @@
       }
     }
 
+    if (phase === 'choose' && !state.activeId && typeof mode !== 'undefined' && mode === 'battle' &&
+        (state.sequence?.pending?.has('game_battle') || !isTutorialFinished('game_battle'))) {
+      window.requestAnimationFrame(() => maybeTriggerContextualTutorial());
+    }
     window.setTimeout(() => maybeTriggerContextualTutorial(), 60);
   }
 

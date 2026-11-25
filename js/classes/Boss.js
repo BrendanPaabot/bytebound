@@ -101,7 +101,7 @@ function drawBossPlaceholder(ctx, cx, feetY, height) {
   ctx.lineWidth = 3;
   ctx.strokeRect(cx - width / 2, feetY - height, width, height);
   ctx.fillStyle = '#1d1a2a';
-  ctx.font = '14px "Press Start 2P", monospace';
+  ctx.font = window.ByteboundFont.canvas(14);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('BOSS', cx, feetY - height / 2);

@@ -811,20 +811,62 @@ const runDeck = [...STARTING_DECK];        // card ids in this run's deck; rewar
 const hero = {};
 const stats = {};
 const battle = {
-  enemy: null, enemyFollower: null, phase: 'choose', card: null, question: null, block: 0, tempDefense: 0,
+  enemy: null, enemyFollower: null, phase: 'choose', card: null, question: null, remedial: null, block: 0, tempDefense: 0,
   remedialDefenseBuff: false, cardAnim: null,
   defendCooldownTurns: 0, defendUsedThisTurn: false, defendEffectT: 0,
+  exclusiveCooldownTurns: 0, exclusiveUsedThisTurn: false, exclusiveAppearTick: 0,
+  enemyStunTurns: 0, enemyBurnTurns: 0, enemyBurnDamage: 0,
+  aegisAnimT: 0, stunAnimT: 0, burnAnimT: 0,
+  allyAttackT: 0, allyLungeT: 0, allyAttackTs: [0, 0, 0], allyLungeTs: [0, 0, 0], allyTurnIndex: 0,
+  allyTurnMessage: '', enemyFollowerMessage: '', necroCandidate: null,
+  enemyDefendEffectT: 0, enemyHealTintT: 0, enemyChargeT: 0,
+  enemyProjectileT: -1, enemyProjectileCharged: false, enemyImpactRingT: 0, enemyPreviewCard: null,
   heroHealFlashT: 0, heroHealTintT: 0,
   log: '', popups: [], hand: [], drawPile: [], discard: [], rewards: [], upgrades: [],
   fromReview: false, newUnlocks: [], pendingAttack: false,
+  feedbackCorrect: true, feedbackNotes: [],
+  outcomeFlags: { killRecorded: false, rewardClaimed: false, upgradeClaimed: false, necroResolved: false },
   lungeT: 0, heroAttackT: 0, bossAttackT: 0, driusAttackT: 0, enemyLungeT: 0, enemyLungeDistance: 0,
   chargeCard: false, chargeStartedAt: 0, chargeReady: false, chargeMaxT: 0, chargeSparks: [],
   projectileT: -1, projectileQueued: false, projectileCharged: false, projectileDamage: 0,
   hitT: 0, enemyInvertT: 0, cameraPushDistance: 0, cameraShakeT: 0, impactRingT: 0, enemyDefeatT: -1,
   heroHitT: 0, heroHitTintT: 0, heroKnockbackT: -1,
-  deathTimer: 0, enemyAttackedThisTurn: false,
+  deathTimer: 0, enemyAttackedThisTurn: false, lastAnswerCorrect: true,
   flash: { hero: 0, enemy: 0 },
 };
+
+function resetRuntimeBattleState() {
+  Object.assign(battle, {
+    enemy: null, enemyFollower: null, phase: 'choose', card: null, question: null, remedial: null,
+    block: 0, tempDefense: 0, remedialDefenseBuff: false, cardAnim: null,
+    defendCooldownTurns: 0, defendUsedThisTurn: false, defendEffectT: 0,
+    exclusiveCooldownTurns: 0, exclusiveUsedThisTurn: false, exclusiveAppearTick: 0,
+    enemyStunTurns: 0, enemyBurnTurns: 0, enemyBurnDamage: 0,
+    aegisAnimT: 0, stunAnimT: 0, burnAnimT: 0,
+    allyAttackT: 0, allyLungeT: 0, allyAttackTs: [0, 0, 0], allyLungeTs: [0, 0, 0], allyTurnIndex: 0,
+    allyTurnMessage: '', enemyFollowerMessage: '', necroCandidate: null,
+    enemyDefendEffectT: 0, enemyHealTintT: 0, enemyChargeT: 0,
+    enemyProjectileT: -1, enemyProjectileCharged: false, enemyImpactRingT: 0, enemyPreviewCard: null,
+    heroHealFlashT: 0, heroHealTintT: 0,
+    log: '', popups: [], hand: [], drawPile: [], discard: [], rewards: [], upgrades: [],
+    fromReview: false, newUnlocks: [], pendingAttack: false,
+    feedbackCorrect: true, feedbackNotes: [],
+    outcomeFlags: { killRecorded: false, rewardClaimed: false, upgradeClaimed: false, necroResolved: false },
+    lungeT: 0, heroAttackT: 0, bossAttackT: 0, driusAttackT: 0, enemyLungeT: 0, enemyLungeDistance: 0,
+    chargeCard: false, chargeStartedAt: 0, chargeReady: false, chargeMaxT: 0, chargeSparks: [],
+    projectileT: -1, projectileQueued: false, projectileCharged: false, projectileDamage: 0,
+    hitT: 0, enemyInvertT: 0, cameraPushDistance: 0, cameraShakeT: 0, impactRingT: 0, enemyDefeatT: -1,
+    heroHitT: 0, heroHitTintT: 0, heroKnockbackT: -1,
+    deathTimer: 0, enemyAttackedThisTurn: false, lastAnswerCorrect: true,
+    flash: { hero: 0, enemy: 0 },
+  });
+  if (typeof battleKingDeath !== 'undefined' && battleKingDeath) {
+    battleKingDeath.autoplay = false;
+    battleKingDeath.currentFrame = 0;
+    battleKingDeath.elapsedFrames = 0;
+  }
+  hideGameOverOverlay();
+}
 const panel = document.getElementById('panel');
 
 let multiplayerMatchActive = false;
@@ -885,6 +927,7 @@ function endMultiplayerMatchState() {
 
 function resetRun() {
   endMultiplayerMatchState();
+  resetRuntimeBattleState();
   Object.assign(hero, { hp: 100, maxHp: 100, mana: 100, maxMana: 100, attack: 12, defense: 2, empowerCost: 20, bonusHeal: 0, bonusMana: 0, runInvincible: false, necroAlly: null, necroAllies: [], tempAttack: 0 });
   for (const key of SKILL_TREE_KEYS) {
     for (const skill of SKILL_TREES[key].skills) {
@@ -1083,15 +1126,18 @@ function renderQuestion() {
 
 function renderFeedback(correct, notes) {
   const q = battle.question;
+  const safeNotes = Array.isArray(notes) ? [...notes] : [];
+  battle.feedbackCorrect = Boolean(correct);
+  battle.feedbackNotes = safeNotes;
   const attackPending = battle.pendingAttack;
   setPanel(`<div class="battle-feedback-row">
       <div class="battle-feedback-copy">
         <p><strong class="${correct ? 'ok' : 'bad'}">${correct ? 'Correct!' : 'Not quite.'}</strong> <b>Answer: ${esc(q.choices[q.answer])}.</b> ${esc(q.explain)}</p>
-        ${notes.length ? `<p class="log">${notes.map((n) => esc(n)).join(' ')}</p>` : ''}
+        ${safeNotes.length ? `<p class="log">${safeNotes.map((n) => esc(n)).join(' ')}</p>` : ''}
       </div>
       <button data-act="continue"${attackPending ? ' disabled' : ''}>${attackPending ? 'Resolving...' : 'Continue<span class="keyhint"> (Enter)</span>'}</button>
     </div>`);
-  window.ByteboundTutorial?.onBattlePhaseRendered?.('feedback', { correct, notes });
+  window.ByteboundTutorial?.onBattlePhaseRendered?.('feedback', { correct, notes: safeNotes });
 }
 
 function renderMenu() {
@@ -1144,23 +1190,33 @@ function renderLose() {
   go.hidden = false;
 }
 
-function renderUpgrades() {
-  battle.upgrades = [...UPGRADES].sort(() => Math.random() - 0.5).slice(0, 3);
+function renderUpgrades(presetUpgrades = null) {
+  if (Array.isArray(presetUpgrades) && presetUpgrades.length) {
+    battle.upgrades = presetUpgrades;
+  } else {
+    battle.upgrades = [...UPGRADES].sort(() => Math.random() - 0.5).slice(0, 3);
+  }
   battle.phase = 'upgrade';
   setPanel(`<div class="battle-bar-head"><span class="ok">Level up! Choose one upgrade (1–3):</span></div>
     <div class="choices card-pick">${battle.upgrades.map((u, i) => `<button data-act="upgrade" data-val="${i}">${i + 1}. ${u.name}<small>${u.text}</small></button>`).join('')}</div>`);
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
   window.ByteboundTutorial?.onBattlePhaseRendered?.('upgrade');
 }
 
-function renderCardReward() {
+function renderCardReward(presetRewards = null) {
   battle.phase = 'reward';
-  battle.rewards = rewardChoices(3, getAchievementMetrics());
+  if (Array.isArray(presetRewards) && presetRewards.length) {
+    battle.rewards = [...presetRewards];
+  } else {
+    battle.rewards = rewardChoices(3, getAchievementMetrics());
+  }
   const choices = battle.rewards.map((id, i) => {
     const card = CARD_LIBRARY[id];
     return `<button data-act="pickcard" data-val="${i}">${i + 1}. ${esc(card.name)}<small>${esc(cardCostLabel(card, hero))} · ${esc(describeCard(card, hero))}</small></button>`;
   }).join('');
   setPanel(`<div class="battle-bar-head"><span class="ok">Choose a card for your deck (1–${battle.rewards.length}):</span><span class="dim">Deck: ${runDeck.length} cards</span></div>
     <div class="choices card-pick">${choices}</div>`);
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
   window.ByteboundTutorial?.onBattlePhaseRendered?.('reward');
 }
 
@@ -1222,12 +1278,16 @@ function startBattle(enemy) {
     hitT: 0, enemyInvertT: 0, cameraPushDistance: 0, cameraShakeT: 0, impactRingT: 0, enemyDefeatT: -1,
     heroHitT: 0, heroHitTintT: 0, heroKnockbackT: -1,
     deathTimer: 0, enemyAttackedThisTurn: false, lastAnswerCorrect: true,
+    feedbackCorrect: true, feedbackNotes: [], allyTurnMessage: '', enemyFollowerMessage: '',
+    rewards: [], upgrades: [],
+    outcomeFlags: { killRecorded: false, rewardClaimed: false, upgradeClaimed: false, necroResolved: false },
     flash: { hero: 0, enemy: 0 }, fromReview: false, newUnlocks: [],
     log: enemy.nyrmed ? `${enemy.name} & follower Grenu block the way!` : enemy.isBoss ? `${enemy.name} blocks the way!` : `A wild ${enemy.name} appeared!`,
   });
   Sound.play(enemy.isBoss ? 'bossIntro' : 'encounter');
   Sound.music(enemy.isBoss ? 'boss' : 'battle');
   beginIntro();
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
   window.ByteboundTutorial?.onBattleStarted?.(enemy);
 }
 
@@ -1295,6 +1355,7 @@ function chooseCard(index) {
   }
   battle.phase = 'question';
   renderQuestion();
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
 }
 
 function answerQuestion(index) {
@@ -1355,6 +1416,7 @@ function answerQuestion(index) {
   }
   battle.phase = 'feedback';
   renderFeedback(correct, notes);
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
   if (typeof scheduleLeaderboardRunSync === 'function') {
     scheduleLeaderboardRunSync(400);
   }
@@ -1414,6 +1476,7 @@ function startRemedialChallenge() {
   };
   battle.phase = 'remedial';
   renderRemedialQuestion();
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
 }
 
 function renderRemedialQuestion() {
@@ -1468,6 +1531,7 @@ function answerRemedialQuestion(index) {
 
   if (rem.index < rem.questions.length) {
     renderRemedialQuestion();
+    if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
     return;
   }
 
@@ -1521,6 +1585,7 @@ function answerRemedialQuestion(index) {
   battle.enemyAttackedThisTurn = false;
   battle.phase = 'feedback';
   renderFeedback(correct, notes);
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
   if (typeof scheduleLeaderboardRunSync === 'function') {
     scheduleLeaderboardRunSync(400);
   }
@@ -1765,6 +1830,7 @@ function startHeroDeathSequence() {
   setPanel('<div class="battle-bar-head"><span class="bad">CRITICAL FAILURE — SYSTEM HP DEPLETED!</span></div>');
   Sound.music(null);
   Sound.play('lose');
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
   if (typeof submitLeaderboardRun === 'function') submitLeaderboardRun();
 }
 
@@ -1801,13 +1867,16 @@ function performAllyAttack() {
 
 function renderAllyTurn(allyIndex, msg) {
   const allies = getNecroAllies();
+  battle.allyTurnIndex = allyIndex;
+  battle.allyTurnMessage = msg || '';
   battle.phase = 'ally_turn';
   setPanel(`<div class="battle-feedback-row">
       <div class="battle-feedback-copy">
-        <p><span class="ally-turn-pill">ALLY ${allyIndex + 1} / ${allies.length} TURN</span> <strong>${esc(msg)}</strong></p>
+        <p><span class="ally-turn-pill">ALLY ${allyIndex + 1} / ${allies.length} TURN</span> <strong>${esc(battle.allyTurnMessage)}</strong></p>
       </div>
       <button data-act="ally-continue">${allyIndex + 1 < allies.length ? 'Next Ally' : 'Enemy Turn'}<span class="keyhint"> (Enter)</span></button>
     </div>`);
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
 }
 
 function performEnemyFollowerAttack() {
@@ -1844,13 +1913,15 @@ function performEnemyFollowerAttack() {
 }
 
 function renderEnemyFollowerTurn(msg) {
+  battle.enemyFollowerMessage = msg || '';
   battle.phase = 'enemy_follower_turn';
   setPanel(`<div class="battle-feedback-row">
       <div class="battle-feedback-copy">
-        <p><span class="enemy-follower-pill">EXTRA ENEMY TURN // GRENU</span> <strong>${esc(msg)}</strong></p>
+        <p><span class="enemy-follower-pill">EXTRA ENEMY TURN // GRENU</span> <strong>${esc(battle.enemyFollowerMessage)}</strong></p>
       </div>
       <button data-act="enemy-follower-continue">Your Turn<span class="keyhint"> (Enter)</span></button>
     </div>`);
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
 }
 
 function continueEnemyFollowerTurn() {
@@ -1873,6 +1944,7 @@ function finishChoosePhase() {
   battle.phase = 'choose';
   fillHand();
   renderBattle();
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
 }
 
 function finishTurnAfterAllies() {
@@ -2052,17 +2124,26 @@ function continueBattle() {
 
 function winBattle() {
   battle.phase = 'won';
-  battle.enemy.alive = false;
-  const before = unlockedCardIds(getAchievementMetrics());
-  stats.kills++;
-  stats.roomKills++;
-  recordAchievementProgress('kills', 1);
-  if (battle.enemy.isBoss) recordAchievementProgress('bosses', 1);
-  battle.newUnlocks = unlockedCardIds(getAchievementMetrics())
-    .filter((id) => !before.includes(id) && !CARD_LIBRARY[id].start);
-  Sound.play(battle.enemy.isBoss ? 'bossWin' : 'win');
-  if (typeof submitLeaderboardRun === 'function') submitLeaderboardRun();
-  if (!multiplayerMatchActive && hasNecromancyUnlocked() && battle.enemy) {
+  if (!battle.outcomeFlags) {
+    battle.outcomeFlags = { killRecorded: false, rewardClaimed: false, upgradeClaimed: false, necroResolved: false };
+  }
+  if (battle.enemy) battle.enemy.alive = false;
+  if (!battle.outcomeFlags.killRecorded) {
+    battle.outcomeFlags.killRecorded = true;
+    const before = unlockedCardIds(getAchievementMetrics());
+    stats.kills++;
+    stats.roomKills++;
+    if (typeof enemies !== 'undefined' && Array.isArray(enemies) && enemies.length && enemies.every((e) => !e.alive) && typeof clearedRooms !== 'undefined' && typeof level !== 'undefined') {
+      clearedRooms.add(level);
+    }
+    recordAchievementProgress('kills', 1);
+    if (battle.enemy?.isBoss) recordAchievementProgress('bosses', 1);
+    battle.newUnlocks = unlockedCardIds(getAchievementMetrics())
+      .filter((id) => !before.includes(id) && !CARD_LIBRARY[id].start);
+    Sound.play(battle.enemy?.isBoss ? 'bossWin' : 'win');
+    if (typeof submitLeaderboardRun === 'function') submitLeaderboardRun();
+  }
+  if (!multiplayerMatchActive && !battle.outcomeFlags.necroResolved && hasNecromancyUnlocked() && battle.enemy) {
     const allies = getNecroAllies();
     const maxAllies = getNecromancyMaxAllies();
     if (allies.length < maxAllies) {
@@ -2080,11 +2161,14 @@ function winBattle() {
       cand.manaCost = getNecromancyManaCost(cand);
       battle.necroCandidate = cand;
       renderNecromancyPrompt();
+      if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
       return;
     }
+    battle.outcomeFlags.necroResolved = true;
     battle.log = `Necromancy capacity full (${allies.length}/${maxAllies}) — upgrade Necromancy in Skill Tree to raise more allies.`;
   }
   renderWin();
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
 }
 
 function renderNecromancyPrompt() {
@@ -2121,37 +2205,62 @@ function renderNecromancyPrompt() {
 
 function afterWin() {
   if (battle.phase !== 'won') return;
+  if (battle.outcomeFlags?.rewardClaimed) {
+    afterReward();
+    return;
+  }
   renderCardReward();
 }
 
 function pickReward(index) {
   const id = battle.rewards[index];
   if (battle.phase !== 'reward' || !id) return;
+  if (battle.outcomeFlags?.rewardClaimed) {
+    afterReward();
+    return;
+  }
+  if (!battle.outcomeFlags) {
+    battle.outcomeFlags = { killRecorded: true, rewardClaimed: false, upgradeClaimed: false, necroResolved: true };
+  }
+  battle.outcomeFlags.rewardClaimed = true;
   window.ByteboundTutorial?.onRewardCardPicked?.(index, id);
   runDeck.push(id);
   stats.cardsTaken++;
+  battle.rewards = [];
   Sound.play('pick');
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
   afterReward();
 }
 
 function afterReward() {
-  if (stats.kills % 2 === 0) return renderUpgrades();
+  if (stats.kills > 0 && stats.kills % 2 === 0 && !battle.outcomeFlags?.upgradeClaimed) return renderUpgrades();
   exitBattle();
 }
 
 function applyUpgrade(i) {
   const up = battle.upgrades[i];
-  if (!up) return;
+  if (battle.phase !== 'upgrade' || !up) return;
+  if (battle.outcomeFlags?.upgradeClaimed) {
+    exitBattle();
+    return;
+  }
+  if (!battle.outcomeFlags) {
+    battle.outcomeFlags = { killRecorded: true, rewardClaimed: true, upgradeClaimed: false, necroResolved: true };
+  }
+  battle.outcomeFlags.upgradeClaimed = true;
   window.ByteboundTutorial?.onUpgradePicked?.(i, up);
   up.apply();
   stats.upgrades.push(up.name);
+  battle.upgrades = [];
   recordAchievementProgress('upgrades', 1);
+  if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
   exitBattle(`Upgrade gained: ${up.name}. ${up.text}.`);
 }
 
 function exitBattle(msg) {
   mode = 'explore';
   grace = 90;
+  resetRuntimeBattleState();
   renderExplore(msg);
   Sound.music('explore');
   if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
@@ -2161,12 +2270,8 @@ function exitBattle(msg) {
 
 function retryRoom() {
   hideGameOverOverlay();
-  if (typeof battleKingDeath !== 'undefined' && battleKingDeath) {
-    battleKingDeath.autoplay = false;
-    battleKingDeath.currentFrame = 0;
-    battleKingDeath.elapsedFrames = 0;
-  }
-  hero.hp = Math.round(hero.maxHp / 2);
+  resetRuntimeBattleState();
+  hero.hp = Math.max(1, Math.round(hero.maxHp / 2));
   gsap.killTweensOf(overlay);
   loadLevel(level);
   gsap.fromTo(overlay, { opacity: 1 }, { opacity: 0, duration: 0.5 });
@@ -2849,14 +2954,24 @@ if (gameOverOverlayEl) {
       } else {
         battle.necroCandidate = null;
       }
+      if (!battle.outcomeFlags) {
+        battle.outcomeFlags = { killRecorded: true, rewardClaimed: false, upgradeClaimed: false, necroResolved: false };
+      }
+      battle.outcomeFlags.necroResolved = true;
       hideGameOverOverlay();
       battle.phase = 'won';
       renderWin();
+      if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
     } else if (act === 'necro-no') {
       battle.necroCandidate = null;
+      if (!battle.outcomeFlags) {
+        battle.outcomeFlags = { killRecorded: true, rewardClaimed: false, upgradeClaimed: false, necroResolved: false };
+      }
+      battle.outcomeFlags.necroResolved = true;
       hideGameOverOverlay();
       battle.phase = 'won';
       renderWin();
+      if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
     } else if (act === 'hub') {
       hideGameOverOverlay();
       showDashboard();

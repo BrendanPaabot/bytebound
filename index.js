@@ -2749,7 +2749,10 @@ function loadLevel(n, options = {}) {
   mode = 'explore'
   renderExplore()
   Sound.music('explore')
-  saveCurrentRunSlot()
+  if (!options?.skipAutoSave) {
+    resetExploreCheckpointTracker()
+    saveCurrentRunSlot()
+  }
 }
 
 function newGame() {
@@ -2893,7 +2896,7 @@ function drawDoorBubble(door, roomLocked) {
   const bob = Math.sin(performance.now() / 220) * 2
 
   c.save()
-  c.font = 'bold 10px "Silkscreen", monospace'
+  c.font = window.ByteboundFont.canvas(10)
   const textW = Math.ceil(c.measureText(text).width)
   const boxW = textW + 18
   const boxH = 20
@@ -2995,7 +2998,7 @@ function drawExplorePlayerMeters(position) {
   c.strokeStyle = '#89958c'
   c.lineWidth = 1
   c.strokeRect(panelX - 0.5, panelY - 0.5, panelWidth + 1, panelHeight + 1)
-  c.font = '5px "Press Start 2P", monospace'
+  c.font = window.ByteboundFont.canvas(5)
   c.textBaseline = 'middle'
   values.forEach(({ label, value, max, color, y }) => {
     c.fillStyle = '#f2f0df'
@@ -3047,6 +3050,7 @@ function drawExplore() {
   player.draw()
   const playerDrawPosition = { x: player.position.x, y: player.position.y }
   player.update()
+  maybeCheckpointExplorePosition()
   if (mode === 'explore' && !player.preventInput && doors.length) {
     const bubbleDoors = new Set()
     const nearDoor = getDoorAtPlayer()
@@ -3183,6 +3187,7 @@ function drawIntro() {
     } else {
       battle.phase = 'choose'
       renderBattle()
+      saveCurrentRunSlot()
     }
   }
 }
@@ -3190,7 +3195,7 @@ function drawIntro() {
 function drawBanner(text, k) {
   if (k <= 0) return
   const ease = 1 - Math.pow(1 - Math.min(1, k), 3)
-  c.font = '16px "Press Start 2P", monospace'
+  c.font = window.ByteboundFont.canvas(16)
   const w = c.measureText(text).width + 48
   const x = canvas.width / 2 - w / 2 + (1 - ease) * 700
   c.fillStyle = '#f7e6c4'
@@ -3466,7 +3471,7 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
   const subText = options.subText || ''
 
   c.save()
-  c.font = '10px "Press Start 2P", monospace'
+  c.font = window.ByteboundFont.canvas(10)
   const hpLabel = `${hp}/${maxHp}`
   const deltaText = (st && st.flashTimer > 0 && st.lastDelta !== 0)
     ? `${st.lastDelta > 0 ? '+' : ''}${st.lastDelta}`
@@ -3479,7 +3484,7 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
     (defBuffActive ? 44 : 0) +
     46
   )
-  c.font = '8px "Press Start 2P", monospace'
+  c.font = window.ByteboundFont.canvas(8)
   const subWidth = subText ? Math.ceil(c.measureText(subText).width + 28) : 0
   const w = Math.max(228, headerWidth, subWidth)
   const h = hasMana ? (subText ? 76 : 64) : (subText ? 62 : 50)
@@ -3524,7 +3529,7 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
   c.fillRect(x + w - 4, y + h - 4, 4, 4)
 
   // 3. Name & Authoritative HP reading + DEF pill + delta pill
-  c.font = '10px "Press Start 2P", monospace'
+  c.font = window.ByteboundFont.canvas(10)
   c.textBaseline = 'middle'
   c.textAlign = 'left'
   c.fillStyle = nameColor
@@ -3536,7 +3541,7 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
 
   let rightAccessoryX = x + w - 14 - c.measureText(hpLabel).width
   if (defBuffActive) {
-    c.font = '7px "Press Start 2P", monospace'
+    c.font = window.ByteboundFont.canvas(7)
     const defW = 34
     const dx = Math.round(rightAccessoryX - defW)
     const dy = y + 7
@@ -3555,7 +3560,7 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
 
   if (deltaText && st) {
     const isHealDelta = st.lastDelta > 0
-    c.font = '8px "Press Start 2P", monospace'
+    c.font = window.ByteboundFont.canvas(8)
     const dw = Math.ceil(c.measureText(deltaText).width + 8)
     const dx = Math.round(rightAccessoryX - dw)
     const dy = y + 7
@@ -3656,7 +3661,7 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
   // 5. Mana sub-bar (if unit has mana)
   let nextRowY = barY + barH + 8
   if (hasMana) {
-    c.font = '8px "Press Start 2P", monospace'
+    c.font = window.ByteboundFont.canvas(8)
     c.textAlign = 'left'
     c.fillStyle = '#8be0f0'
     c.fillText('MP', barX, nextRowY)
@@ -3685,7 +3690,7 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
 
   // 6. Optional combat stats / enemy intent sub-strip
   if (subText) {
-    c.font = '8px "Press Start 2P", monospace'
+    c.font = window.ByteboundFont.canvas(8)
     c.textAlign = 'left'
     c.fillStyle = isHeavyIntent ? '#ff9659' : (isHero ? '#cad8ce' : '#dfc6d0')
     c.fillText(subText, barX, nextRowY)
@@ -3753,7 +3758,7 @@ function drawChargeMeter(cx, progress) {
   if (ready) {
     c.globalAlpha = 0.58 + 0.42 * Math.abs(Math.sin(arenaT * 0.28))
     c.fillStyle = '#fff3c4'
-    c.font = '8px "Press Start 2P", monospace'
+    c.font = window.ByteboundFont.canvas(8)
     c.textAlign = 'center'
     c.fillText('MAX', cx, y + 22)
   }
@@ -3786,7 +3791,7 @@ function drawDefendEffect(cx, heroTop, options = {}) {
   c.scale(textScale, textScale)
   c.textAlign = 'center'
   c.textBaseline = 'middle'
-  c.font = '9px "Press Start 2P", monospace'
+  c.font = window.ByteboundFont.canvas(9)
   c.lineWidth = 4
   c.strokeStyle = '#131c24'
   c.strokeText(labelText, 0, 0)
@@ -4404,7 +4409,7 @@ function drawCombatants(heroX, foeX, shake) {
       }
       c.restore()
       c.save()
-      c.font = '8px "Press Start 2P", monospace'
+      c.font = window.ByteboundFont.canvas(8)
       c.textAlign = 'center'
       c.fillStyle = '#e0aaff'
       c.fillText(`ALLY ${idx + 1}: ${String(ally.name || 'UNDEAD').toUpperCase()}`, ax, ay - (ally.isBoss ? 148 : 96))
@@ -4476,7 +4481,7 @@ function drawCombatants(heroX, foeX, shake) {
       })
       c.restore()
       c.save()
-      c.font = '8px "Press Start 2P", monospace'
+      c.font = window.ByteboundFont.canvas(8)
       c.textAlign = 'center'
       c.fillStyle = '#ffc299'
       c.fillText('ALLY: GRENU', gx, gy - 118)
@@ -4625,7 +4630,7 @@ function drawCombatants(heroX, foeX, shake) {
         if ((b.enemyBurnTurns || 0) > 0) pills.push({ text: `BURNING ${b.enemyBurnTurns}t`, color: '#ff9659', bg: '#2f140d' })
         let pillY = fy - foeHeight - (foe.mana !== undefined ? 86 : 70)
         c.save()
-        c.font = '9px "Press Start 2P", monospace'
+        c.font = window.ByteboundFont.canvas(9)
         c.textAlign = 'center'
         c.textBaseline = 'middle'
         for (const pill of pills) {
@@ -4660,12 +4665,12 @@ function drawPopups() {
     c.fillStyle = p.color
     if (p.style === 'heal') {
       const popScale = isReducedMotion ? 1 : (1 + 0.24 * Math.max(0, 1 - progress * 6))
-      c.font = `${Math.round(13 * popScale)}px "Press Start 2P", monospace`
+      c.font = window.ByteboundFont.canvas(Math.round(13 * popScale))
       c.lineWidth = 3
       c.strokeStyle = '#174d3b'
       c.strokeText(p.text, p.x, p.y)
     } else {
-      c.font = '18px "Press Start 2P", monospace'
+      c.font = window.ByteboundFont.canvas(18)
     }
     c.fillText(p.text, p.x, p.y)
   })
@@ -4718,7 +4723,7 @@ function drawBattle() {
       ? `> YOUR TURN  //  TURN ${mpState.round + 1}`
       : `WAIT: ${String(mpState.opponentName || 'OPPONENT').toUpperCase()}'S TURN  //  TURN ${mpState.round + 1}`
     c.save()
-    c.font = '10px "Press Start 2P", monospace'
+    c.font = window.ByteboundFont.canvas(10)
     const tw = Math.max(280, c.measureText(turnLabel).width + 32)
     const tx = Math.round((canvas.width - tw) / 2)
     const ty = 14
@@ -4807,36 +4812,118 @@ function startGame() {
 }
 
 const RUN_SAVES_STORAGE_KEY = 'bytebound-run-saves-v1'
+const RUN_SAVE_SCHEMA_VERSION = 2
 let activeRunSaveId = null
 let activeRunName = ''
 let activeRunRoleFocus = ''
+let runSaveSuspendCount = 0
+let lastExploreSaveCheckpoint = { runId: null, level: 0, x: NaN, y: NaN, at: 0 }
+let runRecoveryNoticeTimer = 0
 
-function getRunSavesStorageKey(profileId = activePlayerName.toLowerCase()) {
-  return `${RUN_SAVES_STORAGE_KEY}:${encodeURIComponent(profileId)}`
+function getRunProfileId(profileId) {
+  if (typeof profileId === 'string' && profileId.trim()) return getUsernameKey(profileId)
+  return getUsernameKey(activePlayerName)
 }
 
-function loadRunSaves(profileId = activePlayerName.toLowerCase()) {
-  if (!profileId) return { activeId: null, saves: [] }
+function getRunSavesStorageKey(profileId = activePlayerName) {
+  return `${RUN_SAVES_STORAGE_KEY}:${encodeURIComponent(getRunProfileId(profileId))}`
+}
+
+function loadRunSaves(profileId = activePlayerName) {
+  const key = getRunProfileId(profileId)
+  if (!key) return { activeId: null, saves: [] }
   try {
-    const raw = localStorage.getItem(getRunSavesStorageKey(profileId))
+    const raw = localStorage.getItem(getRunSavesStorageKey(key))
     if (!raw) return { activeId: null, saves: [] }
     const parsed = JSON.parse(raw)
-    return {
-      activeId: typeof parsed?.activeId === 'string' ? parsed.activeId : null,
-      saves: Array.isArray(parsed?.saves) ? parsed.saves : [],
-    }
+    const rawSaves = Array.isArray(parsed?.saves) ? parsed.saves : []
+    const validSaves = rawSaves.filter((s) => s && typeof s === 'object' && typeof s.id === 'string' && s.id.trim())
+    const activeId = typeof parsed?.activeId === 'string' && validSaves.some((s) => s.id === parsed.activeId)
+      ? parsed.activeId
+      : null
+    return { activeId, saves: validSaves }
   } catch {
     return { activeId: null, saves: [] }
   }
 }
 
-function writeRunSaves(data, profileId = activePlayerName.toLowerCase()) {
-  if (!profileId) return
+function writeRunSaves(data, profileId = activePlayerName) {
+  const key = getRunProfileId(profileId)
+  if (!key || !data || !Array.isArray(data.saves)) return
   try {
-    localStorage.setItem(getRunSavesStorageKey(profileId), JSON.stringify(data))
+    const sanitized = {
+      version: RUN_SAVE_SCHEMA_VERSION,
+      activeId: typeof data.activeId === 'string' ? data.activeId : null,
+      saves: data.saves.filter((s) => s && typeof s === 'object' && typeof s.id === 'string' && s.id.trim()),
+    }
+    localStorage.setItem(getRunSavesStorageKey(key), JSON.stringify(sanitized))
   } catch (error) {
     console.error('Unable to save run slots.', error)
   }
+}
+
+function resetExploreCheckpointTracker() {
+  lastExploreSaveCheckpoint = {
+    runId: activeRunSaveId,
+    level,
+    x: Number.isFinite(player?.position?.x) ? player.position.x : NaN,
+    y: Number.isFinite(player?.position?.y) ? player.position.y : NaN,
+    at: performance.now(),
+  }
+}
+
+function maybeCheckpointExplorePosition() {
+  if (
+    !activePlayerName ||
+    !activeRunSaveId ||
+    practiceRunActive ||
+    multiplayerMatchActive ||
+    runSaveSuspendCount > 0 ||
+    mode !== 'explore' ||
+    !playViewActive ||
+    player?.preventInput
+  ) {
+    return
+  }
+  const px = player?.position?.x
+  const py = player?.position?.y
+  if (!Number.isFinite(px) || !Number.isFinite(py)) return
+  // Save only when grounded so we never persist mid-air positions over pits or ceilings
+  const grounded = Math.abs(player?.velocity?.y || 0) < 0.05
+  if (!grounded) return
+  const now = performance.now()
+  const sameContext = lastExploreSaveCheckpoint.runId === activeRunSaveId && lastExploreSaveCheckpoint.level === level
+  const dx = sameContext && Number.isFinite(lastExploreSaveCheckpoint.x) ? Math.abs(px - lastExploreSaveCheckpoint.x) : Infinity
+  const dy = sameContext && Number.isFinite(lastExploreSaveCheckpoint.y) ? Math.abs(py - lastExploreSaveCheckpoint.y) : Infinity
+  const dist = Math.hypot(dx, dy)
+  const stopped = Math.abs(player?.velocity?.x || 0) < 0.05
+  const elapsed = now - (lastExploreSaveCheckpoint.at || 0)
+  if ((dist >= 44 && elapsed >= 900) || (stopped && dist >= 16 && elapsed >= 350)) {
+    saveCurrentRunSlot()
+  }
+}
+
+function hideRunRecoveryNotice() {
+  window.clearTimeout(runRecoveryNoticeTimer)
+  runRecoveryNoticeTimer = 0
+  const el = document.getElementById('runRecoveryNotice')
+  if (el) el.remove()
+}
+
+function showRunRecoveryNotice(message) {
+  if (!message) return
+  hideRunRecoveryNotice()
+  const host = document.querySelector('#app .play-stage') || document.getElementById('app') || document.body
+  if (!host) return
+  const el = document.createElement('div')
+  el.id = 'runRecoveryNotice'
+  el.className = 'run-recovery-notice'
+  el.setAttribute('role', 'status')
+  el.setAttribute('aria-live', 'polite')
+  el.innerHTML = `<span class="run-recovery-tag">SAVE RECOVERED</span><span class="run-recovery-text">${esc(message)}</span><button type="button" class="run-recovery-dismiss" aria-label="Dismiss recovery notice">OK</button>`
+  el.querySelector('.run-recovery-dismiss')?.addEventListener('click', hideRunRecoveryNotice)
+  host.appendChild(el)
+  runRecoveryNoticeTimer = window.setTimeout(hideRunRecoveryNotice, 7500)
 }
 
 function getRunRoleSummary(save) {
@@ -4865,22 +4952,207 @@ function countRunSkillRanks(save) {
   return total
 }
 
-function snapshotCurrentRunSave() {
+function serializeQuestionSnapshot(q) {
+  if (!q || typeof q !== 'object' || typeof q.q !== 'string' || !Array.isArray(q.choices) || !q.choices.length) {
+    return null
+  }
+  const answer = Number.isInteger(q.answer) ? q.answer : -1
+  if (answer < 0 || answer >= q.choices.length) return null
   return {
+    q: q.q,
+    choices: q.choices.map((c) => String(c)),
+    answer,
+    explain: typeof q.explain === 'string' ? q.explain : '',
+    category: typeof q.category === 'string' ? q.category : 'Computer Systems',
+    topic: typeof q.topic === 'string' ? q.topic : 'General',
+    difficulty: typeof q.difficulty === 'string' ? q.difficulty : 'easy',
+    ...(typeof q.remedialSource === 'string' ? { remedialSource: q.remedialSource } : {}),
+  }
+}
+
+function serializePlayerExploreState() {
+  const x = Number.isFinite(player?.position?.x) ? Math.round(player.position.x * 100) / 100 : null
+  const y = Number.isFinite(player?.position?.y) ? Math.round(player.position.y * 100) / 100 : null
+  return {
+    x,
+    y,
+    facing: player?.lastDirection === 'left' ? 'left' : 'right',
+    cameraX: Number.isFinite(exploreCamera?.x) ? Math.round(exploreCamera.x * 100) / 100 : 0,
+    cameraY: Number.isFinite(exploreCamera?.y) ? Math.round(exploreCamera.y * 100) / 100 : 0,
+  }
+}
+
+function serializeRunEnemies() {
+  if (!Array.isArray(enemies)) return []
+  return enemies.map((e, index) => ({
+    index,
+    alive: Boolean(e?.alive),
+    x: Number.isFinite(e?.x) ? Math.round(e.x * 100) / 100 : 0,
+    y: Number.isFinite(e?.y) ? Math.round(e.y * 100) / 100 : 0,
+    vx: Number.isFinite(e?.vx) ? Math.round(e.vx * 1000) / 1000 : 0,
+    dir: e?.dir === -1 ? -1 : 1,
+    hp: Number.isFinite(e?.hp) ? Math.max(0, Math.round(e.hp)) : 0,
+    maxHp: Number.isFinite(e?.maxHp) ? Math.max(1, Math.round(e.maxHp)) : 1,
+    turns: Number.isInteger(e?.turns) && e.turns >= 0 ? e.turns : 0,
+  }))
+}
+
+function serializeBattleState() {
+  if (mode !== 'battle' && mode !== 'intro') return null
+  if (!battle || !battle.enemy || battle.enemy.isMultiplayerPlayer) return null
+  const enemyIndex = Array.isArray(enemies) ? enemies.indexOf(battle.enemy) : -1
+  let safePhase = String(battle.phase || 'choose')
+  if (mode === 'intro' || safePhase === 'intro') safePhase = 'choose'
+  else if (safePhase === 'dying') safePhase = 'lost'
+
+  const validPhases = new Set([
+    'choose', 'question', 'feedback', 'remedial',
+    'ally_turn', 'enemy_follower_turn', 'necro_prompt',
+    'won', 'reward', 'upgrade', 'lost',
+  ])
+  if (!validPhases.has(safePhase)) safePhase = 'choose'
+
+  const enemySnap = {
+    name: String(battle.enemy.name || 'Virus'),
+    hp: Math.max(0, Math.round(Number(battle.enemy.hp) || 0)),
+    maxHp: Math.max(1, Math.round(Number(battle.enemy.maxHp) || 1)),
+    attack: Math.max(1, Math.round(Number(battle.enemy.attack) || 10)),
+    heavyEvery: Math.max(1, Math.round(Number(battle.enemy.heavyEvery) || 3)),
+    turns: Math.max(0, Math.round(Number(battle.enemy.turns) || 0)),
+    alive: Boolean(battle.enemy.alive),
+    isBoss: Boolean(battle.enemy.isBoss),
+    isFinal: Boolean(battle.enemy.isFinal),
+    kor: Boolean(battle.enemy.kor),
+    brute: Boolean(battle.enemy.brute),
+    nyrmed: Boolean(battle.enemy.nyrmed),
+    grenu: Boolean(battle.enemy.grenu),
+  }
+
+  const followerSnap = battle.enemyFollower && typeof battle.enemyFollower === 'object'
+    ? {
+        name: String(battle.enemyFollower.name || 'Grenu'),
+        grenu: Boolean(battle.enemyFollower.grenu),
+        hp: Math.max(0, Math.round(Number(battle.enemyFollower.hp) || 0)),
+        maxHp: Math.max(1, Math.round(Number(battle.enemyFollower.maxHp) || 1)),
+        attack: Math.max(1, Math.round(Number(battle.enemyFollower.attack) || 9)),
+      }
+    : null
+
+  const remedialSnap = safePhase === 'remedial' && battle.remedial && Array.isArray(battle.remedial.questions)
+    ? {
+        questions: battle.remedial.questions.map(serializeQuestionSnapshot).filter(Boolean),
+        index: Math.max(0, Math.round(Number(battle.remedial.index) || 0)),
+        results: Array.isArray(battle.remedial.results) ? battle.remedial.results.map(Boolean) : [],
+        correctCount: Math.max(0, Math.round(Number(battle.remedial.correctCount) || 0)),
+      }
+    : null
+
+  const outcomeFlags = {
+    killRecorded: Boolean(battle.outcomeFlags?.killRecorded || ['necro_prompt', 'won', 'reward', 'upgrade'].includes(safePhase)),
+    rewardClaimed: Boolean(battle.outcomeFlags?.rewardClaimed || safePhase === 'upgrade'),
+    upgradeClaimed: Boolean(battle.outcomeFlags?.upgradeClaimed),
+    necroResolved: Boolean(battle.outcomeFlags?.necroResolved || ['won', 'reward', 'upgrade'].includes(safePhase)),
+  }
+
+  return {
+    enemyIndex,
+    enemy: enemySnap,
+    enemyFollower: followerSnap,
+    phase: safePhase,
+    card: typeof battle.card === 'string' && CARD_LIBRARY[battle.card] ? battle.card : null,
+    question: serializeQuestionSnapshot(battle.question),
+    fromReview: Boolean(battle.fromReview),
+    feedbackCorrect: Boolean(battle.feedbackCorrect),
+    feedbackNotes: Array.isArray(battle.feedbackNotes) ? battle.feedbackNotes.map((n) => String(n)) : [],
+    remedial: remedialSnap,
+    allyTurnIndex: Math.max(0, Math.round(Number(battle.allyTurnIndex) || 0)),
+    allyTurnMessage: typeof battle.allyTurnMessage === 'string' ? battle.allyTurnMessage : '',
+    enemyFollowerMessage: typeof battle.enemyFollowerMessage === 'string' ? battle.enemyFollowerMessage : '',
+    block: Number.isFinite(battle.block) ? Math.max(0, Math.min(1, battle.block)) : 0,
+    tempDefense: Math.max(0, Math.round(Number(battle.tempDefense) || 0)),
+    remedialDefenseBuff: Boolean(battle.remedialDefenseBuff),
+    defendCooldownTurns: Math.max(0, Math.round(Number(battle.defendCooldownTurns) || 0)),
+    defendUsedThisTurn: Boolean(battle.defendUsedThisTurn),
+    exclusiveCooldownTurns: Math.max(0, Math.round(Number(battle.exclusiveCooldownTurns) || 0)),
+    exclusiveUsedThisTurn: Boolean(battle.exclusiveUsedThisTurn),
+    exclusiveAppearTick: Math.max(0, Math.round(Number(battle.exclusiveAppearTick) || 0)),
+    enemyStunTurns: Math.max(0, Math.round(Number(battle.enemyStunTurns) || 0)),
+    enemyBurnTurns: Math.max(0, Math.round(Number(battle.enemyBurnTurns) || 0)),
+    enemyBurnDamage: Math.max(0, Math.round(Number(battle.enemyBurnDamage) || 0)),
+    enemyAttackedThisTurn: Boolean(battle.enemyAttackedThisTurn),
+    lastAnswerCorrect: battle.lastAnswerCorrect !== false,
+    log: typeof battle.log === 'string' ? battle.log : '',
+    hand: Array.isArray(battle.hand) ? battle.hand.filter((id) => Boolean(CARD_LIBRARY[id])) : [],
+    drawPile: Array.isArray(battle.drawPile) ? battle.drawPile.filter((id) => Boolean(CARD_LIBRARY[id])) : [],
+    discard: Array.isArray(battle.discard) ? battle.discard.filter((id) => Boolean(CARD_LIBRARY[id])) : [],
+    rewards: Array.isArray(battle.rewards) ? battle.rewards.filter((id) => Boolean(CARD_LIBRARY[id])) : [],
+    upgradeNames: Array.isArray(battle.upgrades)
+      ? battle.upgrades.map((u) => (typeof u === 'string' ? u : u?.name)).filter(Boolean)
+      : [],
+    newUnlocks: Array.isArray(battle.newUnlocks) ? battle.newUnlocks.filter((id) => Boolean(CARD_LIBRARY[id])) : [],
+    necroCandidate: battle.necroCandidate && typeof battle.necroCandidate === 'object'
+      ? clonePracticeData(battle.necroCandidate)
+      : null,
+    outcomeFlags,
+  }
+}
+
+function serializeHeroSnapshot() {
+  const allies = Array.isArray(hero.necroAllies)
+    ? hero.necroAllies.filter((a) => a && typeof a === 'object').map((a) => clonePracticeData(a))
+    : (hero.necroAlly && typeof hero.necroAlly === 'object' ? [clonePracticeData(hero.necroAlly)] : [])
+  return {
+    hp: Math.max(0, Math.round(Number(hero.hp) || 0)),
+    maxHp: Math.max(1, Math.round(Number(hero.maxHp) || 100)),
+    mana: Math.max(0, Math.round(Number(hero.mana) || 0)),
+    maxMana: Math.max(1, Math.round(Number(hero.maxMana) || 100)),
+    attack: Math.max(1, Math.round(Number(hero.attack) || 12)),
+    defense: Math.max(0, Math.round(Number(hero.defense) || 2)),
+    empowerCost: Math.max(0, Math.round(Number(hero.empowerCost) || 20)),
+    bonusHeal: Math.max(0, Math.round(Number(hero.bonusHeal) || 0)),
+    bonusMana: Math.max(0, Math.round(Number(hero.bonusMana) || 0)),
+    runInvincible: Boolean(hero.runInvincible),
+    tempAttack: Math.max(0, Math.round(Number(hero.tempAttack) || 0)),
+    necroAllies: allies,
+    necroAlly: allies[0] || null,
+  }
+}
+
+function snapshotCurrentRunSave() {
+  const battleSnap = serializeBattleState()
+  const savedMode = mode === 'end'
+    ? 'end'
+    : (battleSnap ? 'battle' : 'explore')
+  return {
+    version: RUN_SAVE_SCHEMA_VERSION,
     id: activeRunSaveId,
     name: activeRunName || 'Run',
     roleFocus: activeRunRoleFocus || '',
     updatedAt: new Date().toISOString(),
     level,
     roomName: currentRoom?.name || `Room ${level}`,
-    mode,
-    hero: clonePracticeData(hero),
-    stats: clonePracticeData(stats),
-    runDeck: [...runDeck],
+    arenaTheme: currentRoom?.arenaTheme || 'datacenter',
+    mode: savedMode,
+    clearedRooms: [...clearedRooms].filter((r) => Number.isInteger(r) && r >= 1),
+    visitedRooms: [...visitedRooms].filter((r) => Number.isInteger(r) && r >= 1),
+    playerState: serializePlayerExploreState(),
+    enemies: serializeRunEnemies(),
+    battle: battleSnap,
+    hero: serializeHeroSnapshot(),
+    stats: {
+      kills: Math.max(0, Math.round(Number(stats.kills) || 0)),
+      correct: Math.max(0, Math.round(Number(stats.correct) || 0)),
+      total: Math.max(0, Math.round(Number(stats.total) || 0)),
+      streak: Math.max(0, Math.round(Number(stats.streak) || 0)),
+      roomKills: Math.max(0, Math.round(Number(stats.roomKills) || 0)),
+      upgrades: Array.isArray(stats.upgrades) ? stats.upgrades.map((u) => String(u)) : [],
+      cardsTaken: Math.max(0, Math.round(Number(stats.cardsTaken) || 0)),
+    },
+    runDeck: runDeck.filter((id) => Boolean(CARD_LIBRARY[id])),
     adaptive: {
-      level: adaptive.level,
-      mediumStreak: adaptive.mediumStreak,
-      focusCategory: adaptive.focusCategory,
+      level: Number.isInteger(adaptive.level) ? Math.max(0, Math.min(2, adaptive.level)) : 0,
+      mediumStreak: Number.isInteger(adaptive.mediumStreak) ? Math.max(0, adaptive.mediumStreak) : 0,
+      focusCategory: typeof adaptive.focusCategory === 'string' ? adaptive.focusCategory : null,
       categoryState: clonePracticeData(adaptive.categoryState),
     },
     skillProgress: clonePracticeData(skillProgress),
@@ -4891,10 +5163,11 @@ function snapshotCurrentRunSave() {
 }
 
 function saveCurrentRunSlot() {
-  if (!activePlayerName || practiceRunActive || multiplayerMatchActive || !activeRunSaveId) return
+  if (!activePlayerName || practiceRunActive || multiplayerMatchActive || !activeRunSaveId || runSaveSuspendCount > 0) return
+  const profileId = getRunProfileId()
+  if (!profileId) return
   if (mode === 'menu') {
-    // When on the menu/hub (e.g. upgrading skills before resuming), only update the skill tree fields on the existing slot without overwriting its saved level/hero/stats!
-    const profileId = activePlayerName.toLowerCase()
+    // On the hub/menu (e.g. upgrading skills before resuming), update ONLY skill fields without overwriting saved room/position/battle!
     const store = loadRunSaves(profileId)
     const idx = store.saves.findIndex((s) => s && s.id === activeRunSaveId)
     if (idx >= 0) {
@@ -4907,7 +5180,6 @@ function saveCurrentRunSlot() {
     }
     return
   }
-  const profileId = activePlayerName.toLowerCase()
   const store = loadRunSaves(profileId)
   const snap = snapshotCurrentRunSave()
   const idx = store.saves.findIndex((s) => s && s.id === activeRunSaveId)
@@ -4915,6 +5187,208 @@ function saveCurrentRunSlot() {
   else store.saves.unshift(snap)
   store.activeId = activeRunSaveId
   writeRunSaves(store, profileId)
+  resetExploreCheckpointTracker()
+}
+
+function isSafeExplorePosition(x, y, cfg) {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return false
+  const worldScale = cfg?.worldScale || 1
+  const worldWidth = Math.round(canvas.width * worldScale)
+  const worldHeight = Math.round(canvas.height * worldScale)
+  const prevX = player.position.x
+  const prevY = player.position.y
+  player.position.x = x
+  player.position.y = y
+  if (typeof player.updateHitbox === 'function') player.updateHitbox()
+  const h = player.hitbox
+  let safe = true
+  if (!h) {
+    safe = x >= -64 && x <= worldWidth + 64 && y >= -64 && y <= worldHeight + 64
+  } else {
+    const outOfBounds =
+      h.position.x < -8 ||
+      h.position.x + h.width > worldWidth + 8 ||
+      h.position.y < -8 ||
+      h.position.y + h.height > worldHeight + 8
+    if (outOfBounds) {
+      safe = false
+    } else if (Array.isArray(collisionBlocks)) {
+      for (const block of collisionBlocks) {
+        if (!block || block.type === 'oneway' || block.type === 'slope') continue
+        const overlapX = h.position.x + 2 < block.position.x + block.width && h.position.x + h.width - 2 > block.position.x
+        const overlapY = h.position.y + 2 < block.position.y + block.height && h.position.y + h.height - 2 > block.position.y
+        if (overlapX && overlapY) {
+          safe = false
+          break
+        }
+      }
+    }
+  }
+  player.position.x = prevX
+  player.position.y = prevY
+  if (typeof player.updateHitbox === 'function') player.updateHitbox()
+  return safe
+}
+
+function validateAndNormalizeRunSave(rawSave) {
+  const notices = []
+  let recovered = false
+  if (!rawSave || typeof rawSave !== 'object') {
+    return {
+      save: null,
+      recovered: true,
+      notices: ['Saved run data was unreadable; started from a safe checkpoint.'],
+    }
+  }
+
+  const maxLevel = RUN_LENGTH > 0 ? RUN_LENGTH : 999
+  const rawLevel = Number(rawSave.level)
+  let safeLevel = Number.isInteger(rawLevel) && rawLevel >= 1 && rawLevel <= maxLevel ? rawLevel : 1
+  if (rawLevel !== safeLevel) {
+    recovered = true
+    notices.push('Invalid room number was reset to Room 01.')
+  }
+
+  const rawMode = typeof rawSave.mode === 'string' ? rawSave.mode : 'explore'
+  let safeMode = rawMode === 'intro' ? 'battle' : rawMode
+  if (!['explore', 'battle', 'end'].includes(safeMode)) {
+    safeMode = 'explore'
+    recovered = true
+    notices.push('Unrecognized run phase recovered to room exploration.')
+  }
+
+  const cleared = Array.isArray(rawSave.clearedRooms)
+    ? [...new Set(rawSave.clearedRooms.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n >= 1 && n <= maxLevel))]
+    : []
+  const visited = Array.isArray(rawSave.visitedRooms)
+    ? [...new Set(rawSave.visitedRooms.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n >= 1 && n <= ROOM_COUNT))]
+    : []
+
+  const rawHero = rawSave.hero && typeof rawSave.hero === 'object' ? rawSave.hero : null
+  let safeHero = null
+  if (rawHero) {
+    const maxHp = Number.isFinite(Number(rawHero.maxHp)) && Number(rawHero.maxHp) >= 10 ? Math.round(Number(rawHero.maxHp)) : 100
+    const maxMana = Number.isFinite(Number(rawHero.maxMana)) && Number(rawHero.maxMana) >= 10 ? Math.round(Number(rawHero.maxMana)) : 100
+    const hpRaw = Number.isFinite(Number(rawHero.hp)) ? Math.round(Number(rawHero.hp)) : maxHp
+    const manaRaw = Number.isFinite(Number(rawHero.mana)) ? Math.round(Number(rawHero.mana)) : maxMana
+    const allies = Array.isArray(rawHero.necroAllies)
+      ? rawHero.necroAllies.filter((a) => a && typeof a === 'object' && typeof a.name === 'string').map((a) => clonePracticeData(a))
+      : (rawHero.necroAlly && typeof rawHero.necroAlly === 'object' && typeof rawHero.necroAlly.name === 'string'
+        ? [clonePracticeData(rawHero.necroAlly)]
+        : [])
+    safeHero = {
+      hp: Math.max(0, Math.min(maxHp, hpRaw)),
+      maxHp,
+      mana: Math.max(0, Math.min(maxMana, manaRaw)),
+      maxMana,
+      attack: Number.isFinite(Number(rawHero.attack)) && Number(rawHero.attack) >= 1 ? Math.round(Number(rawHero.attack)) : 12,
+      defense: Number.isFinite(Number(rawHero.defense)) && Number(rawHero.defense) >= 0 ? Math.round(Number(rawHero.defense)) : 2,
+      empowerCost: Number.isFinite(Number(rawHero.empowerCost)) && Number(rawHero.empowerCost) >= 0 ? Math.round(Number(rawHero.empowerCost)) : 20,
+      bonusHeal: Number.isFinite(Number(rawHero.bonusHeal)) && Number(rawHero.bonusHeal) >= 0 ? Math.round(Number(rawHero.bonusHeal)) : 0,
+      bonusMana: Number.isFinite(Number(rawHero.bonusMana)) && Number(rawHero.bonusMana) >= 0 ? Math.round(Number(rawHero.bonusMana)) : 0,
+      runInvincible: Boolean(rawHero.runInvincible),
+      tempAttack: Number.isFinite(Number(rawHero.tempAttack)) && Number(rawHero.tempAttack) >= 0 ? Math.round(Number(rawHero.tempAttack)) : 0,
+      necroAllies: allies,
+      necroAlly: allies[0] || null,
+    }
+  } else {
+    recovered = true
+    notices.push('Missing hero stats were restored to defaults.')
+  }
+
+  const rawStats = rawSave.stats && typeof rawSave.stats === 'object' ? rawSave.stats : {}
+  const safeStats = {
+    kills: Math.max(0, Math.round(Number(rawStats.kills) || 0)),
+    correct: Math.max(0, Math.round(Number(rawStats.correct) || 0)),
+    total: Math.max(0, Math.round(Number(rawStats.total) || 0)),
+    streak: Math.max(0, Math.round(Number(rawStats.streak) || 0)),
+    roomKills: Math.max(0, Math.round(Number(rawStats.roomKills) || 0)),
+    upgrades: Array.isArray(rawStats.upgrades) ? rawStats.upgrades.map((u) => String(u)) : [],
+    cardsTaken: Math.max(0, Math.round(Number(rawStats.cardsTaken) || 0)),
+  }
+  if (safeStats.correct > safeStats.total) safeStats.total = safeStats.correct
+
+  const validDeck = Array.isArray(rawSave.runDeck)
+    ? rawSave.runDeck.filter((id) => typeof id === 'string' && Boolean(CARD_LIBRARY[id]))
+    : []
+
+  const rawPlayer = rawSave.playerState && typeof rawSave.playerState === 'object' ? rawSave.playerState : null
+  const safePlayer = rawPlayer
+    ? {
+        x: Number.isFinite(Number(rawPlayer.x)) ? Number(rawPlayer.x) : null,
+        y: Number.isFinite(Number(rawPlayer.y)) ? Number(rawPlayer.y) : null,
+        facing: rawPlayer.facing === 'left' ? 'left' : 'right',
+        cameraX: Number.isFinite(Number(rawPlayer.cameraX)) ? Number(rawPlayer.cameraX) : null,
+        cameraY: Number.isFinite(Number(rawPlayer.cameraY)) ? Number(rawPlayer.cameraY) : null,
+      }
+    : null
+
+  const safeEnemies = Array.isArray(rawSave.enemies)
+    ? rawSave.enemies.map((e, idx) => (e && typeof e === 'object'
+      ? {
+          index: Number.isInteger(e.index) ? e.index : idx,
+          alive: Boolean(e.alive),
+          x: Number.isFinite(Number(e.x)) ? Number(e.x) : null,
+          y: Number.isFinite(Number(e.y)) ? Number(e.y) : null,
+          vx: Number.isFinite(Number(e.vx)) ? Number(e.vx) : null,
+          dir: e.dir === -1 ? -1 : 1,
+          hp: Number.isFinite(Number(e.hp)) ? Math.max(0, Math.round(Number(e.hp))) : null,
+          maxHp: Number.isFinite(Number(e.maxHp)) ? Math.max(1, Math.round(Number(e.maxHp))) : null,
+          turns: Number.isInteger(e.turns) && e.turns >= 0 ? e.turns : 0,
+        }
+      : null))
+    : null
+
+  const safeBattle = safeMode === 'battle' && rawSave.battle && typeof rawSave.battle === 'object'
+    ? rawSave.battle
+    : null
+  if (safeMode === 'battle' && !safeBattle) {
+    safeMode = 'explore'
+    recovered = true
+    notices.push('Older mid-battle save had no combat snapshot; resumed safely in the current room.')
+  }
+
+  return {
+    save: {
+      version: Number(rawSave.version) || 1,
+      id: rawSave.id,
+      name: normalizeRunSaveName(rawSave.name) || 'Saved Run',
+      roleFocus: typeof rawSave.roleFocus === 'string' ? rawSave.roleFocus : '',
+      level: safeLevel,
+      mode: safeMode,
+      clearedRooms: cleared,
+      visitedRooms: visited,
+      playerState: safePlayer,
+      enemies: safeEnemies,
+      battle: safeBattle,
+      hero: safeHero,
+      stats: safeStats,
+      runDeck: validDeck.length ? validDeck : [...STARTING_DECK],
+      adaptive: rawSave.adaptive && typeof rawSave.adaptive === 'object' ? rawSave.adaptive : null,
+      skillProgress: rawSave.skillProgress && typeof rawSave.skillProgress === 'object' ? rawSave.skillProgress : null,
+      activeSkillSpecialization: rawSave.activeSkillSpecialization || null,
+      exclusiveSkillTree: rawSave.exclusiveSkillTree || null,
+      leaderboardRunId: typeof rawSave.leaderboardRunId === 'string' && rawSave.leaderboardRunId ? rawSave.leaderboardRunId : createLeaderboardRunId(),
+    },
+    recovered,
+    notices,
+  }
+}
+
+function getRunSaveStateBadge(save) {
+  if (!save) return null
+  if (save.mode === 'end') return { label: 'VICTORY', cls: 'is-victory' }
+  if (save.mode === 'battle' && save.battle) {
+    const phase = save.battle.phase
+    if (phase === 'reward') return { label: 'CARD REWARD', cls: 'is-reward' }
+    if (phase === 'upgrade') return { label: 'LEVEL UP', cls: 'is-reward' }
+    if (phase === 'lost' || phase === 'dying') return { label: 'RETRY ROOM', cls: 'is-lost' }
+    if (phase === 'necro_prompt') return { label: 'SOUL PACT', cls: 'is-reward' }
+    if (phase === 'won') return { label: 'BATTLE WON', cls: 'is-reward' }
+    const foeName = save.battle.enemy?.name
+    return { label: foeName ? `IN BATTLE · ${foeName}` : 'IN BATTLE', cls: 'is-battle' }
+  }
+  return null
 }
 
 function renderRunSavesList() {
@@ -4930,6 +5404,7 @@ function renderRunSavesList() {
     const role = getRunRoleSummary(save)
     const ranks = countRunSkillRanks(save)
     const isCurrent = save.id === activeRunSaveId && mode !== 'menu'
+    const stateBadge = getRunSaveStateBadge(save)
     const totalQ = save.stats?.total || 0
     const acc = totalQ ? `${Math.round((100 * (save.stats?.correct || 0)) / totalQ)}%` : '-'
     const hp = save.hero?.hp ?? 100
@@ -4943,6 +5418,7 @@ function renderRunSavesList() {
         <div class="run-save-top">
           <strong>${esc(save.name || 'Saved Run')}</strong>
           ${isCurrent ? '<span class="run-save-active-pill">ACTIVE</span>' : ''}
+          ${stateBadge ? `<span class="run-save-status-pill ${stateBadge.cls}">${esc(stateBadge.label)}</span>` : ''}
           <span class="run-save-role-pill theme-${role.theme}">${esc(role.label)}</span>
         </div>
         <div class="run-save-meta">
@@ -5030,101 +5506,504 @@ function createAndStartNewRun(options = {}) {
   }
   const runName = check.runName
 
-  saveCurrentRunSlot()
-  activeRunSaveId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-  activeRunName = runName
-  activeRunRoleFocus = ''
-  if (typeof resetSkillTreeForNewRun === 'function') resetSkillTreeForNewRun()
+  // Save the previously active run BEFORE mutating any state or switching activeRunSaveId
+  if (activeRunSaveId && mode !== 'menu') {
+    saveCurrentRunSlot()
+  }
+
+  hideRunRecoveryNotice()
   closeRunSavesModal()
-  startGame()
+
+  runSaveSuspendCount++
+  try {
+    activeRunSaveId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    activeRunName = runName
+    activeRunRoleFocus = ''
+    keys.w.pressed = false
+    keys.a.pressed = false
+    keys.d.pressed = false
+    if (typeof resetRuntimeBattleState === 'function') resetRuntimeBattleState()
+    if (typeof resetSkillTreeForNewRun === 'function') resetSkillTreeForNewRun()
+    startGame()
+  } finally {
+    runSaveSuspendCount = Math.max(0, runSaveSuspendCount - 1)
+  }
+
   saveCurrentRunSlot()
   return true
 }
 
+function restoreSavedBattleState(savedBattle, notices) {
+  let recovered = false
+  if (!savedBattle || typeof savedBattle !== 'object') {
+    notices.push('Combat snapshot was missing; resumed at the room checkpoint.')
+    return { restored: false, recovered: true }
+  }
+
+  const rawIdx = Number(savedBattle.enemyIndex)
+  let foe = Number.isInteger(rawIdx) && rawIdx >= 0 && rawIdx < enemies.length ? enemies[rawIdx] : null
+  if (!foe && savedBattle.enemy && typeof savedBattle.enemy === 'object') {
+    foe = enemies.find((e) => e && e.name === savedBattle.enemy.name && e.alive) || enemies.find((e) => e && e.alive) || enemies[0] || null
+  }
+  if (!foe) {
+    notices.push('Saved enemy could not be found in this room; resumed in exploration.')
+    return { restored: false, recovered: true }
+  }
+
+  const enemySnap = savedBattle.enemy && typeof savedBattle.enemy === 'object' ? savedBattle.enemy : null
+  if (enemySnap) {
+    if (Number.isFinite(Number(enemySnap.maxHp)) && Number(enemySnap.maxHp) >= 1) {
+      foe.maxHp = Math.round(Number(enemySnap.maxHp))
+    }
+    if (Number.isFinite(Number(enemySnap.hp))) {
+      foe.hp = Math.max(0, Math.min(foe.maxHp, Math.round(Number(enemySnap.hp))))
+    }
+    if (Number.isInteger(enemySnap.turns) && enemySnap.turns >= 0) {
+      foe.turns = enemySnap.turns
+    }
+    foe.alive = Boolean(enemySnap.alive)
+  }
+
+  let phase = typeof savedBattle.phase === 'string' ? savedBattle.phase : 'choose'
+  if (phase === 'intro') phase = 'choose'
+  if (phase === 'dying') phase = 'lost'
+
+  const outcomeFlags = {
+    killRecorded: Boolean(savedBattle.outcomeFlags?.killRecorded || ['necro_prompt', 'won', 'reward', 'upgrade'].includes(phase)),
+    rewardClaimed: Boolean(savedBattle.outcomeFlags?.rewardClaimed || phase === 'upgrade'),
+    upgradeClaimed: Boolean(savedBattle.outcomeFlags?.upgradeClaimed),
+    necroResolved: Boolean(savedBattle.outcomeFlags?.necroResolved || ['won', 'reward', 'upgrade'].includes(phase)),
+  }
+
+  // If hero already died, keep them cleanly in 'lost' (Retry Room overlay)
+  if (hero.hp <= 0 || phase === 'lost') {
+    phase = 'lost'
+    hero.hp = 0
+  }
+
+  // Reconcile already-defeated enemy vs combat phase so dead enemies never respawn or re-trigger kills
+  const combatPhases = new Set(['choose', 'question', 'feedback', 'remedial', 'ally_turn', 'enemy_follower_turn'])
+  if (combatPhases.has(phase) && (foe.hp <= 0 || !foe.alive)) {
+    if (outcomeFlags.upgradeClaimed || (outcomeFlags.rewardClaimed && !(stats.kills > 0 && stats.kills % 2 === 0))) {
+      foe.alive = false
+      foe.hp = 0
+      notices.push('Completed battle was already resolved; resumed safely in the room.')
+      return { restored: false, recovered: true }
+    }
+    if (outcomeFlags.killRecorded) {
+      foe.alive = false
+      foe.hp = 0
+      phase = outcomeFlags.rewardClaimed ? 'upgrade' : 'won'
+      recovered = true
+      notices.push('Enemy was already defeated; resumed at post-battle resolution.')
+    } else if (phase !== 'feedback') {
+      foe.alive = false
+      foe.hp = 0
+      phase = 'won'
+      recovered = true
+    }
+  }
+
+  // Restore clean battle state (zero stale animation/UI timers)
+  resetRuntimeBattleState()
+  if (typeof setArenaTheme === 'function') {
+    setArenaTheme((currentRoom && currentRoom.arenaTheme) || 'datacenter')
+  }
+
+  const validHand = Array.isArray(savedBattle.hand) ? savedBattle.hand.filter((id) => Boolean(CARD_LIBRARY[id])) : []
+  const validDraw = Array.isArray(savedBattle.drawPile) ? savedBattle.drawPile.filter((id) => Boolean(CARD_LIBRARY[id])) : []
+  const validDiscard = Array.isArray(savedBattle.discard) ? savedBattle.discard.filter((id) => Boolean(CARD_LIBRARY[id])) : []
+
+  const followerSnap = savedBattle.enemyFollower && typeof savedBattle.enemyFollower === 'object'
+    ? {
+        name: String(savedBattle.enemyFollower.name || 'Grenu'),
+        grenu: Boolean(savedBattle.enemyFollower.grenu),
+        hp: Math.max(0, Math.round(Number(savedBattle.enemyFollower.hp) || 0)),
+        maxHp: Math.max(1, Math.round(Number(savedBattle.enemyFollower.maxHp) || 65)),
+        attack: Math.max(1, Math.round(Number(savedBattle.enemyFollower.attack) || 9)),
+        lungeT: 0,
+      }
+    : null
+
+  Object.assign(battle, {
+    enemy: foe,
+    enemyFollower: followerSnap,
+    phase,
+    card: typeof savedBattle.card === 'string' && CARD_LIBRARY[savedBattle.card] ? savedBattle.card : null,
+    question: serializeQuestionSnapshot(savedBattle.question),
+    fromReview: Boolean(savedBattle.fromReview),
+    feedbackCorrect: Boolean(savedBattle.feedbackCorrect),
+    feedbackNotes: Array.isArray(savedBattle.feedbackNotes) ? savedBattle.feedbackNotes.map((n) => String(n)) : [],
+    allyTurnIndex: Math.max(0, Math.round(Number(savedBattle.allyTurnIndex) || 0)),
+    allyTurnMessage: typeof savedBattle.allyTurnMessage === 'string' ? savedBattle.allyTurnMessage : '',
+    enemyFollowerMessage: typeof savedBattle.enemyFollowerMessage === 'string' ? savedBattle.enemyFollowerMessage : '',
+    block: Number.isFinite(savedBattle.block) ? Math.max(0, Math.min(1, savedBattle.block)) : 0,
+    tempDefense: Math.max(0, Math.round(Number(savedBattle.tempDefense) || 0)),
+    remedialDefenseBuff: Boolean(savedBattle.remedialDefenseBuff),
+    defendCooldownTurns: Math.max(0, Math.round(Number(savedBattle.defendCooldownTurns) || 0)),
+    defendUsedThisTurn: Boolean(savedBattle.defendUsedThisTurn),
+    exclusiveCooldownTurns: Math.max(0, Math.round(Number(savedBattle.exclusiveCooldownTurns) || 0)),
+    exclusiveUsedThisTurn: Boolean(savedBattle.exclusiveUsedThisTurn),
+    exclusiveAppearTick: Math.max(0, Math.round(Number(savedBattle.exclusiveAppearTick) || 0)),
+    enemyStunTurns: Math.max(0, Math.round(Number(savedBattle.enemyStunTurns) || 0)),
+    enemyBurnTurns: Math.max(0, Math.round(Number(savedBattle.enemyBurnTurns) || 0)),
+    enemyBurnDamage: Math.max(0, Math.round(Number(savedBattle.enemyBurnDamage) || 0)),
+    enemyAttackedThisTurn: Boolean(savedBattle.enemyAttackedThisTurn),
+    lastAnswerCorrect: savedBattle.lastAnswerCorrect !== false,
+    log: typeof savedBattle.log === 'string' ? savedBattle.log : `${foe.name} blocks the way!`,
+    hand: validHand,
+    drawPile: validDraw.length || validHand.length || validDiscard.length ? validDraw : shuffle([...runDeck]),
+    discard: validDiscard,
+    newUnlocks: Array.isArray(savedBattle.newUnlocks) ? savedBattle.newUnlocks.filter((id) => Boolean(CARD_LIBRARY[id])) : [],
+    necroCandidate: savedBattle.necroCandidate && typeof savedBattle.necroCandidate === 'object'
+      ? clonePracticeData(savedBattle.necroCandidate)
+      : null,
+    outcomeFlags,
+    pendingAttack: false,
+  })
+
+  if (!battle.hand.length && ['choose', 'question', 'feedback'].includes(phase)) {
+    fillHand()
+  }
+
+  // Validate phase-specific requirements and recover gracefully if incomplete
+  if (phase === 'question') {
+    if (!battle.question || !battle.card) {
+      // Refund card cost if we lost the question snapshot and drop safely to card selection
+      if (battle.card && CARD_LIBRARY[battle.card]) {
+        const refund = cardCost(CARD_LIBRARY[battle.card], hero)
+        hero.mana = Math.min(hero.maxMana, hero.mana + refund)
+      }
+      battle.card = null
+      battle.question = null
+      battle.phase = 'choose'
+      recovered = true
+      notices.push('Incomplete battle question was recovered to card selection.')
+    }
+  } else if (phase === 'feedback') {
+    if (!battle.question) {
+      battle.phase = battle.enemy.hp <= 0 ? 'won' : 'choose'
+      recovered = true
+      notices.push('Battle feedback state was recovered to the next safe step.')
+    }
+  } else if (phase === 'remedial') {
+    const rem = savedBattle.remedial
+    const remQs = rem && Array.isArray(rem.questions) ? rem.questions.map(serializeQuestionSnapshot).filter(Boolean) : []
+    const remIdx = Math.max(0, Math.round(Number(rem?.index) || 0))
+    if (remQs.length && remIdx < remQs.length) {
+      battle.remedial = {
+        questions: remQs,
+        index: remIdx,
+        results: Array.isArray(rem.results) ? rem.results.slice(0, remIdx).map(Boolean) : [],
+        correctCount: Math.max(0, Math.min(remIdx, Math.round(Number(rem.correctCount) || 0))),
+      }
+    } else {
+      battle.remedial = null
+      battle.phase = 'choose'
+      recovered = true
+      notices.push('Remedial challenge snapshot was incomplete; resumed at card selection.')
+    }
+  } else if (phase === 'ally_turn') {
+    const allies = getNecroAllies()
+    if (!allies.length || battle.allyTurnIndex >= allies.length) {
+      battle.phase = battle.enemy.hp <= 0 ? 'won' : 'choose'
+      recovered = true
+    }
+  } else if (phase === 'enemy_follower_turn') {
+    if (!battle.enemyFollower || battle.enemyFollower.hp <= 0) {
+      battle.phase = 'choose'
+      recovered = true
+    }
+  } else if (phase === 'necro_prompt') {
+    if (outcomeFlags.necroResolved || !battle.necroCandidate) {
+      battle.necroCandidate = null
+      battle.phase = 'won'
+      recovered = true
+    }
+  } else if (phase === 'reward') {
+    if (outcomeFlags.rewardClaimed) {
+      if (stats.kills > 0 && stats.kills % 2 === 0 && !outcomeFlags.upgradeClaimed) {
+        battle.phase = 'upgrade'
+      } else {
+        return { restored: false, recovered: true }
+      }
+    }
+  } else if (phase === 'upgrade') {
+    if (outcomeFlags.upgradeClaimed) {
+      return { restored: false, recovered: true }
+    }
+  }
+
+  mode = 'battle'
+  snapshot = null
+  introT = INTRO_END
+  Sound.music(battle.phase === 'lost' ? null : (foe.isBoss ? 'boss' : 'battle'))
+
+  if (battle.phase === 'choose') {
+    renderBattle()
+  } else if (battle.phase === 'question') {
+    renderQuestion()
+  } else if (battle.phase === 'feedback') {
+    renderFeedback(battle.feedbackCorrect, battle.feedbackNotes)
+  } else if (battle.phase === 'remedial') {
+    renderRemedialQuestion()
+  } else if (battle.phase === 'ally_turn') {
+    renderAllyTurn(battle.allyTurnIndex, battle.allyTurnMessage || 'Undead ally struck!')
+  } else if (battle.phase === 'enemy_follower_turn') {
+    renderEnemyFollowerTurn(battle.enemyFollowerMessage || 'Enemy follower attacked!')
+  } else if (battle.phase === 'necro_prompt') {
+    renderNecromancyPrompt()
+  } else if (battle.phase === 'won') {
+    if (!battle.outcomeFlags.killRecorded) {
+      winBattle()
+    } else {
+      renderWin()
+    }
+  } else if (battle.phase === 'reward') {
+    const savedRewards = Array.isArray(savedBattle.rewards)
+      ? savedBattle.rewards.filter((id) => Boolean(CARD_LIBRARY[id]))
+      : []
+    renderCardReward(savedRewards.length ? savedRewards : null)
+  } else if (battle.phase === 'upgrade') {
+    const savedNames = Array.isArray(savedBattle.upgradeNames) ? savedBattle.upgradeNames : []
+    const matchedUpgrades = savedNames
+      .map((name) => UPGRADES.find((u) => u.name === name))
+      .filter(Boolean)
+    renderUpgrades(matchedUpgrades.length ? matchedUpgrades : null)
+  } else if (battle.phase === 'lost') {
+    renderLose()
+  } else {
+    battle.phase = 'choose'
+    renderBattle()
+  }
+
+  return { restored: true, recovered }
+}
+
 function continueSavedRun(runId) {
   if (!activePlayerName) return
-  const store = loadRunSaves()
-  const save = store.saves.find((s) => s && s.id === runId)
-  if (!save) return
-  if (activeRunSaveId && activeRunSaveId !== runId) saveCurrentRunSlot()
+  const profileId = getRunProfileId()
+  const store = loadRunSaves(profileId)
+  const rawSave = store.saves.find((s) => s && s.id === runId)
+  if (!rawSave) return
+
+  // Flush the previously active run FIRST before switching slots
+  if (activeRunSaveId && activeRunSaveId !== runId && mode !== 'menu') {
+    saveCurrentRunSlot()
+  }
+
+  const validated = validateAndNormalizeRunSave(rawSave)
+  if (!validated.save) {
+    showRunRecoveryNotice(validated.notices[0] || 'Saved run could not be loaded.')
+    return
+  }
+  const save = validated.save
+  let recovered = validated.recovered
+  const notices = [...validated.notices]
 
   Sound.ensure()
+  hideRunRecoveryNotice()
   closeRunSavesModal()
-  activeRunSaveId = save.id
-  activeRunName = save.name || 'Saved Run'
-  activeRunRoleFocus = save.roleFocus || ''
 
-  if (typeof applyRunSkillSnapshot === 'function') {
-    applyRunSkillSnapshot(save.skillProgress, save.activeSkillSpecialization || null, save.exclusiveSkillTree || null, { skipSlotSave: true })
+  if (activeRunSaveId !== save.id) {
+    window.ByteboundTutorial?.onProfileSwitch?.()
   }
 
-  playViewActive = true
-  clearedRooms.clear()
-  visitedRooms.clear()
-  leaderboardRunId = save.leaderboardRunId || createLeaderboardRunId()
-  leaderboardRunSubmitted = false
-  leaderboardLastSubmittedSnapshot = ''
-  loadLevel(Math.max(1, Number(save.level) || 1))
+  runSaveSuspendCount++
+  try {
+    activeRunSaveId = save.id
+    activeRunName = save.name
+    activeRunRoleFocus = save.roleFocus
+    keys.w.pressed = false
+    keys.a.pressed = false
+    keys.d.pressed = false
 
-  if (save.hero && typeof save.hero === 'object') {
-    Object.assign(hero, save.hero)
-    if (hero.hp <= 0) hero.hp = hero.maxHp || 100
-  }
-  if (save.stats && typeof save.stats === 'object') {
-    Object.assign(stats, save.stats)
-    const defeatedInRoom = Math.max(0, Math.min(enemies.length, Number(save.stats.roomKills) || 0))
-    for (let i = 0; i < defeatedInRoom; i++) {
-      if (enemies[i]) enemies[i].alive = false
+    // Apply this run's skill snapshot BEFORE resetRun so baseline skill bonuses match this run
+    if (typeof applyRunSkillSnapshot === 'function') {
+      applyRunSkillSnapshot(
+        save.skillProgress,
+        save.activeSkillSpecialization || null,
+        save.exclusiveSkillTree || null,
+        { skipSlotSave: true }
+      )
     }
-    stats.roomKills = defeatedInRoom
-  }
-  if (Array.isArray(save.runDeck) && save.runDeck.length) {
+
+    // Fully reset all transient & previous-run state
+    resetRun()
+    clearedRooms.clear()
+    visitedRooms.clear()
+    for (const r of save.clearedRooms) clearedRooms.add(r)
+    for (const r of save.visitedRooms) visitedRooms.add(r)
+
+    leaderboardRunId = save.leaderboardRunId
+    leaderboardRunSubmitted = false
+    leaderboardLastSubmittedSnapshot = ''
+    playViewActive = true
+
+    // Load the saved room without auto-saving stale/unhydrated state!
+    loadLevel(save.level, { skipAutoSave: true })
+
+    // Hydrate hero from clean baseline
+    if (save.hero) {
+      Object.assign(hero, save.hero)
+      if (save.mode !== 'battle' && hero.hp <= 0) {
+        hero.hp = Math.max(1, Math.round(hero.maxHp / 2))
+        recovered = true
+        notices.push('Recovered downed hero to 50% HP at the room checkpoint.')
+      }
+    }
+
+    // Hydrate stats
+    Object.assign(stats, save.stats)
+
+    // Hydrate run deck
     runDeck.splice(0, runDeck.length, ...save.runDeck)
-  }
-  adaptive.calibrateFromProgress()
-  if (save.adaptive && typeof save.adaptive === 'object') {
-    if (save.adaptive.categoryState && typeof save.adaptive.categoryState === 'object') {
-      for (const cat of DISCIPLINE_CATEGORIES) {
-        const savedCat = save.adaptive.categoryState[cat]
-        if (savedCat && typeof savedCat === 'object') {
-          adaptive.categoryState[cat] = {
-            level: Number.isInteger(savedCat.level) ? Math.max(0, Math.min(2, savedCat.level)) : adaptive.categoryLevel(cat),
-            mediumStreak: Number.isInteger(savedCat.mediumStreak) ? Math.max(0, savedCat.mediumStreak) : 0,
+
+    // Hydrate adaptive difficulty
+    adaptive.calibrateFromProgress()
+    if (save.adaptive) {
+      if (save.adaptive.categoryState && typeof save.adaptive.categoryState === 'object') {
+        for (const cat of DISCIPLINE_CATEGORIES) {
+          const savedCat = save.adaptive.categoryState[cat]
+          if (savedCat && typeof savedCat === 'object') {
+            adaptive.categoryState[cat] = {
+              level: Number.isInteger(savedCat.level) ? Math.max(0, Math.min(2, savedCat.level)) : adaptive.categoryLevel(cat),
+              mediumStreak: Number.isInteger(savedCat.mediumStreak) ? Math.max(0, savedCat.mediumStreak) : 0,
+            }
           }
         }
       }
+      if (typeof save.adaptive.focusCategory === 'string' || save.adaptive.focusCategory === null) {
+        adaptive.setFocusCategory(save.adaptive.focusCategory || null)
+      }
+      if (Number.isInteger(save.adaptive.level)) {
+        adaptive.level = Math.max(0, Math.min(2, save.adaptive.level))
+      }
+      if (Number.isInteger(save.adaptive.mediumStreak)) {
+        adaptive.mediumStreak = Math.max(0, save.adaptive.mediumStreak)
+      }
     }
-    if (typeof save.adaptive.focusCategory === 'string' || save.adaptive.focusCategory === null) {
-      adaptive.setFocusCategory(save.adaptive.focusCategory || null)
+
+    // Hydrate exact per-enemy room state (never respawning already defeated enemies)
+    if (Array.isArray(save.enemies) && save.enemies.length === enemies.length) {
+      let deadCount = 0
+      for (let i = 0; i < enemies.length; i++) {
+        const snap = save.enemies[i]
+        const enemy = enemies[i]
+        if (!snap || !enemy) continue
+        enemy.alive = clearedRooms.has(save.level) ? false : Boolean(snap.alive)
+        if (snap.maxHp !== null) enemy.maxHp = snap.maxHp
+        if (snap.hp !== null) enemy.hp = enemy.alive ? Math.max(1, Math.min(enemy.maxHp, snap.hp)) : 0
+        enemy.turns = snap.turns || 0
+        if (snap.x !== null && Number.isFinite(snap.x)) {
+          enemy.x = Math.max(enemy.minX ?? 0, Math.min(enemy.maxX ?? exploreCamera.worldWidth, snap.x))
+        }
+        if (snap.y !== null && Number.isFinite(snap.y)) {
+          enemy.y = Math.max(0, Math.min(exploreCamera.worldHeight - enemy.h, snap.y))
+        }
+        if (snap.vx !== null && Number.isFinite(snap.vx)) enemy.vx = snap.vx
+        enemy.dir = snap.dir === -1 ? -1 : 1
+        if (!enemy.alive) deadCount++
+      }
+      stats.roomKills = deadCount
+    } else if (clearedRooms.has(save.level)) {
+      enemies.forEach((enemy) => {
+        enemy.alive = false
+        enemy.hp = 0
+      })
+      stats.roomKills = enemies.length
+    } else {
+      // Backwards compatibility for older v1 saves without per-enemy snapshots
+      const defeatedInRoom = Math.max(0, Math.min(enemies.length, Number(save.stats.roomKills) || 0))
+      for (let i = 0; i < defeatedInRoom; i++) {
+        if (enemies[i]) {
+          enemies[i].alive = false
+          enemies[i].hp = 0
+        }
+      }
+      stats.roomKills = defeatedInRoom
     }
-    if (Number.isInteger(save.adaptive.level)) {
-      adaptive.level = Math.max(0, Math.min(2, save.adaptive.level))
+
+    // Hydrate exact player in-room position, facing, and camera
+    if (save.playerState && save.playerState.x !== null && save.playerState.y !== null) {
+      if (isSafeExplorePosition(save.playerState.x, save.playerState.y, currentRoom)) {
+        const facingLeft = save.playerState.facing === 'left'
+        player.position.x = save.playerState.x
+        player.position.y = save.playerState.y
+        player.velocity = { x: 0, y: 0 }
+        player.preventInput = false
+        player.lastDirection = facingLeft ? 'left' : 'right'
+        player.switchSprite(facingLeft ? 'idleLeft' : 'idleRight')
+        if (typeof player.updateHitbox === 'function') player.updateHitbox()
+        resetExploreCamera(currentRoom)
+        if (save.playerState.cameraX !== null && save.playerState.cameraY !== null) {
+          exploreCamera.x = clampCameraAxis(save.playerState.cameraX, canvas.width, exploreCamera.worldWidth)
+          exploreCamera.y = clampCameraAxis(save.playerState.cameraY, canvas.height, exploreCamera.worldHeight)
+        }
+      } else {
+        recovered = true
+        notices.push('Saved player position was unsafe; placed at the room entrance.')
+      }
     }
-    if (Number.isInteger(save.adaptive.mediumStreak)) {
-      adaptive.mediumStreak = Math.max(0, save.adaptive.mediumStreak)
+
+    // Hydrate active battle, victory end-screen, or exploration mode
+    if (save.mode === 'battle' && save.battle) {
+      const battleResult = restoreSavedBattleState(save.battle, notices)
+      if (battleResult.recovered) recovered = true
+      if (!battleResult.restored) {
+        mode = 'explore'
+        grace = 90
+        renderExplore()
+        Sound.music('explore')
+      }
+    } else if (save.mode === 'end') {
+      mode = 'end'
+      showVictory()
+    } else {
+      mode = 'explore'
+      grace = 90
+      renderExplore()
+      Sound.music('explore')
     }
+  } finally {
+    runSaveSuspendCount = Math.max(0, runSaveSuspendCount - 1)
   }
+
   saveCurrentRunSlot()
   renderHud()
   gsap.killTweensOf(overlay)
   gsap.fromTo(overlay, { opacity: 1 }, { opacity: 0, duration: 0.5 })
   syncAnimationLoop()
+
+  if (recovered && notices.length) {
+    showRunRecoveryNotice(notices[0])
+  }
 }
 
 function deleteSavedRun(runId) {
   if (!activePlayerName) return
-  const profileId = activePlayerName.toLowerCase()
+  const profileId = getRunProfileId()
   const store = loadRunSaves(profileId)
   store.saves = store.saves.filter((s) => s && s.id !== runId)
   if (store.activeId === runId) store.activeId = null
   writeRunSaves(store, profileId)
   if (activeRunSaveId === runId) {
-    activeRunSaveId = null
-    activeRunName = ''
-    activeRunRoleFocus = ''
-    if (mode !== 'menu') {
-      resetDeadRunToMenu()
+    runSaveSuspendCount++
+    try {
+      activeRunSaveId = null
+      activeRunName = ''
+      activeRunRoleFocus = ''
+      clearedRooms.clear()
+      visitedRooms.clear()
+      mode = 'menu'
+      playViewActive = false
+      if (typeof resetRuntimeBattleState === 'function') resetRuntimeBattleState()
+      resetRun()
+      setPanel('')
+    } finally {
+      runSaveSuspendCount = Math.max(0, runSaveSuspendCount - 1)
     }
+    renderDashboard()
   }
   renderRunSavesList()
   validateNewRunName({ showEmptyError: false })
@@ -5277,6 +6156,13 @@ function capturePracticeReturnState() {
     doors,
     enemies,
     currentRoom,
+    clearedRooms: [...clearedRooms],
+    visitedRooms: [...visitedRooms],
+    exploreCamera: { ...exploreCamera },
+    activeRunSaveId,
+    activeRunName,
+    activeRunRoleFocus,
+    exclusiveSkillTree,
     player: savedPlayer,
     playerAnimationStates: Object.fromEntries(
       Object.entries(player.animations || {}).map(([name, animation]) => [name, animation.isActive])
@@ -5336,6 +6222,15 @@ function restorePracticeReturnState() {
   doors = saved.doors
   enemies = saved.enemies
   currentRoom = saved.currentRoom
+  clearedRooms.clear()
+  if (Array.isArray(saved.clearedRooms)) saved.clearedRooms.forEach((r) => clearedRooms.add(r))
+  visitedRooms.clear()
+  if (Array.isArray(saved.visitedRooms)) saved.visitedRooms.forEach((r) => visitedRooms.add(r))
+  if (saved.exploreCamera) Object.assign(exploreCamera, saved.exploreCamera)
+  activeRunSaveId = saved.activeRunSaveId ?? null
+  activeRunName = saved.activeRunName ?? ''
+  activeRunRoleFocus = saved.activeRunRoleFocus ?? ''
+  exclusiveSkillTree = saved.exclusiveSkillTree ?? null
   replaceObjectState(player, saved.player)
   for (const [name, isActive] of Object.entries(saved.playerAnimationStates)) {
     const animation = player.animations[name]
@@ -7963,6 +8858,9 @@ document.querySelectorAll('[data-view]').forEach((button) => {
     if (practiceRunActive) {
       restorePracticeReturnState()
     } else if (playViewActive) {
+      if (!multiplayerMatchActive && activeRunSaveId) {
+        saveCurrentRunSlot()
+      }
       submitLeaderboardRun({ skipReload: true })
       pushUserProfileToSupabase()
       resetDeadRunToMenu()
@@ -7983,10 +8881,19 @@ document.querySelectorAll('[data-view]').forEach((button) => {
     }
   })
 })
-window.addEventListener('pagehide', () => {
+const flushRunSaveOnExit = () => {
   saveCurrentRunSlot()
   if (!practiceRunActive && hasRecordableGameplayRun()) {
     submitLeaderboardRun({ skipReload: true })
+  }
+}
+window.addEventListener('pagehide', flushRunSaveOnExit)
+window.addEventListener('beforeunload', () => {
+  saveCurrentRunSlot()
+})
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    saveCurrentRunSlot()
   }
 })
 document.getElementById('closeRunSavesButton')?.addEventListener('click', closeRunSavesModal)

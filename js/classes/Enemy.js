@@ -247,7 +247,7 @@ function drawPlaceholder(ctx, x, y, width, height) {
   ctx.lineWidth = 2;
   ctx.strokeRect(x, y, width, height);
   ctx.fillStyle = '#1d1a2a';
-  ctx.font = '12px "Press Start 2P", monospace';
+  ctx.font = window.ByteboundFont.canvas(12);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('V', x + width / 2, y + height / 2);
