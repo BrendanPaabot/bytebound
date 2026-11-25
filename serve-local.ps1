@@ -1,6 +1,7 @@
 param(
   [int]$Port = 8765,
-  [switch]$NoBrowser
+  [switch]$NoBrowser,
+  [string]$AuthStorePath = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -45,6 +46,232 @@ $script:mpClosedRooms = @{}
 $script:mpEvents = [System.Collections.ArrayList]::new()
 $script:mpSeq = 0
 $script:mpPvpLeaderboard = @{}
+
+if ([string]::IsNullOrWhiteSpace($AuthStorePath)) {
+  $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
+  if ([string]::IsNullOrWhiteSpace($localAppData)) { $localAppData = [IO.Path]::GetTempPath() }
+  $script:authStoreFile = Join-Path (Join-Path $localAppData 'Bytebound') 'auth-accounts.json'
+} else {
+  $script:authStoreFile = [IO.Path]::GetFullPath($AuthStorePath)
+}
+
+function Normalize-AuthUsername([string]$raw) {
+  if ($null -eq $raw) { return '' }
+  return [regex]::Replace($raw.Trim(), '\s+', ' ')
+}
+
+function Get-AuthUsernameKey([string]$raw) {
+  return (Normalize-AuthUsername $raw).ToLowerInvariant()
+}
+
+function Get-Sha256Hex([string]$text) {
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $bytes = [Text.Encoding]::UTF8.GetBytes($text)
+    $hash = $sha.ComputeHash($bytes)
+    return ([BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant())
+  } finally {
+    $sha.Dispose()
+  }
+}
+
+function New-RandomHex([int]$byteCount) {
+  $bytes = New-Object byte[] $byteCount
+  $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+  try {
+    $rng.GetBytes($bytes)
+  } finally {
+    $rng.Dispose()
+  }
+  return ([BitConverter]::ToString($bytes).Replace('-', '').ToLowerInvariant())
+}
+
+function Compare-BytesConstantTime([byte[]]$a, [byte[]]$b) {
+  if ($null -eq $a -or $null -eq $b) { return $false }
+  $diff = $a.Length -bxor $b.Length
+  $len = [Math]::Min($a.Length, $b.Length)
+  for ($i = 0; $i -lt $len; $i++) {
+    $diff = $diff -bor ($a[$i] -bxor $b[$i])
+  }
+  return ($diff -eq 0)
+}
+
+function New-PasswordHash([string]$password) {
+  $iterations = 120000
+  $salt = New-Object byte[] 16
+  $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+  try {
+    $rng.GetBytes($salt)
+  } finally {
+    $rng.Dispose()
+  }
+  $pwBytes = [Text.Encoding]::UTF8.GetBytes($password)
+  $kdf = New-Object System.Security.Cryptography.Rfc2898DeriveBytes(
+    $pwBytes,
+    $salt,
+    $iterations,
+    [System.Security.Cryptography.HashAlgorithmName]::SHA256
+  )
+  try {
+    $derived = $kdf.GetBytes(32)
+  } finally {
+    $kdf.Dispose()
+  }
+  return ('pbkdf2_sha256${0}${1}${2}' -f $iterations, [Convert]::ToBase64String($salt), [Convert]::ToBase64String($derived))
+}
+
+$script:dummyPasswordHash = New-PasswordHash 'ByteboundDummyVerificationSecret!'
+
+function Test-PasswordHash([string]$password, [string]$storedHash) {
+  $targetHash = if ([string]::IsNullOrWhiteSpace($storedHash)) { $script:dummyPasswordHash } else { $storedHash }
+  $parts = $targetHash.Split('$')
+  if ($parts.Length -ne 4 -or $parts[0] -ne 'pbkdf2_sha256') {
+    $parts = $script:dummyPasswordHash.Split('$')
+    $storedHash = ''
+  }
+  $iterations = 120000
+  if (-not [int]::TryParse($parts[1], [ref]$iterations) -or $iterations -lt 10000) { return $false }
+  try {
+    $salt = [Convert]::FromBase64String($parts[2])
+    $expected = [Convert]::FromBase64String($parts[3])
+  } catch {
+    return $false
+  }
+  $pwBytes = [Text.Encoding]::UTF8.GetBytes($password)
+  $kdf = New-Object System.Security.Cryptography.Rfc2898DeriveBytes(
+    $pwBytes,
+    $salt,
+    $iterations,
+    [System.Security.Cryptography.HashAlgorithmName]::SHA256
+  )
+  try {
+    $computed = $kdf.GetBytes($expected.Length)
+  } finally {
+    $kdf.Dispose()
+  }
+  $matches = Compare-BytesConstantTime $computed $expected
+  return (-not [string]::IsNullOrWhiteSpace($storedHash)) -and $matches
+}
+
+function Convert-PsObjToHashtableEarly($obj) {
+  if ($null -eq $obj) { return $null }
+  if ($obj -is [System.Collections.IDictionary]) {
+    $ht = @{}
+    foreach ($k in $obj.Keys) { $ht[$k] = Convert-PsObjToHashtableEarly $obj[$k] }
+    return $ht
+  }
+  if ($obj -is [PSCustomObject]) {
+    $ht = @{}
+    foreach ($prop in $obj.PSObject.Properties) {
+      $ht[$prop.Name] = Convert-PsObjToHashtableEarly $prop.Value
+    }
+    return $ht
+  }
+  if ($obj -is [System.Collections.IList]) {
+    $arr = @()
+    foreach ($item in $obj) { $arr += ,(Convert-PsObjToHashtableEarly $item) }
+    return $arr
+  }
+  return $obj
+}
+
+function Load-AuthStore {
+  $defaultStore = @{
+    nextUserId = 1
+    users = @{}
+    sessions = @{}
+  }
+  if (-not (Test-Path -LiteralPath $script:authStoreFile -PathType Leaf)) {
+    return $defaultStore
+  }
+  try {
+    $raw = [IO.File]::ReadAllText($script:authStoreFile, [Text.Encoding]::UTF8)
+    if ([string]::IsNullOrWhiteSpace($raw)) { return $defaultStore }
+    $parsed = Convert-PsObjToHashtableEarly ($raw | ConvertFrom-Json)
+    if ($null -eq $parsed -or -not ($parsed -is [System.Collections.IDictionary])) { return $defaultStore }
+    if (-not $parsed.ContainsKey('users') -or -not ($parsed.users -is [System.Collections.IDictionary])) { $parsed.users = @{} }
+    if (-not $parsed.ContainsKey('sessions') -or -not ($parsed.sessions -is [System.Collections.IDictionary])) { $parsed.sessions = @{} }
+    if (-not $parsed.ContainsKey('nextUserId')) { $parsed.nextUserId = 1 }
+    return $parsed
+  } catch {
+    Write-Warning "Failed to load local auth store: $($_.Exception.Message)"
+    return $defaultStore
+  }
+}
+
+function Save-AuthStore {
+  $dir = [IO.Path]::GetDirectoryName($script:authStoreFile)
+  if (-not [string]::IsNullOrWhiteSpace($dir) -and -not (Test-Path -LiteralPath $dir -PathType Container)) {
+    [void][IO.Directory]::CreateDirectory($dir)
+  }
+  $json = $script:authStore | ConvertTo-Json -Depth 14
+  $tmpPath = "$($script:authStoreFile).tmp"
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [IO.File]::WriteAllText($tmpPath, $json, $utf8NoBom)
+  [IO.File]::Copy($tmpPath, $script:authStoreFile, $true)
+  [IO.File]::Delete($tmpPath)
+}
+
+function Serialize-AuthUser($u) {
+  return @{
+    id = [int64]$u.id
+    username_key = [string]$u.username_key
+    display_name = [string]$u.display_name
+    best_score = if ($null -ne $u.best_score) { [int]$u.best_score } else { 0 }
+    total_kills = if ($null -ne $u.total_kills) { [int]$u.total_kills } else { 0 }
+    total_correct = if ($null -ne $u.total_correct) { [int]$u.total_correct } else { 0 }
+    total_answers = if ($null -ne $u.total_answers) { [int]$u.total_answers } else { 0 }
+    topic_progress = if ($null -ne $u.topic_progress) { $u.topic_progress } else { @{} }
+    skill_progress = if ($null -ne $u.skill_progress) { $u.skill_progress } else { @{} }
+    review_store = if ($null -ne $u.review_store) { $u.review_store } else { @{} }
+    achievements = if ($null -ne $u.achievements) { $u.achievements } else { @{} }
+    created_at = [string]$u.created_at
+    updated_at = [string]$u.updated_at
+    last_login_at = [string]$u.last_login_at
+  }
+}
+
+function New-AuthSessionForUser([string]$usernameKey) {
+  $nowUtc = [DateTimeOffset]::UtcNow
+  $staleKeys = @()
+  foreach ($kv in $script:authStore.sessions.GetEnumerator()) {
+    $exp = [DateTimeOffset]::MinValue
+    if (-not [DateTimeOffset]::TryParse([string]$kv.Value.expires_at, [ref]$exp) -or $exp -le $nowUtc) {
+      $staleKeys += $kv.Key
+    }
+  }
+  foreach ($k in $staleKeys) { $script:authStore.sessions.Remove($k) }
+
+  $rawToken = New-RandomHex 32
+  $tokenHash = Get-Sha256Hex $rawToken
+  $expiresAt = $nowUtc.AddDays(30).ToString('o')
+  $script:authStore.sessions[$tokenHash] = @{
+    user_key = $usernameKey
+    created_at = $nowUtc.ToString('o')
+    expires_at = $expiresAt
+  }
+  return @{
+    session_token = $rawToken
+    expires_at = $expiresAt
+  }
+}
+
+function Resolve-AuthSession([string]$rawToken) {
+  if ([string]::IsNullOrWhiteSpace($rawToken) -or $rawToken.Trim().Length -lt 32) { return $null }
+  $tokenHash = Get-Sha256Hex ($rawToken.Trim())
+  if (-not $script:authStore.sessions.ContainsKey($tokenHash)) { return $null }
+  $sess = $script:authStore.sessions[$tokenHash]
+  $exp = [DateTimeOffset]::MinValue
+  if (-not [DateTimeOffset]::TryParse([string]$sess.expires_at, [ref]$exp) -or $exp -le [DateTimeOffset]::UtcNow) {
+    $script:authStore.sessions.Remove($tokenHash)
+    return $null
+  }
+  $uKey = [string]$sess.user_key
+  if (-not $script:authStore.users.ContainsKey($uKey)) { return $null }
+  return $script:authStore.users[$uKey]
+}
+
+$script:authStore = Load-AuthStore
 
 function Get-NowMs {
   return [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
@@ -181,6 +408,172 @@ try {
 
     try {
       $relativePath = [Uri]::UnescapeDataString($context.Request.Url.AbsolutePath.TrimStart('/'))
+
+      if ($relativePath -eq 'api/auth/health' -and $context.Request.HttpMethod -eq 'GET') {
+        Send-JsonResponse $context.Response 200 @{ ok = $true; provider = 'local' }
+        continue
+      }
+
+      if ($relativePath -like 'api/auth/*' -and $context.Request.HttpMethod -eq 'POST') {
+        $reader = New-Object IO.StreamReader($context.Request.InputStream, [Text.Encoding]::UTF8)
+        $rawBody = $reader.ReadToEnd()
+        $reader.Close()
+        $body = @{}
+        if (-not [string]::IsNullOrWhiteSpace($rawBody)) {
+          try {
+            $body = Convert-PsObjToHashtable ($rawBody | ConvertFrom-Json)
+          } catch {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; code = 'INVALID_JSON'; error = 'Invalid request payload.' }
+            continue
+          }
+        }
+        $nowIso = [DateTimeOffset]::UtcNow.ToString('o')
+
+        if ($relativePath -eq 'api/auth/signup') {
+          $displayName = Normalize-AuthUsername ([string]$body.username)
+          $usernameKey = $displayName.ToLowerInvariant()
+          $password = if ($null -ne $body.password) { [string]$body.password } else { '' }
+          if ($displayName.Length -lt 1 -or $displayName.Length -gt 24) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; code = 'INVALID_USERNAME'; error = 'Username must be between 1 and 24 characters.' }
+            continue
+          }
+          if ($password.Length -lt 6 -or $password.Length -gt 72 -or [string]::IsNullOrWhiteSpace($password)) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; code = 'INVALID_PASSWORD'; error = 'Password must be between 6 and 72 characters.' }
+            continue
+          }
+          if ($script:authStore.users.ContainsKey($usernameKey)) {
+            Send-JsonResponse $context.Response 409 @{ ok = $false; code = 'USERNAME_TAKEN'; error = 'That username is already taken. Please choose another name.' }
+            continue
+          }
+          $pwHash = New-PasswordHash $password
+          $uid = [int64]$script:authStore.nextUserId
+          $script:authStore.nextUserId = $uid + 1
+          $newUser = @{
+            id = $uid
+            username_key = $usernameKey
+            display_name = $displayName
+            password_hash = $pwHash
+            best_score = 0
+            total_kills = 0
+            total_correct = 0
+            total_answers = 0
+            topic_progress = @{}
+            skill_progress = @{}
+            review_store = @{}
+            achievements = @{}
+            created_at = $nowIso
+            updated_at = $nowIso
+            last_login_at = $nowIso
+          }
+          $script:authStore.users[$usernameKey] = $newUser
+          $sess = New-AuthSessionForUser $usernameKey
+          Save-AuthStore
+          Send-JsonResponse $context.Response 200 @{
+            ok = $true
+            session_token = $sess.session_token
+            expires_at = $sess.expires_at
+            user = (Serialize-AuthUser $newUser)
+          }
+          continue
+        }
+
+        if ($relativePath -eq 'api/auth/login') {
+          $displayName = Normalize-AuthUsername ([string]$body.username)
+          $usernameKey = $displayName.ToLowerInvariant()
+          $password = if ($null -ne $body.password) { [string]$body.password } else { '' }
+          $userObj = if ($usernameKey -and $script:authStore.users.ContainsKey($usernameKey)) { $script:authStore.users[$usernameKey] } else { $null }
+          $storedHash = if ($null -ne $userObj -and $userObj.ContainsKey('password_hash')) { [string]$userObj.password_hash } else { '' }
+          $validPw = ($displayName.Length -ge 1 -and $displayName.Length -le 24 -and $password.Length -ge 1 -and $password.Length -le 72)
+          $verified = if ($validPw) { Test-PasswordHash $password $storedHash } else { $false }
+          if ($null -eq $userObj -or -not $verified) {
+            Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'INVALID_CREDENTIALS'; error = 'Invalid username or password.' }
+            continue
+          }
+          $userObj.last_login_at = $nowIso
+          $sess = New-AuthSessionForUser $usernameKey
+          Save-AuthStore
+          Send-JsonResponse $context.Response 200 @{
+            ok = $true
+            session_token = $sess.session_token
+            expires_at = $sess.expires_at
+            user = (Serialize-AuthUser $userObj)
+          }
+          continue
+        }
+
+        if ($relativePath -eq 'api/auth/session') {
+          $token = [string]$body.sessionToken
+          $userObj = Resolve-AuthSession $token
+          if ($null -eq $userObj) {
+            Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'SESSION_INVALID'; error = 'Your session has expired. Please log in again.' }
+            continue
+          }
+          Send-JsonResponse $context.Response 200 @{
+            ok = $true
+            user = (Serialize-AuthUser $userObj)
+          }
+          continue
+        }
+
+        if ($relativePath -eq 'api/auth/logout') {
+          $token = ([string]$body.sessionToken).Trim()
+          if ($token.Length -ge 32) {
+            $tokenHash = Get-Sha256Hex $token
+            if ($script:authStore.sessions.ContainsKey($tokenHash)) {
+              $script:authStore.sessions.Remove($tokenHash)
+              Save-AuthStore
+            }
+          }
+          Send-JsonResponse $context.Response 200 @{ ok = $true }
+          continue
+        }
+
+        if ($relativePath -eq 'api/auth/profile') {
+          $token = [string]$body.sessionToken
+          $userObj = Resolve-AuthSession $token
+          if ($null -eq $userObj) {
+            Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'SESSION_INVALID'; error = 'Please log in again to save your progress.' }
+            continue
+          }
+          if ($body.ContainsKey('topicProgress') -and $null -ne $body.topicProgress) { $userObj.topic_progress = $body.topicProgress }
+          if ($body.ContainsKey('skillProgress') -and $null -ne $body.skillProgress) { $userObj.skill_progress = $body.skillProgress }
+          if ($body.ContainsKey('reviewStore') -and $null -ne $body.reviewStore) { $userObj.review_store = $body.reviewStore }
+          if ($body.ContainsKey('achievements') -and $null -ne $body.achievements) { $userObj.achievements = $body.achievements }
+          $userObj.updated_at = $nowIso
+          $userObj.last_login_at = $nowIso
+          Save-AuthStore
+          Send-JsonResponse $context.Response 200 @{ ok = $true; user = (Serialize-AuthUser $userObj) }
+          continue
+        }
+
+        if ($relativePath -eq 'api/auth/reset') {
+          $token = [string]$body.sessionToken
+          $userObj = Resolve-AuthSession $token
+          if ($null -eq $userObj) {
+            Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'SESSION_INVALID'; error = 'Please log in again to reset your profile.' }
+            continue
+          }
+          $userObj.best_score = 0
+          $userObj.total_kills = 0
+          $userObj.total_correct = 0
+          $userObj.total_answers = 0
+          $userObj.topic_progress = @{}
+          $userObj.skill_progress = @{}
+          $userObj.review_store = @{}
+          $userObj.achievements = @{}
+          $userObj.updated_at = $nowIso
+          $uKey = [string]$userObj.username_key
+          if ($uKey -and $script:mpPvpLeaderboard.ContainsKey($uKey)) {
+            $script:mpPvpLeaderboard.Remove($uKey)
+          }
+          Save-AuthStore
+          Send-JsonResponse $context.Response 200 @{ ok = $true }
+          continue
+        }
+
+        Send-JsonResponse $context.Response 404 @{ ok = $false; error = 'Unknown auth endpoint.' }
+        continue
+      }
 
       if ($relativePath -eq 'api/mp/state' -and $context.Request.HttpMethod -eq 'GET') {
         $nowMs = Get-NowMs

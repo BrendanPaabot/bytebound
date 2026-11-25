@@ -4068,6 +4068,58 @@ body {
   opacity: 0.65;
   cursor: wait;
 }
+.login-field + .login-field {
+  margin-top: 12px;
+}
+.login-field[hidden] {
+  display: none !important;
+}
+.login-password-wrap {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+.login-password-wrap input {
+  padding-right: 68px;
+}
+.login-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 1px solid #6b7b70;
+  border-radius: 0;
+  background: #273230;
+  color: #e4e6db;
+  font: 700 11px/1.1 var(--body);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+.login-password-toggle:hover,
+.login-password-toggle:focus-visible {
+  border-color: var(--gold);
+  background: #33403d;
+  color: #ffffff;
+  outline: none;
+}
+:root:not([data-theme="dark"]) .login-password-toggle {
+  border-color: #9d9682;
+  background: #efe9d8;
+  color: #2f3534;
+}
+:root:not([data-theme="dark"]) .login-password-toggle:hover,
+:root:not([data-theme="dark"]) .login-password-toggle:focus-visible {
+  border-color: #b98232;
+  background: #f5dfb0;
+  color: #1f2424;
+}
+:root:not([data-theme="dark"]) .login-error {
+  color: #b83b2c;
+}
 
 /* Crisp pixel frame borders & tactile 3D pixel drop shadows */
 .app:not(.is-playing) .welcome-row,

@@ -9,11 +9,14 @@ const THEME_STORAGE_KEY = 'kings-pigs-theme'
 const REDUCE_MOTION_STORAGE_KEY = 'kings-pigs-reduce-motion'
 const PROFILE_STORAGE_KEY = 'kings-pigs-profiles-v1'
 const ACHIEVEMENT_STORAGE_KEY = 'kings-pigs-achievements-v1'
+const AUTH_SESSION_STORAGE_KEY = 'bytebound-auth-session-v1'
 const storedTheme = localStorage.getItem(THEME_STORAGE_KEY)
 const storedReduceMotion = localStorage.getItem(REDUCE_MOTION_STORAGE_KEY)
 let currentTheme = storedTheme === 'dark' ? 'dark' : 'light'
 let reduceMotion = storedReduceMotion === 'true'
 let activePlayerName = ''
+let activeSessionToken = ''
+let activeAuthProvider = ''
 window.activePlayerName = activePlayerName
 let activeAchievementStorageKey = ACHIEVEMENT_STORAGE_KEY
 let achievementProgress = {
@@ -376,7 +379,7 @@ async function submitPvpLeaderboardMatch(matchData) {
       })
     } catch {}
   }
-  if (supabaseCredentials() && pvpLeaderboardTableAvailable) {
+  if (supabaseCredentials() && pvpLeaderboardTableAvailable && activeAuthProvider === 'supabase' && activeSessionToken) {
     try {
       await supabaseRequest('rpc/submit_pvp_match_result', {
         method: 'POST',
@@ -387,6 +390,7 @@ async function submitPvpLeaderboardMatch(matchData) {
           p_correct_answers: Math.max(0, Number(matchData.correctAnswers) || 0),
           p_total_answers: Math.max(0, Number(matchData.totalAnswers) || 0),
           p_damage_dealt: Math.max(0, Number(matchData.damageDealt) || 0),
+          p_session_token: activeSessionToken,
         }),
       })
     } catch (error) {
@@ -495,15 +499,19 @@ async function performLeaderboardRunSubmit(options = {}) {
   const submittedRunId = leaderboardRunId
 
   const postRun = async (runId) => {
+    const payload = {
+      p_run_id: runId,
+      p_player_name: activePlayerName,
+      p_kills: kills,
+      p_correct_answers: correctAnswers,
+      p_total_answers: totalAnswers,
+    }
+    if (activeAuthProvider === 'supabase' && activeSessionToken) {
+      payload.p_session_token = activeSessionToken
+    }
     const response = await supabaseRequest('rpc/submit_leaderboard_run', {
       method: 'POST',
-      body: JSON.stringify({
-        p_run_id: runId,
-        p_player_name: activePlayerName,
-        p_kills: kills,
-        p_correct_answers: correctAnswers,
-        p_total_answers: totalAnswers,
-      }),
+      body: JSON.stringify(payload),
     })
     await response.text()
   }
@@ -555,7 +563,7 @@ async function performLeaderboardRunSubmit(options = {}) {
 async function submitLeaderboardRun(options = {}) {
   window.clearTimeout(leaderboardSyncTimer)
   leaderboardSyncTimer = 0
-  if (practiceRunActive || !activePlayerName || !supabaseCredentials()) return false
+  if (practiceRunActive || !activePlayerName || !supabaseCredentials() || activeAuthProvider !== 'supabase' || !activeSessionToken) return false
 
   if (leaderboardSubmitPromise) {
     leaderboardSubmitQueued = true
@@ -753,142 +761,262 @@ function getUsernameKey(raw) {
   return normalizeUsername(raw).toLowerCase()
 }
 
-function stripUsernameSuffix(raw) {
-  const cleaned = normalizeUsername(raw)
-  const withoutTag = cleaned.replace(/#\d{1,4}$/, '').trim()
-  const base = withoutTag || cleaned
-  return base.slice(0, 19).trim() || cleaned.slice(0, 19)
+function createAuthError(code, message, extra = {}) {
+  const err = new Error(message)
+  err.code = code
+  Object.assign(err, extra)
+  return err
 }
 
-function formatNumberedHandle(baseName, suffixNumber) {
-  return `${baseName}#${String(suffixNumber).padStart(4, '0')}`
-}
-
-function escapePostgrestLikePattern(str) {
-  return String(str || '').replace(/[\\%_]/g, (ch) => `\\${ch}`)
-}
-
-function computeAvailableHandle(requestedName, takenKeysSet) {
-  const cleaned = normalizeUsername(requestedName)
-  const exactKey = cleaned.toLowerCase()
-  if (!takenKeysSet.has(exactKey)) {
-    return { displayName: cleaned, profileId: exactKey, suffixed: false, suffixNumber: 0 }
+function parseSupabaseAuthError(error) {
+  const raw = String(error?.message || '')
+  if (/AUTH_USERNAME_TAKEN/i.test(raw) || /duplicate key|unique_violation|23505/i.test(raw)) {
+    return createAuthError('USERNAME_TAKEN', 'That username is already taken. Please choose another name.')
   }
-  const baseName = stripUsernameSuffix(cleaned)
-  for (let n = 1; n <= 9999; n++) {
-    const candidate = formatNumberedHandle(baseName, n)
-    const candidateKey = candidate.toLowerCase()
-    if (!takenKeysSet.has(candidateKey)) {
-      return { displayName: candidate, profileId: candidateKey, suffixed: true, suffixNumber: n }
-    }
+  if (/AUTH_INVALID_CREDENTIALS/i.test(raw)) {
+    return createAuthError('INVALID_CREDENTIALS', 'Invalid username or password.')
   }
-  const fallback = `${baseName.slice(0, 15)}#${String(Date.now()).slice(-4)}`
-  return { displayName: fallback, profileId: fallback.toLowerCase(), suffixed: true, suffixNumber: 9999 }
+  if (/AUTH_INVALID_USERNAME/i.test(raw)) {
+    return createAuthError('INVALID_USERNAME', 'Username must be between 1 and 24 characters.')
+  }
+  if (/AUTH_INVALID_PASSWORD/i.test(raw)) {
+    return createAuthError('INVALID_PASSWORD', 'Password must be between 6 and 72 characters.')
+  }
+  if (/AUTH_SESSION_INVALID/i.test(raw)) {
+    return createAuthError('SESSION_INVALID', 'Your session has expired. Please log in again.')
+  }
+  if (
+    raw.includes('(404)') ||
+    /PGRST202|Could not find the function|function public\.auth_/i.test(raw)
+  ) {
+    return createAuthError('RPC_MISSING', 'Supabase password authentication migration is not installed yet.', { unavailable: true })
+  }
+  if (
+    error?.name === 'AbortError' ||
+    error?.name === 'TypeError' ||
+    /Failed to fetch|NetworkError|Load failed|timed out|ENOTFOUND|ERR_CONNECTION/i.test(raw)
+  ) {
+    return createAuthError('NETWORK_ERROR', 'Unable to reach Supabase right now.', { unavailable: true })
+  }
+  return createAuthError('AUTH_ERROR', 'Authentication request failed. Please try again.')
 }
 
-async function lookupCloudUserByKey(profileId) {
-  if (!profileId || !supabaseCredentials()) {
-    return { configured: false, reachable: false, found: false, user: null }
+async function supabaseAuthRpc(fnName, body, timeoutMs = 6000) {
+  const credentials = supabaseCredentials()
+  if (!credentials) {
+    throw createAuthError('UNCONFIGURED', 'Supabase is not configured.', { unavailable: true })
   }
+  const controller = typeof AbortController === 'function' ? new AbortController() : null
+  const timer = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : 0
   try {
-    const response = await supabaseRequest(
-      `users?username_key=eq.${encodeURIComponent(profileId)}&select=id,username_key,display_name&limit=1`
-    )
-    const rows = await response.json()
-    const user = Array.isArray(rows) && rows.length ? rows[0] : null
-    return { configured: true, reachable: true, found: Boolean(user), user }
-  } catch (error) {
-    console.warn('Unable to check cloud username availability.', error)
-    return { configured: true, reachable: false, found: false, user: null, error }
-  }
-}
-
-async function lookupCloudUsernameFamily(requestedName) {
-  const cleaned = normalizeUsername(requestedName)
-  const exactKey = cleaned.toLowerCase()
-  const baseKey = stripUsernameSuffix(cleaned).toLowerCase()
-  if (!exactKey || !supabaseCredentials()) {
-    return { configured: false, reachable: false, exactUser: null, takenKeys: new Set() }
-  }
-  try {
-    const exactRes = await supabaseRequest(
-      `users?username_key=eq.${encodeURIComponent(exactKey)}&select=id,username_key,display_name&limit=1`
-    )
-    const exactRows = await exactRes.json()
-    const exactUser = Array.isArray(exactRows) && exactRows.length ? exactRows[0] : null
-    const takenKeys = new Set()
-    if (exactUser?.username_key) takenKeys.add(String(exactUser.username_key).toLowerCase())
-
-    const pattern = `${escapePostgrestLikePattern(baseKey)}#*`
-    const familyRes = await supabaseRequest(
-      `users?username_key=like.${encodeURIComponent(pattern)}&select=username_key,display_name&limit=1000`
-    )
-    const familyRows = await familyRes.json()
-    if (Array.isArray(familyRows)) {
-      for (const row of familyRows) {
-        if (row?.username_key) takenKeys.add(String(row.username_key).toLowerCase())
-      }
-    }
-    return { configured: true, reachable: true, exactUser, takenKeys }
-  } catch (error) {
-    console.warn('Unable to query cloud username family.', error)
-    return { configured: true, reachable: false, exactUser: null, takenKeys: new Set(), error }
-  }
-}
-
-async function registerCloudUserProfile(requestedName, fallbackDisplayName) {
-  if (!requestedName || !supabaseCredentials()) return null
-  try {
-    const response = await supabaseRequest('rpc/register_user_profile', {
+    const response = await supabaseRequest(`rpc/${fnName}`, {
       method: 'POST',
-      body: JSON.stringify({
-        p_username: requestedName,
-      }),
+      body: JSON.stringify(body),
+      ...(controller ? { signal: controller.signal } : {}),
     })
-    return await response.json()
+    const text = await response.text()
+    return text ? JSON.parse(text) : null
   } catch (error) {
-    const msg = String(error?.message || '')
-    if (
-      msg.includes('(404)') ||
-      /Could not find the function/i.test(msg) ||
-      /already taken|duplicate key|23505/i.test(msg)
-    ) {
-      // Fallback if the Xbox-tag register_user_profile SQL has not yet been applied on Supabase
-      const targetName = normalizeUsername(fallbackDisplayName || requestedName)
-      const fallbackResponse = await supabaseRequest('rpc/upsert_user_profile', {
-        method: 'POST',
-        body: JSON.stringify({
-          p_username: targetName,
-        }),
-      })
-      return await fallbackResponse.json()
+    throw parseSupabaseAuthError(error)
+  } finally {
+    if (timer) window.clearTimeout(timer)
+  }
+}
+
+async function callLocalAuthEndpoint(endpoint, body, timeoutMs = 6000) {
+  const controller = typeof AbortController === 'function' ? new AbortController() : null
+  const timer = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : 0
+  try {
+    const response = await fetch(`/api/auth/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      ...(controller ? { signal: controller.signal } : {}),
+    })
+    const contentType = response.headers.get('content-type') || ''
+    if (!contentType.includes('application/json')) {
+      throw createAuthError('LOCAL_UNAVAILABLE', 'Local authentication server is unavailable.', { unavailable: true })
     }
-    throw error
+    const json = await response.json()
+    if (!response.ok || json?.ok === false) {
+      throw createAuthError(
+        json?.code || 'AUTH_ERROR',
+        json?.error || 'Authentication failed. Please try again.'
+      )
+    }
+    return json
+  } catch (error) {
+    if (error?.code && !error?.unavailable) throw error
+    throw createAuthError('LOCAL_UNAVAILABLE', 'Local authentication server is unavailable.', { unavailable: true })
+  } finally {
+    if (timer) window.clearTimeout(timer)
+  }
+}
+
+async function callTrustedAuthService(action, payload = {}) {
+  const preferredProvider = payload.preferredProvider || ''
+  const runSupabase = async () => {
+    if (action === 'signup') {
+      return supabaseAuthRpc('auth_sign_up', {
+        p_username: payload.username,
+        p_password: payload.password,
+      })
+    }
+    if (action === 'login') {
+      return supabaseAuthRpc('auth_log_in', {
+        p_username: payload.username,
+        p_password: payload.password,
+      })
+    }
+    if (action === 'session') {
+      return supabaseAuthRpc('auth_get_session', {
+        p_session_token: payload.sessionToken,
+      })
+    }
+    if (action === 'logout') {
+      return supabaseAuthRpc('auth_logout', {
+        p_session_token: payload.sessionToken,
+      })
+    }
+    if (action === 'profile') {
+      return supabaseAuthRpc('auth_save_profile', {
+        p_session_token: payload.sessionToken,
+        p_topic_progress: payload.topicProgress ?? null,
+        p_skill_progress: payload.skillProgress ?? null,
+        p_review_store: payload.reviewStore ?? null,
+        p_achievements: payload.achievements ?? null,
+      })
+    }
+    if (action === 'reset') {
+      return supabaseAuthRpc('auth_reset_profile', {
+        p_session_token: payload.sessionToken,
+      })
+    }
+    throw createAuthError('UNKNOWN_ACTION', 'Unknown authentication action.')
+  }
+
+  const runLocal = async () => {
+    if (action === 'signup') {
+      return callLocalAuthEndpoint('signup', {
+        username: payload.username,
+        password: payload.password,
+      })
+    }
+    if (action === 'login') {
+      return callLocalAuthEndpoint('login', {
+        username: payload.username,
+        password: payload.password,
+      })
+    }
+    if (action === 'session') {
+      return callLocalAuthEndpoint('session', {
+        sessionToken: payload.sessionToken,
+      })
+    }
+    if (action === 'logout') {
+      return callLocalAuthEndpoint('logout', {
+        sessionToken: payload.sessionToken,
+      })
+    }
+    if (action === 'profile') {
+      return callLocalAuthEndpoint('profile', {
+        sessionToken: payload.sessionToken,
+        topicProgress: payload.topicProgress ?? null,
+        skillProgress: payload.skillProgress ?? null,
+        reviewStore: payload.reviewStore ?? null,
+        achievements: payload.achievements ?? null,
+      })
+    }
+    if (action === 'reset') {
+      return callLocalAuthEndpoint('reset', {
+        sessionToken: payload.sessionToken,
+      })
+    }
+    throw createAuthError('UNKNOWN_ACTION', 'Unknown authentication action.')
+  }
+
+  if (preferredProvider === 'local') {
+    const data = await runLocal()
+    return { provider: 'local', data }
+  }
+  if (preferredProvider === 'supabase') {
+    const data = await runSupabase()
+    return { provider: 'supabase', data }
+  }
+
+  let supabaseError = null
+  if (supabaseCredentials()) {
+    try {
+      const data = await runSupabase()
+      return { provider: 'supabase', data }
+    } catch (error) {
+      if (!error?.unavailable) throw error
+      supabaseError = error
+    }
+  }
+
+  try {
+    const data = await runLocal()
+    return { provider: 'local', data }
+  } catch (localError) {
+    if (!localError?.unavailable) throw localError
+    const reason = supabaseError?.code === 'RPC_MISSING'
+      ? 'Password authentication is not yet enabled on Supabase. Run supabase/migration-password-auth.sql in your Supabase SQL Editor or launch locally with serve-local.cmd.'
+      : 'Authentication service is unavailable right now. Check your connection or launch locally with serve-local.cmd.'
+    throw createAuthError('AUTH_UNAVAILABLE', reason, { unavailable: true })
+  }
+}
+
+function saveAuthSessionStorage(token, provider, username, profileId) {
+  try {
+    sessionStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify({
+      token,
+      provider,
+      username,
+      profileId,
+    }))
+  } catch {}
+}
+
+function clearAuthSessionStorage() {
+  try {
+    sessionStorage.removeItem(AUTH_SESSION_STORAGE_KEY)
+  } catch {}
+}
+
+function readAuthSessionStorage() {
+  try {
+    const raw = sessionStorage.getItem(AUTH_SESSION_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed.token !== 'string' || !parsed.token) return null
+    if (parsed.provider !== 'supabase' && parsed.provider !== 'local') return null
+    return parsed
+  } catch {
+    return null
   }
 }
 
 async function pushUserProfileToSupabase() {
   window.clearTimeout(userSyncTimer)
   userSyncTimer = 0
-  if (practiceRunActive || !activePlayerName || !supabaseCredentials()) return false
+  if (practiceRunActive || !activePlayerName || !activeSessionToken || !activeAuthProvider) return false
   const payload = buildUserProfilePayload()
   try {
-    await supabaseRequest('rpc/upsert_user_profile', {
-      method: 'POST',
-      body: JSON.stringify({
-        p_username: activePlayerName,
-        p_topic_progress: payload.topicProgress,
-        p_skill_progress: payload.skillProgress,
-        p_review_store: payload.reviewStore,
-        p_achievements: payload.achievements,
-      }),
+    await callTrustedAuthService('profile', {
+      preferredProvider: activeAuthProvider,
+      sessionToken: activeSessionToken,
+      topicProgress: payload.topicProgress,
+      skillProgress: payload.skillProgress,
+      reviewStore: payload.reviewStore,
+      achievements: payload.achievements,
     })
     userSyncState = 'synced'
     userSyncError = ''
     if (dashboardView === 'settings' && !playViewActive) renderDashboard()
     return true
   } catch (error) {
-    console.warn('Unable to sync user profile to Supabase.', error)
+    console.warn('Unable to sync authenticated user profile.', error)
     userSyncState = 'error'
     userSyncError = error.message
     if (dashboardView === 'settings' && !playViewActive) renderDashboard()
@@ -897,7 +1025,7 @@ async function pushUserProfileToSupabase() {
 }
 
 function scheduleUserProfileSync(delayMs = 1000) {
-  if (practiceRunActive || !activePlayerName || !supabaseCredentials()) return
+  if (practiceRunActive || !activePlayerName || !activeSessionToken || !activeAuthProvider) return
   window.clearTimeout(userSyncTimer)
   userSyncTimer = window.setTimeout(() => {
     userSyncTimer = 0
@@ -906,7 +1034,7 @@ function scheduleUserProfileSync(delayMs = 1000) {
 }
 
 async function syncUserOnLogin(displayName, profileId, prefetchedCloudUser = null) {
-  if (!supabaseCredentials()) {
+  if (!activeSessionToken || !activeAuthProvider) {
     userSyncState = 'unconfigured'
     userSyncError = ''
     renderDashboard()
@@ -918,24 +1046,22 @@ async function syncUserOnLogin(displayName, profileId, prefetchedCloudUser = nul
   try {
     let cloudUser = prefetchedCloudUser
     if (!cloudUser) {
-      const response = await supabaseRequest('rpc/upsert_user_profile', {
-        method: 'POST',
-        body: JSON.stringify({
-          p_username: displayName,
-        }),
+      const res = await callTrustedAuthService('session', {
+        preferredProvider: activeAuthProvider,
+        sessionToken: activeSessionToken,
       })
-      cloudUser = await response.json()
+      cloudUser = res?.data?.user || null
     }
-    if (activePlayerName.toLowerCase() !== profileId) return
+    if (getUsernameKey(activePlayerName) !== profileId) return
     mergeAndApplyCloudUserProfile(profileId, cloudUser)
     await pushUserProfileToSupabase()
-    if (hasRecordableGameplayRun()) {
+    if (activeAuthProvider === 'supabase' && hasRecordableGameplayRun()) {
       await submitLeaderboardRun({ skipReload: true })
     }
     renderDashboard()
   } catch (error) {
-    if (activePlayerName.toLowerCase() !== profileId) return
-    console.warn('Unable to load or sync cloud user profile on login.', error)
+    if (getUsernameKey(activePlayerName) !== profileId) return
+    console.warn('Unable to load or sync user profile on login.', error)
     userSyncState = 'error'
     userSyncError = error.message
     renderDashboard()
@@ -943,19 +1069,17 @@ async function syncUserOnLogin(displayName, profileId, prefetchedCloudUser = nul
 }
 
 async function resetUserProfileInSupabase(displayName) {
-  if (!displayName || !supabaseCredentials()) return
+  if (!displayName || !activeSessionToken || !activeAuthProvider) return
   try {
-    await supabaseRequest('rpc/reset_user_profile', {
-      method: 'POST',
-      body: JSON.stringify({
-        p_username: displayName,
-      }),
+    await callTrustedAuthService('reset', {
+      preferredProvider: activeAuthProvider,
+      sessionToken: activeSessionToken,
     })
     userSyncState = 'synced'
     userSyncError = ''
     if (dashboardView === 'settings' && !playViewActive) renderDashboard()
   } catch (error) {
-    console.warn('Unable to reset cloud user profile in Supabase.', error)
+    console.warn('Unable to reset user profile on auth service.', error)
     userSyncState = 'error'
     userSyncError = error.message
     if (dashboardView === 'settings' && !playViewActive) renderDashboard()
@@ -6919,13 +7043,15 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
   if (view === 'rewards') return renderAchievements()
   if (view === 'leaderboards') return renderLeaderboard()
   if (view === 'settings') {
-    const syncText = !supabaseCredentials() || userSyncState === 'unconfigured'
+    const syncText = !activeAuthProvider || userSyncState === 'unconfigured'
       ? 'Saved in this browser'
       : userSyncState === 'syncing'
-        ? 'Syncing with cloud…'
+        ? 'Syncing account…'
         : userSyncState === 'error'
-          ? 'Saved locally (cloud sync pending)'
-          : `Synced (${esc(activePlayerName || 'Player')})`
+          ? 'Saved locally (sync pending)'
+          : activeAuthProvider === 'local'
+            ? `Local Server (${esc(activePlayerName || 'Player')})`
+            : `Synced (${esc(activePlayerName || 'Player')})`
     return `<span class="eyebrow">Settings</span>
       <h2>Game &amp; Profile Settings</h2>
       <div class="settings-grid">
@@ -6999,7 +7125,7 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
           <div class="settings-content">
             <div class="settings-profile-box">
               <div class="settings-profile-row"><span>Active player</span><strong>${esc(activePlayerName || 'Knight')}</strong></div>
-              <div class="settings-profile-row"><span>Identification</span><strong>Unique Handle (Xbox-Style #Tag)</strong></div>
+              <div class="settings-profile-row"><span>Identification</span><strong>Password-Protected Account</strong></div>
               <div class="settings-profile-row"><span>Sync status</span><strong>${syncText}</strong></div>
             </div>
             <div class="settings-actions-row">
@@ -7995,7 +8121,16 @@ document.querySelector('main')?.addEventListener('scroll', hideUiHoverBubble, { 
 const loginScreen = document.getElementById('loginScreen')
 const app = document.getElementById('app')
 const usernameInput = document.getElementById('usernameInput')
+const passwordInput = document.getElementById('passwordInput')
+const passwordLabel = document.getElementById('passwordLabel')
+const passwordToggleBtn = document.getElementById('passwordToggleBtn')
+const confirmPasswordWrap = document.getElementById('confirmPasswordWrap')
+const confirmPasswordInput = document.getElementById('confirmPasswordInput')
+const confirmPasswordToggleBtn = document.getElementById('confirmPasswordToggleBtn')
+const loginEyebrow = document.getElementById('loginEyebrow')
+const loginTitle = document.getElementById('loginTitle')
 const loginLead = document.getElementById('loginLead')
+const loginNote = document.getElementById('loginNote')
 const loginStatus = document.getElementById('loginStatus')
 const loginError = document.getElementById('loginError')
 const loginSubmitButton = document.getElementById('loginSubmitButton')
@@ -8007,13 +8142,30 @@ function readLocalProfiles() {
   if (savedProfiles === null) return []
   const parsed = JSON.parse(savedProfiles)
   if (!Array.isArray(parsed)) throw new Error('Saved profiles have an invalid format.')
-  return parsed
+  // Strip any old client-side pinHash / password fields so secrets are never retained in browser storage
+  let dirty = false
+  const cleaned = parsed.map((entry) => {
+    if (!entry || typeof entry !== 'object') return entry
+    if ('pinHash' in entry || 'password' in entry || 'passwordHash' in entry) {
+      dirty = true
+      const copy = { ...entry }
+      delete copy.pinHash
+      delete copy.password
+      delete copy.passwordHash
+      return copy
+    }
+    return entry
+  })
+  if (dirty) {
+    try {
+      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(cleaned))
+    } catch {}
+  }
+  return cleaned
 }
 
-let authMode = 'register'
+let authMode = 'login'
 let loginSubmitting = false
-let usernameCheckTimer = 0
-let usernameCheckSeq = 0
 
 function setLoginStatus(message = '', tone = '') {
   if (!loginStatus) return
@@ -8021,272 +8173,297 @@ function setLoginStatus(message = '', tone = '') {
   loginStatus.className = 'login-status' + (tone ? ` is-${tone}` : '')
 }
 
+function resetPasswordVisibility(inputEl, toggleBtn) {
+  if (inputEl) inputEl.type = 'password'
+  if (toggleBtn) {
+    toggleBtn.textContent = 'Show'
+    toggleBtn.setAttribute('aria-pressed', 'false')
+    toggleBtn.setAttribute('aria-label', inputEl === confirmPasswordInput ? 'Show confirm password' : 'Show password')
+  }
+}
+
+function clearPasswordInputs() {
+  if (passwordInput) passwordInput.value = ''
+  if (confirmPasswordInput) confirmPasswordInput.value = ''
+  resetPasswordVisibility(passwordInput, passwordToggleBtn)
+  resetPasswordVisibility(confirmPasswordInput, confirmPasswordToggleBtn)
+}
+
+function bindPasswordToggle(inputEl, toggleBtn, fieldLabel) {
+  if (!inputEl || !toggleBtn) return
+  toggleBtn.addEventListener('click', () => {
+    const showing = inputEl.type === 'text'
+    inputEl.type = showing ? 'password' : 'text'
+    toggleBtn.textContent = showing ? 'Show' : 'Hide'
+    toggleBtn.setAttribute('aria-pressed', String(!showing))
+    toggleBtn.setAttribute('aria-label', `${showing ? 'Show' : 'Hide'} ${fieldLabel}`)
+    inputEl.focus()
+  })
+}
+
+bindPasswordToggle(passwordInput, passwordToggleBtn, 'password')
+bindPasswordToggle(confirmPasswordInput, confirmPasswordToggleBtn, 'confirm password')
+
 function setAuthMode(nextMode, options = {}) {
-  authMode = nextMode === 'login' ? 'login' : 'register'
+  authMode = nextMode === 'register' ? 'register' : 'login'
+  const isLogin = authMode === 'login'
   const isRegister = authMode === 'register'
+
+  if (authModeLoginTab) {
+    authModeLoginTab.classList.toggle('is-active', isLogin)
+    authModeLoginTab.setAttribute('aria-selected', String(isLogin))
+  }
   if (authModeRegisterTab) {
     authModeRegisterTab.classList.toggle('is-active', isRegister)
     authModeRegisterTab.setAttribute('aria-selected', String(isRegister))
   }
-  if (authModeLoginTab) {
-    authModeLoginTab.classList.toggle('is-active', !isRegister)
-    authModeLoginTab.setAttribute('aria-selected', String(!isRegister))
+  if (loginEyebrow) {
+    loginEyebrow.textContent = isRegister ? 'New account' : 'Account access'
+  }
+  if (loginTitle) {
+    loginTitle.innerHTML = isRegister ? 'Create your<br />account.' : 'Welcome back,<br />adventurer.'
   }
   if (loginLead) {
     loginLead.textContent = isRegister
-      ? 'Choose any username — duplicate names auto-assign a unique #tag (like Xbox).'
-      : 'Enter your exact handle (including #0001 if assigned one) to continue.'
+      ? 'Choose a unique username and password to start saving your progress.'
+      : 'Log in with your username and password to continue your progress.'
   }
   if (usernameInput) {
-    usernameInput.placeholder = isRegister ? 'Enter your username (e.g. Knight)' : 'Enter your handle (e.g. Knight#0001)'
+    usernameInput.placeholder = isRegister ? 'Choose a unique username' : 'Enter your username'
+  }
+  if (passwordLabel) {
+    passwordLabel.textContent = 'Password'
+  }
+  if (passwordInput) {
+    passwordInput.autocomplete = isLogin ? 'current-password' : 'new-password'
+    passwordInput.placeholder = isLogin ? 'Enter your password' : 'Create a password (min. 6 characters)'
+  }
+  if (confirmPasswordWrap) {
+    confirmPasswordWrap.hidden = isLogin
+  }
+  if (confirmPasswordInput) {
+    confirmPasswordInput.required = !isLogin
+  }
+  if (loginNote) {
+    loginNote.textContent = 'Usernames are unique and case-insensitive. Passwords are protected server-side.'
   }
   if (loginSubmitButton && !loginSubmitting) {
-    loginSubmitButton.textContent = isRegister ? 'Create profile' : 'Continue adventure'
+    loginSubmitButton.textContent = isRegister ? 'Sign Up' : 'Log In'
   }
+  if (!options.keepPasswords) clearPasswordInputs()
   if (!options.keepError && loginError) loginError.textContent = ''
-  if (!options.skipCheck) scheduleUsernameAvailabilityCheck(0)
+  if (!options.keepStatus) setLoginStatus('')
 }
 
-function scheduleUsernameAvailabilityCheck(delayMs = 260) {
-  window.clearTimeout(usernameCheckTimer)
-  usernameCheckTimer = 0
-  const name = normalizeUsername(usernameInput?.value)
-  if (!name) {
-    setLoginStatus('')
-    return
-  }
-  if (name.length > 24) {
-    setLoginStatus('Username must be 1 to 24 characters.', 'taken')
-    return
-  }
-  const profileId = getUsernameKey(name)
-  const seq = ++usernameCheckSeq
-  const modeAtStart = authMode
-
-  const runCheck = async () => {
-    let localProfiles = []
-    try {
-      localProfiles = readLocalProfiles()
-    } catch {}
-    const localKeys = new Set(localProfiles.map((entry) => entry && String(entry.id || '').toLowerCase()).filter(Boolean))
-    const localMatch = localProfiles.find((entry) => entry && entry.id === profileId) || null
-
-    if (modeAtStart === 'register') {
-      if (!supabaseCredentials()) {
-        if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
-        const resolved = computeAvailableHandle(name, localKeys)
-        if (!resolved.suffixed) {
-          setLoginStatus(`Username "${resolved.displayName}" is available!`, 'available')
-        } else {
-          setLoginStatus(`"${name}" is already in use — you will get "${resolved.displayName}".`, 'tag')
-        }
-        return
-      }
-      setLoginStatus('Checking handle availability...', 'checking')
-      const cloudFamily = await lookupCloudUsernameFamily(name)
-      if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
-      const combinedKeys = new Set([...localKeys, ...cloudFamily.takenKeys])
-      const resolved = computeAvailableHandle(name, combinedKeys)
-      if (!resolved.suffixed) {
-        setLoginStatus(
-          cloudFamily.reachable
-            ? `Username "${resolved.displayName}" is available!`
-            : `Available locally as "${resolved.displayName}" (offline).`,
-          'available'
-        )
-      } else {
-        setLoginStatus(
-          `"${name}" is already taken — you will be assigned "${resolved.displayName}" (unique #tag).`,
-          'tag'
-        )
-      }
-      return
-    }
-
-    // Returning Player check
-    if (localMatch) {
-      if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
-      setLoginStatus(`Profile "${localMatch.name}" found — ready to continue.`, 'available')
-      return
-    }
-    if (!supabaseCredentials()) {
-      if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
-      setLoginStatus('No saved profile with that handle. Include #0001 if assigned one, or switch to New Player.', 'taken')
-      return
-    }
-    setLoginStatus('Looking up profile...', 'checking')
-    const cloudCheck = await lookupCloudUserByKey(profileId)
-    if (seq !== usernameCheckSeq || authMode !== modeAtStart) return
-    if (cloudCheck.found) {
-      setLoginStatus(`Profile "${cloudCheck.user.display_name}" found — ready to continue.`, 'available')
-    } else if (cloudCheck.reachable) {
-      setLoginStatus('No profile found with that handle. Include your #0001 tag if assigned one, or switch to New Player.', 'taken')
-    } else {
-      setLoginStatus('Offline — only locally cached profiles can be opened right now.', 'checking')
-    }
+function enterAuthenticatedSession(user, sessionToken, provider) {
+  const canonicalName = normalizeUsername(user?.display_name || '')
+  const profileId = getUsernameKey(user?.username_key || canonicalName)
+  if (!canonicalName || !profileId || !sessionToken || !provider) {
+    throw new Error('Invalid authenticated profile payload.')
   }
 
-  if (delayMs <= 0) runCheck()
-  else usernameCheckTimer = window.setTimeout(runCheck, delayMs)
+  activeSessionToken = sessionToken
+  activeAuthProvider = provider
+  saveAuthSessionStorage(sessionToken, provider, canonicalName, profileId)
+
+  let profiles = []
+  try {
+    profiles = readLocalProfiles()
+  } catch {
+    profiles = []
+  }
+  const existing = profiles.find((entry) => entry && String(entry.id || '').toLowerCase() === profileId)
+  if (existing) {
+    existing.name = canonicalName
+    existing.authType = 'password'
+    delete existing.pinHash
+  } else {
+    profiles.push({
+      id: profileId,
+      name: canonicalName,
+      authType: 'password',
+      createdAt: user?.created_at || new Date().toISOString(),
+    })
+  }
+  try {
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles))
+  } catch {}
+
+  selectSkillProfile(profileId)
+  selectAchievementProfile(profileId)
+  const runStore = loadRunSaves(profileId)
+  const activeSave = runStore.activeId ? runStore.saves.find((s) => s && s.id === runStore.activeId) : null
+  if (activeSave) {
+    activeRunSaveId = activeSave.id
+    activeRunName = activeSave.name || ''
+    activeRunRoleFocus = activeSave.roleFocus || ''
+    if (typeof applyRunSkillSnapshot === 'function') {
+      applyRunSkillSnapshot(
+        activeSave.skillProgress,
+        activeSave.activeSkillSpecialization || null,
+        activeSave.exclusiveSkillTree || null,
+        { skipSlotSave: true }
+      )
+    }
+  } else {
+    activeRunSaveId = null
+    activeRunName = ''
+    activeRunRoleFocus = ''
+  }
+  skillTreeStarted = false
+  selectedSkillNode = null
+  skillMapPan = null
+  activePlayerName = canonicalName
+  window.activePlayerName = activePlayerName
+  leaderboardRunId = createLeaderboardRunId()
+  leaderboardRunSubmitted = false
+  leaderboardLastSubmittedSnapshot = ''
+  mode = 'menu'
+  dashboardView = 'quest'
+  playViewActive = false
+  resetRun()
+  clearPasswordInputs()
+  if (loginError) loginError.textContent = ''
+  setLoginStatus('')
+  loginScreen.hidden = true
+  app.hidden = false
+  renderDashboard()
+  Sound.music('dashboard')
+  syncUserOnLogin(canonicalName, profileId, user)
+  window.mpUI?.initIdentity(canonicalName)
 }
 
-authModeRegisterTab?.addEventListener('click', () => {
-  setAuthMode('register')
-  usernameInput?.focus()
-})
 authModeLoginTab?.addEventListener('click', () => {
   setAuthMode('login')
   usernameInput?.focus()
 })
-usernameInput?.addEventListener('input', () => {
-  if (loginError) loginError.textContent = ''
-  scheduleUsernameAvailabilityCheck(260)
+authModeRegisterTab?.addEventListener('click', () => {
+  setAuthMode('register')
+  usernameInput?.focus()
 })
 
-// Default to Returning Player if a profile already exists on this browser; otherwise New Player
-try {
-  const existingLocal = readLocalProfiles()
-  setAuthMode(existingLocal.length > 0 ? 'login' : 'register', { skipCheck: true })
-} catch {
-  setAuthMode('register', { skipCheck: true })
+const clearFormFeedbackOnInput = () => {
+  if (loginError) loginError.textContent = ''
+  setLoginStatus('')
 }
+usernameInput?.addEventListener('input', clearFormFeedbackOnInput)
+passwordInput?.addEventListener('input', clearFormFeedbackOnInput)
+confirmPasswordInput?.addEventListener('input', clearFormFeedbackOnInput)
+
+// Sanitize any old client-side hashes on startup and default cleanly to Log In
+try {
+  readLocalProfiles()
+} catch {}
+setAuthMode('login')
+
+async function restoreAuthSession() {
+  const saved = readAuthSessionStorage()
+  if (!saved) return
+  try {
+    const res = await callTrustedAuthService('session', {
+      preferredProvider: saved.provider,
+      sessionToken: saved.token,
+    })
+    if (res?.data?.user) {
+      enterAuthenticatedSession(res.data.user, saved.token, res.provider)
+      return
+    }
+    clearAuthSessionStorage()
+  } catch {
+    clearAuthSessionStorage()
+  }
+}
+
+restoreAuthSession()
 
 document.getElementById('loginForm').addEventListener('submit', async (event) => {
   event.preventDefault()
   if (loginSubmitting) return
-  const name = normalizeUsername(usernameInput.value)
+
+  const name = normalizeUsername(usernameInput?.value)
+  const password = String(passwordInput?.value || '')
+  const confirmPassword = String(confirmPasswordInput?.value || '')
+
   if (!name) {
     loginError.textContent = 'Enter a username to continue.'
-    usernameInput.focus()
+    usernameInput?.focus()
     return
   }
   if (name.length > 24) {
     loginError.textContent = 'Username must be between 1 and 24 characters.'
-    usernameInput.focus()
+    usernameInput?.focus()
     return
   }
 
-  const profileId = getUsernameKey(name)
+  if (authMode === 'login') {
+    if (!password) {
+      loginError.textContent = 'Enter your password to log in.'
+      passwordInput?.focus()
+      return
+    }
+  } else {
+    if (!password || !password.trim()) {
+      loginError.textContent = 'Enter a password (at least 6 characters).'
+      passwordInput?.focus()
+      return
+    }
+    if (password.length < 6 || password.length > 72) {
+      loginError.textContent = 'Password must be between 6 and 72 characters.'
+      passwordInput?.focus()
+      return
+    }
+    if (password !== confirmPassword) {
+      loginError.textContent = 'Passwords do not match.'
+      confirmPasswordInput?.focus()
+      return
+    }
+  }
+
   loginSubmitting = true
   if (loginSubmitButton) {
     loginSubmitButton.disabled = true
-    loginSubmitButton.textContent = authMode === 'register' ? 'Assigning unique handle...' : 'Loading profile...'
+    loginSubmitButton.textContent = authMode === 'register' ? 'Creating account...' : 'Logging in...'
   }
   loginError.textContent = ''
+  setLoginStatus('')
 
   try {
-    const profiles = readLocalProfiles()
-    const localKeys = new Set(profiles.map((entry) => entry && String(entry.id || '').toLowerCase()).filter(Boolean))
-    let profile = profiles.find((entry) => entry && entry.id === profileId) || null
-    let prefetchedCloudUser = null
-
     if (authMode === 'register') {
-      let combinedKeys = new Set(localKeys)
-      let cloudReachable = false
-      if (supabaseCredentials()) {
-        const cloudFamily = await lookupCloudUsernameFamily(name)
-        cloudReachable = cloudFamily.reachable
-        for (const key of cloudFamily.takenKeys) combinedKeys.add(key)
-      }
-      let resolved = computeAvailableHandle(name, combinedKeys)
-
-      if (supabaseCredentials() && cloudReachable) {
-        try {
-          // If the exact name is already taken locally, pass the resolved #tag fallback so pre-migration DBs also allocate cleanly
-          const cloudRequested = localKeys.has(profileId) ? resolved.displayName : name
-          prefetchedCloudUser = await registerCloudUserProfile(cloudRequested, resolved.displayName)
-          if (prefetchedCloudUser?.display_name && prefetchedCloudUser?.username_key) {
-            resolved = {
-              displayName: normalizeUsername(prefetchedCloudUser.display_name),
-              profileId: String(prefetchedCloudUser.username_key).toLowerCase(),
-              suffixed: String(prefetchedCloudUser.username_key).toLowerCase() !== profileId,
-            }
-          }
-        } catch (regErr) {
-          console.warn('Cloud registration warning; continuing with assigned local handle.', regErr)
-        }
-      }
-
-      const existingResolved = profiles.find((entry) => entry && entry.id === resolved.profileId)
-      if (existingResolved) {
-        profile = existingResolved
-        profile.name = resolved.displayName
-      } else {
-        profile = { id: resolved.profileId, name: resolved.displayName, createdAt: new Date().toISOString() }
-        profiles.push(profile)
-      }
-      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles))
-    } else {
-      // Returning Player mode
-      let cloudUserLookup = null
-      if (supabaseCredentials()) {
-        cloudUserLookup = await lookupCloudUserByKey(profileId)
-      }
-      if (!profile) {
-        if (cloudUserLookup?.found) {
-          const canonicalName = normalizeUsername(cloudUserLookup.user.display_name) || name
-          profile = { id: profileId, name: canonicalName, createdAt: new Date().toISOString() }
-          profiles.push(profile)
-          localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles))
-        } else {
-          loginError.textContent = cloudUserLookup && !cloudUserLookup.reachable
-            ? `Unable to reach the cloud right now, and "${name}" is not saved on this browser.`
-            : `No profile found for "${name}". Include your #0001 tag if assigned one, or switch to New Player.`
-          setLoginStatus('Profile not found.', 'taken')
-          usernameInput.focus()
-          return
-        }
-      } else if (profile.pinHash) {
-        // Strip legacy password/PIN hash from older saved local profiles
-        delete profile.pinHash
-        localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles))
-      }
+      const { provider, data } = await callTrustedAuthService('signup', {
+        username: name,
+        password,
+      })
+      enterAuthenticatedSession(data.user, data.session_token, provider)
+      return
     }
 
-    selectSkillProfile(profile.id)
-    selectAchievementProfile(profile.id)
-    const runStore = loadRunSaves(profile.id)
-    const activeSave = runStore.activeId ? runStore.saves.find((s) => s && s.id === runStore.activeId) : null
-    if (activeSave) {
-      activeRunSaveId = activeSave.id
-      activeRunName = activeSave.name || ''
-      activeRunRoleFocus = activeSave.roleFocus || ''
-      if (typeof applyRunSkillSnapshot === 'function') {
-        applyRunSkillSnapshot(activeSave.skillProgress, activeSave.activeSkillSpecialization || null, activeSave.exclusiveSkillTree || null, { skipSlotSave: true })
-      }
-    } else {
-      activeRunSaveId = null
-      activeRunName = ''
-      activeRunRoleFocus = ''
-    }
-    skillTreeStarted = false
-    selectedSkillNode = null
-    skillMapPan = null
-    activePlayerName = profile.name
-    window.activePlayerName = activePlayerName
-    leaderboardRunId = createLeaderboardRunId()
-    leaderboardRunSubmitted = false
-    leaderboardLastSubmittedSnapshot = ''
-    mode = 'menu'
-    dashboardView = 'quest'
-    playViewActive = false
-    resetRun()
-    loginError.textContent = ''
-    setLoginStatus('')
-    loginScreen.hidden = true
-    app.hidden = false
-    renderDashboard()
-    Sound.music('dashboard')
-    syncUserOnLogin(profile.name, profile.id, prefetchedCloudUser)
-    window.mpUI?.initIdentity(profile.name)
+    const { provider, data } = await callTrustedAuthService('login', {
+      username: name,
+      password,
+    })
+    enterAuthenticatedSession(data.user, data.session_token, provider)
   } catch (error) {
-    console.error('Unable to open the player profile.', error)
-    loginError.textContent = 'Unable to save or load this profile in browser storage.'
+    if (authMode === 'login' && error?.code === 'INVALID_CREDENTIALS') {
+      loginError.textContent = 'Invalid username or password.'
+      passwordInput?.focus()
+    } else if (error?.code === 'USERNAME_TAKEN') {
+      loginError.textContent = 'That username is already taken. Please choose another name.'
+      usernameInput?.focus()
+    } else if (error?.message) {
+      loginError.textContent = error.message
+    } else {
+      loginError.textContent = 'Unable to complete authentication. Please try again.'
+    }
   } finally {
+    // Always wipe password inputs immediately after submission completes
+    if (passwordInput) passwordInput.value = ''
+    if (confirmPasswordInput) confirmPasswordInput.value = ''
+    resetPasswordVisibility(passwordInput, passwordToggleBtn)
+    resetPasswordVisibility(confirmPasswordInput, confirmPasswordToggleBtn)
     loginSubmitting = false
     if (loginSubmitButton) {
       loginSubmitButton.disabled = false
-      loginSubmitButton.textContent = authMode === 'register' ? 'Create profile' : 'Continue adventure'
+      loginSubmitButton.textContent = authMode === 'register' ? 'Sign Up' : 'Log In'
     }
   }
 })
@@ -8295,10 +8472,25 @@ function switchPlayerProfile() {
   window.ByteboundTutorial?.onProfileSwitch?.()
   if (typeof hideUiHoverBubble === 'function') hideUiHoverBubble()
   setNavMenuOpen(false)
-  if (!practiceRunActive && hasRecordableGameplayRun()) {
+  if (!practiceRunActive && hasRecordableGameplayRun() && activeAuthProvider === 'supabase') {
     submitLeaderboardRun({ skipReload: true })
   }
-  pushUserProfileToSupabase()
+  const tokenToRevoke = activeSessionToken
+  const providerToRevoke = activeAuthProvider
+  const flushPromise = pushUserProfileToSupabase()
+  if (tokenToRevoke && providerToRevoke) {
+    Promise.resolve(flushPromise).finally(() => {
+      callTrustedAuthService('logout', {
+        preferredProvider: providerToRevoke,
+        sessionToken: tokenToRevoke,
+      }).catch(() => {})
+    })
+  }
+  activeSessionToken = ''
+  activeAuthProvider = ''
+  clearAuthSessionStorage()
+  activePlayerName = ''
+  window.activePlayerName = ''
   if (skillTreeOpen) closeSkillTree()
   if (worldMapOpen) closeWorldMap()
   if (typeof practice !== 'undefined') practice.mode = 'menu'
@@ -8312,13 +8504,14 @@ function switchPlayerProfile() {
   keys.w.pressed = false
   keys.a.pressed = false
   keys.d.pressed = false
-  usernameInput.value = activePlayerName
+  if (usernameInput) usernameInput.value = ''
+  clearPasswordInputs()
   loginError.textContent = ''
   setLoginStatus('')
   app.hidden = true
   loginScreen.hidden = false
-  setAuthMode('login', { skipCheck: true })
-  usernameInput.focus()
+  setAuthMode('login')
+  usernameInput?.focus()
   syncAnimationLoop()
 }
 
