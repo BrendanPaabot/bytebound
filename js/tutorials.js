@@ -107,10 +107,10 @@
     },
     {
       id: 'game_skill_tree',
-      title: 'Skill Tree First-Visit Guide',
+      title: 'Skill Tree First-Time Tutorial',
       shortTitle: 'Skill Tree',
       category: 'Overlay Lesson',
-      summary: 'Topic branches, upgrade details, costs, and closing the Skill Tree.',
+      summary: 'First skill-point notification, HUD Skill Tree control, and brief Skill Tree overview.',
     },
     {
       id: 'game_world_map',
@@ -1009,36 +1009,56 @@
       case 'game_skill_tree': {
         return [
           {
-            id: 'sp_skill_points',
-            tag: 'SKILL TREE',
-            title: 'Skill Points & Discipline Totals',
-            desc: 'Earn 1 Skill Point (SP) for every 5 correct answers in a topic. Your available and earned points for each discipline appear here.',
-            target: ['#skillTreeSummary .skill-points-overview', '#skillTreeSummary'],
+            id: 'sp_notify',
+            tag: 'SKILL POINT · 1 / 3',
+            title: 'You Earned a Skill Point!',
+            desc: () => {
+              const cat = state.activeSkillPointAward?.category;
+              return cat
+                ? `Every 5 correct answers in ${cat} earns 1 Skill Point. Watch this notification whenever a new point unlocks.`
+                : 'Every 5 correct answers in a discipline earns 1 Skill Point. Watch this notification whenever a new point unlocks.';
+            },
+            nextLabel: 'Next',
+            target: [
+              '#spEarnedBanner:not([hidden])',
+              '#skillPointHudBadge:not([hidden])',
+              '#playHud .play-hud-header',
+              '#dashboardAside',
+            ],
             preferPlacement: 'bottom',
           },
           {
-            id: 'sp_topic_trees',
-            tag: 'SKILL TREE',
-            title: 'Topic Branches & Prerequisites',
-            desc: 'The four branches match Computer Systems, Networking & Security, Programming, and Database. Press START at the center anytime to reveal starter nodes and unlock connected skills.',
-            target: ['#skillMapViewport', '#skillTreeGrid'],
+            id: 'sp_hud_control',
+            tag: 'SKILL TREE · 2 / 3',
+            title: 'Open the Skill Tree from the HUD',
+            desc: 'Use the Skills [U] control in the top HUD (or press U) anytime to view your skill points and branches.',
+            nextLabel: 'Open Skill Tree',
+            allowOptionalAction: true,
+            target: [
+              '#skillPointHudBadge:not([hidden])',
+              '#mainSidebar [data-view="skilltree"]',
+              '#playHud .play-hud-header',
+              '#dashboardAside',
+            ],
+            allowClickSelector: '#skillPointHudBadge, #spEarnedBanner',
+            allowedKeys: ['u'],
+            onNext: () => {
+              const banner = document.getElementById('spEarnedBanner');
+              if (banner) banner.hidden = true;
+              if (typeof skillTreeOpen !== 'undefined' && !skillTreeOpen && typeof openSkillTree === 'function') {
+                openSkillTree();
+              }
+            },
+            preferPlacement: 'bottom',
+          },
+          {
+            id: 'sp_tree_overview',
+            tag: 'SKILL TREE · 3 / 3',
+            title: 'Explore & Upgrade Anytime',
+            desc: 'Your four topic branches grow outward from the center—select any node to see its bonus and 1 SP cost. Spending points is optional, and you can close the Skill Tree anytime with Close · U or Escape.',
+            nextLabel: 'Got it',
+            target: ['#skillMapViewport', '#skillTreeGrid', '#skillTreeOverlay .skill-tree-card'],
             preferPlacement: 'top',
-          },
-          {
-            id: 'sp_upgrade_details',
-            tag: 'SKILL TREE',
-            title: 'Upgrade Descriptions & Costs',
-            desc: 'Selecting any revealed node displays its rank effect and 1 SP cost here. Choosing an upgrade is optional, and exclusive midpoint skills lock the other three topics.',
-            target: ['#skillTreeDetail', '#skillTreeGrid'],
-            preferPlacement: 'left',
-          },
-          {
-            id: 'sp_close_tree',
-            tag: 'SKILL TREE',
-            title: 'Upgrade or Close Anytime',
-            desc: 'Finish this guide to spend points on your own or close the tree whenever you are ready using Close · U, U, or Escape.',
-            target: ['#closeSkillTree', '.skill-tree-header'],
-            preferPlacement: 'bottom',
           },
         ];
       }
@@ -1071,14 +1091,10 @@
           },
           {
             id: 'map_close',
-            tag: 'ACTION STEP',
-            title: 'Close the World Map',
-            desc: 'Close the map whenever you are ready to resume exploring.',
-            actionPrompt: 'Action required: Click "Close · M" (or press M or Escape).',
-            actionRequired: true,
+            tag: 'WORLD MAP',
+            title: 'Close Whenever Ready',
+            desc: 'Use Close · M, press M, or press Escape whenever you are ready to resume exploring.',
             target: ['#closeWorldMap', '.world-map-actions'],
-            allowClickSelector: '#closeWorldMap',
-            allowedKeys: ['m', 'escape'],
             preferPlacement: 'bottom',
           },
         ];
@@ -1157,14 +1173,10 @@
           },
           {
             id: 'guide_map_close',
-            tag: 'ACTION STEP',
-            title: 'Close the World Map',
-            desc: 'Use Close · M, press M, or press Escape to return to exploration.',
-            actionPrompt: 'Action required: Close the map with its button, M, or Escape.',
-            actionRequired: true,
+            tag: 'WORLD MAP GUIDE',
+            title: 'Close Whenever Ready',
+            desc: 'Finish this guide to explore the map on your own, or use Close · M, M, or Escape to return to exploration.',
             target: ['#closeWorldMap'],
-            allowClickSelector: '#closeWorldMap',
-            allowedKeys: ['m', 'escape'],
             preferPlacement: 'bottom',
           },
         ];
@@ -1194,6 +1206,7 @@
     spPopupTimer: 0,
     pendingSkillTreeKey: null,
     activeIsReplay: false,
+    pendingBattleReplay: false,
     sequence: null, // { kind: 'tour' | 'game', queue?: string[], pending?: Set<string>, isReplay: boolean }
     suppressAutoTourView: null,
   };
@@ -1256,7 +1269,7 @@
 
   function isActionPromptKey(step, key, rawKey) {
     if (!step) return false;
-    if (!hasVisibleActionPrompt(step) && state.activeId !== 'game_sp_earned') return false;
+    if (!hasVisibleActionPrompt(step) && !step.allowOptionalAction && state.activeId !== 'game_sp_earned') return false;
     const allowedKeys = Array.isArray(step.allowedKeys) ? step.allowedKeys : [];
     return allowedKeys.includes(String(key || '').toLowerCase()) ||
       allowedKeys.includes(String(rawKey || '').toLowerCase());
@@ -1274,7 +1287,7 @@
 
   function getAllowedActionControl(target, step = currentStep()) {
     if (!target || !step || !step.allowClickSelector) return null;
-    if (!hasVisibleActionPrompt(step) && state.activeId !== 'game_sp_earned') return null;
+    if (!hasVisibleActionPrompt(step) && !step.allowOptionalAction && state.activeId !== 'game_sp_earned') return null;
     const control = target.closest(step.allowClickSelector);
     if (!control || !isElementVisible(control) || control.matches(':disabled, [aria-disabled="true"]')) return null;
     return control;
@@ -1298,7 +1311,7 @@
     }
     if (els.skipBtn && !els.skipBtn.hidden) targets.push(els.skipBtn);
     if (els.nextBtn && !els.nextBtn.hidden) targets.push(els.nextBtn);
-    if (hasVisibleActionPrompt(step) && step.allowClickSelector) {
+    if ((hasVisibleActionPrompt(step) || step?.allowOptionalAction) && step.allowClickSelector) {
       document.querySelectorAll(step.allowClickSelector).forEach((target) => {
         if (isAllowedTutorialTarget(target, step) && !targets.includes(target)) targets.push(target);
       });
@@ -2032,6 +2045,15 @@
     state.activeIsReplay = false;
     stopActiveTutorial({ restoreFocus: true });
 
+    if (finishedId === 'game_skill_tree') {
+      state.activeSkillPointAward = null;
+      const banner = document.getElementById('spEarnedBanner');
+      if (banner) banner.hidden = true;
+      if (!wasReplay) {
+        markFirstSkillTreeSequenceDone(status);
+      }
+    }
+
     if (finishedId === 'tour_sidebar_nav' && typeof setNavMenuOpen === 'function' && typeof navMenuOpen !== 'undefined' && navMenuOpen) {
       setNavMenuOpen(false);
     }
@@ -2102,6 +2124,11 @@
         flushPendingSkillPointPopup(140);
       }
       return;
+    }
+    if (activeId === 'game_skill_tree') {
+      state.activeSkillPointAward = null;
+      const banner = document.getElementById('spEarnedBanner');
+      if (banner) banner.hidden = true;
     }
     const isReplaySeq = Boolean(state.sequence?.isReplay || state.activeIsReplay);
     const store = loadStore();
@@ -2225,7 +2252,8 @@
     }
 
     if (tutorialId === 'game_skill_tree' && typeof skillTreeOpen !== 'undefined' && skillTreeOpen && !startAtStepId) {
-      startIdx = 0;
+      const overviewIdx = steps.findIndex((s) => s.id === 'sp_tree_overview');
+      startIdx = overviewIdx >= 0 ? overviewIdx : 0;
     }
 
     state.stepIndex = startIdx;
@@ -2290,7 +2318,77 @@
     return startTutorial('game_core', { force: true, isReplay: true });
   }
 
-  // --- Skill-Point Earned Trigger & Queue ---
+  function replayBattleTutorial() {
+    if (!isAppReadyWithProfile()) return false;
+    if (typeof skillTreeOpen !== 'undefined' && skillTreeOpen && typeof closeSkillTree === 'function') closeSkillTree();
+    if (typeof worldMapOpen !== 'undefined' && worldMapOpen && typeof closeWorldMap === 'function') closeWorldMap();
+    if (typeof setNavMenuOpen === 'function' && typeof navMenuOpen !== 'undefined' && navMenuOpen) setNavMenuOpen(false);
+    stopActiveTutorial({ restoreFocus: false });
+    state.suppressAutoTourView = null;
+    state.sequence = null;
+    state.pendingBattleReplay = true;
+
+    const launchBattleReplay = () => {
+      try {
+        if (typeof mode === 'undefined' || mode !== 'battle' || typeof battle === 'undefined' || !battle.enemy) {
+          const foe = (typeof enemies !== 'undefined' && Array.isArray(enemies))
+            ? (enemies.find((e) => e && e.alive) || enemies[0])
+            : null;
+          if (foe && typeof startBattle === 'function') {
+            startBattle(foe);
+          }
+          if (typeof INTRO_END !== 'undefined') {
+            try { introT = INTRO_END; } catch {}
+          }
+          try { snapshot = null; } catch {}
+          if (typeof mode !== 'undefined') {
+            try { mode = 'battle'; } catch {}
+          }
+          if (typeof battle !== 'undefined') {
+            battle.phase = 'choose';
+            if (typeof renderBattle === 'function') renderBattle();
+          }
+        }
+      } finally {
+        state.pendingBattleReplay = false;
+      }
+      window.setTimeout(() => {
+        if (typeof mode !== 'undefined' && mode === 'battle') {
+          stopActiveTutorial({ restoreFocus: false });
+          startTutorial('game_battle', { force: true, startAtStepId: 'battle_choose_card', isReplay: true });
+        }
+      }, 60);
+    };
+
+    if (typeof playViewActive === 'undefined' || !playViewActive || (typeof mode !== 'undefined' && mode !== 'battle')) {
+      if (typeof practiceRunActive === 'undefined' || !practiceRunActive) {
+        if (typeof startPracticeAdventure === 'function') {
+          startPracticeAdventure();
+        }
+      }
+      window.setTimeout(launchBattleReplay, 120);
+      return true;
+    }
+    launchBattleReplay();
+    return true;
+  }
+
+  // --- First-Time Skill-Point -> Skill Tree Tutorial Trigger & Queue ---
+  function isFirstSkillTreeSequenceDone() {
+    const store = loadStore();
+    return Boolean(store.spGuideTriggered || store.completed.game_skill_tree);
+  }
+
+  function markFirstSkillTreeSequenceDone(status = null) {
+    const store = loadStore();
+    store.spGuideTriggered = true;
+    if (status && store.completed.game_skill_tree !== 'completed') {
+      store.completed.game_skill_tree = status;
+    }
+    delete store.progress.game_skill_tree;
+    saveStore(store);
+  }
+
   function canShowQueuedSkillPointPopup() {
     if (!isAppReadyWithProfile() || state.activeId) return false;
     if (typeof skillTreeOpen !== 'undefined' && skillTreeOpen) return false;
@@ -2306,6 +2404,10 @@
 
   function flushPendingSkillPointPopup(delayMs = 120) {
     if (!state.pendingSkillPointAwards.length) return false;
+    if (isFirstSkillTreeSequenceDone()) {
+      state.pendingSkillPointAwards = [];
+      return false;
+    }
     if (state.spPopupTimer) {
       window.clearTimeout(state.spPopupTimer);
       state.spPopupTimer = 0;
@@ -2313,10 +2415,20 @@
     const run = () => {
       state.spPopupTimer = 0;
       if (!state.pendingSkillPointAwards.length || !canShowQueuedSkillPointPopup()) return;
+      if (isFirstSkillTreeSequenceDone()) {
+        state.pendingSkillPointAwards = [];
+        return;
+      }
       const nextAward = state.pendingSkillPointAwards.shift();
+      state.pendingSkillPointAwards = [];
       state.activeSkillPointAward = nextAward;
       state.pendingSkillTreeKey = nextAward.treeKey || null;
-      startTutorial('game_sp_earned', { force: true });
+      // Ensure the skill-point notification banner is visible for Step 1 to highlight
+      if (typeof showSkillPointEarnedBanner === 'function') {
+        showSkillPointEarnedBanner(nextAward.category, { persistForTutorial: true });
+      }
+      markFirstSkillTreeSequenceDone();
+      startTutorial('game_skill_tree', { force: true, startAtStepId: 'sp_notify' });
     };
     if (delayMs <= 0) {
       run();
@@ -2328,6 +2440,9 @@
 
   function onSkillPointEarned(category, treeKey, awardId) {
     if (!isAppReadyWithProfile()) return;
+    // Only show the first-time Skill Tree sequence ONCE per player's first skill-point experience
+    if (isFirstSkillTreeSequenceDone()) return;
+    if (state.activeId === 'game_skill_tree' || state.pendingSkillPointAwards.length > 0) return;
     let resolvedId = awardId ? String(awardId) : '';
     if (!resolvedId) {
       let earnedCount = 0;
@@ -2351,7 +2466,7 @@
 
   // --- Automatic First-Visit Context Detection ---
   function maybeTriggerContextualTutorial() {
-    if (!isAppReadyWithProfile()) return;
+    if (!isAppReadyWithProfile() || state.pendingBattleReplay) return;
     const gameSeq = state.sequence?.kind === 'game' ? state.sequence : null;
     const takeGameSeq = (id) => {
       if (!gameSeq?.pending?.has(id)) return false;
@@ -2363,15 +2478,28 @@
     // 1. Check active overlays first (Skill Tree & World Map)
     if (typeof skillTreeOpen !== 'undefined' && skillTreeOpen) {
       state.suppressAutoTourView = null;
-      if (state.activeId === 'guide_skill_tree' || state.activeId === 'game_skill_tree') return;
+      if (state.activeId === 'guide_skill_tree') return;
+      if (state.activeId === 'game_skill_tree') {
+        const cur = currentStep();
+        if (cur && cur.id !== 'sp_tree_overview') {
+          const overviewIdx = state.steps.findIndex((s) => s.id === 'sp_tree_overview');
+          if (overviewIdx >= 0) {
+            state.stepIndex = overviewIdx;
+            renderCurrentStep({ focusBubble: true });
+          }
+        }
+        return;
+      }
       if (state.activeId === 'game_sp_earned') {
         state.activeSkillPointAward = null;
         stopActiveTutorial({ restoreFocus: false });
       } else if (state.activeId && state.activeId !== 'game_skill_tree') {
         stopActiveTutorial({ restoreFocus: false });
       }
-      if (!state.activeId && (takeGameSeq('game_skill_tree') || !isTutorialFinished('game_skill_tree'))) {
-        startTutorial('game_skill_tree', { force: Boolean(gameSeq), isReplay: Boolean(gameSeq?.isReplay) });
+      // Do NOT auto-trigger game_skill_tree merely because the player opened the Skill Tree;
+      // only trigger here if an explicit full-guide replay sequence requested it.
+      if (!state.activeId && takeGameSeq('game_skill_tree')) {
+        startTutorial('game_skill_tree', { force: true, startAtStepId: 'sp_tree_overview', isReplay: Boolean(gameSeq?.isReplay) });
       }
       return;
     }
@@ -2392,7 +2520,10 @@
     }
 
     if (state.activeId === 'game_skill_tree' && typeof skillTreeOpen !== 'undefined' && !skillTreeOpen) {
-      stopActiveTutorial({ restoreFocus: false });
+      const cur = currentStep();
+      if (cur && cur.id === 'sp_tree_overview') {
+        stopActiveTutorial({ restoreFocus: false });
+      }
     }
     if (state.activeId === 'game_world_map') {
       stopActiveTutorial({ restoreFocus: false });
@@ -2620,7 +2751,7 @@
       return actionPromptActive && isActionPromptKey(step, k, rk) ? false : true;
     }
 
-    if (!actionPromptActive && state.activeId !== 'game_sp_earned') return true;
+    if (!actionPromptActive && !step.allowOptionalAction && state.activeId !== 'game_sp_earned') return true;
     if (actionButtonFocused) return true;
     if (repeat) return true;
 
@@ -2679,7 +2810,9 @@
     }
 
     if (state.activeId === 'game_skill_tree') {
-      if (step.id === 'sp_open_tree' && k === 'u') {
+      if ((step.id === 'sp_hud_control' || step.id === 'sp_open_tree') && k === 'u') {
+        const banner = document.getElementById('spEarnedBanner');
+        if (banner) banner.hidden = true;
         if (typeof openSkillTree === 'function') openSkillTree();
         return true;
       }
@@ -2830,8 +2963,8 @@
   // --- Guide Button Visibility & Context Tutorial Resolution ---
   function getRelevantContextTutorialId() {
     if (!isAppReadyWithProfile()) return null;
-    if (typeof skillTreeOpen !== 'undefined' && skillTreeOpen) return 'game_skill_tree';
-    if (typeof worldMapOpen !== 'undefined' && worldMapOpen) return 'game_world_map';
+    if (typeof skillTreeOpen !== 'undefined' && skillTreeOpen) return 'guide_skill_tree';
+    if (typeof worldMapOpen !== 'undefined' && worldMapOpen) return 'guide_world_map';
     if (window.mpUI?.isOpen) return null;
 
     if (typeof playViewActive !== 'undefined' && playViewActive) {
@@ -2979,9 +3112,17 @@
       flushPendingSkillPointPopup(140);
     } else if (state.activeId === 'game_skill_tree') {
       const step = currentStep();
-      if (step && step.id === 'sp_close_tree') {
-        setTutorialStatus('game_skill_tree', 'completed');
+      const wasReplay = Boolean(state.activeIsReplay || state.sequence?.isReplay);
+      if (step && (step.id === 'sp_tree_overview' || step.id === 'sp_close_tree')) {
+        if (!wasReplay) {
+          setTutorialStatus('game_skill_tree', 'completed');
+          markFirstSkillTreeSequenceDone('completed');
+        }
       }
+      state.activeSkillPointAward = null;
+      const banner = document.getElementById('spEarnedBanner');
+      if (banner) banner.hidden = true;
+      state.activeIsReplay = false;
       stopActiveTutorial({ restoreFocus: false });
       flushPendingSkillPointPopup(140);
     } else {
@@ -3303,6 +3444,7 @@
     replayCurrentContextTutorial,
     replayFullPageTour,
     replayFullGameGuide,
+    replayBattleTutorial,
     resetPlayerTutorials,
     skipActiveTutorialOrSequence,
     REQUIRED_TUTORIAL_IDS,

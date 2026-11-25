@@ -12547,6 +12547,1114 @@ body.reduce-motion .play-meter.is-def-buffed {
   text-shadow: 0 1px 3px #10161a;
 }
 
+/* ==========================================================================
+   18. SETTINGS REPLAY BATTLE BUTTON, RED/GREEN CARDS, DISTINCTIVE ACTIVE SKILLS
+       & ZERO-SCROLL PORTRAIT MOBILE BATTLE QUESTIONNAIRE
+   ========================================================================== */
+
+/* --- Settings Tutorial Replay Grid (3 Controls) --- */
+.settings-tutorials-card .settings-replay-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.settings-replay-battle {
+  min-height: 44px;
+  border-color: #c8524a !important;
+  background: rgba(214, 78, 68, 0.16) !important;
+  color: #ffd7d2 !important;
+}
+
+.settings-replay-battle:hover:not(:disabled) {
+  background: #e05a52 !important;
+  color: #1c0b0a !important;
+}
+
+:root:not([data-theme="dark"]) .settings-replay-battle {
+  border-color: #a6342e !important;
+  background: #fae2df !important;
+  color: #6d1915 !important;
+}
+
+:root:not([data-theme="dark"]) .settings-replay-battle:hover:not(:disabled) {
+  background: #f2c4be !important;
+  color: #4f100d !important;
+}
+
+/* --- Shared Pixel Role Icons & Badges (Non-Color Category Cues) --- */
+.card-role-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
+.card-role-ico .pixel-ico {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+/* --- Redesigned Battle Hand & Card Reward Cards (Red = Offense, Green = Heal/Defense) --- */
+.app.is-playing .game-panel .actions button.battle-card,
+.app.is-playing .game-panel .choices.card-pick button.battle-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 5px;
+  padding: 10px 12px 11px;
+  min-height: 88px;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 2px;
+  text-align: left;
+  overflow: visible;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+
+.app.is-playing .game-panel .actions button.battle-card::before,
+.app.is-playing .game-panel .choices.card-pick button.battle-card::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+.app.is-playing .game-panel .actions button.battle-card::after,
+.app.is-playing .game-panel .choices.card-pick button.battle-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+}
+
+.battle-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.battle-card-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  border: 1px solid currentColor;
+  font-size: 9.5px;
+  line-height: 1.15;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.battle-card-cost {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(8, 12, 14, 0.45);
+  font-size: 9.5px;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.battle-card-cost.is-free {
+  border-color: rgba(168, 240, 198, 0.48);
+  color: #cffae2;
+}
+
+.battle-card-cost.is-mp {
+  border-color: rgba(124, 214, 248, 0.56);
+  color: #bceeff;
+}
+
+.battle-card-cost.is-cd,
+.battle-card-cost.is-low-mp {
+  border-color: rgba(242, 187, 97, 0.62);
+  background: rgba(46, 28, 10, 0.72);
+  color: #ffe09e;
+}
+
+.battle-card-title {
+  display: block;
+  font-size: 13.5px;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+}
+
+.battle-card-key {
+  opacity: 0.85;
+}
+
+.app.is-playing .game-panel .actions button.battle-card small.battle-card-desc,
+.app.is-playing .game-panel .choices.card-pick button.battle-card small.battle-card-desc {
+  display: block;
+  margin-top: auto;
+  padding-top: 2px;
+  font-size: 13.5px;
+  line-height: 1.28;
+}
+
+/* Offensive Cards (Red Theme — Dark & Light Battle Deck) */
+.app.is-playing .game-panel button.battle-card.card-tone-offense {
+  border-color: #d9524c !important;
+  border-top: 4px solid #ff9484 !important;
+  background:
+    linear-gradient(135deg, rgba(255, 118, 96, 0.14) 0%, transparent 46%),
+    linear-gradient(180deg, #42171b 0%, #2a1014 62%, #1b0a0d 100%) !important;
+  color: #fff3ef !important;
+  box-shadow: inset 0 1px 0 rgba(255, 190, 178, 0.22), 3px 3px 0 rgba(0, 0, 0, 0.48) !important;
+}
+
+.app.is-playing .game-panel button.battle-card.card-tone-offense::after {
+  background: linear-gradient(225deg, #ff9484 0%, #ff9484 50%, transparent 50%);
+}
+
+.app.is-playing .game-panel button.battle-card.card-tone-offense .battle-card-role {
+  background: rgba(235, 76, 68, 0.28);
+  border-color: #ff9c8d;
+  color: #ffd8d1;
+}
+
+.app.is-playing .game-panel button.battle-card.card-tone-offense small.battle-card-desc {
+  color: #f4d3cd !important;
+}
+
+.app.is-playing .game-panel button.battle-card.card-tone-offense:hover:not(:disabled) {
+  border-color: #ff9484 !important;
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+  box-shadow: 0 0 14px rgba(235, 86, 76, 0.34), 3px 5px 0 rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Healing & Defensive Cards (Green Theme — Dark & Light Battle Deck) */
+.app.is-playing .game-panel button.battle-card.card-tone-defense {
+  border-color: #3db876 !important;
+  border-top: 4px solid #86f2b4 !important;
+  background:
+    linear-gradient(135deg, rgba(114, 240, 170, 0.14) 0%, transparent 46%),
+    linear-gradient(180deg, #13392a 0%, #0d261d 62%, #091a14 100%) !important;
+  color: #edfff5 !important;
+  box-shadow: inset 0 1px 0 rgba(176, 255, 212, 0.22), 3px 3px 0 rgba(0, 0, 0, 0.48) !important;
+}
+
+.app.is-playing .game-panel button.battle-card.card-tone-defense::after {
+  background: linear-gradient(225deg, #86f2b4 0%, #86f2b4 50%, transparent 50%);
+}
+
+.app.is-playing .game-panel button.battle-card.card-tone-defense .battle-card-role {
+  background: rgba(61, 184, 118, 0.28);
+  border-color: #86f2b4;
+  color: #cefce2;
+}
+
+.app.is-playing .game-panel button.battle-card.card-tone-defense small.battle-card-desc {
+  color: #c7edd8 !important;
+}
+
+.app.is-playing .game-panel button.battle-card.card-tone-defense:hover:not(:disabled) {
+  border-color: #86f2b4 !important;
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+  box-shadow: 0 0 14px rgba(76, 209, 140, 0.32), 3px 5px 0 rgba(0, 0, 0, 0.5) !important;
+}
+
+.app.is-playing .game-panel button.battle-card:focus-visible {
+  outline: 3px solid #fff5cc !important;
+  outline-offset: 2px !important;
+}
+
+.app.is-playing .game-panel button.battle-card:disabled,
+.app.is-playing .game-panel button.battle-card:disabled:hover {
+  opacity: 0.6;
+  filter: saturate(0.55);
+  transform: none;
+  cursor: not-allowed;
+}
+
+/* Card Collection (Achievements Page) Red / Green Visual Identity — Dark & Light Themes */
+.card-collection-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border: 1px solid currentColor;
+  font-size: 9.5px;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.card-list li.card-tone-offense,
+.app:not(.is-playing) .card-list li.card-tone-offense {
+  border: 2px solid #d9524c;
+  border-top: 4px solid #ff9484;
+  background: linear-gradient(160deg, rgba(84, 24, 28, 0.88) 0%, rgba(36, 15, 19, 0.94) 100%);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.36);
+}
+
+.card-list li.card-tone-offense .card-role-pill.is-offense {
+  background: rgba(232, 74, 66, 0.24);
+  border-color: #ff9c8d;
+  color: #ffd7d0;
+}
+
+.card-list li.card-tone-defense,
+.app:not(.is-playing) .card-list li.card-tone-defense {
+  border: 2px solid #3db876;
+  border-top: 4px solid #86f2b4;
+  background: linear-gradient(160deg, rgba(19, 64, 46, 0.88) 0%, rgba(12, 33, 25, 0.94) 100%);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.36);
+}
+
+.card-list li.card-tone-defense .card-role-pill.is-defense {
+  background: rgba(61, 184, 118, 0.24);
+  border-color: #82eeb2;
+  color: #ccfbe2;
+}
+
+:root[data-theme="dark"] .app:not(.is-playing) .card-list li.is-locked.card-tone-offense {
+  border-style: dashed;
+  background: linear-gradient(160deg, rgba(58, 22, 26, 0.72) 0%, rgba(28, 14, 17, 0.84) 100%);
+}
+
+:root[data-theme="dark"] .app:not(.is-playing) .card-list li.is-locked.card-tone-defense {
+  border-style: dashed;
+  background: linear-gradient(160deg, rgba(18, 48, 36, 0.72) 0%, rgba(11, 26, 20, 0.84) 100%);
+}
+
+:root:not([data-theme="dark"]) .card-list li.card-tone-offense,
+:root:not([data-theme="dark"]) .app:not(.is-playing) .card-list li.card-tone-offense {
+  border: 2px solid #b83a34;
+  border-top: 4px solid #d94841;
+  background: linear-gradient(160deg, #fff6f4 0%, #fce5e1 100%);
+  box-shadow: 2px 2px 0 rgba(120, 32, 28, 0.14);
+}
+
+:root:not([data-theme="dark"]) .card-list li.card-tone-offense strong {
+  color: #421215;
+}
+
+:root:not([data-theme="dark"]) .card-list li.card-tone-offense small {
+  color: #5f272b;
+}
+
+:root:not([data-theme="dark"]) .card-list li.card-tone-offense .card-role-pill.is-offense {
+  background: #f8d4ce;
+  border-color: #b83a34;
+  color: #7d171c;
+}
+
+:root:not([data-theme="dark"]) .card-list li.card-tone-defense,
+:root:not([data-theme="dark"]) .app:not(.is-playing) .card-list li.card-tone-defense {
+  border: 2px solid #287f4f;
+  border-top: 4px solid #34a064;
+  background: linear-gradient(160deg, #f3fcf7 0%, #ddf4e7 100%);
+  box-shadow: 2px 2px 0 rgba(24, 92, 54, 0.14);
+}
+
+:root:not([data-theme="dark"]) .card-list li.card-tone-defense strong {
+  color: #103622;
+}
+
+:root:not([data-theme="dark"]) .card-list li.card-tone-defense small {
+  color: #214c35;
+}
+
+:root:not([data-theme="dark"]) .card-list li.card-tone-defense .card-role-pill.is-defense {
+  background: #cbedd9;
+  border-color: #287f4f;
+  color: #124d2c;
+}
+
+:root:not([data-theme="dark"]) .card-list li.is-locked.card-tone-offense,
+:root:not([data-theme="dark"]) .app:not(.is-playing) .card-list li.is-locked.card-tone-offense {
+  border-style: dashed;
+  background: #f7ecea;
+}
+
+:root:not([data-theme="dark"]) .card-list li.is-locked.card-tone-defense,
+:root:not([data-theme="dark"]) .app:not(.is-playing) .card-list li.is-locked.card-tone-defense {
+  border-style: dashed;
+  background: #e9f3ed;
+}
+
+/* --- Distinctive Exclusive Active Skills (Horizontal Command-Relic Silhouette) --- */
+.app.is-playing .game-panel .actions button.is-exclusive-card {
+  grid-column: 1 / -1;
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  min-height: 76px;
+  padding: 10px 16px;
+  border-width: 3px !important;
+  border-style: double !important;
+  border-radius: 0 !important;
+  text-align: left;
+  overflow: visible;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+
+/* Stepped pixel-cut relic corner brackets (distinct from ordinary cards, never clips focus ring) */
+.app.is-playing .game-panel .actions button.is-exclusive-card::before,
+.app.is-playing .game-panel .actions button.is-exclusive-card::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+}
+
+.app.is-playing .game-panel .actions button.is-exclusive-card::before {
+  top: -3px;
+  left: -3px;
+  border-top: 4px solid #fff4cf;
+  border-left: 4px solid #fff4cf;
+}
+
+.app.is-playing .game-panel .actions button.is-exclusive-card::after {
+  bottom: -3px;
+  right: -3px;
+  border-bottom: 4px solid #fff4cf;
+  border-right: 4px solid #fff4cf;
+}
+
+.active-skill-sigil {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 2px solid rgba(255, 236, 174, 0.72);
+  background: radial-gradient(circle at 50% 42%, rgba(255, 224, 122, 0.22), rgba(10, 12, 16, 0.85) 75%);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 12px rgba(255, 224, 122, 0.24);
+  color: #ffe388;
+}
+
+.active-sigil-svg {
+  width: 30px;
+  height: 30px;
+  display: block;
+}
+
+.active-skill-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.active-skill-ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+.active-skill-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border: 1px solid rgba(255, 226, 134, 0.65);
+  background: rgba(255, 224, 122, 0.18);
+  color: #ffe89e;
+  font-size: 9.5px;
+  line-height: 1.15;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.active-skill-status {
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 9.5px;
+  line-height: 1.15;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.active-skill-status.is-ready {
+  border-color: #93f7be;
+  background: rgba(34, 138, 84, 0.45);
+  color: #dcffec;
+}
+
+.active-skill-status.is-cd,
+.active-skill-status.is-low-mp {
+  border-color: #f2bb61;
+  background: rgba(74, 42, 12, 0.72);
+  color: #ffe3a8;
+}
+
+.active-skill-name {
+  display: block;
+  font-size: 15px;
+  line-height: 1.25;
+  letter-spacing: 0.03em;
+  color: #fff8df;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65);
+}
+
+.active-skill-key {
+  opacity: 0.82;
+}
+
+.app.is-playing .game-panel .actions button.is-exclusive-card small.active-skill-desc {
+  margin-top: 1px;
+  font-size: 13.5px;
+  line-height: 1.28;
+  color: #f0ece0 !important;
+}
+
+/* Kernel Aegis (Gold Relic) */
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-kernel_aegis {
+  border-color: #ffd76a !important;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 220, 120, 0.05) 0 8px, transparent 8px 16px),
+    linear-gradient(110deg, #4b330c 0%, #2b1d08 55%, #171005 100%) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 228, 138, 0.35), 0 0 18px rgba(255, 215, 106, 0.28), 4px 4px 0 rgba(0, 0, 0, 0.55) !important;
+}
+
+/* Packet Lockdown (Cyan Network Relic) */
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-packet_lockdown {
+  border-color: #64e8ef !important;
+  background:
+    repeating-linear-gradient(90deg, rgba(100, 232, 239, 0.06) 0 8px, transparent 8px 16px),
+    linear-gradient(110deg, #0f424f 0%, #0b2934 55%, #07171f 100%) !important;
+  box-shadow: inset 0 0 0 1px rgba(154, 246, 250, 0.35), 0 0 18px rgba(100, 232, 239, 0.28), 4px 4px 0 rgba(0, 0, 0, 0.55) !important;
+}
+
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-packet_lockdown::before,
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-packet_lockdown::after {
+  border-color: #c8fbff;
+}
+
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-packet_lockdown .active-skill-sigil {
+  border-color: rgba(154, 246, 250, 0.78);
+  background: radial-gradient(circle at 50% 42%, rgba(100, 232, 239, 0.24), rgba(6, 18, 24, 0.88) 75%);
+  color: #8df4fa;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 12px rgba(100, 232, 239, 0.28);
+}
+
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-packet_lockdown .active-skill-tag {
+  border-color: rgba(130, 242, 248, 0.68);
+  background: rgba(100, 232, 239, 0.18);
+  color: #c6fbff;
+}
+
+/* Overburn Execution (Molten Code Relic) */
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-plasma_compile {
+  border-color: #ff8a47 !important;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 138, 71, 0.06) 0 8px, transparent 8px 16px),
+    linear-gradient(110deg, #571d0e 0%, #341009 55%, #1c0806 100%) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 194, 148, 0.35), 0 0 18px rgba(255, 122, 62, 0.32), 4px 4px 0 rgba(0, 0, 0, 0.55) !important;
+}
+
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-plasma_compile::before,
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-plasma_compile::after {
+  border-color: #ffd3b0;
+}
+
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-plasma_compile .active-skill-sigil {
+  border-color: rgba(255, 178, 120, 0.82);
+  background: radial-gradient(circle at 50% 42%, rgba(255, 122, 62, 0.28), rgba(24, 8, 6, 0.9) 75%);
+  color: #ffb173;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 12px rgba(255, 122, 62, 0.32);
+}
+
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-plasma_compile .active-skill-tag {
+  border-color: rgba(255, 178, 120, 0.7);
+  background: rgba(255, 130, 68, 0.22);
+  color: #ffd9bc;
+}
+
+.app.is-playing .game-panel .actions button.is-exclusive-card:disabled,
+.app.is-playing .game-panel .actions button.is-exclusive-card:disabled:hover {
+  opacity: 0.68;
+  filter: saturate(0.5);
+  transform: none;
+}
+
+body.reduce-motion .app.is-playing .game-panel button.battle-card,
+body.reduce-motion .app.is-playing .game-panel .actions button.is-exclusive-card {
+  transition: none;
+}
+
+/* --- Portrait Mobile Battle Questionnaire: Zero Panel Scrolling --- */
+@media (orientation: portrait) and (max-width: 640px) {
+  /* Allow bottom battle panel to fill all remaining portrait space cleanly instead of capping at 50dvh */
+  .app.is-playing.is-in-battle .play-bottom {
+    flex: 1 1 auto;
+    max-height: none;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .app.is-playing.is-in-battle .game-panel:not(:empty) {
+    padding: 10px max(10px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    gap: 8px;
+  }
+
+  /* Compact battle HUD + stage slightly during active question so full Q + 4 answers fit without scroll */
+  .app.is-playing.is-in-battle.is-battle-question .play-hud {
+    padding: calc(4px + env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left));
+    gap: 4px;
+  }
+
+  .app.is-playing.is-in-battle.is-battle-question .play-hud-header button {
+    min-height: 32px;
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+
+  .app.is-playing.is-in-battle.is-battle-question .play-status-card {
+    padding: 4px 7px;
+  }
+
+  .app.is-playing.is-in-battle.is-battle-question .play-meter-label {
+    font-size: 12px;
+  }
+
+  .app.is-playing.is-in-battle.is-battle-question .play-combat-meta {
+    margin-top: 2px;
+    font-size: 12px;
+  }
+
+  .app.is-playing.is-in-battle.is-battle-question .preview-frame {
+    max-height: 27dvh;
+    padding: 2px 4px;
+  }
+
+  .app.is-playing.is-in-battle.is-battle-question.is-compact-battle-q .preview-frame {
+    max-height: 23dvh;
+  }
+
+  .app.is-playing.is-in-battle.is-battle-question.is-ultra-battle-q .preview-frame {
+    max-height: 18.5dvh;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel {
+    justify-content: flex-start;
+    padding: 8px max(10px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    gap: 6px;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel .battle-bar-head {
+    gap: 4px 8px;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel .question {
+    font-size: 14.5px;
+    line-height: 1.3;
+    overflow-wrap: break-word;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel .tag {
+    font-size: 9.5px;
+    line-height: 1.25;
+    gap: 4px;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel .adaptive-reason-tag {
+    padding: 1px 4px;
+    font-size: 9px;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel .remedial-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel .remedial-pip {
+    width: 21px;
+    height: 21px;
+    font-size: 9.5px;
+  }
+
+  /* Smart choice grid: 2x2 for short/medium choices, compact 1-col for long choices */
+  .app.is-playing.is-in-battle .game-panel.is-question-panel .choices.is-choices-2col,
+  .app.is-playing.is-in-battle .game-panel.is-question-panel .choices.is-force-2col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel .choices.is-choices-1col:not(.is-force-2col) {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel .choices button {
+    min-height: 44px;
+    padding: 7px 10px;
+    font-size: 13.5px;
+    line-height: 1.26;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  /* Progressive compaction tier 1: medium-long questions on short screens */
+  .app.is-playing.is-in-battle .game-panel.is-question-panel.is-compact-q {
+    padding: 6px max(9px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(9px, env(safe-area-inset-left));
+    gap: 5px;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel.is-compact-q .question {
+    font-size: 13.2px;
+    line-height: 1.24;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel.is-compact-q .tag {
+    font-size: 8.5px;
+    line-height: 1.2;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel.is-compact-q .choices {
+    gap: 5px;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel.is-compact-q .choices button {
+    min-height: 40px;
+    padding: 5px 9px;
+    font-size: 12.5px;
+    line-height: 1.22;
+  }
+
+  /* Progressive compaction tier 2: very long questions + multi-line choices on 360x640 */
+  .app.is-playing.is-in-battle .game-panel.is-question-panel.is-ultra-compact-q {
+    padding: 5px max(8px, env(safe-area-inset-right)) calc(5px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    gap: 4px;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel.is-ultra-compact-q .battle-bar-head {
+    gap: 2px 6px;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel.is-ultra-compact-q .question {
+    font-size: 12.2px;
+    line-height: 1.2;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel.is-ultra-compact-q .tag {
+    font-size: 8px;
+    line-height: 1.15;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel.is-ultra-compact-q .choices {
+    gap: 4px;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel.is-ultra-compact-q .choices button {
+    min-height: 36px;
+    padding: 4px 8px;
+    font-size: 11.5px;
+    line-height: 1.18;
+  }
+
+  /* Final outlier safety net for extreme 450+ char questions at 360x640 */
+  .app.is-playing.is-in-battle .game-panel.is-question-panel.is-tight-choices .question {
+    font-size: 11.4px;
+    line-height: 1.16;
+  }
+
+  .app.is-playing.is-in-battle .game-panel.is-question-panel.is-tight-choices .choices button {
+    min-height: 36px;
+    padding: 3px 7px;
+    font-size: 10.8px;
+    line-height: 1.15;
+  }
+
+  /* Compact active skill & battle cards on narrow portrait phones */
+  .app.is-playing .game-panel .actions {
+    gap: 6px;
+  }
+
+  .app.is-playing .game-panel .actions button.battle-card {
+    min-height: 66px;
+    padding: 6px 8px 7px;
+    gap: 3px;
+  }
+
+  .app.is-playing .game-panel .actions button.battle-card .battle-card-role,
+  .app.is-playing .game-panel .actions button.battle-card .battle-card-cost {
+    font-size: 8px;
+    padding: 2px 4px;
+  }
+
+  .app.is-playing .game-panel .actions button.battle-card .battle-card-title {
+    font-size: 11.5px;
+  }
+
+  .app.is-playing .game-panel .actions button.battle-card small.battle-card-desc {
+    font-size: 11px;
+    line-height: 1.18;
+  }
+
+  .app.is-playing .game-panel .actions button.is-exclusive-card {
+    gap: 9px;
+    padding: 7px 9px;
+    min-height: 58px;
+  }
+
+  .app.is-playing .game-panel .actions button.is-exclusive-card .active-skill-sigil {
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .app.is-playing .game-panel .actions button.is-exclusive-card .active-sigil-svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .app.is-playing .game-panel .actions button.is-exclusive-card .active-skill-tag,
+  .app.is-playing .game-panel .actions button.is-exclusive-card .active-skill-status {
+    font-size: 8px;
+    padding: 2px 5px;
+  }
+
+  .app.is-playing .game-panel .actions button.is-exclusive-card .active-skill-name {
+    font-size: 12px;
+  }
+
+  .app.is-playing .game-panel .actions button.is-exclusive-card small.active-skill-desc {
+    font-size: 11px;
+    line-height: 1.18;
+  }
+}
+
+/* ==========================================================================
+   19. SKILL TREE DESCRIPTION SPACING, BREATHING ROOM & RESPONSIVE SAFETY
+   ========================================================================== */
+
+/* Skill Tree Map Nodes: cleaner internal breathing room without altering outer geometry/connections */
+.skill-map-node {
+  padding: 9px 11px;
+  gap: 5px 10px;
+  min-height: 76px;
+}
+
+.skill-node-tree {
+  line-height: 1.3;
+  letter-spacing: 0.03em;
+  margin-bottom: 1px;
+}
+
+.skill-node-name {
+  font-size: 14.5px;
+  line-height: 1.24;
+  overflow-wrap: break-word;
+}
+
+.skill-node-rank {
+  line-height: 1.25;
+  margin-top: 1px;
+  letter-spacing: 0.03em;
+}
+
+/* Skill Tree Detail Card: prevent flex shrinking/collisions & give description deliberate breathing room */
+.skill-tree-grid {
+  grid-template-columns: minmax(0, 1.48fr) minmax(330px, 0.92fr);
+  gap: 16px;
+  padding: 16px;
+}
+
+.skill-map-viewport {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.skill-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-width: 0;
+  min-height: 0;
+  padding: 18px 20px 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.skill-detail > * {
+  flex: 0 0 auto;
+}
+
+.skill-detail-eyebrow {
+  margin: 0;
+  line-height: 1.48;
+  letter-spacing: 0.05em;
+}
+
+.skill-detail h2 {
+  margin: 0;
+  padding-bottom: 2px;
+  font-size: 16.5px;
+  line-height: 1.38;
+  overflow-wrap: break-word;
+}
+
+.skill-detail-description {
+  min-height: 0;
+  margin: 0;
+  padding: 13px 15px;
+  border: 1px solid rgba(169, 189, 143, 0.22);
+  border-radius: 6px;
+  background: rgba(9, 16, 17, 0.42);
+  color: #cbd9cf;
+  font-size: 15px;
+  line-height: 1.58;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
+}
+
+.skill-detail-effect {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 5px;
+  margin: 0;
+  padding: 10px 2px 6px;
+  border-top: 1px solid var(--line);
+  font-size: 14.5px;
+  line-height: 1.48;
+}
+
+.skill-detail-effect span {
+  font-size: 10.5px;
+  line-height: 1.35;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.skill-detail-effect strong {
+  text-align: left;
+  line-height: 1.48;
+  overflow-wrap: break-word;
+}
+
+.skill-detail-rank {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 10px 2px 6px;
+  border-top: 1px solid var(--line);
+  font-size: 14.5px;
+  line-height: 1.42;
+}
+
+.skill-detail-status {
+  min-height: 0;
+  margin: 2px 0 4px;
+  padding: 10px 13px;
+  font-size: 14px;
+  line-height: 1.52;
+  overflow-wrap: break-word;
+}
+
+.skill-purchase-button {
+  flex: 0 0 auto;
+  margin-top: auto;
+  min-height: 46px;
+  padding: 11px 14px;
+  line-height: 1.32;
+}
+
+/* Exclusive Active Skill Detail Panel (Dark & Light Themes keep harmonious dark relic palette) */
+:root .skill-detail.is-exclusive-detail .skill-detail-description {
+  border-color: rgba(255, 224, 122, 0.24);
+  background: rgba(8, 12, 14, 0.48);
+  color: #dce6de;
+}
+
+:root .skill-detail.is-exclusive-detail.tree-networkingSecurity .skill-detail-description {
+  border-color: rgba(111, 227, 232, 0.28);
+}
+
+:root .skill-detail.is-exclusive-detail.tree-programming .skill-detail-description {
+  border-color: rgba(255, 138, 71, 0.3);
+}
+
+:root .skill-detail.is-exclusive-detail.tree-database .skill-detail-description {
+  border-color: rgba(199, 125, 255, 0.3);
+}
+
+:root .skill-detail.is-exclusive-detail .skill-detail-effect,
+:root .skill-detail.is-exclusive-detail .skill-detail-rank {
+  border-top-color: rgba(255, 255, 255, 0.14);
+}
+
+:root .skill-detail.is-exclusive-detail .skill-detail-status {
+  background: rgba(8, 14, 16, 0.62);
+  color: #cddbd1;
+}
+
+:root .skill-detail.is-exclusive-detail .skill-detail-status.is-ready {
+  border-left-color: #8bc78e;
+  color: #c8f2c2;
+}
+
+/* Light Theme Standard Skill Detail Card */
+:root:not([data-theme="dark"]) .skill-detail:not(.is-exclusive-detail) .skill-detail-description {
+  border-color: #d6cfbc;
+  background: #fffdf7;
+  color: #3b443d;
+}
+
+:root:not([data-theme="dark"]) .skill-detail:not(.is-exclusive-detail) .skill-detail-effect,
+:root:not([data-theme="dark"]) .skill-detail:not(.is-exclusive-detail) .skill-detail-rank {
+  border-top-color: #d3cebc;
+}
+
+:root:not([data-theme="dark"]) .skill-detail:not(.is-exclusive-detail) .skill-detail-status {
+  background: #eee9d9;
+  color: #4b544c;
+}
+
+:root:not([data-theme="dark"]) .skill-detail:not(.is-exclusive-detail) .skill-detail-status.is-ready {
+  color: #2f5b35;
+}
+
+/* Tablet & Stacked Layout (<= 1040px): zero overlap between map viewport & detail panel, smooth scroll */
+@media (max-width: 1040px) {
+  .skill-tree-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(260px, 1fr) minmax(240px, auto);
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .skill-map-viewport {
+    min-height: 0;
+    height: 100%;
+  }
+
+  .skill-detail {
+    max-height: 46dvh;
+    padding: 20px;
+    gap: 13px;
+    overflow-y: auto;
+  }
+}
+
+/* Phone Portrait & Narrow Screens (<= 680px): full-height scrollable shell, card wraps all content cleanly */
+@media (max-width: 680px) {
+  .skill-tree-shell {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .skill-tree-header,
+  .skill-tree-summary,
+  .skill-tree-grid,
+  .skill-tree-footer {
+    flex: 0 0 auto;
+  }
+
+  .skill-tree-grid {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .skill-map-viewport {
+    flex: 0 0 auto;
+    height: 42dvh;
+    min-height: 240px;
+  }
+
+  .skill-detail {
+    flex: 0 0 auto;
+    height: auto;
+    min-height: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 18px 16px;
+    gap: 12px;
+  }
+
+  .skill-detail h2 {
+    font-size: 15.5px;
+    line-height: 1.38;
+  }
+
+  .skill-detail-description {
+    padding: 13px 14px;
+    font-size: 14.5px;
+    line-height: 1.58;
+  }
+
+  .skill-detail-status {
+    padding: 11px 13px;
+    font-size: 14px;
+    line-height: 1.52;
+  }
+}
+
+/* Short Landscape Screens: keep panel scrollable rather than compressing descriptions */
+@media (orientation: landscape) and (max-height: 580px) {
+  .skill-tree-grid {
+    grid-template-columns: minmax(0, 1.32fr) minmax(270px, 0.95fr);
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .skill-detail {
+    height: 100%;
+    max-height: none;
+    padding: 14px 16px;
+    gap: 10px;
+    overflow-y: auto;
+  }
+
+  .skill-detail-description {
+    padding: 10px 12px;
+    font-size: 14px;
+    line-height: 1.54;
+  }
+}
+
 *, *::before, *::after {
   font-family: var(--font-home-video) !important;
   font-weight: 400 !important;

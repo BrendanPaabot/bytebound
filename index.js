@@ -1389,19 +1389,25 @@ function renderCardCollection(metrics) {
       const detail = unlocked ? esc(card.text) : `Locked: ${esc(card.unlock?.text || 'Unlock via gameplay')}`
       const stateLabel = unlocked ? 'UNLOCKED' : 'LOCKED'
       const cost = esc(cardCostLabel(card, hero))
-      return `<li class="${unlocked ? 'is-unlocked' : 'is-locked'}">
+      const role = typeof getCardRoleMeta === 'function'
+        ? getCardRoleMeta(card)
+        : { tone: card.kind === 'hit' ? 'offense' : 'defense', category: card.kind === 'hit' ? 'attack' : 'defense', label: card.kind === 'hit' ? 'ATTACK' : 'DEFENSE', iconSvg: '' }
+      return `<li class="${unlocked ? 'is-unlocked' : 'is-locked'} card-tone-${role.tone} card-role-${role.category}">
         <div class="card-list-heading">
           <strong>${esc(card.name)}</strong>
           <span class="card-collection-state">${stateLabel}</span>
         </div>
-        <span class="card-collection-cost">Cost · ${cost}</span>
+        <div class="card-collection-meta">
+          <span class="card-role-pill is-${role.tone}"><span class="card-role-ico" aria-hidden="true">${role.iconSvg}</span><span>${esc(role.label)}</span></span>
+          <span class="card-collection-cost">Cost · ${cost}</span>
+        </div>
         <small>${detail}</small>
       </li>`
     })
     .join('')
   return `<section class="card-collection">
     <h3>Card collection</h3>
-    <p class="achievement-summary">Unlocked cards join your reward pool. Your deck starts over each run.</p>
+    <p class="achievement-summary">Unlocked cards join your reward pool. Offensive cards are framed in red; healing and defensive cards are framed in green.</p>
     <ul class="card-list">${rows}</ul>
   </section>`
 }
@@ -6863,17 +6869,31 @@ function startSkillTreeParticles(viewport) {
   skillTreeParticleRaf = requestAnimationFrame(step)
 }
 
-function showSkillPointEarnedBanner(category) {
+function showSkillPointEarnedBanner(category, options = {}) {
   const banner = document.getElementById('spEarnedBanner')
-  if (!banner) return
   const titleEl = document.getElementById('spEarnedTitle')
   const noteEl = document.getElementById('spEarnedNote')
   const availableTotal = SKILL_TREE_KEYS.reduce((total, key) => total + skillPointsAvailable(key), 0)
+  const spBadge = document.getElementById('skillPointHudBadge')
+  const spText = document.getElementById('skillPointHudText')
+  if (spBadge && spText && !(typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive)) {
+    spBadge.hidden = availableTotal <= 0
+    if (availableTotal > 0) {
+      spText.textContent = `${availableTotal} SP · [U]`
+    }
+  }
+  if (!banner) return
   if (titleEl) titleEl.textContent = `SKILL POINT EARNED (${availableTotal} SP AVAILABLE)`
   if (noteEl) noteEl.textContent = `${category || 'Discipline'} unlocked +1 SP — Press [U] or click to upgrade`
   banner.hidden = false
   window.clearTimeout(spEarnedBannerTimer)
+  spEarnedBannerTimer = 0
+  if (options && options.persistForTutorial) return
   spEarnedBannerTimer = window.setTimeout(() => {
+    if (window.ByteboundTutorial?.state?.activeId === 'game_skill_tree') {
+      spEarnedBannerTimer = 0
+      return
+    }
     banner.hidden = true
     spEarnedBannerTimer = 0
   }, 5000)
@@ -8037,9 +8057,10 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
           </header>
           <div class="settings-content">
             <p class="settings-tutorials-note">Replaying starts from Step 1, can be skipped anytime, and does not change stats, rewards, or achievement progress.</p>
-            <div class="settings-actions-row">
+            <div class="settings-actions-row settings-replay-grid">
               <button class="leaderboard-action settings-replay-tour" id="replayFullTourButton" type="button" data-tutorial-sequence="tour">Replay Full Page Tour</button>
               <button class="leaderboard-action settings-replay-game" id="replayFullGameGuideButton" type="button" data-tutorial-sequence="game">Replay Full In-Game Guide</button>
+              <button class="leaderboard-action settings-replay-battle" id="replayBattleTutorialButton" type="button" data-tutorial-sequence="battle">Replay Battle Tutorial</button>
             </div>
           </div>
         </section>
@@ -8165,6 +8186,8 @@ async function executeCurrentProfileReset() {
     pvpLeaderboardError = ''
     mode = 'menu'
     playViewActive = false
+    practiceRunActive = false
+    practiceReturnState = null
     await resetUserProfileInSupabase(activePlayerName)
     renderDashboard()
     renderHud()
@@ -8808,6 +8831,8 @@ document.getElementById('dashboardAside').addEventListener('click', (event) => {
     window.ByteboundTutorial?.replayFullPageTour?.()
   } else if (event.target.closest('#replayFullGameGuideButton')) {
     window.ByteboundTutorial?.replayFullGameGuide?.()
+  } else if (event.target.closest('#replayBattleTutorialButton')) {
+    window.ByteboundTutorial?.replayBattleTutorial?.()
   }
 })
 

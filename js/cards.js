@@ -79,6 +79,71 @@ function unlockedCardIds(metrics) {
   return Object.values(CARD_LIBRARY).filter((card) => cardUnlocked(card, metrics)).map((card) => card.id);
 }
 
+const CARD_ROLE_ICONS = {
+  attack: '<svg class="pixel-ico" viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M9 1h2v2h-1v1H9v1H8v1H7v1H6v1H5v1H4v1H2v-2h1V8h1V7h1V6h1V5h1V4h1V3h1V1zM2 8H1v1h1v1h1v1h1v-1H3V9H2V8z"/></svg>',
+  defense: '<svg class="pixel-ico" viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M2 1h8v1h1v4h-1v2H9v1H8v1H7v1H5v-1H4V9H3V8H2V6H1V2h1V1zm1 2v3h1v2h1v1h2V8h1V6h1V3H3z"/></svg>',
+  heal: '<svg class="pixel-ico" viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M4 1h4v3h3v4H8v3H4V8H1V4h3V1z"/></svg>',
+  recovery: '<svg class="pixel-ico" viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M5 1h2v1h1v2h1v2H8v2H7v2H5V8H4V6H3V4h1V2h1V1zM1 5h1v2H1V5zm9 0h1v2h-1V5z"/></svg>',
+};
+
+const ACTIVE_SKILL_SIGILS = {
+  kernel_aegis: '<svg class="active-sigil-svg" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" opacity="0.22" d="M4 3h16v2h2v8h-2v4h-2v2h-3v2h-6v-2H6v-2H4v-4H2V5h2V3z"/><path fill="currentColor" d="M5 2h14v2h2v9h-2v3h-2v2h-2v2h-2v2h-2v-2H9v-2H7v-2H5v-3H3V4h2V2zm2 4v6h2v3h2v2h2v-2h2v-3h2V6H7zm3 2h4v2h2v2h-2v2h-4v-2H8v-2h2V8z"/></svg>',
+  packet_lockdown: '<svg class="active-sigil-svg" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" opacity="0.22" d="M7 2h10v3h3v14h-3v3H7v-3H4V5h3V2z"/><path fill="currentColor" d="M8 3h8v2h2v4h2v10h-2v2H6v-2H4V9h2V5h2V3zm2 2v4h4V5h-4zm-4 6v8h12v-8H6zm5 2h2v2h1v2h-4v-2h1v-2z"/><path fill="currentColor" d="M1 11h2v2H1v-2zm20 0h2v2h-2v-2z"/></svg>',
+  plasma_compile: '<svg class="active-sigil-svg" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" opacity="0.22" d="M10 2h6v4h4v6h-3v5h-4v5H8v-5H5v-6h3V6h2V2z"/><path fill="currentColor" d="M13 1h4v2h-1v3h-1v3h5v2h-2v2h-2v2h-2v2h-2v3h-2v3H8v-3h1v-3h1v-3H5v-2h2V9h2V7h2V4h2V1zm-3 11h4v2h-2v3h2v-2h2v-3h-6v0z"/></svg>',
+};
+
+function getCardRoleMeta(card) {
+  if (!card) {
+    return { tone: 'offense', category: 'attack', label: 'ATTACK', shortLabel: 'ATK', iconSvg: CARD_ROLE_ICONS.attack };
+  }
+  if (card.exclusiveActive) {
+    const map = {
+      kernel_aegis: {
+        tone: 'exclusive',
+        category: 'exclusive',
+        label: 'ACTIVE SKILL',
+        discipline: 'SYSTEMS',
+        sigilSvg: ACTIVE_SKILL_SIGILS.kernel_aegis,
+      },
+      packet_lockdown: {
+        tone: 'exclusive',
+        category: 'exclusive',
+        label: 'ACTIVE SKILL',
+        discipline: 'NETWORK',
+        sigilSvg: ACTIVE_SKILL_SIGILS.packet_lockdown,
+      },
+      plasma_compile: {
+        tone: 'exclusive',
+        category: 'exclusive',
+        label: 'ACTIVE SKILL',
+        discipline: 'CODE',
+        sigilSvg: ACTIVE_SKILL_SIGILS.plasma_compile,
+      },
+    };
+    return map[card.id] || {
+      tone: 'exclusive',
+      category: 'exclusive',
+      label: 'ACTIVE SKILL',
+      discipline: 'RELIC',
+      sigilSvg: ACTIVE_SKILL_SIGILS.kernel_aegis,
+    };
+  }
+  switch (card.kind) {
+    case 'hit':
+      return { tone: 'offense', category: 'attack', label: 'ATTACK', shortLabel: 'ATK', iconSvg: CARD_ROLE_ICONS.attack };
+    case 'heal':
+      return { tone: 'defense', category: 'heal', label: 'HEAL', shortLabel: 'HEAL', iconSvg: CARD_ROLE_ICONS.heal };
+    case 'defend':
+    case 'buff':
+      return { tone: 'defense', category: 'defense', label: 'DEFENSE', shortLabel: 'DEF', iconSvg: CARD_ROLE_ICONS.defense };
+    case 'charge':
+    case 'mana':
+      return { tone: 'defense', category: 'recovery', label: 'RESTORE', shortLabel: 'MP', iconSvg: CARD_ROLE_ICONS.recovery };
+    default:
+      return { tone: 'offense', category: 'attack', label: 'ACTION', shortLabel: 'ACT', iconSvg: CARD_ROLE_ICONS.attack };
+  }
+}
+
 // Picks up to `count` different unlocked cards to offer after a win.
 function rewardChoices(count, metrics) {
   const bag = unlockedCardIds(metrics);

@@ -1011,7 +1011,78 @@ function hideGameOverOverlay() {
   }
 }
 
+function clearPortraitQuestionClasses() {
+  const appEl = document.getElementById('app');
+  if (appEl) {
+    appEl.classList.remove('is-battle-question', 'is-compact-battle-q', 'is-ultra-battle-q');
+  }
+  if (panel) {
+    panel.classList.remove('is-question-panel', 'is-compact-q', 'is-ultra-compact-q', 'is-tight-choices');
+  }
+}
+
+function fitPortraitQuestionPanel() {
+  if (!panel || !panel.classList.contains('is-question-panel')) return;
+  const appEl = document.getElementById('app');
+  const choicesEl = panel.querySelector('.choices');
+  panel.classList.remove('is-compact-q', 'is-ultra-compact-q', 'is-tight-choices');
+  if (appEl) appEl.classList.remove('is-compact-battle-q', 'is-ultra-battle-q');
+  if (choicesEl) choicesEl.classList.remove('is-force-2col');
+
+  const isPortraitMobile = window.innerHeight > window.innerWidth && window.innerWidth <= 640;
+  if (!isPortraitMobile) return;
+
+  const overflows = () => panel.scrollHeight > panel.clientHeight + 1;
+  if (!overflows()) return;
+
+  panel.classList.add('is-compact-q');
+  if (appEl) appEl.classList.add('is-compact-battle-q');
+  if (!overflows()) return;
+
+  panel.classList.add('is-ultra-compact-q');
+  if (appEl) appEl.classList.add('is-ultra-battle-q');
+  if (!overflows()) return;
+
+  if (choicesEl && !choicesEl.classList.contains('is-choices-2col')) {
+    const beforeH = panel.scrollHeight;
+    choicesEl.classList.add('is-force-2col');
+    if (panel.scrollHeight >= beforeH) {
+      choicesEl.classList.remove('is-force-2col');
+    }
+  }
+  if (!overflows()) return;
+
+  panel.classList.add('is-tight-choices');
+}
+
+function applyPortraitQuestionLayout(choiceTexts) {
+  const appEl = document.getElementById('app');
+  if (appEl) appEl.classList.add('is-battle-question');
+  if (panel) panel.classList.add('is-question-panel');
+  const choicesEl = panel ? panel.querySelector('.choices') : null;
+  if (choicesEl && Array.isArray(choiceTexts)) {
+    const lengths = choiceTexts.map((t) => String(t || '').trim().length);
+    const maxLen = lengths.reduce((a, b) => Math.max(a, b), 0);
+    const totalLen = lengths.reduce((a, b) => a + b, 0);
+    const useTwoCol = choiceTexts.length === 4 && maxLen <= 34 && totalLen <= 115;
+    choicesEl.classList.toggle('is-choices-2col', useTwoCol);
+    choicesEl.classList.toggle('is-choices-1col', !useTwoCol);
+  }
+  fitPortraitQuestionPanel();
+  window.requestAnimationFrame(() => fitPortraitQuestionPanel());
+}
+
+window.addEventListener('resize', () => {
+  if (panel && panel.classList.contains('is-question-panel')) fitPortraitQuestionPanel();
+});
+window.addEventListener('orientationchange', () => {
+  window.setTimeout(() => {
+    if (panel && panel.classList.contains('is-question-panel')) fitPortraitQuestionPanel();
+  }, 120);
+});
+
 function setPanel(html) {
+  clearPortraitQuestionClasses();
   if (html) {
     setExploreBanner('');
     hideGameOverOverlay();
@@ -1046,19 +1117,71 @@ function renderExplore() {
 function renderBattle() {
   const cards = battle.hand.map((id, i) => {
     const card = CARD_LIBRARY[id];
+    const role = typeof getCardRoleMeta === 'function'
+      ? getCardRoleMeta(card)
+      : { tone: card.kind === 'hit' ? 'offense' : 'defense', category: card.kind === 'hit' ? 'attack' : 'defense', label: card.kind === 'hit' ? 'ATTACK' : 'DEFENSE', iconSvg: '' };
     const defendCooling = card.id === 'defend' && battle.defendCooldownTurns > 0;
     const exclusiveCooling = card.exclusiveActive && (battle.exclusiveCooldownTurns || 0) > 0;
     const coolingTurns = defendCooling ? battle.defendCooldownTurns : (exclusiveCooling ? battle.exclusiveCooldownTurns : 0);
     const isCooling = defendCooling || exclusiveCooling;
-    const blocked = hero.mana < cardCost(card, hero) || isCooling;
-    const detail = isCooling
+    const costVal = cardCost(card, hero);
+    const manaBlocked = hero.mana < costVal;
+    const blocked = manaBlocked || isCooling;
+
+    if (card.exclusiveActive) {
+      const statusText = isCooling
+        ? `CD ${coolingTurns}t`
+        : manaBlocked
+          ? `NEED ${costVal} MP`
+          : `READY · ${costVal} MP`;
+      const statusCls = isCooling ? 'is-cd' : (manaBlocked ? 'is-low-mp' : 'is-ready');
+      const activeDesc = isCooling
+        ? `Recharging (${coolingTurns} turn${coolingTurns === 1 ? '' : 's'} left) · ${describeCard(card, hero)}`
+        : describeCard(card, hero);
+      const cls = [
+        'is-exclusive-card',
+        `card-${card.id}`,
+        isCooling ? 'is-cooling-down' : '',
+        manaBlocked ? 'is-unaffordable' : '',
+      ].filter(Boolean).join(' ');
+      return `<button class="${cls}" data-act="card" data-val="${i}" ${blocked ? 'disabled' : ''}>
+        <span class="active-skill-sigil" aria-hidden="true">${role.sigilSvg || ''}</span>
+        <span class="active-skill-content">
+          <span class="active-skill-ribbon">
+            <span class="active-skill-tag">★ ACTIVE SKILL · ${esc(role.discipline || 'RELIC')}</span>
+            <span class="active-skill-status ${statusCls}">${esc(statusText)}</span>
+          </span>
+          <span class="active-skill-name"><span class="active-skill-key">${i + 1}.</span> ${esc(card.name)}</span>
+          <small class="active-skill-desc">${esc(activeDesc)}</small>
+        </span>
+      </button>`;
+    }
+
+    const costChip = isCooling
       ? `CD ${coolingTurns}t`
-      : `${esc(cardCostLabel(card, hero))} · ${esc(describeCard(card, hero))}`;
+      : (costVal > 0 ? `${costVal} MP` : 'FREE');
+    const costChipCls = isCooling ? 'is-cd' : (manaBlocked ? 'is-low-mp' : (costVal > 0 ? 'is-mp' : 'is-free'));
+    const detail = isCooling
+      ? `Cooldown: ${coolingTurns} turn${coolingTurns === 1 ? '' : 's'} remaining`
+      : describeCard(card, hero);
     const cls = [
+      'battle-card',
+      `card-tone-${role.tone}`,
+      `card-role-${role.category}`,
       isCooling ? 'is-cooling-down' : '',
-      card.exclusiveActive ? `is-exclusive-card card-${card.id}` : '',
+      manaBlocked ? 'is-unaffordable' : '',
     ].filter(Boolean).join(' ');
-    return `<button${cls ? ` class="${cls}"` : ''} data-act="card" data-val="${i}" ${blocked ? 'disabled' : ''}>${i + 1}. ${esc(card.name)}${card.exclusiveActive ? ' ✦' : ''}<small>${detail}</small></button>`;
+    return `<button class="${cls}" data-act="card" data-val="${i}" ${blocked ? 'disabled' : ''}>
+      <span class="battle-card-top">
+        <span class="battle-card-role">
+          <span class="card-role-ico" aria-hidden="true">${role.iconSvg || ''}</span>
+          <span class="card-role-txt">${esc(role.label)}</span>
+        </span>
+        <span class="battle-card-cost ${costChipCls}">${esc(costChip)}</span>
+      </span>
+      <span class="battle-card-title"><span class="battle-card-key">${i + 1}.</span> ${esc(card.name)}</span>
+      <small class="battle-card-desc">${esc(detail)}</small>
+    </button>`;
   }).join('');
   if (multiplayerMatchActive) {
     setPanel(`<div class="battle-bar-head">
@@ -1121,6 +1244,7 @@ function renderQuestion() {
       <span class="tag">${esc(q.category)} · ${esc(q.topic)} · ${esc(diffLabel)} · <span class="adaptive-reason-tag">${esc(reasonBadge)}</span></span>
     </div>
     <div class="choices">${choices}</div>`);
+  applyPortraitQuestionLayout(q.choices);
   window.ByteboundTutorial?.onBattlePhaseRendered?.('question');
 }
 
@@ -1212,7 +1336,23 @@ function renderCardReward(presetRewards = null) {
   }
   const choices = battle.rewards.map((id, i) => {
     const card = CARD_LIBRARY[id];
-    return `<button data-act="pickcard" data-val="${i}">${i + 1}. ${esc(card.name)}<small>${esc(cardCostLabel(card, hero))} · ${esc(describeCard(card, hero))}</small></button>`;
+    const role = typeof getCardRoleMeta === 'function'
+      ? getCardRoleMeta(card)
+      : { tone: card.kind === 'hit' ? 'offense' : 'defense', category: card.kind === 'hit' ? 'attack' : 'defense', label: card.kind === 'hit' ? 'ATTACK' : 'DEFENSE', iconSvg: '' };
+    const costVal = cardCost(card, hero);
+    const costChip = costVal > 0 ? `${costVal} MP` : 'FREE';
+    const costChipCls = costVal > 0 ? 'is-mp' : 'is-free';
+    return `<button class="battle-card card-tone-${role.tone} card-role-${role.category}" data-act="pickcard" data-val="${i}">
+      <span class="battle-card-top">
+        <span class="battle-card-role">
+          <span class="card-role-ico" aria-hidden="true">${role.iconSvg || ''}</span>
+          <span class="card-role-txt">${esc(role.label)}</span>
+        </span>
+        <span class="battle-card-cost ${costChipCls}">${esc(costChip)}</span>
+      </span>
+      <span class="battle-card-title"><span class="battle-card-key">${i + 1}.</span> ${esc(card.name)}</span>
+      <small class="battle-card-desc">${esc(describeCard(card, hero))}</small>
+    </button>`;
   }).join('');
   setPanel(`<div class="battle-bar-head"><span class="ok">Choose a card for your deck (1–${battle.rewards.length}):</span><span class="dim">Deck: ${runDeck.length} cards</span></div>
     <div class="choices card-pick">${choices}</div>`);
@@ -1501,6 +1641,7 @@ function renderRemedialQuestion() {
       <span class="tag">${esc(q.category)} · ${esc(q.topic)} · ${esc(String(q.difficulty || 'easy').toUpperCase())} · <span class="adaptive-reason-tag">${esc(q.remedialSource || 'REMEDIAL DRILL')}</span></span>
     </div>
     <div class="choices">${choices}</div>`);
+  applyPortraitQuestionLayout(q.choices);
   window.ByteboundTutorial?.onBattlePhaseRendered?.('remedial');
 }
 
