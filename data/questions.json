@@ -11,7 +11,8 @@
         "Monitor"
       ],
       "answer": 1,
-      "explain": "The CPU (Central Processing Unit) fetches and executes instructions. RAM only holds data temporarily while programs run."
+      "explain": "The CPU (Central Processing Unit) fetches and executes instructions. RAM only holds data temporarily while programs run.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -24,7 +25,8 @@
         "14"
       ],
       "answer": 1,
-      "explain": "1010 = 1x8 + 0x4 + 1x2 + 0x1 = 10."
+      "explain": "1010 = 1x8 + 0x4 + 1x2 + 0x1 = 10.",
+      "year": 1
     },
     {
       "category": "Networking & Security",
@@ -37,7 +39,8 @@
         "SSH"
       ],
       "answer": 2,
-      "explain": "HTTP (and its secure form, HTTPS) carries requests and responses between browsers and web servers."
+      "explain": "HTTP (and its secure form, HTTPS) carries requests and responses between browsers and web servers.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -50,7 +53,8 @@
         "static"
       ],
       "answer": 2,
-      "explain": "const creates a binding that cannot be reassigned. let allows reassignment, and var is the older form."
+      "explain": "const creates a binding that cannot be reassigned. let allows reassignment, and var is the older form.",
+      "year": 1
     },
     {
       "category": "Database",
@@ -63,7 +67,8 @@
         "A password for the database"
       ],
       "answer": 1,
-      "explain": "A primary key uniquely identifies each row. Its values must be unique and cannot be empty."
+      "explain": "A primary key uniquely identifies each row. Its values must be unique and cannot be empty.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -76,7 +81,8 @@
         "DROP"
       ],
       "answer": 0,
-      "explain": "SELECT reads data from one or more tables without changing the stored rows."
+      "explain": "SELECT reads data from one or more tables without changing the stored rows.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -89,7 +95,8 @@
         "CREATE"
       ],
       "answer": 1,
-      "explain": "WHERE filters rows according to a condition, such as a matching city or a minimum price."
+      "explain": "WHERE filters rows according to a condition, such as a matching city or a minimum price.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -102,7 +109,8 @@
         "JOIN"
       ],
       "answer": 2,
-      "explain": "ORDER BY sorts the returned rows; use ASC or DESC to choose the direction."
+      "explain": "ORDER BY sorts the returned rows; use ASC or DESC to choose the direction.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -115,7 +123,8 @@
         "A whole database"
       ],
       "answer": 0,
-      "explain": "A row stores one record, such as one customer, with values for the table’s attributes."
+      "explain": "A row stores one record, such as one customer, with values for the table’s attributes.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -128,7 +137,8 @@
         "A database password"
       ],
       "answer": 0,
-      "explain": "A foreign key links rows by referencing a key in another table and can enforce referential integrity."
+      "explain": "A foreign key links rows by referencing a key in another table and can enforce referential integrity.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -141,7 +151,8 @@
         "No relationship"
       ],
       "answer": 1,
-      "explain": "One customer may be related to many orders, while each order refers to one customer."
+      "explain": "One customer may be related to many orders, while each order refers to one customer.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -154,7 +165,8 @@
         "SELECT"
       ],
       "answer": 1,
-      "explain": "COMMIT completes a transaction and makes its changes durable according to the database system."
+      "explain": "COMMIT completes a transaction and makes its changes durable according to the database system.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -167,7 +179,8 @@
         "Durability"
       ],
       "answer": 0,
-      "explain": "Atomicity prevents a transaction from being only partly applied if it fails."
+      "explain": "Atomicity prevents a transaction from being only partly applied if it fails.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -180,7 +193,8 @@
         "Copies its data"
       ],
       "answer": 0,
-      "explain": "ROLLBACK cancels the current transaction’s uncommitted changes."
+      "explain": "ROLLBACK cancels the current transaction’s uncommitted changes.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -193,7 +207,8 @@
         "Guarantee every query is fast"
       ],
       "answer": 0,
-      "explain": "An index can help the database locate matching rows without scanning the entire table."
+      "explain": "An index can help the database locate matching rows without scanning the entire table.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -206,7 +221,8 @@
         "All duplicates are removed automatically"
       ],
       "answer": 0,
-      "explain": "Indexes use storage and must be maintained when rows are inserted, updated, or deleted."
+      "explain": "Indexes use storage and must be maintained when rows are inserted, updated, or deleted.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -219,7 +235,8 @@
         "A table has no nulls in any column"
       ],
       "answer": 0,
-      "explain": "A unique index rejects duplicate key values for the indexed column or column combination, subject to the database’s NULL rules."
+      "explain": "A unique index rejects duplicate key values for the indexed column or column combination, subject to the database’s NULL rules.",
+      "year": 3
     },
     {
       "category": "Programming",
@@ -232,7 +249,8 @@
         "Linked list"
       ],
       "answer": 1,
-      "explain": "A stack adds and removes items at the same end, so the last item pushed is the first one popped."
+      "explain": "A stack adds and removes items at the same end, so the last item pushed is the first one popped.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -245,7 +263,8 @@
         "Random Access Memory"
       ],
       "answer": 3,
-      "explain": "RAM is Random Access Memory. It holds data and programs that are in use and loses its contents when the power is off."
+      "explain": "RAM is Random Access Memory. It holds data and programs that are in use and loses its contents when the power is off.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -258,7 +277,8 @@
         "Storage drive (SSD or HDD)"
       ],
       "answer": 3,
-      "explain": "SSDs and HDDs store data without power. RAM, cache, and registers are volatile and lose their contents when the power goes off."
+      "explain": "SSDs and HDDs store data without power. RAM, cache, and registers are volatile and lose their contents when the power goes off.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -271,7 +291,8 @@
         "15"
       ],
       "answer": 3,
-      "explain": "1111 = 8 + 4 + 2 + 1 = 15."
+      "explain": "1111 = 8 + 4 + 2 + 1 = 15.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -284,7 +305,8 @@
         "Octal"
       ],
       "answer": 2,
-      "explain": "Hexadecimal is base 16. Binary uses 0 and 1, octal uses 0 to 7, and decimal uses 0 to 9."
+      "explain": "Hexadecimal is base 16. Binary uses 0 and 1, octal uses 0 to 7, and decimal uses 0 to 9.",
+      "year": 1
     },
     {
       "category": "Networking & Security",
@@ -297,7 +319,8 @@
         "Stores website files"
       ],
       "answer": 1,
-      "explain": "The Domain Name System maps names such as example.com to IP addresses so devices can find each other."
+      "explain": "The Domain Name System maps names such as example.com to IP addresses so devices can find each other.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -310,7 +333,8 @@
         "25"
       ],
       "answer": 1,
-      "explain": "HTTPS uses port 443. HTTP uses 80, FTP uses 21, and SMTP uses 25."
+      "explain": "HTTPS uses port 443. HTTP uses 80, FTP uses 21, and SMTP uses 25.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -323,7 +347,8 @@
         "password123"
       ],
       "answer": 0,
-      "explain": "Long, unique passphrases resist guessing and dictionary attacks. A password manager lets you use a different one for every account."
+      "explain": "Long, unique passphrases resist guessing and dictionary attacks. A password manager lets you use a different one for every account.",
+      "year": 1
     },
     {
       "category": "Networking & Security",
@@ -336,7 +361,8 @@
         "Overloading a server with traffic"
       ],
       "answer": 2,
-      "explain": "Phishing uses deceptive emails, texts, or websites to steal login details or personal data."
+      "explain": "Phishing uses deceptive emails, texts, or websites to steal login details or personal data.",
+      "year": 1
     },
     {
       "category": "Networking & Security",
@@ -349,7 +375,8 @@
         "A longer username"
       ],
       "answer": 2,
-      "explain": "It requires something besides your password, such as a code from your phone or a hardware security key."
+      "explain": "It requires something besides your password, such as a code from your phone or a hardware security key.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -362,7 +389,8 @@
         "final"
       ],
       "answer": 0,
-      "explain": "let creates a block-scoped variable that can be reassigned. const cannot be reassigned."
+      "explain": "let creates a block-scoped variable that can be reassigned. const cannot be reassigned.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -375,7 +403,8 @@
         "It displays images on screen"
       ],
       "answer": 1,
-      "explain": "Functions let you write code once and call it many times, which keeps programs organized."
+      "explain": "Functions let you write code once and call it many times, which keeps programs organized.",
+      "year": 1
     },
     {
       "category": "Database",
@@ -388,7 +417,8 @@
         "Folders and files"
       ],
       "answer": 1,
-      "explain": "Each row is a record, and each column is an attribute with a data type."
+      "explain": "Each row is a record, and each column is an attribute with a data type.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -401,7 +431,8 @@
         "Encrypts the whole table"
       ],
       "answer": 2,
-      "explain": "A primary key has unique, non-null values, so every row can be referenced reliably."
+      "explain": "A primary key has unique, non-null values, so every row can be referenced reliably.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -414,7 +445,8 @@
         "Binary tree"
       ],
       "answer": 2,
-      "explain": "A stack adds and removes items at the same end, like a stack of plates."
+      "explain": "A stack adds and removes items at the same end, like a stack of plates.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -427,7 +459,8 @@
         "Queue"
       ],
       "answer": 3,
-      "explain": "A queue serves items in the order they arrived, like a line at a checkout."
+      "explain": "A queue serves items in the order they arrived, like a line at a checkout.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -440,7 +473,8 @@
         "A loop that repeats methods"
       ],
       "answer": 1,
-      "explain": "A class defines the data and behavior that its objects will have."
+      "explain": "A class defines the data and behavior that its objects will have.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -453,7 +487,8 @@
         "An instance of a class with its own data and behavior"
       ],
       "answer": 3,
-      "explain": "Each object is created from a class and holds its own copy of the class's fields."
+      "explain": "Each object is created from a class and holds its own copy of the class's fields.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -466,7 +501,8 @@
         "Deleting unused variables"
       ],
       "answer": 2,
-      "explain": "Encapsulation protects data by letting other code interact through methods instead of touching the fields directly."
+      "explain": "Encapsulation protects data by letting other code interact through methods instead of touching the fields directly.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -479,7 +515,8 @@
         "O(n)"
       ],
       "answer": 3,
-      "explain": "In the worst case, linear search checks all n elements one by one."
+      "explain": "In the worst case, linear search checks all n elements one by one.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -492,7 +529,8 @@
         "Breadth-first search"
       ],
       "answer": 1,
-      "explain": "Bubble sort makes repeated passes, swapping neighbors until the list is sorted. Binary search and Dijkstra's algorithm are not sorting algorithms."
+      "explain": "Bubble sort makes repeated passes, swapping neighbors until the list is sorted. Binary search and Dijkstra's algorithm are not sorting algorithms.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -505,7 +543,8 @@
         "It must be encrypted"
       ],
       "answer": 2,
-      "explain": "Binary search repeatedly halves the range it is searching, which only works when the values are in order."
+      "explain": "Binary search repeatedly halves the range it is searching, which only works when the values are in order.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -518,7 +557,8 @@
         "Storing user documents forever"
       ],
       "answer": 1,
-      "explain": "The OS schedules tasks, manages memory and devices, and gives programs a common set of services."
+      "explain": "The OS schedules tasks, manages memory and devices, and gives programs a common set of services.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -531,7 +571,8 @@
         "A network packet"
       ],
       "answer": 0,
-      "explain": "A process is a program in execution, and the OS manages its memory and resources."
+      "explain": "A process is a program in execution, and the OS manages its memory and resources.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -544,7 +585,8 @@
         "Using disk space to extend the apparent amount of RAM"
       ],
       "answer": 3,
-      "explain": "The OS moves less-used pages to disk so programs can use more memory than is physically installed."
+      "explain": "The OS moves less-used pages to disk so programs can use more memory than is physically installed.",
+      "year": 3
     },
     {
       "category": "Programming",
@@ -557,7 +599,8 @@
         "Threads never share memory"
       ],
       "answer": 1,
-      "explain": "Two threads can read the same old value, each add to it, and write back, so one of the updates is overwritten."
+      "explain": "Two threads can read the same old value, each add to it, and write back, so one of the updates is overwritten.",
+      "year": 3
     },
     {
       "category": "Programming",
@@ -570,7 +613,8 @@
         "Encrypts data in memory"
       ],
       "answer": 1,
-      "explain": "A mutex (mutual exclusion lock) makes other threads wait until the lock is released."
+      "explain": "A mutex (mutual exclusion lock) makes other threads wait until the lock is released.",
+      "year": 3
     },
     {
       "category": "Programming",
@@ -583,7 +627,8 @@
         "A database index"
       ],
       "answer": 1,
-      "explain": "Threads let one process do several things at once while sharing the same memory."
+      "explain": "Threads let one process do several things at once while sharing the same memory.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -596,7 +641,8 @@
         "Flash drive"
       ],
       "answer": 2,
-      "explain": "RAM (Random Access Memory) is volatile memory, so its contents clear when the system loses power."
+      "explain": "RAM (Random Access Memory) is volatile memory, so its contents clear when the system loses power.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -609,7 +655,8 @@
         "A"
       ],
       "answer": 1,
-      "explain": "Hexadecimal digits run from 0 to 9 and then A (10) through F (15)."
+      "explain": "Hexadecimal digits run from 0 to 9 and then A (10) through F (15).",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -622,7 +669,8 @@
         "Spreadsheet"
       ],
       "answer": 1,
-      "explain": "The kernel is the core of the operating system that controls CPU scheduling, memory, and devices."
+      "explain": "The kernel is the core of the operating system that controls CPU scheduling, memory, and devices.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -635,7 +683,8 @@
         "Hard Disk Controller"
       ],
       "answer": 0,
-      "explain": "The ALU executes addition, subtraction, bitwise operations, and comparisons inside the processor."
+      "explain": "The ALU executes addition, subtraction, bitwise operations, and comparisons inside the processor.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -648,7 +697,8 @@
         "Database tables"
       ],
       "answer": 1,
-      "explain": "Registers hold instructions, addresses, and operands that the CPU is actively processing right now."
+      "explain": "Registers hold instructions, addresses, and operands that the CPU is actively processing right now.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -661,7 +711,8 @@
         "Garbage collection"
       ],
       "answer": 0,
-      "explain": "The CPU continuously fetches an instruction from memory, decodes it, and executes it during the instruction cycle."
+      "explain": "The CPU continuously fetches an instruction from memory, decodes it, and executes it during the instruction cycle.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -674,7 +725,8 @@
         "Hypervisor"
       ],
       "answer": 0,
-      "explain": "The system bus consists of address, data, and control lines that connect major hardware components."
+      "explain": "The system bus consists of address, data, and control lines that connect major hardware components.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -687,7 +739,8 @@
         "USB flash drive"
       ],
       "answer": 1,
-      "explain": "CPU cache (L1/L2/L3) stores frequently used data close to the processor so it does not have to wait for slower RAM."
+      "explain": "CPU cache (L1/L2/L3) stores frequently used data close to the processor so it does not have to wait for slower RAM.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -700,7 +753,8 @@
         "It connects through the audio port"
       ],
       "answer": 0,
-      "explain": "Solid-state drives access data electronically in flash cells rather than waiting for mechanical platters and heads to move."
+      "explain": "Solid-state drives access data electronically in flash cells rather than waiting for mechanical platters and heads to move.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -713,7 +767,8 @@
         "2048 bytes"
       ],
       "answer": 2,
-      "explain": "In binary addressing, 2^10 equals 1024 bytes."
+      "explain": "In binary addressing, 2^10 equals 1024 bytes.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -726,7 +781,8 @@
         "DRAM"
       ],
       "answer": 0,
-      "explain": "Motherboard UEFI/BIOS firmware is kept in non-volatile ROM or Flash memory so the computer can boot when powered on."
+      "explain": "Motherboard UEFI/BIOS firmware is kept in non-volatile ROM or Flash memory so the computer can boot when powered on.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -739,7 +795,8 @@
         "CRT monitor"
       ],
       "answer": 0,
-      "explain": "A router inspects destination IP addresses and forwards packets between separate networks."
+      "explain": "A router inspects destination IP addresses and forwards packets between separate networks.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -752,7 +809,8 @@
         "Compilation"
       ],
       "answer": 1,
-      "explain": "The CIA triad stands for Confidentiality, Integrity, and Availability."
+      "explain": "The CIA triad stands for Confidentiality, Integrity, and Availability.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -765,7 +823,8 @@
         "FTP"
       ],
       "answer": 0,
-      "explain": "DHCP (Dynamic Host Configuration Protocol) leases IP addresses, subnet masks, and default gateways to clients."
+      "explain": "DHCP (Dynamic Host Configuration Protocol) leases IP addresses, subnet masks, and default gateways to clients.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -778,7 +837,8 @@
         "10"
       ],
       "answer": 2,
-      "explain": "The OSI model has 7 layers: Physical, Data Link, Network, Transport, Session, Presentation, and Application."
+      "explain": "The OSI model has 7 layers: Physical, Data Link, Network, Transport, Session, Presentation, and Application.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -791,7 +851,8 @@
         "SSH"
       ],
       "answer": 1,
-      "explain": "UDP sends datagrams without setting up a connection or retransmitting lost packets, making it fast for gaming and streaming."
+      "explain": "UDP sends datagrams without setting up a connection or retransmitting lost packets, making it fast for gaming and streaming.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -804,7 +865,8 @@
         "grep"
       ],
       "answer": 0,
-      "explain": "The ping utility measures round-trip reachability using ICMP Echo Request and Echo Reply messages."
+      "explain": "The ping utility measures round-trip reachability using ICMP Echo Request and Echo Reply messages.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -817,7 +879,8 @@
         "Pagination"
       ],
       "answer": 0,
-      "explain": "Encryption scrambles plaintext using an algorithm and key so unauthorized parties cannot read it."
+      "explain": "Encryption scrambles plaintext using an algorithm and key so unauthorized parties cannot read it.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -830,7 +893,8 @@
         "Using a longer username"
       ],
       "answer": 0,
-      "explain": "MFA combines two or more different factor types, such as something you know (password) and something you have (authenticator token)."
+      "explain": "MFA combines two or more different factor types, such as something you know (password) and something you have (authenticator token).",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -843,7 +907,8 @@
         "It only works on numbers"
       ],
       "answer": 0,
-      "explain": "Cryptographic hashes map arbitrary input to a fixed-length digest and are designed to be infeasible to invert."
+      "explain": "Cryptographic hashes map arbitrary input to a fixed-length digest and are designed to be infeasible to invert.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -856,7 +921,8 @@
         "Session PIN"
       ],
       "answer": 0,
-      "explain": "The public key can be distributed freely, while the private key must remain secret with its owner."
+      "explain": "The public key can be distributed freely, while the private key must remain secret with its owner.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -869,7 +935,8 @@
         "Format hard drives"
       ],
       "answer": 0,
-      "explain": "A firewall inspects network traffic and allows or blocks packets according to configured security policies."
+      "explain": "A firewall inspects network traffic and allows or blocks packets according to configured security policies.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -882,7 +949,8 @@
         "A backup power supply"
       ],
       "answer": 0,
-      "explain": "A VPN encrypts traffic between the client and the VPN server, protecting confidentiality on untrusted networks."
+      "explain": "A VPN encrypts traffic between the client and the VPN server, protecting confidentiality on untrusted networks.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -895,7 +963,8 @@
         "Deadlock prevention"
       ],
       "answer": 0,
-      "explain": "A Denial-of-Service (DoS) or Distributed DoS attack overwhelms bandwidth or server resources to disrupt availability."
+      "explain": "A Denial-of-Service (DoS) or Distributed DoS attack overwhelms bandwidth or server resources to disrupt availability.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -908,7 +977,8 @@
         "They disable network encryption"
       ],
       "answer": 0,
-      "explain": "Unpatched software often contains publicly known security flaws that automated exploits target."
+      "explain": "Unpatched software often contains publicly known security flaws that automated exploits target.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -921,7 +991,8 @@
         "null"
       ],
       "answer": 1,
-      "explain": "The logical AND operator (&&) evaluates to true only when both operands are true."
+      "explain": "The logical AND operator (&&) evaluates to true only when both operands are true.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -934,7 +1005,8 @@
         "2"
       ],
       "answer": 1,
-      "explain": "Zero-based arrays start counting indices at 0, so the first element is at index 0."
+      "explain": "Zero-based arrays start counting indices at 0, so the first element is at index 0.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -947,7 +1019,8 @@
         "Iterator"
       ],
       "answer": 0,
-      "explain": "A constructor initializes the new object's fields and state when the class is instantiated."
+      "explain": "A constructor initializes the new object's fields and state when the class is instantiated.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -960,7 +1033,8 @@
         "Dijkstra's algorithm"
       ],
       "answer": 0,
-      "explain": "Linear search scans elements sequentially and works even when the list is unsorted."
+      "explain": "Linear search scans elements sequentially and works even when the list is unsorted.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -973,7 +1047,8 @@
         "Static variable"
       ],
       "answer": 0,
-      "explain": "Asynchronous execution allows slow operations like network requests to run without freezing the main thread."
+      "explain": "Asynchronous execution allows slow operations like network requests to run without freezing the main thread.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -986,7 +1061,8 @@
         "A primary key"
       ],
       "answer": 1,
-      "explain": "NULL is a marker for a missing, unknown, or inapplicable value, which is distinct from 0 or an empty string."
+      "explain": "NULL is a marker for a missing, unknown, or inapplicable value, which is distinct from 0 or an empty string.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -999,7 +1075,8 @@
         "DEFAULT"
       ],
       "answer": 0,
-      "explain": "SELECT DISTINCT returns only unique rows from the selected columns."
+      "explain": "SELECT DISTINCT returns only unique rows from the selected columns.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -1012,7 +1089,8 @@
         "A firewall rule"
       ],
       "answer": 0,
-      "explain": "Entities in a conceptual ER model map to tables (relations), while their attributes map to columns."
+      "explain": "Entities in a conceptual ER model map to tables (relations), while their attributes map to columns.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -1025,7 +1103,8 @@
         "Aggregation"
       ],
       "answer": 0,
-      "explain": "ACID stands for Atomicity, Consistency, Isolation, and Durability."
+      "explain": "ACID stands for Atomicity, Consistency, Isolation, and Durability.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -1038,7 +1117,8 @@
         "No columns are ever indexed"
       ],
       "answer": 0,
-      "explain": "Database engines automatically build a unique index on the primary key to enforce uniqueness and speed up lookups."
+      "explain": "Database engines automatically build a unique index on the primary key to enforce uniqueness and speed up lookups.",
+      "year": 3
     }
   ],
   "medium": [
@@ -1053,7 +1133,8 @@
         "O(n log n)"
       ],
       "answer": 2,
-      "explain": "A good hash function sends each key straight to its bucket, so lookups are O(1) on average."
+      "explain": "A good hash function sends each key straight to its bucket, so lookups are O(1) on average.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -1066,7 +1147,8 @@
         "LIMIT"
       ],
       "answer": 1,
-      "explain": "WHERE filters rows before grouping. HAVING filters the grouped results, often using aggregates like COUNT."
+      "explain": "WHERE filters rows before grouping. HAVING filters the grouped results, often using aggregates like COUNT.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -1079,7 +1161,8 @@
         "FULL OUTER JOIN"
       ],
       "answer": 0,
-      "explain": "INNER JOIN keeps rows that satisfy the join condition in both tables."
+      "explain": "INNER JOIN keeps rows that satisfy the join condition in both tables.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -1092,7 +1175,8 @@
         "MATCH(*)"
       ],
       "answer": 0,
-      "explain": "COUNT(*) counts the rows in each group, including rows where individual columns contain NULL."
+      "explain": "COUNT(*) counts the rows in each group, including rows where individual columns contain NULL.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -1105,7 +1189,8 @@
         "DISTINCT BY"
       ],
       "answer": 0,
-      "explain": "GROUP BY forms groups with matching values so aggregates such as SUM or COUNT can be calculated per group."
+      "explain": "GROUP BY forms groups with matching values so aggregates such as SUM or COUNT can be calculated per group.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -1118,7 +1203,8 @@
         "Every column must contain unique values"
       ],
       "answer": 0,
-      "explain": "1NF requires each row-column intersection to contain a single value rather than a repeating group or list."
+      "explain": "1NF requires each row-column intersection to contain a single value rather than a repeating group or list.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -1131,7 +1217,8 @@
         "A single column that overwrites the previous product"
       ],
       "answer": 0,
-      "explain": "A junction table represents a many-to-many relationship by storing pairs of foreign keys, often as a composite key."
+      "explain": "A junction table represents a many-to-many relationship by storing pairs of foreign keys, often as a composite key.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -1144,7 +1231,8 @@
         "A hash collision"
       ],
       "answer": 0,
-      "explain": "A non-key attribute depending on only part of a composite key is a partial dependency, which 2NF addresses."
+      "explain": "A non-key attribute depending on only part of a composite key is a partial dependency, which 2NF addresses.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -1157,7 +1245,8 @@
         "A schema migration"
       ],
       "answer": 0,
-      "explain": "A dirty read exposes uncommitted data that may later be rolled back."
+      "explain": "A dirty read exposes uncommitted data that may later be rolled back.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -1170,7 +1259,8 @@
         "Availability"
       ],
       "answer": 0,
-      "explain": "Isolation controls how concurrent transactions observe one another; the exact guarantees depend on the isolation level."
+      "explain": "Isolation controls how concurrent transactions observe one another; the exact guarantees depend on the isolation level.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -1183,7 +1273,8 @@
         "To speed up every SELECT"
       ],
       "answer": 0,
-      "explain": "A savepoint marks a position within a transaction that can be used as a partial rollback target."
+      "explain": "A savepoint marks a position within a transaction that can be used as a partial rollback target.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -1196,7 +1287,8 @@
         "Filter by the table name"
       ],
       "answer": 0,
-      "explain": "Many database engines can use a composite B-tree index for its leading column; exact behavior depends on the optimizer and index type."
+      "explain": "Many database engines can use a composite B-tree index for its leading column; exact behavior depends on the optimizer and index type.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -1209,7 +1301,8 @@
         "An index used only to count tables"
       ],
       "answer": 0,
-      "explain": "When an index contains the query’s filter and output columns, the engine may answer it from the index without fetching base-table rows."
+      "explain": "When an index contains the query’s filter and output columns, the engine may answer it from the index without fetching base-table rows.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -1222,7 +1315,8 @@
         "B-trees automatically compress every table"
       ],
       "answer": 0,
-      "explain": "B-tree keys are ordered, so the engine can seek to a range boundary and scan relevant index entries."
+      "explain": "B-tree keys are ordered, so the engine can seek to a range boundary and scan relevant index entries.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -1235,7 +1329,8 @@
         "443"
       ],
       "answer": 3,
-      "explain": "HTTPS uses port 443. HTTP uses 80, FTP uses 21, and SSH uses 22."
+      "explain": "HTTPS uses port 443. HTTP uses 80, FTP uses 21, and SSH uses 22.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -1248,7 +1343,8 @@
         "Compilation"
       ],
       "answer": 1,
-      "explain": "Encapsulation groups state and behavior together and limits direct access to internal data."
+      "explain": "Encapsulation groups state and behavior together and limits direct access to internal data.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -1261,7 +1357,8 @@
         "Heap sort"
       ],
       "answer": 2,
-      "explain": "Insertion sort makes one pass with no shifts when the data is already in order. The other three need at least O(n log n) time in the best case."
+      "explain": "Insertion sort makes one pass with no shifts when the data is already in order. The other three need at least O(n log n) time in the best case.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -1274,7 +1371,8 @@
         "A virus spreading over the network"
       ],
       "answer": 1,
-      "explain": "Deadlock needs circular waiting, mutual exclusion, hold-and-wait, and no preemption. Breaking any one of them prevents it."
+      "explain": "Deadlock needs circular waiting, mutual exclusion, hold-and-wait, and no preemption. Breaking any one of them prevents it.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -1287,7 +1385,8 @@
         "To connect the CPU to the network"
       ],
       "answer": 2,
-      "explain": "A cache is a small, fast memory next to the CPU. It keeps copies of recently or frequently used data so the CPU does not wait on slower RAM."
+      "explain": "A cache is a small, fast memory next to the CPU. It keeps copies of recently or frequently used data so the CPU does not wait on slower RAM.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -1300,7 +1399,8 @@
         "The CPU sends output to the monitor"
       ],
       "answer": 1,
-      "explain": "Fetch loads the instruction, decode interprets it, and execute performs the operation."
+      "explain": "Fetch loads the instruction, decode interprets it, and execute performs the operation.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -1313,7 +1413,8 @@
         "It renders graphics on the screen"
       ],
       "answer": 0,
-      "explain": "The motherboard is the main circuit board. It links the components together so they can exchange data."
+      "explain": "The motherboard is the main circuit board. It links the components together so they can exchange data.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -1326,7 +1427,8 @@
         "1101"
       ],
       "answer": 3,
-      "explain": "13 = 8 + 4 + 1, so the bits are 1101."
+      "explain": "13 = 8 + 4 + 1, so the bits are 1101.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -1339,7 +1441,8 @@
         "240"
       ],
       "answer": 1,
-      "explain": "FF = 15 x 16 + 15 = 255, the largest value an 8-bit byte can hold."
+      "explain": "FF = 15 x 16 + 15 = 255, the largest value an 8-bit byte can hold.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -1352,7 +1455,8 @@
         "256"
       ],
       "answer": 3,
-      "explain": "2 to the power of 8 is 256 combinations, from 0 to 255 when unsigned."
+      "explain": "2 to the power of 8 is 256 combinations, from 0 to 255 when unsigned.",
+      "year": 1
     },
     {
       "category": "Networking & Security",
@@ -1365,7 +1469,8 @@
         "TCP is connection-oriented and reliable; UDP is connectionless and faster"
       ],
       "answer": 3,
-      "explain": "TCP sets up a connection and resends lost data. UDP skips that overhead, which suits streaming and online games."
+      "explain": "TCP sets up a connection and resends lost data. UDP skips that overhead, which suits streaming and online games.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -1378,7 +1483,8 @@
         "A physical address burned into a network card"
       ],
       "answer": 1,
-      "explain": "An IP address is logical and is used for routing. The MAC address is the physical identifier of a network interface."
+      "explain": "An IP address is logical and is used for routing. The MAC address is the physical identifier of a network interface.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -1391,7 +1497,8 @@
         "Hashing can be reversed with a key; encryption cannot"
       ],
       "answer": 0,
-      "explain": "Encryption is meant to be decrypted by someone who has the key. A hash is a fixed digest that cannot be turned back into the original data."
+      "explain": "Encryption is meant to be decrypted by someone who has the key. A hash is a fixed digest that cannot be turned back into the original data.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -1404,7 +1511,8 @@
         "Flooding a database with requests"
       ],
       "answer": 0,
-      "explain": "It happens when user input is pasted straight into a query. Parameterized queries prevent it."
+      "explain": "It happens when user input is pasted straight into a query. Parameterized queries prevent it.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -1417,7 +1525,8 @@
         "A PIN on the login screen alone"
       ],
       "answer": 0,
-      "explain": "With full-disk encryption, the data stays unreadable without the key, even if the drive is removed from the machine."
+      "explain": "With full-disk encryption, the data stays unreadable without the key, even if the drive is removed from the machine.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -1430,7 +1539,8 @@
         "array"
       ],
       "answer": 2,
-      "explain": "Arrays are objects in JavaScript, so typeof returns object. Use Array.isArray() to check for arrays."
+      "explain": "Arrays are objects in JavaScript, so typeof returns object. Use Array.isArray() to check for arrays.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -1443,7 +1553,8 @@
         "A set"
       ],
       "answer": 2,
-      "explain": "Square brackets create a mutable list. Tuples use parentheses, and dictionaries store key-value pairs."
+      "explain": "Square brackets create a mutable list. Tuples use parentheses, and dictionaries store key-value pairs.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -1456,7 +1567,8 @@
         "Importing a library"
       ],
       "answer": 1,
-      "explain": "Loops such as for and while run the same code repeatedly, which is useful when processing collections of data."
+      "explain": "Loops such as for and while run the same code repeatedly, which is useful when processing collections of data.",
+      "year": 1
     },
     {
       "category": "Database",
@@ -1469,7 +1581,8 @@
         "The structure of tables, columns, data types, and relationships"
       ],
       "answer": 3,
-      "explain": "The schema defines how the data is organized. The actual data lives in the tables."
+      "explain": "The schema defines how the data is organized. The actual data lives in the tables.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -1482,7 +1595,8 @@
         "DELETE FROM"
       ],
       "answer": 3,
-      "explain": "DELETE removes matching rows. DROP TABLE removes the whole table, including its structure."
+      "explain": "DELETE removes matching rows. DROP TABLE removes the whole table, including its structure.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -1495,7 +1609,8 @@
         "O(log n)"
       ],
       "answer": 2,
-      "explain": "With a good hash function and few collisions, a lookup takes about the same time no matter how many items are stored."
+      "explain": "With a good hash function and few collisions, a lookup takes about the same time no matter how many items are stored.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -1508,7 +1623,8 @@
         "Faster insertion at the front"
       ],
       "answer": 1,
-      "explain": "Arrays give constant-time access by index. A linked list has to be walked node by node to reach a position."
+      "explain": "Arrays give constant-time access by index. A linked list has to be walked node by node to reach a position.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -1521,7 +1637,8 @@
         "A class acquiring the fields and methods of another class"
       ],
       "answer": 3,
-      "explain": "A subclass inherits from a parent class and can reuse or override its behavior."
+      "explain": "A subclass inherits from a parent class and can reuse or override its behavior.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -1534,7 +1651,8 @@
         "Converting objects into strings"
       ],
       "answer": 2,
-      "explain": "For example, Dog and Cat can both implement speak(), and calling speak() gives a different result for each one."
+      "explain": "For example, Dog and Cat can both implement speak(), and calling speak() gives a different result for each one.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -1547,7 +1665,8 @@
         "O(log n)"
       ],
       "answer": 1,
-      "explain": "Merge sort splits the list in half about log n times and does O(n) merging work at each level."
+      "explain": "Merge sort splits the list in half about log n times and does O(n) merging work at each level.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -1560,7 +1679,8 @@
         "Linear search"
       ],
       "answer": 2,
-      "explain": "Breadth-first search visits all neighbors of a node before going deeper, and it finds shortest paths in unweighted graphs."
+      "explain": "Breadth-first search visits all neighbors of a node before going deeper, and it finds shortest paths in unweighted graphs.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -1573,7 +1693,8 @@
         "Time slicing"
       ],
       "answer": 3,
-      "explain": "A deadlock needs mutual exclusion, hold and wait, no preemption, and circular wait. Time slicing is a scheduling technique, not one of the conditions."
+      "explain": "A deadlock needs mutual exclusion, hold and wait, no preemption, and circular wait. Time slicing is a scheduling technique, not one of the conditions.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -1586,7 +1707,8 @@
         "Threads share their process's memory, while processes have separate memory"
       ],
       "answer": 3,
-      "explain": "Threads within a process share its address space, which makes communication cheaper but needs careful synchronization."
+      "explain": "Threads within a process share its address space, which makes communication cheaper but needs careful synchronization.",
+      "year": 3
     },
     {
       "category": "Programming",
@@ -1599,7 +1721,8 @@
         "A key used for encryption"
       ],
       "answer": 1,
-      "explain": "A semaphore keeps a count of available permits. A thread waits until a permit is free."
+      "explain": "A semaphore keeps a count of available permits. A thread waits until a permit is free.",
+      "year": 3
     },
     {
       "category": "Programming",
@@ -1612,7 +1735,8 @@
         "Concurrency manages many tasks over time; parallelism runs tasks at the same instant"
       ],
       "answer": 3,
-      "explain": "You can have concurrency on one core by switching between tasks. Parallelism needs multiple cores or processors."
+      "explain": "You can have concurrency on one core by switching between tasks. Parallelism needs multiple cores or processors.",
+      "year": 3
     },
     {
       "category": "Programming",
@@ -1625,7 +1749,8 @@
         "Locks are never released after use"
       ],
       "answer": 1,
-      "explain": "If thread A holds lock 1 and waits for lock 2 while thread B holds lock 2 and waits for lock 1, neither can continue. Taking locks in a fixed order prevents this."
+      "explain": "If thread A holds lock 1 and waits for lock 2 while thread B holds lock 2 and waits for lock 1, neither can continue. Taking locks in a fixed order prevents this.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -1638,7 +1763,8 @@
         "It eliminates the need for an operating system"
       ],
       "answer": 0,
-      "explain": "With DMA, a controller handles bulk transfers between devices and memory and interrupts the CPU only when the block transfer completes."
+      "explain": "With DMA, a controller handles bulk transfers between devices and memory and interrupts the CPU only when the block transfer completes.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -1651,7 +1777,8 @@
         "00000101"
       ],
       "answer": 0,
-      "explain": "Start with +5 (00000101), invert all bits (11111010), and add 1 to get 11111011."
+      "explain": "Start with +5 (00000101), invert all bits (11111010), and add 1 to get 11111011.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -1664,7 +1791,8 @@
         "The computer reboots into BIOS"
       ],
       "answer": 0,
-      "explain": "To switch processes safely, the kernel stores the running process's program counter and registers in its PCB and restores the next process's state."
+      "explain": "To switch processes safely, the kernel stores the running process's program counter and registers in its PCB and restores the next process's state.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -1677,7 +1805,8 @@
         "Stack Limiter"
       ],
       "answer": 0,
-      "explain": "The Program Counter (or Instruction Pointer) tracks the address of the next instruction in memory."
+      "explain": "The Program Counter (or Instruction Pointer) tracks the address of the next instruction in memory.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -1690,7 +1819,8 @@
         "Harvard processors do not have an ALU"
       ],
       "answer": 0,
-      "explain": "Von Neumann stores instructions and data in the same memory, whereas Harvard separates instruction memory and data memory."
+      "explain": "Von Neumann stores instructions and data in the same memory, whereas Harvard separates instruction memory and data memory.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -1703,7 +1833,8 @@
         "By storing all instructions on the hard drive"
       ],
       "answer": 0,
-      "explain": "Like an assembly line, pipelining works on different stages of several instructions simultaneously."
+      "explain": "Like an assembly line, pipelining works on different stages of several instructions simultaneously.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -1716,7 +1847,8 @@
         "RISC processors cannot run operating systems"
       ],
       "answer": 0,
-      "explain": "RISC favors a streamlined set of load/store and register-to-register instructions optimized for pipelining."
+      "explain": "RISC favors a streamlined set of load/store and register-to-register instructions optimized for pipelining.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -1729,7 +1861,8 @@
         "They mean the exact same thing"
       ],
       "answer": 0,
-      "explain": "Temporal locality means recently accessed data is likely to be accessed again soon; spatial locality means data near that address is likely to be needed soon."
+      "explain": "Temporal locality means recently accessed data is likely to be accessed again soon; spatial locality means data near that address is likely to be needed soon.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -1742,7 +1875,8 @@
         "DRAM cannot be read by a 64-bit CPU"
       ],
       "answer": 0,
-      "explain": "SRAM uses flip-flop latches for speed, whereas DRAM uses tiny capacitors that pack tightly at lower cost."
+      "explain": "SRAM uses flip-flop latches for speed, whereas DRAM uses tiny capacitors that pack tightly at lower cost.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -1755,7 +1889,8 @@
         "RAID 10"
       ],
       "answer": 0,
-      "explain": "RAID 0 splits data across drives without parity or mirroring, so losing any single drive loses the array's data."
+      "explain": "RAID 0 splits data across drives without parity or mirroring, so losing any single drive loses the array's data.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -1768,7 +1903,8 @@
         "The operating system deletes the process"
       ],
       "answer": 0,
-      "explain": "On a cache miss, the memory hierarchy stalls briefly while fetching the block from the next memory level."
+      "explain": "On a cache miss, the memory hierarchy stalls briefly while fetching the block from the next memory level.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -1781,7 +1917,8 @@
         "254"
       ],
       "answer": 0,
-      "explain": "A /26 leaves 6 host bits: 2^6 = 64 total addresses, minus 2 (network and broadcast) = 62 usable hosts."
+      "explain": "A /26 leaves 6 host bits: 2^6 = 64 total addresses, minus 2 (network and broadcast) = 62 usable hosts.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -1794,7 +1931,8 @@
         "Security rules apply only to external users"
       ],
       "answer": 0,
-      "explain": "Limiting permissions contains the blast radius if an account or service is compromised."
+      "explain": "Limiting permissions contains the blast radius if an account or service is compromised.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -1807,7 +1945,8 @@
         "Assign IP addresses to new routers"
       ],
       "answer": 0,
-      "explain": "Before sending an Ethernet frame on a LAN, a host uses ARP to discover the destination MAC address for a local IP."
+      "explain": "Before sending an Ethernet frame on a LAN, a host uses ARP to discover the destination MAC address for a local IP.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -1820,7 +1959,8 @@
         "PING -> PONG -> DONE"
       ],
       "answer": 0,
-      "explain": "The client sends SYN, the server replies with SYN-ACK, and the client confirms with ACK to synchronize sequence numbers."
+      "explain": "The client sends SYN, the server replies with SYN-ACK, and the client confirms with ACK to synchronize sequence numbers.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -1833,7 +1973,8 @@
         "Layer 7 (Application Layer)"
       ],
       "answer": 0,
-      "explain": "Layer 2 switches learn and forward Ethernet frames based on hardware MAC address tables."
+      "explain": "Layer 2 switches learn and forward Ethernet frames based on hardware MAC address tables.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -1846,7 +1987,8 @@
         "To boost Wi-Fi radio frequency"
       ],
       "answer": 0,
-      "explain": "NAT rewrites private source IP/port pairs to the router's public IP, conserving public IPv4 addresses."
+      "explain": "NAT rewrites private source IP/port pairs to the router's public IP, conserving public IPv4 addresses.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -1859,7 +2001,8 @@
         "Symmetric does not use keys"
       ],
       "answer": 0,
-      "explain": "Symmetric encryption shares one key for fast bulk encryption, whereas asymmetric uses mathematically linked public and private keys."
+      "explain": "Symmetric encryption shares one key for fast bulk encryption, whereas asymmetric uses mathematically linked public and private keys.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -1872,7 +2015,8 @@
         "The server compresses the file with ZIP"
       ],
       "answer": 0,
-      "explain": "Because only the sender holds the private key, a signature verified by the sender's public key proves authenticity and integrity."
+      "explain": "Because only the sender holds the private key, a signature verified by the sender's public key proves authenticity and integrity.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -1885,7 +2029,8 @@
         "It assigns MAC addresses to network cards"
       ],
       "answer": 0,
-      "explain": "Browsers trust a CA's signature on a server's TLS certificate to verify that the public key genuinely belongs to that domain."
+      "explain": "Browsers trust a CA's signature on a server's TLS certificate to verify that the public key genuinely belongs to that domain.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -1898,7 +2043,8 @@
         "Configure the router's subnet mask"
       ],
       "answer": 0,
-      "explain": "Access tokens carry scoped, time-limited authorization claims so clients don't repeatedly transmit raw credentials."
+      "explain": "Access tokens carry scoped, time-limited authorization claims so clients don't repeatedly transmit raw credentials.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -1911,7 +2057,8 @@
         "They are both database engines"
       ],
       "answer": 0,
-      "explain": "IDS passively analyzes traffic copies and raises alerts; IPS sits inline and drops detected threats in real time."
+      "explain": "IDS passively analyzes traffic copies and raises alerts; IPS sits inline and drops detected threats in real time.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -1924,7 +2071,8 @@
         "A stateful firewall cannot filter UDP or TCP ports"
       ],
       "answer": 0,
-      "explain": "Stateful inspection maintains a connection table so packets are evaluated in the context of an active flow, not just in isolation."
+      "explain": "Stateful inspection maintains a connection table so packets are evaluated in the context of an active flow, not just in isolation.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -1937,7 +2085,8 @@
         "To speed up CPU caching"
       ],
       "answer": 0,
-      "explain": "A DMZ acts as a buffer zone between the untrusted internet and the sensitive internal corporate network."
+      "explain": "A DMZ acts as a buffer zone between the untrusted internet and the sensitive internal corporate network.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -1950,7 +2099,8 @@
         "It replaces the need for passwords"
       ],
       "answer": 0,
-      "explain": "VLANs logically isolate groups of hosts on the same physical switch so traffic between segments must pass through policy enforcement."
+      "explain": "VLANs logically isolate groups of hosts on the same physical switch so traffic between segments must pass through policy enforcement.",
+      "year": 3
     },
     {
       "category": "Programming",
@@ -1963,7 +2113,8 @@
         "It frees all system memory"
       ],
       "answer": 0,
-      "explain": "Each recursive call pushes a new frame onto the call stack; without a base case, the stack eventually runs out of space."
+      "explain": "Each recursive call pushes a new frame onto the call stack; without a base case, the stack eventually runs out of space.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -1976,7 +2127,8 @@
         "It requires contiguous memory like a static array"
       ],
       "answer": 0,
-      "explain": "Each node stores both `next` and `prev` pointers, enabling backward traversal and direct neighbor updates during deletion."
+      "explain": "Each node stores both `next` and `prev` pointers, enabling backward traversal and direct neighbor updates during deletion.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -1989,7 +2141,8 @@
         "They are identical in every language"
       ],
       "answer": 0,
-      "explain": "Overriding provides runtime polymorphism in a subclass, while overloading resolves methods by parameter types/arity."
+      "explain": "Overriding provides runtime polymorphism in a subclass, while overloading resolves methods by parameter types/arity.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -2002,7 +2155,8 @@
         "A Min-Heap"
       ],
       "answer": 0,
-      "explain": "A queue processes vertices in First-In, First-Out order, guaranteeing that nodes at distance d are visited before distance d+1."
+      "explain": "A queue processes vertices in First-In, First-Out order, guaranteeing that nodes at distance d are visited before distance d+1.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -2015,7 +2169,8 @@
         "A semaphore automatically sorts arrays"
       ],
       "answer": 0,
-      "explain": "A counting semaphore maintains a counter of available permits, making it ideal for bounding access to a fixed-size resource pool."
+      "explain": "A counting semaphore maintains a counter of available permits, making it ideal for bounding access to a fixed-size resource pool.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -2028,7 +2183,8 @@
         "The foreign key becomes a primary key"
       ],
       "answer": 0,
-      "explain": "ON DELETE CASCADE maintains referential integrity by automatically removing dependent child records when the parent record is deleted."
+      "explain": "ON DELETE CASCADE maintains referential integrity by automatically removing dependent child records when the parent record is deleted.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -2041,7 +2197,8 @@
         "UNION ALL deletes rows from the first table"
       ],
       "answer": 0,
-      "explain": "UNION performs a deduplication step across the combined results, whereas UNION ALL simply concatenates them and is faster."
+      "explain": "UNION performs a deduplication step across the combined results, whereas UNION ALL simply concatenates them and is faster.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -2054,7 +2211,8 @@
         "It prevents the table from being joined"
       ],
       "answer": 0,
-      "explain": "Natural keys (like email or phone number) can change over time; a surrogate key never needs to change and keeps foreign keys small."
+      "explain": "Natural keys (like email or phone number) can change over time; a surrogate key never needs to change and keeps foreign keys small.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -2067,7 +2225,8 @@
         "Reading data from a backup file"
       ],
       "answer": 0,
-      "explain": "If Transaction A reads uncommitted data from Transaction B and B rolls back, A has acted on data that never officially existed."
+      "explain": "If Transaction A reads uncommitted data from Transaction B and B rolls back, A has acted on data that never officially existed.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -2080,7 +2239,8 @@
         "WHERE LOWER(last_name) = 'santos' (with no department_id filter)"
       ],
       "answer": 0,
-      "explain": "B-tree composite indexes follow the leftmost-prefix rule, so filtering by the leading column (`department_id`) and `last_name` uses the index directly."
+      "explain": "B-tree composite indexes follow the leftmost-prefix rule, so filtering by the leading column (`department_id`) and `last_name` uses the index directly.",
+      "year": 3
     }
   ],
   "hard": [
@@ -2095,7 +2255,8 @@
         "O(log n)"
       ],
       "answer": 1,
-      "explain": "Each partition splits off only one element, so recursion goes n levels deep, giving O(n²) time."
+      "explain": "Each partition splits off only one element, so recursion goes n levels deep, giving O(n²) time.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -2108,7 +2269,8 @@
         "BCNF"
       ],
       "answer": 2,
-      "explain": "3NF requires non-key attributes to depend only on the primary key, not on other non-key attributes."
+      "explain": "3NF requires non-key attributes to depend only on the primary key, not on other non-key attributes.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -2121,7 +2283,8 @@
         "A lock on the current row"
       ],
       "answer": 0,
-      "explain": "ROW_NUMBER() assigns a sequential number within a window partition according to its ORDER BY; it does not change stored data."
+      "explain": "ROW_NUMBER() assigns a sequential number within a window partition according to its ORDER BY; it does not change stored data.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -2134,7 +2297,8 @@
         "Window functions can only be used in INSERT statements"
       ],
       "answer": 0,
-      "explain": "Window functions calculate over a related set of rows but generally keep each row in the result, unlike grouping which combines rows."
+      "explain": "Window functions calculate over a related set of rows but generally keep each row in the result, unlike grouping which combines rows.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -2147,7 +2311,8 @@
         "Prevent all transaction conflicts"
       ],
       "answer": 0,
-      "explain": "A recursive CTE repeatedly applies a query to prior results, which is useful for traversing hierarchies such as reporting trees."
+      "explain": "A recursive CTE repeatedly applies a query to prior results, which is useful for traversing hierarchies such as reporting trees.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -2160,7 +2325,8 @@
         "All candidate keys"
       ],
       "answer": 0,
-      "explain": "3NF addresses transitive dependencies where a non-key attribute depends on another non-key attribute rather than directly on a key."
+      "explain": "3NF addresses transitive dependencies where a non-key attribute depends on another non-key attribute rather than directly on a key.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -2173,7 +2339,8 @@
         "Every relation must contain a repeating group"
       ],
       "answer": 0,
-      "explain": "A relation is in BCNF when every non-trivial functional dependency has a determinant that is a superkey."
+      "explain": "A relation is in BCNF when every non-trivial functional dependency has a determinant that is a superkey.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -2186,7 +2353,8 @@
         "All redundancy is eliminated in every case"
       ],
       "answer": 0,
-      "explain": "A lossless decomposition preserves the original relation when the resulting tables are joined, without introducing spurious tuples."
+      "explain": "A lossless decomposition preserves the original relation when the resulting tables are joined, without introducing spurious tuples.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -2199,7 +2367,8 @@
         "A slow network connection"
       ],
       "answer": 0,
-      "explain": "Serializable isolation aims for outcomes equivalent to some serial transaction order, though implementations and performance costs vary."
+      "explain": "Serializable isolation aims for outcomes equivalent to some serial transaction order, though implementations and performance costs vary.",
+      "year": 4
     },
     {
       "category": "Database",
@@ -2212,7 +2381,8 @@
         "Cartesian product"
       ],
       "answer": 0,
-      "explain": "Write skew can occur when concurrent transactions read overlapping state but write different rows, jointly violating a constraint; behavior depends on the database and isolation mode."
+      "explain": "Write skew can occur when concurrent transactions read overlapping state but write different rows, jointly violating a constraint; behavior depends on the database and isolation mode.",
+      "year": 4
     },
     {
       "category": "Database",
@@ -2225,7 +2395,8 @@
         "The database converts them into read-only queries"
       ],
       "answer": 0,
-      "explain": "A deadlock involves a cycle of waiting. Database systems commonly detect it and abort a victim transaction to break the cycle."
+      "explain": "A deadlock involves a cycle of waiting. Database systems commonly detect it and abort a victim transaction to break the cycle.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -2238,7 +2409,8 @@
         "The index forces a transaction rollback"
       ],
       "answer": 0,
-      "explain": "If a predicate matches a large fraction of rows, reading the index and then fetching many table rows can cost more than a sequential scan."
+      "explain": "If a predicate matches a large fraction of rows, reading the index and then fetching many table rows can cost more than a sequential scan.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -2251,7 +2423,8 @@
         "Indexes cannot store text values"
       ],
       "answer": 0,
-      "explain": "A predicate such as LOWER(email) may not match a plain email index’s ordering; expression indexes or optimizer transformations can enable index use."
+      "explain": "A predicate such as LOWER(email) may not match a plain email index’s ordering; expression indexes or optimizer transformations can enable index use.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -2264,7 +2437,8 @@
         "Inability to run range queries"
       ],
       "answer": 0,
-      "explain": "Each affected index may need updates during writes, increasing storage use and write cost; the tradeoff depends on workload and engine."
+      "explain": "Each affected index may need updates during writes, increasing storage use and write cost; the tradeoff depends on workload and engine.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -2277,7 +2451,8 @@
         "Session"
       ],
       "answer": 1,
-      "explain": "The Network layer (layer 3) handles logical addressing such as IP and chooses routes between networks."
+      "explain": "The Network layer (layer 3) handles logical addressing such as IP and chooses routes between networks.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -2290,7 +2465,8 @@
         "Denial of service"
       ],
       "answer": 2,
-      "explain": "SQL injection happens when input is concatenated into a query. Parameterized queries prevent it."
+      "explain": "SQL injection happens when input is concatenated into a query. Parameterized queries prevent it.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -2303,7 +2479,8 @@
         "Random"
       ],
       "answer": 2,
-      "explain": "OPT evicts the page that will be used farthest in the future. It serves as a benchmark for real algorithms."
+      "explain": "OPT evicts the page that will be used farthest in the future. It serves as a benchmark for real algorithms.",
+      "year": 3
     },
     {
       "category": "Programming",
@@ -2316,7 +2493,8 @@
         "A compiler optimization"
       ],
       "answer": 1,
-      "explain": "Race conditions are prevented with locks, atomic operations, or other synchronization."
+      "explain": "Race conditions are prevented with locks, atomic operations, or other synchronization.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -2329,7 +2507,8 @@
         "Three billion instructions stored in memory"
       ],
       "answer": 0,
-      "explain": "GHz means billions of cycles per second. The amount of work done per cycle varies, so clock speed alone does not measure performance."
+      "explain": "GHz means billions of cycles per second. The amount of work done per cycle varies, so clock speed alone does not measure performance.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -2342,7 +2521,8 @@
         "To run several tasks or threads in parallel"
       ],
       "answer": 3,
-      "explain": "Each core can execute its own instruction stream, so several tasks can run at the same time."
+      "explain": "Each core can execute its own instruction stream, so several tasks can run at the same time.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -2355,7 +2535,8 @@
         "Compressing files before saving them"
       ],
       "answer": 2,
-      "explain": "In a pipeline, one instruction can be decoded while another is being fetched, which increases the number of instructions completed per second."
+      "explain": "In a pipeline, one instruction can be decoded while another is being fetched, which increases the number of instructions completed per second.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -2368,7 +2549,8 @@
         "01111111"
       ],
       "answer": 1,
-      "explain": "Start with 00000001, invert the bits to get 11111110, then add 1 to get 11111111."
+      "explain": "Start with 00000001, invert the bits to get 11111110, then add 1 to get 11111111.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -2381,7 +2563,8 @@
         "27"
       ],
       "answer": 0,
-      "explain": "1A = 1 x 16 + 10 = 26."
+      "explain": "1A = 1 x 16 + 10 = 26.",
+      "year": 1
     },
     {
       "category": "Computer Systems",
@@ -2394,7 +2577,8 @@
         "127"
       ],
       "answer": 3,
-      "explain": "One bit is the sign, which leaves 7 bits for the magnitude: 2 to the power of 7, minus 1, is 127."
+      "explain": "One bit is the sign, which leaves 7 bits for the magnitude: 2 to the power of 7, minus 1, is 127.",
+      "year": 1
     },
     {
       "category": "Networking & Security",
@@ -2407,7 +2591,8 @@
         "Modem"
       ],
       "answer": 0,
-      "explain": "Switches learn which MAC address is reachable on which port. Routers work at Layer 3 and forward packets by IP address."
+      "explain": "Switches learn which MAC address is reachable on which port. Routers work at Layer 3 and forward packets by IP address.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -2420,7 +2605,8 @@
         "Encrypts packets in transit"
       ],
       "answer": 1,
-      "explain": "The mask shows which bits of an IP address identify the network and which identify the individual host."
+      "explain": "The mask shows which bits of an IP address identify the network and which identify the individual host.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -2433,7 +2619,8 @@
         "Giving every user administrator rights"
       ],
       "answer": 1,
-      "explain": "Limiting access reduces the damage that a compromised account or an honest mistake can cause."
+      "explain": "Limiting access reduces the damage that a compromised account or an honest mistake can cause.",
+      "year": 2
     },
     {
       "category": "Networking & Security",
@@ -2446,7 +2633,8 @@
         "Crashes a server with traffic"
       ],
       "answer": 1,
-      "explain": "The attacker sits between the two parties. TLS with proper certificate validation helps prevent this."
+      "explain": "The attacker sits between the two parties. TLS with proper certificate validation helps prevent this.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -2459,7 +2647,8 @@
         "undefined"
       ],
       "answer": 0,
-      "explain": "Numbers are copied by value, so changing b does not change a."
+      "explain": "Numbers are copied by value, so changing b does not change a.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -2472,7 +2661,8 @@
         "A function with no return value"
       ],
       "answer": 0,
-      "explain": "Recursion needs a base case to stop. Without one, the calls never end."
+      "explain": "Recursion needs a base case to stop. Without one, the calls never end.",
+      "year": 1
     },
     {
       "category": "Programming",
@@ -2485,7 +2675,8 @@
         "It always changes global variables"
       ],
       "answer": 2,
-      "explain": "Pure functions depend only on their inputs and change nothing outside themselves, which makes them easier to test."
+      "explain": "Pure functions depend only on their inputs and change nothing outside themselves, which makes them easier to test.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -2498,7 +2689,8 @@
         "Any candidate key could identify rows; the primary key is the one chosen for that role"
       ],
       "answer": 3,
-      "explain": "A table can have several candidate keys, but only one of them is designated as the primary key."
+      "explain": "A table can have several candidate keys, but only one of them is designated as the primary key.",
+      "year": 2
     },
     {
       "category": "Database",
@@ -2511,7 +2703,8 @@
         "All rows from both tables with no matching"
       ],
       "answer": 0,
-      "explain": "LEFT JOIN keeps every left-side row even when there is no matching row on the right."
+      "explain": "LEFT JOIN keeps every left-side row even when there is no matching row on the right.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -2524,7 +2717,8 @@
         "O(log n)"
       ],
       "answer": 2,
-      "explain": "Every node may have to be visited. Balancing the tree keeps its height at O(log n)."
+      "explain": "Every node may have to be visited. Balancing the tree keeps its height at O(log n).",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -2537,7 +2731,8 @@
         "Circular buffer"
       ],
       "answer": 0,
-      "explain": "A binary heap gives O(log n) insertion and removal of the highest-priority item."
+      "explain": "A binary heap gives O(log n) insertion and removal of the highest-priority item.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -2550,7 +2745,8 @@
         "Preorder"
       ],
       "answer": 1,
-      "explain": "Inorder traversal of a binary search tree returns the values in sorted order."
+      "explain": "Inorder traversal of a binary search tree returns the values in sorted order.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -2563,7 +2759,8 @@
         "Single Responsibility Principle"
       ],
       "answer": 3,
-      "explain": "A class should do one job, so changes for one reason do not force changes elsewhere."
+      "explain": "A class should do one job, so changes for one reason do not force changes elsewhere.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -2576,7 +2773,8 @@
         "Subclasses can replace their base class without breaking the program"
       ],
       "answer": 3,
-      "explain": "If code works with a base type, it should also work with any subclass of that type."
+      "explain": "If code works with a base type, it should also work with any subclass of that type.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -2589,7 +2787,8 @@
         "Inheritance cannot be combined with interfaces"
       ],
       "answer": 0,
-      "explain": "Composition builds behavior from smaller parts, which is easier to change than a deep inheritance tree."
+      "explain": "Composition builds behavior from smaller parts, which is easier to change than a deep inheritance tree.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -2602,7 +2801,8 @@
         "Random sampling of the input"
       ],
       "answer": 0,
-      "explain": "Memoization or tabulation saves each subproblem's answer so it is solved only once."
+      "explain": "Memoization or tabulation saves each subproblem's answer so it is solved only once.",
+      "year": 3
     },
     {
       "category": "Programming",
@@ -2615,7 +2815,8 @@
         "Weights must be integers"
       ],
       "answer": 1,
-      "explain": "Negative edge weights can break Dijkstra's algorithm. Bellman-Ford handles them."
+      "explain": "Negative edge weights can break Dijkstra's algorithm. Bellman-Ford handles them.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -2628,7 +2829,8 @@
         "Shortest job first"
       ],
       "answer": 3,
-      "explain": "Short jobs can keep being picked ahead of long ones. Aging, which gradually raises the priority of waiting jobs, is a common fix."
+      "explain": "Short jobs can keep being picked ahead of long ones. Aging, which gradually raises the priority of waiting jobs, is a common fix.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -2641,7 +2843,8 @@
         "First in, first out (FIFO)"
       ],
       "answer": 1,
-      "explain": "LRU assumes that pages used recently are likely to be used again soon."
+      "explain": "LRU assumes that pages used recently are likely to be used again soon.",
+      "year": 3
     },
     {
       "category": "Programming",
@@ -2654,7 +2857,8 @@
         "The first line of a program"
       ],
       "answer": 0,
-      "explain": "Protecting critical sections with locks or atomic operations prevents corrupted data."
+      "explain": "Protecting critical sections with locks or atomic operations prevents corrupted data.",
+      "year": 3
     },
     {
       "category": "Programming",
@@ -2667,7 +2871,8 @@
         "A fixed sleep call"
       ],
       "answer": 1,
-      "explain": "A condition variable lets a thread sleep and be woken when its condition may have changed."
+      "explain": "A condition variable lets a thread sleep and be woken when its condition may have changed.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -2680,7 +2885,8 @@
         "Infinite"
       ],
       "answer": 0,
-      "explain": "Speedup = 1 / ((1 - P) + P/N). As N approaches infinity, 1 / (1 - 0.5) = 2x maximum speedup."
+      "explain": "Speedup = 1 / ((1 - P) + P/N). As N approaches infinity, 1 / (1 - 0.5) = 2x maximum speedup.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -2693,7 +2899,8 @@
         "Floating-point numbers use base-16 instead of base-2"
       ],
       "answer": 0,
-      "explain": "Just as 1/3 is 0.333... in base 10, 1/10 (0.1) is a non-terminating repeating fraction in base 2, so rounding to 53 mantissa bits introduces a tiny discrepancy."
+      "explain": "Just as 1/3 is 0.333... in base 10, 1/10 (0.1) is a non-terminating repeating fraction in base 2, so rounding to 53 mantissa bits introduces a tiny discrepancy.",
+      "year": 2
     },
     {
       "category": "Computer Systems",
@@ -2706,7 +2913,8 @@
         "Swap space becomes faster than L1 cache"
       ],
       "answer": 0,
-      "explain": "Under non-stack algorithms like FIFO, giving a process more RAM frames can counterintuitively cause more page faults for certain reference strings."
+      "explain": "Under non-stack algorithms like FIFO, giving a process more RAM frames can counterintuitively cause more page faults for certain reference strings.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -2719,7 +2927,8 @@
         "A branch jumps backward; mitigated by disabling registers"
       ],
       "answer": 0,
-      "explain": "Operand forwarding routes the computed ALU output directly to the next instruction's ALU input before the register file write-back stage finishes."
+      "explain": "Operand forwarding routes the computed ALU output directly to the next instruction's ALU input before the register file write-back stage finishes.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -2732,7 +2941,8 @@
         "The wrong branch result is committed to memory anyway"
       ],
       "answer": 0,
-      "explain": "Branch misprediction incurs a pipeline flush penalty because speculative instructions after the branch must be discarded before architectural state is updated."
+      "explain": "Branch misprediction incurs a pipeline flush penalty because speculative instructions after the branch must be discarded before architectural state is updated.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -2745,7 +2955,8 @@
         "Superscalar execution requires writing all programs in assembly"
       ],
       "answer": 0,
-      "explain": "By duplicating fetch/decode width and functional units (ALUs, FPUs), a superscalar core achieves Instruction-Level Parallelism (ILP) > 1 IPC."
+      "explain": "By duplicating fetch/decode width and functional units (ALUs, FPUs), a superscalar core achieves Instruction-Level Parallelism (ILP) > 1 IPC.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -2758,7 +2969,8 @@
         "SQL query optimization"
       ],
       "answer": 0,
-      "explain": "MESI tracks the state of every cache line across cores, invalidating or updating copies when a core writes to shared memory."
+      "explain": "MESI tracks the state of every cache line across cores, invalidating or updating copies when a core writes to shared memory.",
+      "year": 4
     },
     {
       "category": "Computer Systems",
@@ -2771,7 +2983,8 @@
         "It schedules threads across CPU cores"
       ],
       "answer": 0,
-      "explain": "Without a TLB hit, every memory access would require reading several page table levels in main memory before accessing the actual data."
+      "explain": "Without a TLB hit, every memory access would require reading several page table levels in main memory before accessing the actual data.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -2784,7 +2997,8 @@
         "Write-Back works only on read-only memory"
       ],
       "answer": 0,
-      "explain": "Write-Back reduces memory bus traffic by absorbing repeated writes to the same cache line and flushing to RAM only when the dirty line is replaced."
+      "explain": "Write-Back reduces memory bus traffic by absorbing repeated writes to the same cache line and flushing to RAM only when the dirty line is replaced.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -2797,7 +3011,8 @@
         "Only in the CPU's general-purpose registers"
       ],
       "answer": 0,
-      "explain": "Set-associative caches balance conflict misses and hardware cost by mapping each memory address to one set containing N (here 4) ways."
+      "explain": "Set-associative caches balance conflict misses and hardware cost by mapping each memory address to one set containing N (here 4) ways.",
+      "year": 3
     },
     {
       "category": "Computer Systems",
@@ -2810,7 +3025,8 @@
         "TRIM increases the physical size of the SSD"
       ],
       "answer": 0,
-      "explain": "Wear leveling spreads writes evenly across flash blocks so no single block wears out prematurely, and TRIM lets the controller pre-erase unused blocks."
+      "explain": "Wear leveling spreads writes evenly across flash blocks so no single block wears out prematurely, and TRIM lets the controller pre-erase unused blocks.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -2823,7 +3039,8 @@
         "BGP cannot route IPv6 traffic"
       ],
       "answer": 0,
-      "explain": "OSPF is an Interior Gateway Protocol (IGP) using Dijkstra's algorithm, whereas BGP is the path-vector Exterior Gateway Protocol (EGP) binding the global internet."
+      "explain": "OSPF is an Interior Gateway Protocol (IGP) using Dijkstra's algorithm, whereas BGP is the path-vector Exterior Gateway Protocol (EGP) binding the global internet.",
+      "year": 4
     },
     {
       "category": "Networking & Security",
@@ -2836,7 +3053,8 @@
         "SameSite cookies prevent SQL injection"
       ],
       "answer": 0,
-      "explain": "HTTPS protects traffic in transit, but CSRF exploits the browser's automatic inclusion of ambient credentials (cookies) on forged cross-site requests."
+      "explain": "HTTPS protects traffic in transit, but CSRF exploits the browser's automatic inclusion of ambient credentials (cookies) on forged cross-site requests.",
+      "year": 4
     },
     {
       "category": "Networking & Security",
@@ -2849,7 +3067,8 @@
         "It doubles the transmission rate"
       ],
       "answer": 0,
-      "explain": "Triple duplicate ACKs indicate mild congestion (packets are still arriving), so TCP performs Fast Retransmit and multiplicative decrease rather than a full slow-start reset."
+      "explain": "Triple duplicate ACKs indicate mild congestion (packets are still arriving), so TCP performs Fast Retransmit and multiplicative decrease rather than a full slow-start reset.",
+      "year": 4
     },
     {
       "category": "Networking & Security",
@@ -2862,7 +3081,8 @@
         "TLS certificate expiration"
       ],
       "answer": 0,
-      "explain": "Without a TTL field at Layer 2, a physical loop between switches causes broadcast frames to circulate and multiply infinitely; STP blocks redundant loop ports."
+      "explain": "Without a TTL field at Layer 2, a physical loop between switches causes broadcast frames to circulate and multiply infinitely; STP blocks redundant loop ports.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -2875,7 +3095,8 @@
         "To renew the DHCP lease"
       ],
       "answer": 0,
-      "explain": "TIME_WAIT prevents delayed segments from an old incarnation of a (source IP, source port, dest IP, dest port) tuple from corrupting a new connection."
+      "explain": "TIME_WAIT prevents delayed segments from an old incarnation of a (source IP, source port, dest IP, dest port) tuple from corrupting a new connection.",
+      "year": 3
     },
     {
       "category": "Networking & Security",
@@ -2888,7 +3109,8 @@
         "It requires every router to store every host's individual IP"
       ],
       "answer": 0,
-      "explain": "For example, four contiguous /24 networks can be summarized and advertised upstream as a single /22 prefix."
+      "explain": "For example, four contiguous /24 networks can be summarized and advertised upstream as a single /22 prefix.",
+      "year": 4
     },
     {
       "category": "Networking & Security",
@@ -2901,7 +3123,8 @@
         "It compresses all HTTP headers to zero bytes"
       ],
       "answer": 0,
-      "explain": "Because each session generates temporary Diffie-Hellman key pairs that are destroyed after use, past session keys cannot be reconstructed later."
+      "explain": "Because each session generates temporary Diffie-Hellman key pairs that are destroyed after use, past session keys cannot be reconstructed later.",
+      "year": 4
     },
     {
       "category": "Networking & Security",
@@ -2914,7 +3137,8 @@
         "Salts make the hash shorter"
       ],
       "answer": 0,
-      "explain": "General-purpose hashes like SHA-256 are designed to run billions of times per second on GPUs; password hashes intentionally add salt and computational cost."
+      "explain": "General-purpose hashes like SHA-256 are designed to run billions of times per second on GPUs; password hashes intentionally add salt and computational cost.",
+      "year": 4
     },
     {
       "category": "Networking & Security",
@@ -2927,7 +3151,8 @@
         "AES-GCM uses no secret key"
       ],
       "answer": 0,
-      "explain": "Unauthenticated encryption modes like raw CBC are vulnerable to ciphertext manipulation (such as padding oracle attacks), whereas AEAD verifies an authentication tag."
+      "explain": "Unauthenticated encryption modes like raw CBC are vulnerable to ciphertext manipulation (such as padding oracle attacks), whereas AEAD verifies an authentication tag.",
+      "year": 4
     },
     {
       "category": "Networking & Security",
@@ -2940,7 +3165,8 @@
         "It causes a buffer overflow in TCP"
       ],
       "answer": 0,
-      "explain": "JWT verifiers must strictly whitelist the expected signing algorithm rather than letting the untrusted token header dictate how it is verified."
+      "explain": "JWT verifiers must strictly whitelist the expected signing algorithm rather than letting the untrusted token header dictate how it is verified.",
+      "year": 4
     },
     {
       "category": "Networking & Security",
@@ -2953,7 +3179,8 @@
         "The server switches all ports to UDP"
       ],
       "answer": 0,
-      "explain": "SYN floods try to exhaust the half-open connection queue; SYN cookies avoid storing state until the client proves reachability by completing the handshake."
+      "explain": "SYN floods try to exhaust the half-open connection queue; SYN cookies avoid storing state until the client proves reachability by completing the handshake.",
+      "year": 4
     },
     {
       "category": "Networking & Security",
@@ -2966,7 +3193,8 @@
         "It assigns every computer the same MAC address"
       ],
       "answer": 0,
-      "explain": "DAI drops gratuitous or forged ARP replies that claim an IP address not bound to that switch port in the DHCP snooping database."
+      "explain": "DAI drops gratuitous or forged ARP replies that claim an IP address not bound to that switch port in the DHCP snooping database.",
+      "year": 4
     },
     {
       "category": "Networking & Security",
@@ -2979,7 +3207,8 @@
         "Use a single perimeter firewall with no internal access controls"
       ],
       "answer": 0,
-      "explain": "Zero Trust assumes the network may already be breached and verifies identity, device posture, and least-privilege access on every request."
+      "explain": "Zero Trust assumes the network may already be breached and verifies identity, device posture, and least-privilege access on every request.",
+      "year": 4
     },
     {
       "category": "Networking & Security",
@@ -2992,7 +3221,8 @@
         "A WAF blocks all traffic on port 443"
       ],
       "answer": 0,
-      "explain": "To a Layer 3/4 firewall, an SQL injection over HTTPS on port 443 looks like normal permitted TCP traffic; a WAF inspects the decrypted HTTP request."
+      "explain": "To a Layer 3/4 firewall, an SQL injection over HTTPS on port 443 looks like normal permitted TCP traffic; a WAF inspects the decrypted HTTP request.",
+      "year": 4
     },
     {
       "category": "Programming",
@@ -3005,7 +3235,8 @@
         "A copy of the compiled machine code on disk"
       ],
       "answer": 0,
-      "explain": "Closures retain live bindings to variables from their enclosing lexical environment after the outer function finishes executing."
+      "explain": "Closures retain live bindings to variables from their enclosing lexical environment after the outer function finishes executing.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -3018,7 +3249,8 @@
         "Dynamic arrays use linked lists internally"
       ],
       "answer": 0,
-      "explain": "With geometric growth (2x), the cost of copying 1 + 2 + 4 + ... + n elements is bounded by 2n, averaging O(1) per insertion."
+      "explain": "With geometric growth (2x), the cost of copying 1 + 2 + 4 + ... + n elements is bounded by 2n, averaging O(1) per insertion.",
+      "year": 3
     },
     {
       "category": "Programming",
@@ -3031,7 +3263,8 @@
         "Classes should never use interfaces"
       ],
       "answer": 0,
-      "explain": "A subtype must honor the behavioral contract (preconditions, postconditions, and invariants) of its base type."
+      "explain": "A subtype must honor the behavioral contract (preconditions, postconditions, and invariants) of its base type.",
+      "year": 2
     },
     {
       "category": "Programming",
@@ -3044,7 +3277,8 @@
         "Tail recursion and a hash table"
       ],
       "answer": 0,
-      "explain": "Optimal substructure lets optimal solutions be built from optimal sub-solutions, and overlapping subproblems make caching those sub-results worthwhile."
+      "explain": "Optimal substructure lets optimal solutions be built from optimal sub-solutions, and overlapping subproblems make caching those sub-results worthwhile.",
+      "year": 3
     },
     {
       "category": "Programming",
@@ -3057,7 +3291,8 @@
         "They write data to disk before every read"
       ],
       "answer": 0,
-      "explain": "Atomic Compare-And-Swap (`CAS`) updates a memory location only if it still holds the expected old value, allowing threads to detect contention and retry."
+      "explain": "Atomic Compare-And-Swap (`CAS`) updates a memory location only if it still holds the expected old value, allowing threads to detect contention and retry.",
+      "year": 4
     },
     {
       "category": "Database",
@@ -3070,7 +3305,8 @@
         "Delete half of the database tables"
       ],
       "answer": 0,
-      "explain": "During a network split between nodes, a distributed store cannot guarantee both linearizable consistency and 100% availability simultaneously."
+      "explain": "During a network split between nodes, a distributed store cannot guarantee both linearizable consistency and 100% availability simultaneously.",
+      "year": 4
     },
     {
       "category": "Database",
@@ -3083,7 +3319,8 @@
         "NOT IN automatically deletes the table"
       ],
       "answer": 0,
-      "explain": "`x NOT IN (a, NULL)` expands to `x <> a AND x <> NULL`. Because `x <> NULL` is UNKNOWN, the entire WHERE predicate is never TRUE; `NOT EXISTS` avoids this trap."
+      "explain": "`x NOT IN (a, NULL)` expands to `x <> a AND x <> NULL`. Because `x <> NULL` is UNKNOWN, the entire WHERE predicate is never TRUE; `NOT EXISTS` avoids this trap.",
+      "year": 3
     },
     {
       "category": "Database",
@@ -3096,7 +3333,8 @@
         "Third Normal Form (3NF)"
       ],
       "answer": 0,
-      "explain": "A table in BCNF that still stores two independent multi-valued facts about a key (causing a Cartesian product of rows) violates 4NF."
+      "explain": "A table in BCNF that still stores two independent multi-valued facts about a key (causing a Cartesian product of rows) violates 4NF.",
+      "year": 4
     },
     {
       "category": "Database",
@@ -3109,7 +3347,8 @@
         "The Write-Ahead Log runs out of disk space"
       ],
       "answer": 0,
-      "explain": "Because each transaction modifies a different row, row-level write locks don't conflict under Snapshot Isolation; true Serializable (e.g., SSI) is needed to detect write skew."
+      "explain": "Because each transaction modifies a different row, row-level write locks don't conflict under Snapshot Isolation; true Serializable (e.g., SSI) is needed to detect write skew.",
+      "year": 4
     },
     {
       "category": "Database",
@@ -3122,7 +3361,8 @@
         "When the primary key is an integer"
       ],
       "answer": 0,
-      "explain": "Hash indexes scatter keys uniformly across buckets with no ordering, so they only support equality lookups, whereas B+Trees maintain sorted leaf pages for range scans."
+      "explain": "Hash indexes scatter keys uniformly across buckets with no ordering, so they only support equality lookups, whereas B+Trees maintain sorted leaf pages for range scans.",
+      "year": 4
     }
   ]
 }

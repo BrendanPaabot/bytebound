@@ -24,6 +24,37 @@
     'Database',
   ];
 
+  const MP_YEAR_LEVELS = [
+    { year: 1, label: '1st Year (Year 1 only)', shortLabel: '1st Year' },
+    { year: 2, label: '2nd Year (Years 1–2)', shortLabel: 'Up to 2nd Year' },
+    { year: 3, label: '3rd Year (Years 1–3)', shortLabel: 'Up to 3rd Year' },
+    { year: 4, label: '4th Year (All Years 1–4)', shortLabel: 'All Years (1–4)' },
+  ];
+
+  function normalizeRoomYear(rawYear, fallback = 4) {
+    if (typeof global.normalizeAcademicYear === 'function') {
+      return global.normalizeAcademicYear(rawYear, fallback);
+    }
+    const parsed = Number(rawYear);
+    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 4) return parsed;
+    return fallback;
+  }
+
+  function defaultRoomYear() {
+    if (typeof global.getActiveAcademicYear === 'function') {
+      return normalizeRoomYear(global.getActiveAcademicYear(), 4);
+    }
+    return 4;
+  }
+
+  function isItemEligibleForYear(item, maxYear) {
+    if (typeof global.isQuestionEligibleForYear === 'function') {
+      return global.isQuestionEligibleForYear(item, maxYear);
+    }
+    const qYear = Number(item?.year);
+    return Number.isInteger(qYear) && qYear >= 1 && qYear <= maxYear;
+  }
+
   function generateCode(existingCodes) {
     for (let attempt = 0; attempt < 25; attempt++) {
       let code = '';
@@ -44,12 +75,14 @@
     return arr;
   }
 
-  function buildSynchronizedQuestionPool(category) {
+  function buildSynchronizedQuestionPool(category, yearLevel = 4) {
     const bank = (typeof QUESTION_BANK !== 'undefined' ? QUESTION_BANK : global.QUESTION_BANK) || { easy: [], medium: [], hard: [] };
+    const capYear = normalizeRoomYear(yearLevel, 4);
     const collect = [];
     for (const [difficulty, list] of Object.entries(bank)) {
       if (!Array.isArray(list)) continue;
       for (const item of list) {
+        if (!isItemEligibleForYear(item, capYear)) continue;
         if (category && category !== 'ALL' && item.category !== category) continue;
         collect.push({
           q: item.q,
@@ -58,14 +91,18 @@
           explain: item.explain,
           category: item.category,
           topic: item.topic,
+          year: item.year,
           difficulty,
         });
       }
     }
     if (!collect.length) {
+      // If the selected discipline has no questions at this year (e.g., Database at 1st Year),
+      // fall back ONLY to other disciplines that are still strictly eligible for capYear.
       for (const [difficulty, list] of Object.entries(bank)) {
         if (!Array.isArray(list)) continue;
         for (const item of list) {
+          if (!isItemEligibleForYear(item, capYear)) continue;
           collect.push({
             q: item.q,
             choices: [...item.choices],
@@ -73,6 +110,7 @@
             explain: item.explain,
             category: item.category,
             topic: item.topic,
+            year: item.year,
             difficulty,
           });
         }
@@ -109,6 +147,14 @@
 
     static get CATEGORIES() {
       return MP_CATEGORIES;
+    }
+
+    static get YEAR_LEVELS() {
+      return MP_YEAR_LEVELS;
+    }
+
+    static buildSynchronizedQuestionPool(category, yearLevel = 4) {
+      return buildSynchronizedQuestionPool(category, yearLevel);
     }
 
     subscribe(fn) {
@@ -402,7 +448,7 @@
       await this.network.refresh();
     }
 
-    async createRoom({ visibility = 'public', arenaId = 'arena', category = 'ALL' } = {}) {
+    async createRoom({ visibility = 'public', arenaId = 'arena', category = 'ALL', yearLevel = defaultRoomYear() } = {}) {
       if (this.currentRoom) await this.leaveCurrentRoom();
       const existing = new Set([
         ...this.publicRooms.map((r) => r.code),
@@ -411,6 +457,7 @@
       const code = generateCode(existing);
       const arena = MP_ARENAS.find((a) => a.id === arenaId) || MP_ARENAS[0];
       const normalizedVisibility = visibility === 'private' ? 'private' : 'public';
+      const normalizedYear = normalizeRoomYear(yearLevel, defaultRoomYear());
       const room = {
         code,
         visibility: normalizedVisibility,
@@ -418,6 +465,7 @@
         arenaId: arena.id,
         arenaName: arena.name,
         category: MP_CATEGORIES.includes(category) ? category : 'ALL',
+        yearLevel: normalizedYear,
         maxPlayers: 2,
         host: {
           clientId: this.network.clientId,
@@ -512,13 +560,16 @@
       }
     }
 
-    async updateSettings({ arenaId, category }) {
+    async updateSettings({ arenaId, category, yearLevel }) {
       if (!this.currentRoom || this.role !== 'host') return;
       const room = this.currentRoom;
       const arena = MP_ARENAS.find((a) => a.id === arenaId) || MP_ARENAS[0];
       room.arenaId = arena.id;
       room.arenaName = arena.name;
       if (MP_CATEGORIES.includes(category)) room.category = category;
+      if (yearLevel !== undefined && yearLevel !== null) {
+        room.yearLevel = normalizeRoomYear(yearLevel, room.yearLevel || 4);
+      }
       room.host.ready = false;
       if (room.guest) room.guest.ready = false;
       this.notifyChange();
@@ -526,6 +577,7 @@
         arenaId: room.arenaId,
         arenaName: room.arenaName,
         category: room.category,
+        yearLevel: room.yearLevel || 4,
       });
       await this.network.syncRoomSnapshot(room, 'Match settings updated. Ready status reset.');
     }
@@ -554,6 +606,13 @@
         return { ok: false, error };
       }
       const room = this.currentRoom;
+      const roomYear = normalizeRoomYear(room.yearLevel, 4);
+      const questions = buildSynchronizedQuestionPool(room.category, roomYear);
+      if (!questions.length) {
+        const error = 'No eligible questions are available for this Year Level. Choose a higher Year Level to start.';
+        this.setNotification('error', error);
+        return { ok: false, error };
+      }
       room.status = 'in_match';
       const matchConfig = {
         matchId: `${room.code}-${Date.now().toString(36)}`,
@@ -561,9 +620,10 @@
         arenaId: room.arenaId,
         arenaName: room.arenaName,
         category: room.category,
+        yearLevel: roomYear,
         seed: Math.floor(Math.random() * 1000000),
         baseStats: { maxHp: 100, maxMana: 100, attack: 12, defense: 2, empowerCost: 20 },
-        questions: buildSynchronizedQuestionPool(room.category),
+        questions,
         host: { ...room.host },
         guest: { ...room.guest },
       };
@@ -601,7 +661,12 @@
 
     async invitePlayer(targetClientId) {
       if (!this.currentRoom) {
-        const created = await this.createRoom({ visibility: 'public', arenaId: 'arena', category: 'ALL' });
+        const created = await this.createRoom({
+          visibility: 'public',
+          arenaId: 'arena',
+          category: 'ALL',
+          yearLevel: defaultRoomYear(),
+        });
         if (!created?.ok) return created || { ok: false, error: 'Could not create room to send invite.' };
       }
       const room = this.currentRoom;
@@ -616,6 +681,7 @@
         hostAvatar: this.network.localProfile.avatar,
         arenaName: room.arenaName,
         category: room.category,
+        yearLevel: normalizeRoomYear(room.yearLevel, 4),
       };
       if (targetClientId === 'all') {
         const waiting = this.players.filter((p) => !p.isSelf && (p.status || 'Available') === 'Available');

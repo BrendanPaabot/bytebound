@@ -12,6 +12,7 @@ const errors = [];
 const warnings = [];
 const seenText = new Set();
 const coverage = {};
+const yearCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
 const output = {};
 
 for (const key of Object.keys(source)) {
@@ -36,9 +37,14 @@ for (const level of LEVELS) {
       errors.push(`${where}: choices must be different from each other`);
     }
     if (!Number.isInteger(item.answer) || item.answer < 0 || item.answer > 3) errors.push(`${where}: answer must be 0, 1, 2, or 3`);
+    if (!Number.isInteger(item.year) || item.year < 1 || item.year > 4) errors.push(`${where}: year must be integer 1, 2, 3, or 4`);
     if (typeof item.explain !== 'string' || !item.explain.trim()) errors.push(`${where}: missing explanation`);
     if (seenText.has(item.q)) errors.push(`${where}: duplicate question text`);
     seenText.add(item.q);
+
+    if (Number.isInteger(item.year) && yearCounts[item.year] !== undefined) {
+      yearCounts[item.year] += 1;
+    }
 
     const topicKey = `${item.category} / ${item.topic}`;
     coverage[topicKey] = coverage[topicKey] || { easy: 0, medium: 0, hard: 0 };
@@ -48,6 +54,7 @@ for (const level of LEVELS) {
     output[level].push({
       category: item.category,
       topic: item.topic,
+      year: item.year,
       q: item.q,
       choices: item.choices,
       answer: item.answer,
@@ -67,6 +74,7 @@ for (const [topicKey, counts] of Object.entries(coverage)) {
 console.log('Question bank summary');
 for (const level of LEVELS) console.log(`  ${level.padEnd(7)} ${(output[level] || []).length}`);
 console.log(`  topics  ${Object.keys(coverage).length}`);
+console.log(`  years   Y1:${yearCounts[1]} Y2:${yearCounts[2]} Y3:${yearCounts[3]} Y4:${yearCounts[4]}`);
 
 if (warnings.length) {
   console.log(`\nCoverage warnings (${warnings.length}):`);

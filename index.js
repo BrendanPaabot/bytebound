@@ -104,7 +104,10 @@ function setTheme(theme) {
     document.documentElement.classList.remove('is-theme-transitioning')
   }, 480)
   if (typeof document.startViewTransition === 'function') {
-    document.startViewTransition(applyTheme)
+    const vt = document.startViewTransition(applyTheme)
+    vt?.updateCallbackDone?.catch(() => {})
+    vt?.ready?.catch(() => {})
+    vt?.finished?.catch(() => {})
   } else {
     applyTheme()
   }
@@ -606,6 +609,7 @@ function buildUserProfilePayload() {
     reviewStore: {
       queue: reviewQueue,
       counter: answerCount,
+      academicYear: typeof getActiveAcademicYear === 'function' ? getActiveAcademicYear() : 4,
     },
     achievements: {
       progress: achievementProgress,
@@ -689,9 +693,17 @@ function mergeAndApplyCloudUserProfile(profileId, cloudUser) {
     }
   }
 
-  // 3. Merge spaced-repetition review queue
+  // 3. Apply server-authoritative academic year + merge spaced-repetition review queue
+  if (cloudUser.pending_year_request !== undefined) {
+    activePendingYearRequest = cloudUser.pending_year_request || null
+  }
   const cloudReview = cloudUser.review_store
   if (cloudReview && typeof cloudReview === 'object') {
+    const cloudYear = Number(cloudReview.academicYear)
+    if (Number.isInteger(cloudYear) && cloudYear >= 1 && cloudYear <= 4 && typeof setActiveAcademicYear === 'function') {
+      setActiveAcademicYear(cloudYear, { profileId, persist: true, syncCloud: false })
+      updatedLocal = true
+    }
     const cloudCounter = Number.isSafeInteger(cloudReview.counter) && cloudReview.counter >= 0 ? cloudReview.counter : 0
     if (cloudCounter > answerCount) {
       answerCount = cloudCounter
@@ -784,6 +796,12 @@ function parseSupabaseAuthError(error) {
   }
   if (/AUTH_SESSION_INVALID/i.test(raw)) {
     return createAuthError('SESSION_INVALID', 'Your session has expired. Please log in again.')
+  }
+  if (/AUTH_ACCOUNT_SUSPENDED/i.test(raw)) {
+    return createAuthError('ACCOUNT_SUSPENDED', 'This account has been locked by an administrator.')
+  }
+  if (/AUTH_ACCOUNT_NOT_FOUND/i.test(raw)) {
+    return createAuthError('ACCOUNT_NOT_FOUND', 'No account found with that username. Please check the spelling or sign up first.')
   }
   if (
     raw.includes('(404)') ||
@@ -892,6 +910,26 @@ async function callTrustedAuthService(action, payload = {}) {
         p_session_token: payload.sessionToken,
       })
     }
+    if (action === 'forgot_password') {
+      return supabaseAuthRpc('auth_request_password_reset', {
+        p_username: payload.username,
+        p_note: payload.note || '',
+      })
+    }
+    if (action === 'change_password') {
+      return supabaseAuthRpc('auth_change_password', {
+        p_session_token: payload.sessionToken,
+        p_current_password: payload.currentPassword,
+        p_new_password: payload.newPassword,
+      })
+    }
+    if (action === 'request_year_change') {
+      return supabaseAuthRpc('auth_request_year_change', {
+        p_session_token: payload.sessionToken,
+        p_requested_year: payload.requestedYear,
+        p_reason: payload.reason || '',
+      })
+    }
     throw createAuthError('UNKNOWN_ACTION', 'Unknown authentication action.')
   }
 
@@ -900,6 +938,7 @@ async function callTrustedAuthService(action, payload = {}) {
       return callLocalAuthEndpoint('signup', {
         username: payload.username,
         password: payload.password,
+        academicYear: payload.academicYear || 4,
       })
     }
     if (action === 'login') {
@@ -930,6 +969,26 @@ async function callTrustedAuthService(action, payload = {}) {
     if (action === 'reset') {
       return callLocalAuthEndpoint('reset', {
         sessionToken: payload.sessionToken,
+      })
+    }
+    if (action === 'forgot_password') {
+      return callLocalAuthEndpoint('forgot-password', {
+        username: payload.username,
+        note: payload.note || '',
+      })
+    }
+    if (action === 'change_password') {
+      return callLocalAuthEndpoint('change-password', {
+        sessionToken: payload.sessionToken,
+        currentPassword: payload.currentPassword,
+        newPassword: payload.newPassword,
+      })
+    }
+    if (action === 'request_year_change') {
+      return callLocalAuthEndpoint('request-year-change', {
+        sessionToken: payload.sessionToken,
+        requestedYear: payload.requestedYear,
+        reason: payload.reason || '',
       })
     }
     throw createAuthError('UNKNOWN_ACTION', 'Unknown authentication action.')
@@ -997,13 +1056,28 @@ function readAuthSessionStorage() {
   }
 }
 
+function mirrorAccountToLocalAdmin(user, academicYear, sourceProvider) {
+  if (!user || typeof window === 'undefined' || !/^https?:$/i.test(window.location?.protocol || '')) return
+  try {
+    fetch('/api/auth/mirror-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user,
+        academicYear: academicYear || user?.review_store?.academicYear || 4,
+        source: sourceProvider || activeAuthProvider || 'local',
+      }),
+    }).catch(() => {})
+  } catch {}
+}
+
 async function pushUserProfileToSupabase() {
   window.clearTimeout(userSyncTimer)
   userSyncTimer = 0
   if (practiceRunActive || !activePlayerName || !activeSessionToken || !activeAuthProvider) return false
   const payload = buildUserProfilePayload()
   try {
-    await callTrustedAuthService('profile', {
+    const res = await callTrustedAuthService('profile', {
       preferredProvider: activeAuthProvider,
       sessionToken: activeSessionToken,
       topicProgress: payload.topicProgress,
@@ -1011,9 +1085,30 @@ async function pushUserProfileToSupabase() {
       reviewStore: payload.reviewStore,
       achievements: payload.achievements,
     })
+    if (res?.data?.user) {
+      mirrorAccountToLocalAdmin(res.data.user, typeof getActiveAcademicYear === 'function' ? getActiveAcademicYear() : 4, res.provider)
+    } else if (activeAuthProvider === 'supabase') {
+      mirrorAccountToLocalAdmin({
+        username_key: getUsernameKey(activePlayerName),
+        display_name: activePlayerName,
+        topic_progress: payload.topicProgress,
+        skill_progress: payload.skillProgress,
+        review_store: payload.reviewStore,
+        achievements: payload.achievements,
+      }, typeof getActiveAcademicYear === 'function' ? getActiveAcademicYear() : 4, 'supabase')
+    }
     userSyncState = 'synced'
     userSyncError = ''
-    if (dashboardView === 'settings' && !playViewActive) renderDashboard()
+    if (dashboardView === 'settings' && !playViewActive) {
+      const activeEl = document.activeElement
+      const pwMsgEl = document.getElementById('settingsPasswordMsg')
+      const pwFormEl = document.getElementById('settingsChangePasswordForm')
+      const yrMsgEl = document.getElementById('settingsYearRequestMsg')
+      const yrFormEl = document.getElementById('settingsYearRequestForm')
+      const preserveForm = (pwFormEl && activeEl && pwFormEl.contains(activeEl)) || Boolean(pwMsgEl && pwMsgEl.textContent)
+        || (yrFormEl && activeEl && yrFormEl.contains(activeEl)) || Boolean(yrMsgEl && yrMsgEl.textContent)
+      if (!preserveForm) renderDashboard()
+    }
     return true
   } catch (error) {
     console.warn('Unable to sync authenticated user profile.', error)
@@ -1077,7 +1172,16 @@ async function resetUserProfileInSupabase(displayName) {
     })
     userSyncState = 'synced'
     userSyncError = ''
-    if (dashboardView === 'settings' && !playViewActive) renderDashboard()
+    if (dashboardView === 'settings' && !playViewActive) {
+      const activeEl = document.activeElement
+      const pwMsgEl = document.getElementById('settingsPasswordMsg')
+      const pwFormEl = document.getElementById('settingsChangePasswordForm')
+      const yrMsgEl = document.getElementById('settingsYearRequestMsg')
+      const yrFormEl = document.getElementById('settingsYearRequestForm')
+      const preserveForm = (pwFormEl && activeEl && pwFormEl.contains(activeEl)) || Boolean(pwMsgEl && pwMsgEl.textContent)
+        || (yrFormEl && activeEl && yrFormEl.contains(activeEl)) || Boolean(yrMsgEl && yrMsgEl.textContent)
+      if (!preserveForm) renderDashboard()
+    }
   } catch (error) {
     console.warn('Unable to reset user profile on auth service.', error)
     userSyncState = 'error'
@@ -1770,12 +1874,12 @@ const LEVELS = {
     grid: collisionsLevel2,
     collisionShapes: collisionShapesLevel2,
     sourceSize: { width: 1029, height: 768 },
-    spawn: { x: 140, y: 110 },
+    spawn: { x: 112, y: 115 },
     door: { x: 760, y: 342 },
     doorImageSrc: './img/map/datacenter/doorOpenpc.png',
     doorSize: { width: 94, height: 110 },
-    enemyFloorY: 676,
-    enemySpawnBounds: { left: 110, right: 710 },
+    enemyFloorY: 674,
+    enemySpawnBounds: { left: 145, right: 705 },
     pigs: 3,
   },
   3: {
@@ -5119,6 +5223,7 @@ function serializeHeroSnapshot() {
     bonusMana: Math.max(0, Math.round(Number(hero.bonusMana) || 0)),
     runInvincible: Boolean(hero.runInvincible),
     tempAttack: Math.max(0, Math.round(Number(hero.tempAttack) || 0)),
+    ultCharge: Math.max(0, Math.min(5, Math.round(Number(hero.ultCharge) || 0))),
     necroAllies: allies,
     necroAlly: allies[0] || null,
   }
@@ -5294,6 +5399,7 @@ function validateAndNormalizeRunSave(rawSave) {
       bonusMana: Number.isFinite(Number(rawHero.bonusMana)) && Number(rawHero.bonusMana) >= 0 ? Math.round(Number(rawHero.bonusMana)) : 0,
       runInvincible: Boolean(rawHero.runInvincible),
       tempAttack: Number.isFinite(Number(rawHero.tempAttack)) && Number(rawHero.tempAttack) >= 0 ? Math.round(Number(rawHero.tempAttack)) : 0,
+      ultCharge: Number.isFinite(Number(rawHero.ultCharge)) ? Math.max(0, Math.min(5, Math.round(Number(rawHero.ultCharge)))) : 0,
       necroAllies: allies,
       necroAlly: allies[0] || null,
     }
@@ -7970,6 +8076,80 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
     return `<span class="eyebrow">Settings</span>
       <h2>Game &amp; Profile Settings</h2>
       <div class="settings-grid">
+        ${(() => {
+          const curYear = typeof getActiveAcademicYear === 'function' ? getActiveAcademicYear() : 4
+          const curMeta = typeof getAcademicYearMeta === 'function'
+            ? getAcademicYearMeta(curYear)
+            : { label: '4th Year', rangeLabel: 'All Years (1–4)', summary: '' }
+          const eligibleCount = typeof getAllEligibleQuestions === 'function' ? getAllEligibleQuestions(curYear).length : 0
+          const totalClassified = typeof getAllEligibleQuestions === 'function' ? getAllEligibleQuestions(4).length : 0
+          const stepFocus = {
+            1: 'Foundations & Intro',
+            2: 'Core IT & Databases',
+            3: 'OS & Cybersecurity',
+            4: 'Full Curriculum',
+          }
+          const yearSteps = [1, 2, 3, 4].map((yr) => {
+            const meta = typeof getAcademicYearMeta === 'function' ? getAcademicYearMeta(yr) : { label: `Year ${yr}`, rangeLabel: '' }
+            const stateCls = yr === curYear ? 'is-current' : (yr < curYear ? 'is-included' : 'is-locked')
+            const stateTag = yr === curYear ? 'YOUR YEAR' : (yr < curYear ? 'INCLUDED' : 'LOCKED')
+            return `<div class="settings-year-step ${stateCls}">
+              <div class="settings-year-step-top">
+                <strong>${esc(meta.label)}</strong>
+                <span class="settings-year-step-tag">${stateTag}</span>
+              </div>
+              <small>${esc(stepFocus[yr] || meta.rangeLabel)}</small>
+            </div>`
+          }).join('')
+          const otherYearOptions = [1, 2, 3, 4]
+            .filter((yr) => yr !== curYear)
+            .map((yr) => {
+              const meta = typeof getAcademicYearMeta === 'function' ? getAcademicYearMeta(yr) : { label: `Year ${yr}`, rangeLabel: '' }
+              const preselect = activePendingYearRequest && Number(activePendingYearRequest.requested_year) === yr ? ' selected' : ''
+              return `<option value="${yr}"${preselect}>${esc(meta.label)} (${esc(meta.rangeLabel)})</option>`
+            }).join('')
+          const pendingHtml = activePendingYearRequest && activePendingYearRequest.status === 'pending'
+            ? `<div class="settings-year-pending-pill">
+                <strong>Pending Admin Review · ${esc(getAcademicYearLabel(activePendingYearRequest.current_year || curYear))} → ${esc(getAcademicYearLabel(activePendingYearRequest.requested_year))}</strong>
+                ${activePendingYearRequest.reason ? `<small>Reason: ${esc(activePendingYearRequest.reason)}</small>` : ''}
+              </div>`
+            : ''
+          return `<section class="settings-card tone-green settings-year-card" id="settingsAcademicYearCard" aria-label="Academic year level">
+            <header class="settings-card-head settings-card-head-row">
+              <div>
+                <span class="eyebrow">Curriculum Filter</span>
+                <h3>Academic Year Level</h3>
+              </div>
+              <span class="settings-year-lock-pill" title="Locked after Sign Up to keep quizzes and leaderboards fair">LOCKED · ADMIN VERIFIED</span>
+            </header>
+            <div class="settings-content">
+              <p class="settings-year-lead">Your year level locks after registration so players cannot drop to lower years to farm scores or skew Topic Mastery.</p>
+              <div class="settings-year-track" role="list" aria-label="Curriculum progression">${yearSteps}</div>
+              <div class="settings-year-summary">
+                <strong>Active Pool: ${esc(curMeta.label)} · ${esc(curMeta.rangeLabel)} (${eligibleCount} of ${totalClassified} questions)</strong>
+                <small>${esc(curMeta.summary)}</small>
+              </div>
+              <div class="settings-year-request-box">
+                <div class="settings-year-req-head">
+                  <span class="eyebrow">Advancing or Signed Up Wrong Year?</span>
+                  <h4>Request Year Change</h4>
+                </div>
+                ${pendingHtml}
+                <form id="settingsYearRequestForm" novalidate>
+                  <div class="settings-year-req-grid">
+                    <select id="requestYearSelect" aria-label="Requested academic year">${otherYearOptions}</select>
+                    <input id="requestYearReasonInput" type="text" maxlength="140" placeholder="Reason (e.g. Promoted to 2nd Year / typo at sign-up)" />
+                  </div>
+                  <div class="settings-year-req-foot">
+                    <button class="leaderboard-action" id="submitYearRequestBtn" type="submit">${pendingHtml ? 'Update Year Request' : 'Request Year Change'}</button>
+                    <p class="settings-year-req-msg" id="settingsYearRequestMsg" role="status" aria-live="polite"></p>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </section>`
+        })()}
+
         <section class="settings-card tone-gold" aria-label="Appearance settings">
           <header class="settings-card-head">
             <span class="eyebrow">Display</span>
@@ -8044,9 +8224,22 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
               <div class="settings-profile-row"><span>Sync status</span><strong>${syncText}</strong></div>
             </div>
             <div class="settings-actions-row">
-              <button class="leaderboard-action settings-profile-switch" id="switchProfileButton" type="button">Switch Player</button>
+              <button class="leaderboard-action settings-profile-switch" id="switchProfileButton" type="button">Log Out</button>
               <button class="leaderboard-action settings-reset" id="resetProfileDataButton" type="button">Reset Progress</button>
             </div>
+            <form class="settings-pw-box" id="settingsChangePasswordForm" novalidate>
+              <span class="eyebrow">Security</span>
+              <h4>Change Password</h4>
+              <div class="settings-pw-grid">
+                <input id="curPasswordSettingInput" type="password" maxlength="72" autocomplete="current-password" placeholder="Current password" required />
+                <input id="newPasswordSettingInput" type="password" minlength="6" maxlength="72" autocomplete="new-password" placeholder="New password (min 6 chars)" required />
+                <input id="confirmNewPasswordSettingInput" type="password" minlength="6" maxlength="72" autocomplete="new-password" placeholder="Confirm new password" required />
+              </div>
+              <div class="settings-pw-foot">
+                <button class="leaderboard-action" id="updatePasswordSettingBtn" type="submit">Update Password</button>
+                <p class="settings-pw-msg" id="settingsPasswordMsg" role="status" aria-live="polite"></p>
+              </div>
+            </form>
           </div>
         </section>
 
@@ -8264,7 +8457,7 @@ function buildCapabilityRadarSvg(disciplineMetrics) {
   const labels = [0, 1, 2, 3].map((idx) => {
     const metric = disciplineMetrics[idx]
     const coord = labelCoords[idx]
-    const score = metric ? `${metric.accuracyPct}%` : '0%'
+    const score = metric && metric.attempted > 0 ? `${metric.accuracyPct}%` : '—'
     return `<text class="cap-radar-label" x="${coord.x}" y="${coord.y}" text-anchor="${coord.anchor}"><tspan x="${coord.x}" dy="0">${esc(shortLabels[idx])}</tspan><tspan class="cap-radar-score" x="${coord.x}" dy="16">${score}</tspan></text>`
   }).join('')
 
@@ -8428,16 +8621,18 @@ function renderTopicTracker() {
 
   const totals = categories.reduce((summary, group) => {
     for (const [, result] of group.topics) {
+      const attempted = result.attempted || 0
       summary.correct += result.correct || 0
-      summary.attempted += result.attempted || 0
+      summary.attempted += attempted
       summary.baselineCorrect += result.baselineCorrect || 0
       summary.baselineAttempted += result.baselineAttempted || 0
       summary.totalTopics += 1
+      if (attempted > 0) summary.practicedTopics += 1
       const state = getTopicMasteryState(result)
       if (state === 'mastered') summary.masteredTopics += 1
-      if (result.baselineAttempted > 0 && result.attempted > result.baselineAttempted) {
+      if (result.baselineAttempted > 0 && attempted > result.baselineAttempted) {
         const b = Math.round((100 * result.baselineCorrect) / result.baselineAttempted)
-        const c = Math.round((100 * result.correct) / result.attempted)
+        const c = Math.round((100 * result.correct) / attempted)
         if (c > b) summary.improvedTopics += 1
       }
     }
@@ -8448,18 +8643,19 @@ function renderTopicTracker() {
     baselineCorrect: 0,
     baselineAttempted: 0,
     totalTopics: 0,
+    practicedTopics: 0,
     masteredTopics: 0,
     improvedTopics: 0,
   })
 
-  const overallAccuracy = totals.attempted ? Math.round((100 * totals.correct) / totals.attempted) : 0
+  const hasAttempts = totals.attempted > 0
+  const overallAccuracy = hasAttempts ? Math.round((100 * totals.correct) / totals.attempted) : 0
   const overallDiag = formatBaselineComparison(
     totals.correct,
     totals.attempted,
     totals.baselineCorrect,
     totals.baselineAttempted
   )
-  const totalKills = Math.max(stats.kills || 0, achievementProgress.kills || 0)
 
   const disciplineColors = {
     'Computer Systems': 'gold',
@@ -8474,10 +8670,11 @@ function renderTopicTracker() {
       acc.attempted += result.attempted || 0
       acc.baselineCorrect += result.baselineCorrect || 0
       acc.baselineAttempted += result.baselineAttempted || 0
+      if ((result.attempted || 0) > 0) acc.practiced += 1
       const state = getTopicMasteryState(result)
       if (state === 'mastered') acc.mastered += 1
       return acc
-    }, { correct: 0, attempted: 0, baselineCorrect: 0, baselineAttempted: 0, mastered: 0 })
+    }, { correct: 0, attempted: 0, baselineCorrect: 0, baselineAttempted: 0, practiced: 0, mastered: 0 })
 
     const accuracyPct = agg.attempted ? Math.round((100 * agg.correct) / agg.attempted) : 0
     const diag = formatBaselineComparison(agg.correct, agg.attempted, agg.baselineCorrect, agg.baselineAttempted)
@@ -8495,113 +8692,120 @@ function renderTopicTracker() {
   })
 
   const disciplineCardsHtml = disciplineMetrics.map((d) => {
-    const baseTxt = d.diag.hasBaseline
-      ? `Baseline ${d.diag.basePct}% → ${d.accuracyPct}% (${d.diag.deltaLabel})`
-      : `${d.correct} / ${d.attempted} correct`
-    return `<article class="cap-discipline-card tone-${esc(d.color)}">
+    const hasData = d.attempted > 0
+    const subTxt = hasData
+      ? `${d.mastered}/${d.topics.length} mastered · ${d.correct}/${d.attempted}${d.diag.hasPost ? ` · ${d.diag.deltaLabel} growth` : ''}`
+      : `Not practiced yet · 0/${d.topics.length} mastered`
+    return `<article class="cap-discipline-card tone-${esc(d.color)}${hasData ? '' : ' is-empty'}">
       <div class="cap-discipline-top">
         <div>
           <span class="cap-discipline-name">${esc(d.category)}</span>
-          <small class="cap-discipline-sub">${d.mastered} / ${d.topics.length} mastered · ${esc(baseTxt)}</small>
+          <small class="cap-discipline-sub">${esc(subTxt)}</small>
         </div>
         <span class="cap-tier-pill tier-${esc(d.adaptiveTier.toLowerCase())}">${esc(d.adaptiveTier)}</span>
       </div>
       <div class="cap-meter-row">
-        <div class="cap-score-bar" role="progressbar" aria-label="${esc(`${d.category} accuracy`)}" aria-valuenow="${d.accuracyPct}" aria-valuemin="0" aria-valuemax="100">
-          <i style="width:${d.accuracyPct}%"></i>
+        <div class="cap-score-bar" role="progressbar" aria-label="${esc(`${d.category} accuracy`)}" aria-valuenow="${hasData ? d.accuracyPct : 0}" aria-valuemin="0" aria-valuemax="100">
+          <i style="width:${hasData ? d.accuracyPct : 0}%"></i>
         </div>
-        <strong class="cap-score-val">${d.accuracyPct}%</strong>
+        <strong class="cap-score-val${hasData ? '' : ' is-muted'}">${hasData ? `${d.accuracyPct}%` : '—'}</strong>
       </div>
     </article>`
   }).join('')
 
   const categoryCards = disciplineMetrics.map((d) => {
     const topicRows = d.topics.map(([topic, result]) => {
-      const percent = result.attempted
-        ? Math.round((100 * result.correct) / result.attempted)
-        : 0
+      const attempted = result.attempted || 0
+      const correct = result.correct || 0
+      const hasTopicData = attempted > 0
+      const percent = hasTopicData ? Math.round((100 * correct) / attempted) : 0
       const capMeta = getTopicCapabilityMeta(result)
       const tDiag = formatBaselineComparison(
-        result.correct || 0,
-        result.attempted || 0,
+        correct,
+        attempted,
         result.baselineCorrect || 0,
         result.baselineAttempted || 0
       )
-      const diagBadge = tDiag.hasBaseline
-        ? (tDiag.hasPost
-          ? `<span class="tracker-topic-baseline is-${esc(tDiag.deltaTone)}" title="Diagnostic baseline (first 3 answers) vs. post-baseline accuracy">Base ${tDiag.basePct}% → Post ${tDiag.postPct}% (${esc(tDiag.deltaLabel)})</span>`
-          : `<span class="tracker-topic-baseline is-flat" title="Collecting initial diagnostic baseline (first 3 answers)">Baseline ${tDiag.basePct}% (${result.baselineAttempted}/3)</span>`)
-        : `<span class="tracker-topic-baseline is-pending">No baseline yet</span>`
-      return `<div class="tracker-topic state-${esc(capMeta.tone)}">
+      // Show growth/calibration tag ONLY when meaningful — never spam "No baseline yet" on untouched rows.
+      let diagBadge = ''
+      if (tDiag.hasPost) {
+        diagBadge = `<span class="tracker-topic-baseline is-${esc(tDiag.deltaTone)}" title="Starting accuracy (first 3 answers) vs. follow-up practice accuracy">Start ${tDiag.basePct}% → ${tDiag.postPct}% (${esc(tDiag.deltaLabel)})</span>`
+      } else if (hasTopicData && attempted < BASELINE_ATTEMPTS) {
+        diagBadge = `<span class="tracker-topic-baseline is-flat" title="Answer ${BASELINE_ATTEMPTS} questions in this topic to finish calibrating your starting score">${attempted} of ${BASELINE_ATTEMPTS} baseline</span>`
+      }
+      const countText = `${correct}/${attempted}`
+      const pctText = hasTopicData ? `${percent}%` : '—'
+      return `<div class="tracker-topic state-${esc(capMeta.tone)}${hasTopicData ? '' : ' is-unattempted'}">
         <div class="tracker-topic-title">
           <span class="tracker-topic-name">${esc(topic)}</span>
           <span class="tracker-cap-badge badge-${esc(capMeta.tone)}">${esc(capMeta.label)}</span>
           ${diagBadge}
         </div>
         <div class="tracker-bar state-${esc(capMeta.tone)}" role="progressbar" aria-label="${esc(`${topic} accuracy`)}" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"><i style="width:${percent}%"></i></div>
-        <span class="tracker-topic-count">${result.correct} / ${result.attempted} correct</span>
-        <strong class="tracker-topic-percent">${percent}%</strong>
+        <span class="tracker-topic-count${hasTopicData ? '' : ' is-empty'}">${esc(countText)}</span>
+        <strong class="tracker-topic-percent${hasTopicData ? '' : ' is-empty'}">${esc(pctText)}</strong>
       </div>`
     }).join('')
+
+    const headerSummary = d.attempted > 0
+      ? `${d.mastered} of ${d.topics.length} mastered · ${d.accuracyPct}% accuracy`
+      : 'Not started'
+
     return `<details class="tracker-category" open>
       <summary class="tracker-category-header">
         <div class="tracker-cat-heading">
           <h3>${esc(d.category)}</h3>
-          <span class="cap-tier-pill tier-${esc(d.adaptiveTier.toLowerCase())}">${esc(d.adaptiveTier)}</span>
         </div>
-        <span>${d.mastered}/${d.topics.length} mastered · ${d.diag.hasBaseline ? `Base ${d.diag.basePct}% → ${d.accuracyPct}% (${d.diag.deltaLabel})` : `${d.correct}/${d.attempted} (${d.accuracyPct}%)`}</span>
+        <span>${esc(headerSummary)}</span>
       </summary>
       ${topicRows}
     </details>`
   }).join('')
 
-  const overallGainBadge = overallDiag.hasBaseline
-    ? `<span class="tracker-delta is-${esc(overallDiag.deltaTone)}">${esc(overallDiag.deltaLabel)} vs baseline</span>`
+  const overallGainBadge = overallDiag.hasPost
+    ? `<span class="tracker-delta is-${esc(overallDiag.deltaTone)}">${esc(overallDiag.deltaLabel)} vs start</span>`
     : ''
-  const diagStripHtml = overallDiag.hasBaseline
-    ? `<section class="tracker-diagnostic-strip" aria-label="Diagnostic baseline comparison">
-        <div>
-          <span class="eyebrow">Diagnostic Pre / Post Comparison</span>
-          <strong>${overallDiag.hasPost
-            ? `Baseline ${overallDiag.basePct}% (${totals.baselineCorrect}/${totals.baselineAttempted}) → Post-Baseline ${overallDiag.postPct}% (${overallDiag.postCorrect}/${overallDiag.postAttempted}) · Gain ${esc(overallDiag.deltaLabel)}`
-            : `Diagnostic Baseline ${overallDiag.basePct}% (${totals.baselineCorrect}/${totals.baselineAttempted}) · Current ${overallAccuracy}%`}</strong>
-          <small>First 3 attempts per topic capture initial baseline accuracy; post-baseline measures subsequent accuracy (${totals.improvedTopics} topic${totals.improvedTopics === 1 ? '' : 's'} above baseline).</small>
-        </div>
-        <div class="tracker-diagnostic-actions">
-          <button type="button" class="leaderboard-action" data-export-tracker="csv">Export CSV</button>
-          <button type="button" class="leaderboard-action" data-open-practice="1">Drill Topics</button>
-        </div>
-      </section>`
-    : `<section class="tracker-diagnostic-strip" aria-label="Diagnostic baseline comparison">
-        <div>
-          <span class="eyebrow">Diagnostic Pre / Post Comparison</span>
-          <strong>Awaiting Diagnostic Baseline (0 / 3 per topic)</strong>
-          <small>Answer your first 3 questions in any topic during battle or Topic Drill to establish your Baseline vs. Current Accuracy comparison.</small>
-        </div>
-        <div class="tracker-diagnostic-actions">
-          <button type="button" class="leaderboard-action" data-export-tracker="csv">Export CSV</button>
-          <button type="button" class="leaderboard-action" data-open-practice="1">Start Topic Drill</button>
-        </div>
-      </section>`
+
+  let diagTitle = 'Starting Score Not Recorded Yet'
+  let diagSub = 'Answer 3 questions in any topic during battle or Topic Drill to record your starting score and track improvement.'
+  if (overallDiag.hasPost) {
+    diagTitle = `Starting Score ${overallDiag.basePct}% → After Practice ${overallDiag.postPct}% (${overallDiag.deltaLabel})`
+    diagSub = `${totals.improvedTopics} topic${totals.improvedTopics === 1 ? '' : 's'} improved above initial baseline (${totals.baselineCorrect}/${totals.baselineAttempted} starting vs. ${overallDiag.postCorrect}/${overallDiag.postAttempted} follow-up).`
+  } else if (overallDiag.hasBaseline) {
+    diagTitle = `Starting Score: ${overallDiag.basePct}% (${totals.baselineCorrect}/${totals.baselineAttempted})`
+    diagSub = 'Captured from your first 3 answers per topic. Keep practicing those same topics to measure growth over time.'
+  }
+
+  const diagStripHtml = `<section class="tracker-diagnostic-strip" aria-label="Diagnostic growth comparison">
+      <div>
+        <span class="eyebrow">Diagnostic Growth</span>
+        <strong>${esc(diagTitle)}</strong>
+        <small>${esc(diagSub)}</small>
+      </div>
+      <div class="tracker-diagnostic-actions">
+        <button type="button" class="leaderboard-action" data-export-tracker="csv">Export CSV</button>
+        <button type="button" class="leaderboard-action" data-open-practice="1">${hasAttempts ? 'Practice Topics' : 'Start Topic Drill'}</button>
+      </div>
+    </section>`
 
   return `<span class="eyebrow">Learning Tracker</span>
     <h2>Your Topic Progress</h2>
-    <p class="achievement-summary">Track your baseline diagnostic vs. current accuracy across all four disciplines.</p>
-    <div class="tracker-summary" aria-label="Overall quiz results">
+    <p class="achievement-summary">Monitor accuracy, mastery, and improvement across all four computing disciplines.</p>
+    <div class="tracker-summary" aria-label="Overall learning metrics">
       <article class="tracker-stat">
-        <span>Current Accuracy</span>
-        <strong>${overallAccuracy}% ${overallGainBadge}</strong>
-        <small>${overallDiag.hasBaseline ? `Baseline ${overallDiag.basePct}% · ${totals.correct}/${totals.attempted} correct` : `${totals.correct} of ${totals.attempted} correct answers`}</small>
+        <span>Overall Accuracy</span>
+        <strong>${hasAttempts ? `${overallAccuracy}%` : '—'} ${overallGainBadge}</strong>
+        <small>${hasAttempts ? `${totals.correct}/${totals.attempted} answered` : 'Answer questions to see accuracy'}</small>
       </article>
       <article class="tracker-stat">
         <span>Topics Mastered</span>
         <strong>${totals.masteredTopics} / ${totals.totalTopics}</strong>
-        <small>80%+ accuracy with 4+ answers</small>
+        <small>80%+ accuracy with at least 4 answers</small>
       </article>
       <article class="tracker-stat">
-        <span>Viruses Defeated</span>
-        <strong>${totalKills}</strong>
-        <small>Across your adventures</small>
+        <span>Topics Practiced</span>
+        <strong>${totals.practicedTopics} / ${totals.totalTopics}</strong>
+        <small>${hasAttempts ? `${totals.attempted} total question${totals.attempted === 1 ? '' : 's'} answered` : 'No questions answered yet'}</small>
       </article>
     </div>
 
@@ -8774,9 +8978,9 @@ if (multiplayerMenuBtn) {
     syncAnimationLoop()
   })
 }
-const exitGameBtn = document.getElementById('exitGameButton')
-if (exitGameBtn) {
-  exitGameBtn.addEventListener('click', () => {
+const logoutBtn = document.getElementById('logoutButton')
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', () => {
     hideUiHoverBubble()
     setNavMenuOpen(false)
     switchPlayerProfile()
@@ -8806,6 +9010,18 @@ document.getElementById('dashboardAside').addEventListener('click', (event) => {
     renderDashboard()
     return
   }
+  const openSettingsBtn = event.target.closest('[data-open-settings]')
+  if (openSettingsBtn) {
+    playViewActive = false
+    dashboardView = 'settings'
+    renderDashboard()
+    if (openSettingsBtn.dataset.openSettings === 'year') {
+      window.requestAnimationFrame(() => {
+        document.getElementById('settingsAcademicYearCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+    }
+    return
+  }
   const focusBtn = event.target.closest('[data-adaptive-focus]')
   if (focusBtn) {
     const val = focusBtn.dataset.adaptiveFocus
@@ -8833,6 +9049,160 @@ document.getElementById('dashboardAside').addEventListener('click', (event) => {
     window.ByteboundTutorial?.replayFullGameGuide?.()
   } else if (event.target.closest('#replayBattleTutorialButton')) {
     window.ByteboundTutorial?.replayBattleTutorial?.()
+  }
+})
+
+document.getElementById('dashboardAside').addEventListener('submit', async (event) => {
+  const yearForm = event.target.closest('#settingsYearRequestForm')
+  if (yearForm) {
+    event.preventDefault()
+    const yrSel = document.getElementById('requestYearSelect')
+    const reasonInput = document.getElementById('requestYearReasonInput')
+    const msgEl = document.getElementById('settingsYearRequestMsg')
+    const btn = document.getElementById('submitYearRequestBtn')
+    const setYrMsg = (txt, tone) => {
+      if (!msgEl) return
+      msgEl.textContent = txt
+      msgEl.className = 'settings-year-req-msg' + (tone ? ` is-${tone}` : '')
+    }
+    const requestedYear = Number(yrSel?.value)
+    const curYear = typeof getActiveAcademicYear === 'function' ? getActiveAcademicYear() : 4
+    const reason = String(reasonInput?.value || '').trim()
+    if (!Number.isInteger(requestedYear) || requestedYear < 1 || requestedYear > 4 || requestedYear === curYear) {
+      setYrMsg('Choose a different academic year level.', 'err')
+      return
+    }
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending...' }
+    setYrMsg('', '')
+    try {
+      let resultMsg = `Request sent! Waiting for admin approval to switch to ${typeof getAcademicYearLabel === 'function' ? getAcademicYearLabel(requestedYear) : `Year ${requestedYear}`}.`
+      try {
+        const res = await callTrustedAuthService('request_year_change', {
+          preferredProvider: activeAuthProvider,
+          sessionToken: activeSessionToken,
+          requestedYear,
+          reason,
+        })
+        if (res?.data?.request) activePendingYearRequest = res.data.request
+        if (res?.data?.message) resultMsg = res.data.message
+        if (res?.provider === 'supabase' && /^https?:$/i.test(window.location?.protocol || '')) {
+          fetch('/api/auth/request-year-change', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionToken: activeSessionToken,
+              username: activePlayerName,
+              currentYear: curYear,
+              requestedYear,
+              reason,
+              provider: 'supabase',
+            }),
+          }).catch(() => {})
+        }
+      } catch (reqErr) {
+        if (!reqErr?.unavailable) throw reqErr
+        let recordedOnLocalServer = false
+        if (/^https?:$/i.test(window.location?.protocol || '')) {
+          try {
+            const localRes = await callLocalAuthEndpoint('request-year-change', {
+              sessionToken: activeSessionToken,
+              username: activePlayerName,
+              currentYear: curYear,
+              requestedYear,
+              reason,
+              provider: activeAuthProvider || 'local',
+            })
+            if (localRes?.request) activePendingYearRequest = localRes.request
+            if (localRes?.message) resultMsg = localRes.message
+            recordedOnLocalServer = true
+          } catch (localErr) {
+            if (!localErr?.unavailable) throw localErr
+          }
+        }
+        if (!recordedOnLocalServer) {
+          const fallbackReq = {
+            id: `local-yr-${Date.now()}`,
+            username_key: (activePlayerName || 'knight').toLowerCase(),
+            display_name: activePlayerName || 'Knight',
+            current_year: curYear,
+            requested_year: requestedYear,
+            reason,
+            status: 'pending',
+            created_at: new Date().toISOString(),
+          }
+          activePendingYearRequest = fallbackReq
+          try {
+            const prev = JSON.parse(localStorage.getItem('bytebound-pending-year-requests-v1') || '[]')
+            const list = Array.isArray(prev) ? prev.filter((r) => r && r.username_key !== fallbackReq.username_key) : []
+            list.unshift(fallbackReq)
+            localStorage.setItem('bytebound-pending-year-requests-v1', JSON.stringify(list.slice(0, 40)))
+          } catch {}
+        }
+      }
+      renderDashboard()
+      const freshMsg = document.getElementById('settingsYearRequestMsg')
+      if (freshMsg) {
+        freshMsg.textContent = resultMsg
+        freshMsg.className = 'settings-year-req-msg is-ok'
+      }
+    } catch (err) {
+      setYrMsg(err?.message || 'Unable to send year change request.', 'err')
+    } finally {
+      const freshBtn = document.getElementById('submitYearRequestBtn')
+      if (freshBtn) freshBtn.disabled = false
+    }
+    return
+  }
+
+  const form = event.target.closest('#settingsChangePasswordForm')
+  if (!form) return
+  event.preventDefault()
+  const curInput = document.getElementById('curPasswordSettingInput')
+  const newInput = document.getElementById('newPasswordSettingInput')
+  const confirmInput = document.getElementById('confirmNewPasswordSettingInput')
+  const msgEl = document.getElementById('settingsPasswordMsg')
+  const btn = document.getElementById('updatePasswordSettingBtn')
+  const setMsg = (txt, tone) => {
+    if (!msgEl) return
+    msgEl.textContent = txt
+    msgEl.className = 'settings-pw-msg' + (tone ? ` is-${tone}` : '')
+  }
+
+  const curPw = String(curInput?.value || '')
+  const newPw = String(newInput?.value || '')
+  const confPw = String(confirmInput?.value || '')
+  if (!curPw) {
+    setMsg('Enter your current password.', 'err')
+    curInput?.focus()
+    return
+  }
+  if (newPw.length < 6 || newPw.length > 72 || !newPw.trim()) {
+    setMsg('New password must be 6 to 72 characters.', 'err')
+    newInput?.focus()
+    return
+  }
+  if (newPw !== confPw) {
+    setMsg('New passwords do not match.', 'err')
+    confirmInput?.focus()
+    return
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'Updating...' }
+  setMsg('', '')
+  try {
+    await callTrustedAuthService('change_password', {
+      preferredProvider: activeAuthProvider,
+      sessionToken: activeSessionToken,
+      currentPassword: curPw,
+      newPassword: newPw,
+    })
+    if (curInput) curInput.value = ''
+    if (newInput) newInput.value = ''
+    if (confirmInput) confirmInput.value = ''
+    setMsg('Password updated! Other active logins were signed out.', 'ok')
+  } catch (err) {
+    setMsg(err?.message || 'Could not update password.', 'err')
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Update Password' }
   }
 })
 
@@ -9054,11 +9424,19 @@ const loginScreen = document.getElementById('loginScreen')
 const app = document.getElementById('app')
 const usernameInput = document.getElementById('usernameInput')
 const passwordInput = document.getElementById('passwordInput')
+const passwordFieldWrap = document.getElementById('passwordFieldWrap')
 const passwordLabel = document.getElementById('passwordLabel')
 const passwordToggleBtn = document.getElementById('passwordToggleBtn')
+const forgotPasswordRow = document.getElementById('forgotPasswordRow')
+const forgotPasswordBtn = document.getElementById('forgotPasswordBtn')
+const forgotNoteWrap = document.getElementById('forgotNoteWrap')
+const forgotNoteInput = document.getElementById('forgotNoteInput')
+const backToLoginBtn = document.getElementById('backToLoginBtn')
 const confirmPasswordWrap = document.getElementById('confirmPasswordWrap')
 const confirmPasswordInput = document.getElementById('confirmPasswordInput')
 const confirmPasswordToggleBtn = document.getElementById('confirmPasswordToggleBtn')
+const registerYearWrap = document.getElementById('registerYearWrap')
+const registerYearSelect = document.getElementById('registerYearSelect')
 const loginEyebrow = document.getElementById('loginEyebrow')
 const loginTitle = document.getElementById('loginTitle')
 const loginLead = document.getElementById('loginLead')
@@ -9137,57 +9515,83 @@ bindPasswordToggle(passwordInput, passwordToggleBtn, 'password')
 bindPasswordToggle(confirmPasswordInput, confirmPasswordToggleBtn, 'confirm password')
 
 function setAuthMode(nextMode, options = {}) {
-  authMode = nextMode === 'register' ? 'register' : 'login'
+  authMode = nextMode === 'register' ? 'register' : (nextMode === 'forgot' ? 'forgot' : 'login')
   const isLogin = authMode === 'login'
   const isRegister = authMode === 'register'
+  const isForgot = authMode === 'forgot'
 
   if (authModeLoginTab) {
-    authModeLoginTab.classList.toggle('is-active', isLogin)
-    authModeLoginTab.setAttribute('aria-selected', String(isLogin))
+    authModeLoginTab.classList.toggle('is-active', isLogin || isForgot)
+    authModeLoginTab.setAttribute('aria-selected', String(isLogin || isForgot))
   }
   if (authModeRegisterTab) {
     authModeRegisterTab.classList.toggle('is-active', isRegister)
     authModeRegisterTab.setAttribute('aria-selected', String(isRegister))
   }
   if (loginEyebrow) {
-    loginEyebrow.textContent = isRegister ? 'New account' : 'Account access'
+    loginEyebrow.textContent = isForgot ? 'Account recovery' : (isRegister ? 'New account' : 'Account access')
   }
   if (loginTitle) {
-    loginTitle.innerHTML = isRegister ? 'Create your<br />account.' : 'Welcome back,<br />adventurer.'
+    loginTitle.innerHTML = isForgot
+      ? 'Reset your<br />password.'
+      : (isRegister ? 'Create your<br />account.' : 'Welcome back,<br />adventurer.')
   }
   if (loginLead) {
-    loginLead.textContent = isRegister
-      ? 'Choose a unique username and password to start saving your progress.'
-      : 'Log in with your username and password to continue your progress.'
+    loginLead.textContent = isForgot
+      ? 'Enter your username to send a password reset request to the Admin Panel.'
+      : (isRegister
+        ? 'Choose a unique username and password to start saving your progress.'
+        : 'Log in with your username and password to continue your progress.')
   }
   if (usernameInput) {
     usernameInput.placeholder = isRegister ? 'Choose a unique username' : 'Enter your username'
+  }
+  if (passwordFieldWrap) {
+    passwordFieldWrap.hidden = isForgot
+  }
+  if (forgotPasswordRow) {
+    forgotPasswordRow.hidden = !isLogin
+  }
+  if (forgotNoteWrap) {
+    forgotNoteWrap.hidden = !isForgot
+  }
+  if (backToLoginBtn) {
+    backToLoginBtn.hidden = !isForgot
   }
   if (passwordLabel) {
     passwordLabel.textContent = 'Password'
   }
   if (passwordInput) {
+    passwordInput.required = !isForgot
     passwordInput.autocomplete = isLogin ? 'current-password' : 'new-password'
     passwordInput.placeholder = isLogin ? 'Enter your password' : 'Create a password (min. 6 characters)'
   }
   if (confirmPasswordWrap) {
-    confirmPasswordWrap.hidden = isLogin
+    confirmPasswordWrap.hidden = !isRegister
   }
   if (confirmPasswordInput) {
-    confirmPasswordInput.required = !isLogin
+    confirmPasswordInput.required = isRegister
+  }
+  if (registerYearWrap) {
+    registerYearWrap.hidden = !isRegister
   }
   if (loginNote) {
-    loginNote.textContent = 'Usernames are unique and case-insensitive. Passwords are protected server-side.'
+    loginNote.textContent = isForgot
+      ? 'An administrator will set a temporary password for your account.'
+      : 'Usernames are unique and case-insensitive. Passwords are protected server-side.'
   }
   if (loginSubmitButton && !loginSubmitting) {
-    loginSubmitButton.textContent = isRegister ? 'Sign Up' : 'Log In'
+    loginSubmitButton.textContent = isForgot ? 'Send Reset Request' : (isRegister ? 'Sign Up' : 'Log In')
   }
   if (!options.keepPasswords) clearPasswordInputs()
+  if (forgotNoteInput && !isForgot) forgotNoteInput.value = ''
   if (!options.keepError && loginError) loginError.textContent = ''
   if (!options.keepStatus) setLoginStatus('')
 }
 
-function enterAuthenticatedSession(user, sessionToken, provider) {
+let activePendingYearRequest = null
+
+function enterAuthenticatedSession(user, sessionToken, provider, sessionOptions = {}) {
   const canonicalName = normalizeUsername(user?.display_name || '')
   const profileId = getUsernameKey(user?.username_key || canonicalName)
   if (!canonicalName || !profileId || !sessionToken || !provider) {
@@ -9196,6 +9600,7 @@ function enterAuthenticatedSession(user, sessionToken, provider) {
 
   activeSessionToken = sessionToken
   activeAuthProvider = provider
+  activePendingYearRequest = user?.pending_year_request || null
   saveAuthSessionStorage(sessionToken, provider, canonicalName, profileId)
 
   let profiles = []
@@ -9223,6 +9628,16 @@ function enterAuthenticatedSession(user, sessionToken, provider) {
 
   selectSkillProfile(profileId)
   selectAchievementProfile(profileId)
+  if (typeof selectAcademicYearProfile === 'function') {
+    selectAcademicYearProfile(profileId)
+  }
+  const hasServerYear = Number.isInteger(Number(user?.review_store?.academicYear)) &&
+    Number(user.review_store.academicYear) >= 1 && Number(user.review_store.academicYear) <= 4
+  if (hasServerYear && typeof setActiveAcademicYear === 'function') {
+    setActiveAcademicYear(Number(user.review_store.academicYear), { profileId, persist: true, syncCloud: false })
+  } else if (sessionOptions?.initialAcademicYear && typeof setActiveAcademicYear === 'function') {
+    setActiveAcademicYear(sessionOptions.initialAcademicYear, { profileId, persist: true, syncCloud: true })
+  }
   const runStore = loadRunSaves(profileId)
   const activeSave = runStore.activeId ? runStore.saves.find((s) => s && s.id === runStore.activeId) : null
   if (activeSave) {
@@ -9262,8 +9677,20 @@ function enterAuthenticatedSession(user, sessionToken, provider) {
   renderDashboard()
   Sound.music('dashboard')
   syncUserOnLogin(canonicalName, profileId, user)
+  if (typeof mirrorAccountToLocalAdmin === 'function') {
+    mirrorAccountToLocalAdmin(user, typeof getActiveAcademicYear === 'function' ? getActiveAcademicYear() : 4, provider)
+  }
   window.mpUI?.initIdentity(canonicalName)
 }
+
+forgotPasswordBtn?.addEventListener('click', () => {
+  setAuthMode('forgot')
+  usernameInput?.focus()
+})
+backToLoginBtn?.addEventListener('click', () => {
+  setAuthMode('login')
+  usernameInput?.focus()
+})
 
 authModeLoginTab?.addEventListener('click', () => {
   setAuthMode('login')
@@ -9327,7 +9754,9 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
     return
   }
 
-  if (authMode === 'login') {
+  if (authMode === 'forgot') {
+    // No password required to send reset request
+  } else if (authMode === 'login') {
     if (!password) {
       loginError.textContent = 'Enter your password to log in.'
       passwordInput?.focus()
@@ -9354,18 +9783,66 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
   loginSubmitting = true
   if (loginSubmitButton) {
     loginSubmitButton.disabled = true
-    loginSubmitButton.textContent = authMode === 'register' ? 'Creating account...' : 'Logging in...'
+    loginSubmitButton.textContent = authMode === 'forgot'
+      ? 'Sending request...'
+      : (authMode === 'register' ? 'Creating account...' : 'Logging in...')
   }
   loginError.textContent = ''
   setLoginStatus('')
 
   try {
+    if (authMode === 'forgot') {
+      const note = String(forgotNoteInput?.value || '').trim()
+      let message = 'Password reset request sent to the administrator.'
+      try {
+        const res = await callTrustedAuthService('forgot_password', { username: name, note })
+        if (res?.data?.message) message = res.data.message
+        if (res?.provider === 'supabase' && /^https?:$/i.test(window.location?.protocol || '')) {
+          fetch('/api/auth/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: name, note }),
+          }).catch(() => {})
+        }
+      } catch (reqErr) {
+        if (!reqErr?.unavailable) throw reqErr
+        const lowerKey = name.toLowerCase()
+        const localProfiles = typeof readLocalProfiles === 'function' ? readLocalProfiles() : []
+        const hasLocalAccount = Array.isArray(localProfiles) && localProfiles.some(
+          (p) => p && (String(p.id || '').toLowerCase() === lowerKey || normalizeUsername(p.name).toLowerCase() === lowerKey)
+        )
+        if (!hasLocalAccount) {
+          throw createAuthError('ACCOUNT_NOT_FOUND', `No account found with username "${name}". Please check the spelling or sign up first.`)
+        }
+        try {
+          const raw = JSON.parse(localStorage.getItem('bytebound-pending-resets-v1') || '[]')
+          const list = Array.isArray(raw) ? raw.filter((r) => r && r.username_key !== lowerKey) : []
+          list.unshift({
+            id: `local-${Date.now()}`,
+            username_key: lowerKey,
+            display_name: name,
+            note,
+            status: 'pending',
+            created_at: new Date().toISOString(),
+          })
+          localStorage.setItem('bytebound-pending-resets-v1', JSON.stringify(list.slice(0, 40)))
+        } catch {}
+      }
+      if (forgotNoteInput) forgotNoteInput.value = ''
+      setLoginStatus(message, 'ok')
+      return
+    }
+
     if (authMode === 'register') {
+      const selectedRegisterYear = registerYearSelect && typeof normalizeAcademicYear === 'function'
+        ? normalizeAcademicYear(registerYearSelect.value, 4)
+        : 4
       const { provider, data } = await callTrustedAuthService('signup', {
         username: name,
         password,
+        academicYear: selectedRegisterYear,
       })
-      enterAuthenticatedSession(data.user, data.session_token, provider)
+      enterAuthenticatedSession(data.user, data.session_token, provider, { initialAcademicYear: selectedRegisterYear })
       return
     }
 
@@ -9395,7 +9872,9 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
     loginSubmitting = false
     if (loginSubmitButton) {
       loginSubmitButton.disabled = false
-      loginSubmitButton.textContent = authMode === 'register' ? 'Sign Up' : 'Log In'
+      loginSubmitButton.textContent = authMode === 'forgot'
+        ? 'Send Reset Request'
+        : (authMode === 'register' ? 'Sign Up' : 'Log In')
     }
   }
 })
@@ -9420,6 +9899,7 @@ function switchPlayerProfile() {
   }
   activeSessionToken = ''
   activeAuthProvider = ''
+  activePendingYearRequest = null
   clearAuthSessionStorage()
   activePlayerName = ''
   window.activePlayerName = ''

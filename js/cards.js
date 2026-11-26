@@ -16,9 +16,9 @@ const CARD_LIBRARY = {
   heavy: { id: 'heavy', name: 'Heavy Blow', cost: 30, kind: 'hit', power: 2.2, unlock: { metric: 'kills', goal: 5, text: 'Defeat 5 viruses' }, text: 'Costs 30 mana for a crushing hit.' },
   fortify: { id: 'fortify', name: 'Fortify', cost: 0, kind: 'buff', defense: 2, unlock: { metric: 'kills', goal: 10, text: 'Defeat 10 viruses' }, text: '+2 defense for the rest of the battle.' },
   overclock: { id: 'overclock', name: 'Overclock', cost: 10, kind: 'hit', power: 1, correctMult: 2, unlock: { metric: 'bosses', goal: 1, text: 'Defeat a mini boss' }, text: 'Costs 10 mana. Double damage when correct.' },
-  kernel_aegis: { id: 'kernel_aegis', name: 'Kernel Aegis', cost: 10, kind: 'aegis', exclusiveActive: true, cooldown: 4, text: 'Blocks standard hits + full heal + 40 MP + ATK/DEF surge; wrong answers drain MP, shock HP & pierce on Bosses.' },
-  packet_lockdown: { id: 'packet_lockdown', name: 'Packet Lockdown', cost: 10, kind: 'stun', stunTurns: 8, exclusiveActive: true, cooldown: 3, text: '8–12t stun, 40–120 breach DMG, +50% hit DMG while stunned & +20 MP.' },
-  plasma_compile: { id: 'plasma_compile', name: 'Overburn Execution', cost: 15, kind: 'burn_hit', baseDamage: 100, burnDamage: 20, burnTurns: 5, exclusiveActive: true, cooldown: 2, text: '100–200 base DMG + 2x buffs (Execute <40% HP) + Inferno Burn (5t).' },
+  kernel_aegis: { id: 'kernel_aegis', name: 'Kernel Aegis', cost: 10, kind: 'aegis', exclusiveActive: true, chargeMin: 3, chargeMax: 5, text: 'Charges via 3–5 answer streak (up to 1.5x). Blocks hits + full heal + 40–60 MP + surge; wrong answers drain/pierce.' },
+  packet_lockdown: { id: 'packet_lockdown', name: 'Packet Lockdown', cost: 10, kind: 'stun', stunTurns: 8, exclusiveActive: true, chargeMin: 3, chargeMax: 5, text: 'Charges via 3–5 answer streak (up to 1.5x). 8–12t stun, breach DMG, +50% hit DMG while stunned & MP.' },
+  plasma_compile: { id: 'plasma_compile', name: 'Overburn Execution', cost: 15, kind: 'burn_hit', baseDamage: 100, burnDamage: 20, burnTurns: 5, exclusiveActive: true, chargeMin: 3, chargeMax: 5, text: 'Charges via 3–5 answer streak (up to 1.5x). Heavy DMG (Execute <40% HP) + Inferno Burn (5t).' },
 };
 
 function cardCost(card, hero) {
@@ -52,17 +52,18 @@ function describeCard(card, hero) {
       return `+${card.defense} defense for this battle.`;
     case 'aegis': {
       const rank = typeof skillProgress !== 'undefined' ? Math.max(1, skillProgress.computerSystems?.ranks?.kernelAegis || 1) : 1;
-      return `Shields normal hits + Full HP + 40 MP + ${35 * rank} DMG (wrong answers drain 10 MP & shock/pierce). ${card.cooldown}t CD.`;
+      return `Shields normal hits + Full HP + 40–60 MP + ${35 * rank}–${Math.round(35 * rank * 1.5)} DMG (wrong drains MP & pierces). 3–5 Streak.`;
     }
     case 'stun': {
       const rank = typeof skillProgress !== 'undefined' ? Math.max(1, skillProgress.networkingSecurity?.ranks?.packetLockdown || 1) : 1;
-      return `Stuns ${8 + (rank - 1) * 2}t + ${40 * rank} DMG + 1.5x hit DMG + 20 MP. ${card.cooldown}t CD.`;
+      const baseDmg = 40 * rank;
+      return `Stuns ${8 + (rank - 1) * 2}–${Math.round((8 + (rank - 1) * 2) * 1.5)}t + ${baseDmg}–${Math.round(baseDmg * 1.5)} DMG + 1.5x hit DMG + MP. 3–5 Streak.`;
     }
     case 'burn_hit': {
       const rank = typeof skillProgress !== 'undefined' ? Math.max(1, skillProgress.programming?.ranks?.overburnExecution || 1) : 1;
       const bonus = (Math.max(0, (hero.attack || 12) - 12) + (hero.tempAttack || 0)) * 2;
       const total = 100 + (rank - 1) * 50 + bonus;
-      return `${total} DMG (1.5x Execute <40%) + ${20 * rank}/t burn (5t). ${card.cooldown}t CD.`;
+      return `${total}–${Math.round(total * 1.5)} DMG (1.5x Execute <40%) + ${20 * rank}–${Math.round(20 * rank * 1.5)}/t burn (5t). 3–5 Streak.`;
     }
     default:
       return card.text;

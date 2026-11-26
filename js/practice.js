@@ -8,9 +8,13 @@ const practice = {
   difficulty: 'adaptive',
   current: null,
   picked: null,
-  seen: new Set(),       // question texts answered in the current drill run (never repeats)
+  queue: [],             // fixed snapshot of questions for the active session (never mutates mid-drill)
+  queueIndex: 0,
+  seen: new Set(),       // question texts answered in the current drill run
   deckTotal: 0,
   session: { correct: 0, total: 0 },
+  startTiers: {},        // adaptive tier per category at session start (to highlight tier upgrades)
+  sessionDifficulty: 'adaptive',
   skillNote: '',
 };
 
@@ -43,14 +47,38 @@ function clearDrillDoneForPool(pool) {
   saveDrillDoneSet(doneSet);
 }
 
-function questionsFor(source, difficulty) {
+function getCategoryAdaptiveTier(category) {
+  if (typeof adaptive !== 'undefined' && typeof adaptive.categoryDifficultyName === 'function') {
+    return adaptive.categoryDifficultyName(category);
+  }
+  return 'easy';
+}
+
+function snapshotAdaptiveTiers() {
+  const tiers = {};
+  if (typeof topicProgress !== 'undefined') {
+    for (const cat of Object.keys(topicProgress)) {
+      tiers[cat] = getCategoryAdaptiveTier(cat);
+    }
+  }
+  return tiers;
+}
+
+function questionsFor(source, difficulty, maxYear = (typeof getActiveAcademicYear === 'function' ? getActiveAcademicYear() : 4)) {
+  const isEligible = (q) => (typeof isQuestionEligibleForYear === 'function' ? isQuestionEligibleForYear(q, maxYear) : true);
   const isAdaptive = difficulty === 'adaptive';
   const levels = (difficulty === 'mixed' || isAdaptive) ? DIFFICULTIES : [difficulty];
-  let pool = levels.flatMap((level) => QUESTION_BANK[level]);
   if (source === 'review') {
     const queued = new Set(reviewQueue.map((entry) => entry.text));
-    pool = pool.filter((q) => queued.has(q.q));
-  } else if (source && typeof source === 'object') {
+    // Missed review strictly enforces the player's academic year filter so later-year items are never reintroduced.
+    return DIFFICULTIES
+      .flatMap((level) => QUESTION_BANK[level] || [])
+      .filter((q) => queued.has(q.q) && isEligible(q));
+  }
+  let pool = levels
+    .flatMap((level) => QUESTION_BANK[level] || [])
+    .filter((q) => isEligible(q));
+  if (source && typeof source === 'object') {
     pool = pool.filter((q) => q.category === source.category && q.topic === source.topic);
   }
   if (isAdaptive && typeof adaptive !== 'undefined' && typeof adaptive.categoryDifficultyName === 'function' && typeof QUESTION_DIFFICULTY !== 'undefined') {
@@ -60,6 +88,20 @@ function questionsFor(source, difficulty) {
   return pool;
 }
 
+function buildOrderedQueue(items) {
+  const remaining = [...items];
+  const ordered = [];
+  while (remaining.length) {
+    const chosen = typeof pickWeighted === 'function'
+      ? pickWeighted(remaining)
+      : remaining[Math.floor(Math.random() * remaining.length)];
+    const idx = remaining.indexOf(chosen);
+    if (idx >= 0) remaining.splice(idx, 1);
+    ordered.push(chosen);
+  }
+  return ordered;
+}
+
 function startPractice(source, { forceRedo = false } = {}) {
   practice.source = source;
   practice.seen = new Set();
@@ -67,8 +109,31 @@ function startPractice(source, { forceRedo = false } = {}) {
   practice.current = null;
   practice.picked = null;
   practice.skillNote = '';
+  practice.queue = [];
+  practice.queueIndex = 0;
+  practice.startTiers = snapshotAdaptiveTiers();
+  practice.sessionDifficulty = source === 'review' ? 'review' : practice.difficulty;
 
   const pool = questionsFor(source, practice.difficulty);
+  if (source === 'review') {
+    // Missed review drills every year-eligible queued missed question directly.
+    practice.queue = buildOrderedQueue(pool);
+    practice.deckTotal = practice.queue.length;
+    if (practice.deckTotal === 0) {
+      practice.mode = 'empty';
+      return;
+    }
+    practice.mode = 'quiz';
+    nextPracticeQuestion();
+    return;
+  }
+
+  if (pool.length === 0) {
+    practice.deckTotal = 0;
+    practice.mode = 'empty';
+    return;
+  }
+
   if (forceRedo && pool.length) {
     clearDrillDoneForPool(pool);
   }
@@ -79,20 +144,18 @@ function startPractice(source, { forceRedo = false } = {}) {
     practice.mode = 'done';
     return;
   }
-  practice.deckTotal = remaining.length;
+  practice.queue = buildOrderedQueue(remaining);
+  practice.deckTotal = practice.queue.length;
   practice.mode = 'quiz';
   nextPracticeQuestion();
 }
 
 function nextPracticeQuestion() {
-  const pool = questionsFor(practice.source, practice.difficulty);
-  const doneSet = loadDrillDoneSet();
-  const remaining = pool.filter((q) => !practice.seen.has(q.q) && !doneSet.has(q.q));
-  if (!remaining.length) {
+  if (practice.queueIndex >= practice.queue.length) {
     practice.current = null;
     practice.picked = null;
     practice.skillNote = '';
-    if (pool.length > 0 && practice.mode !== 'done') {
+    if (practice.deckTotal > 0 && practice.mode !== 'done') {
       practice.mode = 'done';
       if (typeof recordAchievementProgress === 'function') {
         recordAchievementProgress('drillCompletions', 1);
@@ -100,7 +163,8 @@ function nextPracticeQuestion() {
     }
     return;
   }
-  const next = pickWeighted(remaining);
+  const next = practice.queue[practice.queueIndex];
+  practice.queueIndex++;
   practice.current = typeof withShuffledChoices === 'function' ? withShuffledChoices(next) : next;
   practice.picked = null;
   practice.skillNote = '';
@@ -112,9 +176,11 @@ function answerPractice(index) {
   const correct = index === q.answer;
   practice.picked = index;
   practice.seen.add(q.q);
-  const doneSet = loadDrillDoneSet();
-  doneSet.add(q.q);
-  saveDrillDoneSet(doneSet);
+  if (practice.source !== 'review') {
+    const doneSet = loadDrillDoneSet();
+    doneSet.add(q.q);
+    saveDrillDoneSet(doneSet);
+  }
   practice.session.total++;
   if (correct) practice.session.correct++;
   recordTopicAnswer(q, correct);
@@ -133,86 +199,295 @@ function answerPractice(index) {
 
 const capitalize = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 
+function describeDifficultyFilter(difficulty) {
+  switch (difficulty) {
+    case 'adaptive':
+      return 'Shows your current adaptive tier per subject (4 questions per topic). Advancing a tier unlocks 4 harder questions.';
+    case 'mixed':
+      return 'Shows all 12 questions per topic across Easy, Medium, and Hard.';
+    case 'easy':
+      return 'Shows the 4 Easy questions per topic.';
+    case 'medium':
+      return 'Shows the 4 Medium questions per topic.';
+    case 'hard':
+      return 'Shows the 4 Hard questions per topic.';
+    default:
+      return '';
+  }
+}
+
+function renderPracticeEmpty() {
+  const activeYear = typeof getActiveAcademicYear === 'function' ? getActiveAcademicYear() : 4;
+  const yearLabel = typeof getAcademicYearLabel === 'function' ? getAcademicYearLabel(activeYear) : `Year ${activeYear}`;
+  const isTopic = practice.source && typeof practice.source === 'object';
+  const minYear = isTopic && typeof getTopicMinYear === 'function'
+    ? getTopicMinYear(practice.source.category, practice.source.topic)
+    : null;
+  const sourceLabel = practice.source === 'all'
+    ? 'All Topics'
+    : practice.source === 'review'
+      ? 'Missed Questions Review'
+      : `${practice.source?.topic || 'Selected Topic'} (${practice.source?.category || ''})`;
+  const reason = practice.source === 'review'
+    ? `You have no missed questions eligible under your ${yearLabel} filter right now.`
+    : (minYear !== null && minYear > activeYear)
+      ? `${sourceLabel} introduces concepts starting in ${getAcademicYearLabel(minYear)}, which is excluded by your current ${yearLabel} filter.`
+      : `No classified questions in ${sourceLabel} are available for your current ${yearLabel} and ${capitalize(practice.difficulty)} filter.`;
+  return `<div class="practice-bar">
+      <button class="practice-back" data-practice="back">Back to topics</button>
+      <span class="practice-status-pill is-idle">${esc(yearLabel)} Filter</span>
+    </div>
+    <div class="practice-done-card practice-empty-card">
+      <span class="eyebrow">No Eligible Questions</span>
+      <h3>${esc(sourceLabel)}</h3>
+      <p>${esc(reason)}</p>
+      <div class="practice-done-actions">
+        <button class="leaderboard-action" data-practice="back">Back to Available Topics</button>
+        <button class="practice-back" type="button" data-open-settings="year">Request Year Change</button>
+      </div>
+    </div>`;
+}
+
 function renderPracticeView() {
+  if (practice.mode === 'empty') return renderPracticeEmpty();
   if (practice.mode === 'done') return renderPracticeDone();
   return practice.mode === 'quiz' ? renderPracticeQuiz() : renderPracticeMenu();
 }
 
 function renderPracticeMenu() {
   const doneSet = loadDrillDoneSet();
+  const activeYear = typeof getActiveAcademicYear === 'function' ? getActiveAcademicYear() : 4;
+  const yearMeta = typeof getAcademicYearMeta === 'function'
+    ? getAcademicYearMeta(activeYear)
+    : { label: '4th Year', rangeLabel: 'All Years (1–4)', summary: '' };
+  const totalEligibleAll = typeof getAllEligibleQuestions === 'function' ? getAllEligibleQuestions(activeYear).length : 0;
+  const chipLabels = {
+    adaptive: 'Adaptive',
+    mixed: 'All 12 (Mixed)',
+    easy: 'Easy (4)',
+    medium: 'Medium (4)',
+    hard: 'Hard (4)',
+  };
   const chips = PRACTICE_DIFFICULTIES.map((difficulty) => `
-    <button class="practice-chip" data-practice="difficulty" data-diff="${difficulty}" aria-pressed="${practice.difficulty === difficulty}">${difficulty === 'adaptive' ? 'Adaptive' : difficulty === 'mixed' ? 'Mixed' : capitalize(difficulty)}</button>`).join('');
+    <button class="practice-chip" data-practice="difficulty" data-diff="${difficulty}" aria-pressed="${practice.difficulty === difficulty}">${chipLabels[difficulty] || capitalize(difficulty)}</button>`).join('');
+
   const weakList = Object.entries(topicProgress).flatMap(([category, topics]) =>
     Object.entries(topics)
-      .filter(([, s]) => (s?.attempted || 0) >= 1 && (s.correct / s.attempted) < 0.75)
+      .filter(([topic, s]) => (s?.attempted || 0) >= 1 && (s.correct / s.attempted) < 0.75 && questionsFor({ category, topic }, practice.difficulty, activeYear).length > 0)
       .map(([topic, s]) => ({ category, topic, pct: Math.round((100 * s.correct) / s.attempted), s }))
   ).sort((a, b) => a.pct - b.pct);
+
   const weakCallout = weakList.length
     ? `<div class="practice-weak-banner">
         <div>
-          <strong>Weak Topic Spotlight</strong>
-          <small>${esc(weakList[0].category)} · ${esc(weakList[0].topic)} (${weakList[0].pct}% accuracy)</small>
+          <strong>Needs Practice · Weakest Topic</strong>
+          <small>${esc(weakList[0].topic)} (${esc(weakList[0].category)}) · ${weakList[0].pct}% accuracy</small>
         </div>
-        <button class="practice-go" data-practice="start" data-src="topic" data-category="${esc(weakList[0].category)}" data-topic="${esc(weakList[0].topic)}">Drill Weakest</button>
+        <button class="practice-go" data-practice="start" data-src="topic" data-category="${esc(weakList[0].category)}" data-topic="${esc(weakList[0].topic)}">Practice Now</button>
       </div>`
     : '';
-  const allPool = questionsFor('all', practice.difficulty);
+
+  const allPool = questionsFor('all', practice.difficulty, activeYear);
   const allDoneCount = allPool.filter((q) => doneSet.has(q.q)).length;
-  const allFinished = allPool.length > 0 && allDoneCount >= allPool.length;
+  const allRemaining = Math.max(0, allPool.length - allDoneCount);
+  const allFinished = allPool.length > 0 && allRemaining === 0;
+  const eligibleReviewCount = questionsFor('review', practice.difficulty, activeYear).length;
+  const isAdaptive = practice.difficulty === 'adaptive';
+
   const categories = Object.entries(topicProgress).map(([category, topics]) => {
-    const rows = Object.entries(topics).map(([topic, s]) => {
-      const topicPool = questionsFor({ category, topic }, practice.difficulty);
+    const topicEntries = Object.entries(topics);
+    const activeTier = isAdaptive ? getCategoryAdaptiveTier(category) : practice.difficulty;
+    const tierUpper = activeTier.toUpperCase();
+    let completedTopicsInCat = 0;
+    let availableTopicsInCat = 0;
+
+    const rows = topicEntries.map(([topic, s]) => {
+      const topicPool = questionsFor({ category, topic }, practice.difficulty, activeYear);
       const count = topicPool.length;
+      const minYear = typeof getTopicMinYear === 'function' ? getTopicMinYear(category, topic) : null;
+      const totalForYearTopic = typeof getEligibleTopicCount === 'function' ? getEligibleTopicCount(category, topic, activeYear) : count;
+
+      if (count === 0) {
+        const lockedLater = minYear !== null && minYear > activeYear;
+        const lockedBadge = lockedLater
+          ? `<span class="practice-status-pill is-locked-year">${esc(getAcademicYearLabel(minYear))}+</span>`
+          : '<span class="practice-status-pill is-idle">None in filter</span>';
+        const lockedText = lockedLater
+          ? `Covered in ${getAcademicYearLabel(minYear)} — excluded by your ${yearMeta.label} filter.`
+          : totalForYearTopic > 0
+            ? `No ${capitalize(practice.difficulty)} questions at ${yearMeta.label} — try Adaptive or All 12 (Mixed).`
+            : `No eligible questions available under your ${yearMeta.label} filter.`;
+        return `<div class="practice-topic is-year-locked">
+          <div class="practice-topic-info">
+            <div class="practice-topic-head">
+              <span class="practice-topic-name">${esc(topic)}</span>
+              ${lockedBadge}
+            </div>
+            <small class="practice-topic-meta">${esc(lockedText)}</small>
+          </div>
+          <button class="practice-go" type="button" disabled>${lockedLater ? esc(getAcademicYearLabel(minYear)) + '+' : 'Unavailable'}</button>
+        </div>`;
+      }
+
+      availableTopicsInCat++;
       const doneCount = topicPool.filter((q) => doneSet.has(q.q)).length;
+      const leftCount = Math.max(0, count - doneCount);
       const isDone = count > 0 && doneCount >= count;
-      const pctTxt = s?.attempted ? ` · ${Math.round((100 * s.correct) / s.attempted)}%` : '';
-      const progressTxt = count ? `${doneCount}/${count} done${pctTxt}` : `0 questions${pctTxt}`;
-      const doneBadge = isDone ? `<span class="practice-done-badge">✓ DONE</span>` : '';
-      const btnLabel = isDone ? 'Redo' : 'Practice';
-      const redoAttr = isDone ? 'data-redo="1"' : '';
+      if (isDone) completedTopicsInCat++;
+
+      const hasAccuracy = Boolean(s?.attempted);
+      const pct = hasAccuracy ? Math.round((100 * s.correct) / s.attempted) : null;
+
+      let statusPill = '';
+      let subtext = '';
+      let btnLabel = 'Start';
+      let redoAttr = '';
+
+      if (isDone) {
+        statusPill = '<span class="practice-status-pill is-done">✓ Completed</span>';
+        subtext = hasAccuracy
+          ? `All ${count} answered · Accuracy ${pct}% (${s.correct}/${s.attempted} correct)`
+          : `All ${count} questions answered`;
+        btnLabel = 'Retry';
+        redoAttr = 'data-redo="1"';
+      } else if (doneCount > 0) {
+        statusPill = `<span class="practice-status-pill is-progress">${doneCount} of ${count} answered</span>`;
+        subtext = hasAccuracy
+          ? `${leftCount} question${leftCount === 1 ? '' : 's'} left · Accuracy ${pct}%`
+          : `${leftCount} question${leftCount === 1 ? '' : 's'} left`;
+        btnLabel = 'Continue';
+      } else {
+        statusPill = '<span class="practice-status-pill is-idle">Not started</span>';
+        if (isAdaptive && hasAccuracy) {
+          subtext = `${count} ${capitalize(activeTier)} question${count === 1 ? '' : 's'} ready · Overall accuracy ${pct}%`;
+        } else if (hasAccuracy) {
+          subtext = `${count} question${count === 1 ? '' : 's'} ready · Overall accuracy ${pct}%`;
+        } else {
+          subtext = `${count} question${count === 1 ? '' : 's'} ready`;
+        }
+        btnLabel = 'Start';
+      }
+
       return `<div class="practice-topic${isDone ? ' is-done' : ''}">
-        <span>${esc(topic)} ${doneBadge}</span>
-        <small>${progressTxt}</small>
+        <div class="practice-topic-info">
+          <div class="practice-topic-head">
+            <span class="practice-topic-name">${esc(topic)}</span>
+            ${statusPill}
+          </div>
+          <small class="practice-topic-meta">${esc(subtext)}</small>
+        </div>
         <button class="practice-go" data-practice="start" data-src="topic" data-category="${esc(category)}" data-topic="${esc(topic)}" ${redoAttr} ${count ? '' : 'disabled'}>${btnLabel}</button>
       </div>`;
     }).join('');
-    return `<details class="practice-category" open>
-      <summary>${esc(category)}</summary>
+
+    const tierChip = isAdaptive && availableTopicsInCat > 0
+      ? `<span class="cap-tier-pill tier-${esc(activeTier)}">TIER: ${esc(tierUpper)}</span>`
+      : '';
+    const catProgress = availableTopicsInCat === 0
+      ? `Unlocked in later years`
+      : completedTopicsInCat > 0
+        ? `${completedTopicsInCat} of ${availableTopicsInCat} available completed`
+        : `${availableTopicsInCat} of ${topicEntries.length} topics available`;
+
+    return `<details class="practice-category" ${availableTopicsInCat > 0 ? 'open' : ''}>
+      <summary>
+        <span class="practice-cat-title">${esc(category)} ${tierChip}</span>
+        <span class="practice-cat-count">${esc(catProgress)}</span>
+      </summary>
       ${rows}
     </details>`;
   }).join('');
+
   return `<span class="eyebrow">Topic Drill · Non-Combat Study</span>
-    <h2>Study without a fight</h2>
-    <p>Practice by topic or review missed questions without losing HP.</p>
-    <div class="practice-controls"><span>Difficulty</span><div class="practice-chips">${chips}</div></div>
+    <h2>Practice by Topic</h2>
+    <p class="practice-lead">Study any computing topic without losing HP. Answers count toward your Skill Points and Learning Tracker.</p>
+    <div class="practice-year-strip">
+      <div>
+        <strong>Academic Year Filter · ${esc(yearMeta.label)} (${esc(yearMeta.rangeLabel)}) · Locked</strong>
+        <small>${totalEligibleAll} eligible questions included. Your year level is locked after Sign Up to keep rankings fair.</small>
+      </div>
+      <button type="button" class="practice-back" data-open-settings="year">Year Details</button>
+    </div>
+    <div class="practice-controls">
+      <div class="practice-controls-row">
+        <span>Question Set</span>
+        <div class="practice-chips">${chips}</div>
+      </div>
+      <small class="practice-filter-note">${esc(describeDifficultyFilter(practice.difficulty))}</small>
+    </div>
     <div class="practice-start">
-      <button class="leaderboard-action" data-practice="start" data-src="all" ${allFinished ? 'data-redo="1"' : ''}>${allFinished ? `Redo all topics (${allPool.length}/${allPool.length} done)` : `Mixed quiz (${allPool.length - allDoneCount} left)`}</button>
-      <button class="leaderboard-action" data-practice="start" data-src="review" ${reviewQueue.length ? '' : 'disabled'}>Review missed (${reviewQueue.length})</button>
+      <button class="leaderboard-action" data-practice="start" data-src="all" ${allFinished ? 'data-redo="1"' : ''} ${allPool.length ? '' : 'disabled'}>${allPool.length === 0 ? 'No eligible questions in this filter' : (allFinished ? `Retry all topics (${allPool.length} questions)` : `Start all-topics drill (${allRemaining} left)`)}</button>
+      <button class="leaderboard-action" data-practice="start" data-src="review" ${eligibleReviewCount ? '' : 'disabled'}>${eligibleReviewCount ? `Review missed (${eligibleReviewCount})` : 'No missed questions'}</button>
     </div>
     ${weakCallout}
     <div class="practice-categories">${categories}</div>`;
 }
 
 function renderPracticeDone() {
+  const isReview = practice.source === 'review';
   const sourceLabel = practice.source === 'all'
     ? 'All Topics'
-    : practice.source === 'review'
-      ? 'Missed Review Queue'
-      : `${practice.source?.category || ''} · ${practice.source?.topic || ''}`;
+    : isReview
+      ? 'Missed Questions Review'
+      : `${practice.source?.topic || 'Topic'} (${practice.source?.category || ''})`;
   const total = practice.session.total;
   const correct = practice.session.correct;
   const pct = total ? Math.round((100 * correct) / total) : 100;
+
+  // Detect if Adaptive tier upgraded during this session so the user clearly sees why new questions unlocked!
+  const tierRank = { easy: 0, medium: 1, hard: 2 };
+  const promoted = [];
+  if (practice.sessionDifficulty === 'adaptive') {
+    const checkCats = practice.source && typeof practice.source === 'object' && practice.source.category
+      ? [practice.source.category]
+      : Object.keys(practice.startTiers || {});
+    for (const cat of checkCats) {
+      const before = practice.startTiers?.[cat];
+      const after = getCategoryAdaptiveTier(cat);
+      if (before && after && (tierRank[after] ?? 0) > (tierRank[before] ?? 0)) {
+        promoted.push({ cat, before, after });
+      }
+    }
+  }
+  const promotionNotice = promoted.length
+    ? `<div class="practice-tier-upgrade">
+        <strong>★ Tier Unlocked!</strong>
+        <span>${promoted.map((p) => `${esc(p.cat)} moved from ${esc(p.before.toUpperCase())} to ${esc(p.after.toUpperCase())} — 4 new ${esc(capitalize(p.after))} questions are now ready per topic.`).join(' ')}</span>
+      </div>`
+    : '';
+
+  const setLabel = isReview
+    ? 'Missed Review'
+    : practice.sessionDifficulty === 'adaptive'
+      ? `Adaptive · ${capitalize(practice.source?.category ? (practice.startTiers[practice.source.category] || 'easy') : 'tier')}`
+      : practice.sessionDifficulty === 'mixed'
+        ? 'All 12 (Mixed)'
+        : capitalize(practice.sessionDifficulty);
+
+  const summaryBlock = total > 0
+    ? `<div class="practice-done-stats">
+        <div class="practice-done-stat">
+          <span>Session Score</span>
+          <strong>${correct} / ${total} (${pct}%)</strong>
+        </div>
+        <div class="practice-done-stat">
+          <span>Set Progress</span>
+          <strong>${isReview ? `${total} reviewed` : `${practice.deckTotal} of ${practice.deckTotal} answered`}</strong>
+        </div>
+      </div>`
+    : `<p class="practice-done-score">Every question in this set is already completed. Click Retry to practice them again.</p>`;
+
   return `<div class="practice-bar">
       <button class="practice-back" data-practice="back">Back to topics</button>
-      <span class="practice-done-badge">✓ DONE</span>
+      <span class="practice-status-pill is-done">✓ Completed</span>
     </div>
     <div class="practice-done-card">
-      <span class="eyebrow">Topic Drill Complete</span>
-      <h3>All Questions Answered!</h3>
-      <p>${esc(sourceLabel)} (${esc(practice.difficulty.toUpperCase())}) is now marked <strong>DONE</strong>.</p>
-      ${total ? `<p class="practice-done-score">Session Score: <strong>${correct} / ${total}</strong> (${pct}% accuracy)</p>` : '<p class="practice-done-score">Every question in this set has already been answered.</p>'}
+      <span class="eyebrow">Drill Complete · ${esc(setLabel)}</span>
+      <h3>${esc(sourceLabel)}</h3>
+      ${summaryBlock}
+      ${promotionNotice}
       <div class="practice-done-actions">
-        <button class="leaderboard-action" data-practice="redo">Practice Again</button>
+        ${isReview && !questionsFor('review', practice.difficulty).length ? '' : '<button class="leaderboard-action" data-practice="redo">Retry This Set</button>'}
         <button class="practice-back" data-practice="back">Back to topics</button>
       </div>
     </div>`;
@@ -220,12 +495,21 @@ function renderPracticeDone() {
 
 function renderPracticeQuiz() {
   const q = practice.current;
-  const stepNum = Math.min(practice.deckTotal || 1, practice.session.total + (practice.picked === null ? 1 : 0));
+  const totalQ = Math.max(1, practice.deckTotal || 1);
+  const stepNum = Math.min(totalQ, practice.session.total + (practice.picked === null ? 1 : 0));
+  const progressPct = Math.round((100 * practice.session.total) / totalQ);
+  const scoreTxt = practice.session.total > 0
+    ? ` · ${practice.session.correct} of ${practice.session.total} correct`
+    : '';
+
   const header = `<div class="practice-bar">
     <button class="practice-back" data-practice="back">Back to topics</button>
-    <span>Question ${stepNum} / ${practice.deckTotal || 1} · ${practice.session.correct} / ${practice.session.total} correct</span>
+    <span class="practice-quiz-progress">Question ${stepNum} of ${totalQ}${scoreTxt}</span>
+  </div>
+  <div class="practice-progress-track" role="progressbar" aria-label="Drill progress" aria-valuenow="${practice.session.total}" aria-valuemin="0" aria-valuemax="${totalQ}">
+    <i style="width:${progressPct}%"></i>
   </div>`;
-  if (!q) return `${header}<p>No questions in this set yet. Try another difficulty or topic.</p>`;
+  if (!q) return `${header}<p>No questions available in this set. Try another question set or topic.</p>`;
 
   const answered = practice.picked !== null;
   const choices = q.choices.map((text, i) => {
@@ -234,10 +518,8 @@ function renderPracticeQuiz() {
     return `<button data-practice="answer" data-val="${i}" class="${state}" ${answered ? 'disabled' : ''}>${i + 1}. ${esc(text)}</button>`;
   }).join('');
   const right = practice.picked === q.answer;
-  const pool = questionsFor(practice.source, practice.difficulty);
-  const doneSet = loadDrillDoneSet();
-  const hasMore = pool.some((item) => !practice.seen.has(item.q) && !doneSet.has(item.q));
-  const nextLabel = hasMore ? 'Next question' : 'Finish & Mark Done';
+  const hasMore = practice.queueIndex < practice.queue.length;
+  const nextLabel = hasMore ? 'Next question' : 'View Results';
   const feedback = answered
     ? `<div class="practice-feedback ${right ? 'ok' : 'bad'}">
         <p><strong>${right ? 'Correct!' : 'Not quite.'}</strong> Answer: ${esc(q.choices[q.answer])}.</p>
@@ -252,7 +534,7 @@ function renderPracticeQuiz() {
     <p class="question">${esc(q.q)}</p>
     <div class="practice-choices">${choices}</div>
     ${feedback}
-    <p class="dim">${answered ? '' : 'Tap an answer or press 1 to 4.'}</p>`;
+    <p class="dim">${answered ? '' : 'Choose an answer or press keys 1–4.'}</p>`;
 }
 
 // Delegated clicks for every [data-practice] control in the dashboard.

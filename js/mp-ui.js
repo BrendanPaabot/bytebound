@@ -113,6 +113,21 @@
     return 'is-available';
   }
 
+  function formatYearShort(yearLevel) {
+    const yr = typeof global.normalizeAcademicYear === 'function'
+      ? global.normalizeAcademicYear(yearLevel, 4)
+      : (Number.isInteger(Number(yearLevel)) ? Number(yearLevel) : 4);
+    const meta = (global.MultiplayerMatchmaking?.YEAR_LEVELS || []).find((entry) => entry.year === yr);
+    return meta ? meta.shortLabel : `Up to Year ${yr}`;
+  }
+
+  function countEligibleForRoom(category, yearLevel) {
+    if (typeof global.getAllEligibleQuestions !== 'function') return 1;
+    const pool = global.getAllEligibleQuestions(yearLevel);
+    if (!category || category === 'ALL') return pool.length;
+    return pool.filter((q) => q.category === category).length;
+  }
+
   class MultiplayerUI {
     constructor(overlayEl, { onBackToMenu, onLaunchMatch }) {
       this.overlay = overlayEl;
@@ -127,6 +142,9 @@
       this.selectedVisibility = 'public';
       this.selectedArena = 'arena';
       this.selectedCategory = 'ALL';
+      this.selectedYearLevel = typeof global.getActiveAcademicYear === 'function'
+        ? global.getActiveAcademicYear()
+        : 4;
       this.inviteCodeDraft = '';
       this.joinError = '';
       this.copyFeedback = false;
@@ -175,6 +193,9 @@
       if (!this.overlay) return;
       this.isOpen = true;
       this.joinError = '';
+      if (!this.snapshot.currentRoom && typeof global.getActiveAcademicYear === 'function') {
+        this.selectedYearLevel = global.getActiveAcademicYear();
+      }
       this.subview = this.snapshot.currentRoom ? 'room' : initialSubview;
       this.overlay.hidden = false;
       this.overlay.setAttribute('aria-hidden', 'false');
@@ -282,6 +303,7 @@
             visibility: this.selectedVisibility,
             arenaId: this.selectedArena,
             category: this.selectedCategory,
+            yearLevel: this.selectedYearLevel,
           });
         } else if (act === 'join-code') {
           const input = this.overlay.querySelector('#mpInviteCodeInput');
@@ -323,12 +345,18 @@
           this.selectedArena = el.value;
         } else if (el.id === 'mpHostCategory') {
           this.selectedCategory = el.value;
-        } else if (el.id === 'mpRoomArena' || el.id === 'mpRoomCategory') {
+          this.render(true);
+        } else if (el.id === 'mpHostYearLevel') {
+          this.selectedYearLevel = Number(el.value) || 4;
+          this.render(true);
+        } else if (el.id === 'mpRoomArena' || el.id === 'mpRoomCategory' || el.id === 'mpRoomYearLevel') {
           const arenaSel = this.overlay.querySelector('#mpRoomArena');
           const catSel = this.overlay.querySelector('#mpRoomCategory');
+          const yearSel = this.overlay.querySelector('#mpRoomYearLevel');
           await this.matchmaking.updateSettings({
             arenaId: arenaSel ? arenaSel.value : this.selectedArena,
             category: catSel ? catSel.value : this.selectedCategory,
+            yearLevel: yearSel ? Number(yearSel.value) : (this.snapshot.currentRoom?.yearLevel || this.selectedYearLevel),
           });
         }
       });
@@ -430,7 +458,7 @@
             ${renderPixelAvatar(inv.hostAvatar, 34)}
             <div>
               <strong>Match Invitation from ${escHtml(inv.hostName || 'Host')}</strong>
-              <small>${escHtml(inv.arenaName || 'Cyber Arena')} · ${inv.visibility === 'private' ? 'Private' : 'Public'} Room ${escHtml(inv.roomCode)}</small>
+              <small>${escHtml(inv.arenaName || 'Cyber Arena')} · ${escHtml(formatYearShort(inv.yearLevel))} · ${inv.visibility === 'private' ? 'Private' : 'Public'} Room ${escHtml(inv.roomCode)}</small>
             </div>
           </div>
           <div class="mp-invite-banner-actions">
@@ -453,7 +481,7 @@
               ${renderPixelAvatar(r.hostAvatar, 38)}
               <div>
                 <strong>${escHtml(r.hostName)}'s Room</strong>
-                <small>${escHtml(r.arenaName)} · ${escHtml(r.category === 'ALL' ? 'All Disciplines' : r.category)} · Code ${escHtml(r.code)}</small>
+                <small>${escHtml(r.arenaName)} · ${escHtml(r.category === 'ALL' ? 'All Disciplines' : r.category)} · ${escHtml(formatYearShort(r.yearLevel))} · Code ${escHtml(r.code)}</small>
               </div>
             </div>
             <div class="mp-room-meta">
@@ -526,6 +554,13 @@
       const categories = global.MultiplayerMatchmaking.CATEGORIES.map((c) =>
         `<option value="${escHtml(c)}" ${this.selectedCategory === c ? 'selected' : ''}>${escHtml(c === 'ALL' ? 'All Disciplines' : c)}</option>`
       ).join('');
+      const yearOptions = (global.MultiplayerMatchmaking.YEAR_LEVELS || []).map((entry) =>
+        `<option value="${entry.year}" ${Number(this.selectedYearLevel) === entry.year ? 'selected' : ''}>${escHtml(entry.label)}</option>`
+      ).join('');
+      const eligibleMatchCount = countEligibleForRoom(this.selectedCategory, this.selectedYearLevel);
+      const yearCompatibilityNote = eligibleMatchCount === 0 && this.selectedCategory !== 'ALL'
+        ? `<p class="mp-year-note is-warn">${escHtml(this.selectedCategory)} unlocks in a later academic year. Starting at ${escHtml(formatYearShort(this.selectedYearLevel))} will automatically draw from all eligible ${escHtml(formatYearShort(this.selectedYearLevel))} questions so both players stay synced.</p>`
+        : `<p class="mp-year-note">Both players will receive the exact same synchronized questions from ${escHtml(formatYearShort(this.selectedYearLevel))} (${eligibleMatchCount} eligible).</p>`;
 
       return `
         <section class="mp-panel mp-subpanel" aria-label="Host 1v1 room">
@@ -559,7 +594,12 @@
               <span>Question Discipline</span>
               <select id="mpHostCategory">${categories}</select>
             </label>
+            <label class="mp-field">
+              <span>Academic Year Level</span>
+              <select id="mpHostYearLevel">${yearOptions}</select>
+            </label>
           </div>
+          ${yearCompatibilityNote}
 
           <div class="mp-form-footer">
             <button type="button" class="mp-btn is-gold is-lg" data-mp-act="create-room" ${this.snapshot.isBusy ? 'disabled' : ''}>
@@ -580,7 +620,7 @@
               ${renderPixelAvatar(r.hostAvatar, 36)}
               <div>
                 <strong>${escHtml(r.hostName)}</strong>
-                <small>${escHtml(r.arenaName)} · ${escHtml(r.category === 'ALL' ? 'All' : r.category)}</small>
+                <small>${escHtml(r.arenaName)} · ${escHtml(r.category === 'ALL' ? 'All' : r.category)} · ${escHtml(formatYearShort(r.yearLevel))}</small>
               </div>
             </div>
             <div class="mp-room-meta">
@@ -671,6 +711,10 @@
       const categories = global.MultiplayerMatchmaking.CATEGORIES.map((c) =>
         `<option value="${escHtml(c)}" ${room.category === c ? 'selected' : ''}>${escHtml(c === 'ALL' ? 'All Disciplines' : c)}</option>`
       ).join('');
+      const roomYear = Number(room.yearLevel) || 4;
+      const yearOptions = (global.MultiplayerMatchmaking.YEAR_LEVELS || []).map((entry) =>
+        `<option value="${entry.year}" ${roomYear === entry.year ? 'selected' : ''}>${escHtml(entry.label)}</option>`
+      ).join('');
 
       let hostHint = '';
       if (isHost) {
@@ -707,6 +751,12 @@
               ${isHost
                 ? `<select id="mpRoomCategory" aria-label="Question Discipline">${categories}</select>`
                 : `<strong>${escHtml(room.category === 'ALL' ? 'All Disciplines' : room.category)}</strong>`}
+            </div>
+            <div class="mp-setting-item">
+              <span>YEAR LEVEL</span>
+              ${isHost
+                ? `<select id="mpRoomYearLevel" aria-label="Academic Year Level">${yearOptions}</select>`
+                : `<strong>${escHtml(formatYearShort(roomYear))}</strong>`}
             </div>
             <div class="mp-setting-item">
               <span>FAIR PLAY</span>

@@ -22,23 +22,15 @@ const collisionsLevel2 = (() => {
 })()
 
 const collisionShapesLevel2 = [
-  { id: 'LEVEL2_UPPER_CEILING', x: 90, y: 80, width: 318, height: 8, type: 'ceiling' },
-  { id: 'LEVEL2_UPPER_LEFT_WALL', x: 80, y: 80, width: 8, height: 214, type: 'wall' },
-  { id: 'LEVEL2_UPPER_RIGHT_WALL', x: 398, y: 0, width: 8, height: 480, type: 'wall' },
-  { id: 'LEVEL2_UPPER_LEFT_PLATFORM', x: 94, y: 288, width: 120, height: 8, type: 'solid' },
-  { id: 'LEVEL2_SHAFT_LEFT_WALL', x: 214, y: 288, width: 8, height: 204, type: 'wall' },
-  { id: 'LEVEL2_LOWER_UPPER_EDGE', x: 72, y: 442, width: 198, height: 8, type: 'solid' },
-  { id: 'LEVEL2_LOWER_LEFT_WALL', x: 72, y: 442, width: 8, height: 242, type: 'wall' },
-  { id: 'LEVEL2_LOWER_FLOOR', x: 88, y: 674, width: 648, height: 8, type: 'solid' },
-  { id: 'LEVEL2_LOWER_RIGHT_WALL', x: 716, y: 594, width: 8, height: 80, type: 'wall' },
-
-  { id: 'LEVEL2_SHAFT_PLATFORM', x: 398, y: 480, width: 258, height: 8, type: 'solid' },
-  { id: 'LEVEL2_SHAFT_PLATFORM_END_WALL', x: 648, y: 360, width: 8, height: 120, type: 'wall' },
-
-  { id: 'LEVEL2_RIGHT_CEILING', x: 628, y: 412, width: 312, height: 8, type: 'ceiling' },
-  { id: 'LEVEL2_RIGHT_LEFT_WALL', x: 628, y: 412, width: 8, height: 8, type: 'wall' },
-  { id: 'LEVEL2_RIGHT_WALL', x: 934, y: 412, width: 8, height: 188, type: 'wall' },
-  { id: 'LEVEL2_RIGHT_FLOOR', x: 722, y: 594, width: 212, height: 8, type: 'solid' },
+  { id: 'LEVEL2_UPPER_CEILING', x: 0, y: 0, width: 400, height: 98, type: 'ceiling' },
+  { id: 'LEVEL2_UPPER_LEFT_WALL', x: 0, y: 98, width: 102, height: 187, type: 'wall' },
+  { id: 'LEVEL2_LEFT_DIVIDER_SOLID', x: 0, y: 285, width: 259, height: 225, type: 'solid' },
+  { id: 'LEVEL2_LOWER_LEFT_WALL', x: 0, y: 510, width: 125, height: 258, type: 'wall' },
+  { id: 'LEVEL2_LOWER_FLOOR', x: 0, y: 674, width: 726, height: 94, type: 'solid' },
+  { id: 'LEVEL2_RIGHT_FLOOR_STEP', x: 726, y: 601, width: 303, height: 167, type: 'solid' },
+  { id: 'LEVEL2_SHAFT_RIGHT_SOLID', x: 400, y: 0, width: 253, height: 510, type: 'solid' },
+  { id: 'LEVEL2_RIGHT_CEILING', x: 653, y: 0, width: 376, height: 432, type: 'ceiling' },
+  { id: 'LEVEL2_RIGHT_WALL', x: 930, y: 432, width: 99, height: 336, type: 'wall' },
 ]
 
 const collisionsLevel3 = (() => {

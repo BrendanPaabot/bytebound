@@ -6,6 +6,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Fundamentals",
+      "year": 1,
       "q": "Which component carries out the instructions of a program?",
       "choices": [
         "Hard drive",
@@ -19,6 +20,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Number Systems",
+      "year": 1,
       "q": "What is the decimal value of binary 1010?",
       "choices": [
         "8",
@@ -32,6 +34,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Networking",
+      "year": 1,
       "q": "Which protocol is mainly used to load web pages?",
       "choices": [
         "FTP",
@@ -45,6 +48,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Programming",
+      "year": 1,
       "q": "Which keyword declares a constant in JavaScript?",
       "choices": [
         "var",
@@ -58,6 +62,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Databases",
+      "year": 2,
       "q": "What is a primary key in a relational table?",
       "choices": [
         "A column that may repeat values",
@@ -71,6 +76,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "SQL Queries",
+      "year": 2,
       "q": "Which SQL command retrieves rows from a table?",
       "choices": [
         "SELECT",
@@ -84,6 +90,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "SQL Queries",
+      "year": 2,
       "q": "Which SQL clause keeps only rows that match a condition?",
       "choices": [
         "ORDER BY",
@@ -97,6 +104,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "SQL Queries",
+      "year": 2,
       "q": "Which clause sorts query results by a column?",
       "choices": [
         "GROUP BY",
@@ -110,6 +118,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Data Modeling & Normalization",
+      "year": 2,
       "q": "In a relational database, what does a row usually represent?",
       "choices": [
         "One record of an entity",
@@ -123,6 +132,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Data Modeling & Normalization",
+      "year": 2,
       "q": "What does a foreign key usually reference?",
       "choices": [
         "A column in another table, often its primary key",
@@ -136,6 +146,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Data Modeling & Normalization",
+      "year": 2,
       "q": "A customer can place many orders, and each order belongs to one customer. What relationship is this?",
       "choices": [
         "One-to-one",
@@ -149,6 +160,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Transactions & Concurrency",
+      "year": 3,
       "q": "Which SQL command makes a transaction’s changes permanent?",
       "choices": [
         "ROLLBACK",
@@ -162,6 +174,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Transactions & Concurrency",
+      "year": 3,
       "q": "Which ACID property means a transaction happens completely or not at all?",
       "choices": [
         "Atomicity",
@@ -175,6 +188,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Transactions & Concurrency",
+      "year": 3,
       "q": "What does ROLLBACK do to an uncommitted transaction?",
       "choices": [
         "Undoes its changes",
@@ -188,6 +202,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Indexing & Performance",
+      "year": 3,
       "q": "What is a common purpose of a database index?",
       "choices": [
         "Speed up finding rows",
@@ -201,6 +216,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Indexing & Performance",
+      "year": 3,
       "q": "What is one tradeoff of adding indexes to a table?",
       "choices": [
         "Writes may take more work and storage",
@@ -214,6 +230,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Indexing & Performance",
+      "year": 3,
       "q": "What does a unique index help enforce?",
       "choices": [
         "No duplicate indexed key values",
@@ -227,6 +244,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Data Structures",
+      "year": 2,
       "q": "Which structure follows Last In, First Out (LIFO)?",
       "choices": [
         "Queue",
@@ -240,6 +258,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Fundamentals",
+      "year": 1,
       "q": "What does RAM stand for?",
       "choices": [
         "Rapid Application Module",
@@ -253,6 +272,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Fundamentals",
+      "year": 1,
       "q": "Which part of a computer keeps your files when the power is switched off?",
       "choices": [
         "Cache",
@@ -266,6 +286,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Number Systems",
+      "year": 1,
       "q": "What is the decimal value of binary 1111?",
       "choices": [
         "31",
@@ -279,6 +300,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Number Systems",
+      "year": 1,
       "q": "Which number system uses the digits 0 to 9 and the letters A to F?",
       "choices": [
         "Binary",
@@ -292,6 +314,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Networking",
+      "year": 2,
       "q": "What does DNS do?",
       "choices": [
         "Encrypts web traffic",
@@ -305,6 +328,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Networking",
+      "year": 2,
       "q": "Which default port does HTTPS use?",
       "choices": [
         "80",
@@ -318,6 +342,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Information Security",
+      "year": 1,
       "q": "Which of these is the strongest choice for a password?",
       "choices": [
         "A long, unique passphrase",
@@ -331,6 +356,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Information Security",
+      "year": 1,
       "q": "What is phishing?",
       "choices": [
         "Breaking into a locked computer physically",
@@ -344,6 +370,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Information Security",
+      "year": 1,
       "q": "What does two-factor authentication add to a login?",
       "choices": [
         "Faster loading times",
@@ -357,6 +384,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Programming",
+      "year": 1,
       "q": "Which keyword declares a variable in JavaScript that can be reassigned?",
       "choices": [
         "let",
@@ -370,6 +398,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Programming",
+      "year": 1,
       "q": "What is the main benefit of a function?",
       "choices": [
         "It connects to a database",
@@ -383,6 +412,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Databases",
+      "year": 2,
       "q": "What is a database table made of?",
       "choices": [
         "Only pictures",
@@ -396,6 +426,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Databases",
+      "year": 2,
       "q": "What does a primary key do?",
       "choices": [
         "Stores the database password",
@@ -409,6 +440,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Data Structures",
+      "year": 2,
       "q": "Which data structure follows last-in, first-out (LIFO) order?",
       "choices": [
         "Queue",
@@ -422,6 +454,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Data Structures",
+      "year": 2,
       "q": "Which data structure follows first-in, first-out (FIFO) order?",
       "choices": [
         "Stack",
@@ -435,6 +468,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Object-Oriented Programming",
+      "year": 1,
       "q": "What is a class in object-oriented programming?",
       "choices": [
         "A file stored on disk",
@@ -448,6 +482,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Object-Oriented Programming",
+      "year": 1,
       "q": "What is an object?",
       "choices": [
         "A type of loop",
@@ -461,6 +496,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Object-Oriented Programming",
+      "year": 1,
       "q": "What does encapsulation mean?",
       "choices": [
         "Copying a class into another file",
@@ -474,6 +510,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Algorithms",
+      "year": 2,
       "q": "What is the worst-case time complexity of linear search?",
       "choices": [
         "O(1)",
@@ -487,6 +524,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Algorithms",
+      "year": 2,
       "q": "Which sorting algorithm repeatedly swaps adjacent elements that are out of order?",
       "choices": [
         "Binary search",
@@ -500,6 +538,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Algorithms",
+      "year": 2,
       "q": "What must be true of the data before binary search can be used?",
       "choices": [
         "It must contain only numbers",
@@ -513,6 +552,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Operating Systems",
+      "year": 3,
       "q": "What is the main job of an operating system?",
       "choices": [
         "Compiling source code only",
@@ -526,6 +566,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Operating Systems",
+      "year": 3,
       "q": "What is a process?",
       "choices": [
         "A running program with its own memory and resources",
@@ -539,6 +580,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Operating Systems",
+      "year": 3,
       "q": "What is virtual memory?",
       "choices": [
         "Memory built into the CPU",
@@ -552,6 +594,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Concurrency",
+      "year": 3,
       "q": "Why can two threads that update the same variable without a lock produce a wrong result?",
       "choices": [
         "The program always runs faster",
@@ -565,6 +608,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Concurrency",
+      "year": 3,
       "q": "What does a mutex do?",
       "choices": [
         "Sends messages between servers",
@@ -578,6 +622,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Concurrency",
+      "year": 3,
       "q": "What is a thread?",
       "choices": [
         "A type of network cable",
@@ -591,6 +636,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Fundamentals",
+      "year": 1,
       "q": "Which type of memory loses its stored data as soon as power is turned off?",
       "choices": [
         "SSD",
@@ -604,6 +650,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Number Systems",
+      "year": 1,
       "q": "What is the hexadecimal representation of decimal 15?",
       "choices": [
         "E",
@@ -617,6 +664,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Operating Systems",
+      "year": 3,
       "q": "Which part of the operating system stays in memory and manages hardware resources directly?",
       "choices": [
         "Text editor",
@@ -630,6 +678,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Architecture",
+      "year": 2,
       "q": "Which part of the CPU performs arithmetic and logical comparisons?",
       "choices": [
         "ALU (Arithmetic Logic Unit)",
@@ -643,6 +692,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Architecture",
+      "year": 2,
       "q": "What are the small, ultra-fast storage locations directly inside the CPU called?",
       "choices": [
         "Optical sectors",
@@ -656,6 +706,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Architecture",
+      "year": 2,
       "q": "What is the repeating sequence of Fetch, Decode, and Execute in a processor called?",
       "choices": [
         "Instruction cycle",
@@ -669,6 +720,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Architecture",
+      "year": 2,
       "q": "Which hardware pathway carries data and addresses between the CPU, memory, and I/O devices?",
       "choices": [
         "System bus",
@@ -682,6 +734,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Memory & Storage Systems",
+      "year": 2,
       "q": "Which type of high-speed memory sits between the CPU registers and main RAM?",
       "choices": [
         "Magnetic tape",
@@ -695,6 +748,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Memory & Storage Systems",
+      "year": 2,
       "q": "Why is an SSD faster at random reads than a traditional HDD?",
       "choices": [
         "It uses flash memory with no moving read/write heads",
@@ -708,6 +762,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Memory & Storage Systems",
+      "year": 1,
       "q": "How many bytes are in 1 Kilobyte (binary KiB) of memory?",
       "choices": [
         "512 bytes",
@@ -721,6 +776,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Memory & Storage Systems",
+      "year": 2,
       "q": "What is non-volatile firmware memory on a motherboard commonly stored in?",
       "choices": [
         "ROM / Flash EEPROM",
@@ -734,6 +790,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Networking",
+      "year": 2,
       "q": "Which device forwards packets between different computer networks using IP addresses?",
       "choices": [
         "Router",
@@ -747,6 +804,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Information Security",
+      "year": 2,
       "q": "What does the 'C' in the CIA security triad stand for?",
       "choices": [
         "Compression",
@@ -760,6 +818,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Models & Protocols",
+      "year": 3,
       "q": "Which protocol automatically assigns an IP address to a device joining a network?",
       "choices": [
         "DHCP",
@@ -773,6 +832,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Models & Protocols",
+      "year": 3,
       "q": "How many layers are in the standard OSI networking model?",
       "choices": [
         "4",
@@ -786,6 +846,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Models & Protocols",
+      "year": 3,
       "q": "Which transport protocol is connectionless and prioritizes low latency over guaranteed delivery?",
       "choices": [
         "TCP",
@@ -799,6 +860,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Models & Protocols",
+      "year": 3,
       "q": "Which tool sends ICMP Echo Request packets to test if a remote host is reachable?",
       "choices": [
         "ping",
@@ -812,6 +874,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Cryptography & Authentication",
+      "year": 3,
       "q": "What is converting readable plaintext into unreadable ciphertext called?",
       "choices": [
         "Encryption",
@@ -825,6 +888,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Cryptography & Authentication",
+      "year": 3,
       "q": "What is Multi-Factor Authentication (MFA)?",
       "choices": [
         "Logging in with two or more independent verification factors",
@@ -838,6 +902,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Cryptography & Authentication",
+      "year": 3,
       "q": "Which property is true of a cryptographic hash function like SHA-256?",
       "choices": [
         "It is a one-way function that produces a fixed-size digest",
@@ -851,6 +916,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Cryptography & Authentication",
+      "year": 3,
       "q": "In public-key cryptography, which key is shared openly with everyone?",
       "choices": [
         "Public key",
@@ -864,6 +930,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Defense & Firewalls",
+      "year": 3,
       "q": "What is the main purpose of a network firewall?",
       "choices": [
         "Filter incoming and outgoing network traffic based on security rules",
@@ -877,6 +944,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Defense & Firewalls",
+      "year": 3,
       "q": "What does a VPN (Virtual Private Network) create across a public network?",
       "choices": [
         "An encrypted tunnel for network traffic",
@@ -890,6 +958,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Defense & Firewalls",
+      "year": 3,
       "q": "What type of cyberattack floods a server with traffic so legitimate users cannot reach it?",
       "choices": [
         "DoS / DDoS attack",
@@ -903,6 +972,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Defense & Firewalls",
+      "year": 1,
       "q": "Why should software security patches and updates be applied regularly?",
       "choices": [
         "They fix known vulnerabilities that attackers could exploit",
@@ -916,6 +986,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Programming",
+      "year": 1,
       "q": "What is the result of the boolean expression (true && false) in most programming languages?",
       "choices": [
         "true",
@@ -929,6 +1000,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Data Structures",
+      "year": 1,
       "q": "In an array with zero-based indexing, what is the index of the first element?",
       "choices": [
         "-1",
@@ -942,6 +1014,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Object-Oriented Programming",
+      "year": 1,
       "q": "What special method is automatically called when a new object instance is created from a class?",
       "choices": [
         "Constructor",
@@ -955,6 +1028,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Algorithms",
+      "year": 2,
       "q": "Which search algorithm checks each element of a list one by one from start to finish?",
       "choices": [
         "Linear search",
@@ -968,6 +1042,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Concurrency",
+      "year": 3,
       "q": "What do we call a task that runs in the background without blocking the main user interface thread?",
       "choices": [
         "Asynchronous task",
@@ -981,6 +1056,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Databases",
+      "year": 2,
       "q": "What does NULL represent in a relational database column?",
       "choices": [
         "The number zero",
@@ -994,6 +1070,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "SQL Queries",
+      "year": 2,
       "q": "Which SQL keyword removes duplicate rows from a SELECT query's result set?",
       "choices": [
         "DISTINCT",
@@ -1007,6 +1084,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Data Modeling & Normalization",
+      "year": 2,
       "q": "In an Entity-Relationship (ER) diagram, what does an entity typically become in a relational database?",
       "choices": [
         "A table",
@@ -1020,6 +1098,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Transactions & Concurrency",
+      "year": 3,
       "q": "What does the 'A' in ACID database transactions stand for?",
       "choices": [
         "Atomicity",
@@ -1033,6 +1112,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Indexing & Performance",
+      "year": 3,
       "q": "Which column is almost always indexed automatically when you create a relational table?",
       "choices": [
         "The primary key column",
@@ -1048,6 +1128,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Data Structures",
+      "year": 2,
       "q": "What is the average time to look up a key in a hash table?",
       "choices": [
         "O(n)",
@@ -1061,6 +1142,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Databases",
+      "year": 2,
       "q": "Which SQL clause filters groups after GROUP BY is applied?",
       "choices": [
         "WHERE",
@@ -1074,6 +1156,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "SQL Queries",
+      "year": 2,
       "q": "Which join returns rows with matching keys in both tables?",
       "choices": [
         "INNER JOIN",
@@ -1087,6 +1170,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "SQL Queries",
+      "year": 2,
       "q": "Which aggregate function returns the number of rows in each group?",
       "choices": [
         "COUNT(*)",
@@ -1100,6 +1184,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "SQL Queries",
+      "year": 2,
       "q": "Which clause is used to combine rows into groups for aggregate calculations?",
       "choices": [
         "GROUP BY",
@@ -1113,6 +1198,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Data Modeling & Normalization",
+      "year": 2,
       "q": "Which design best satisfies first normal form (1NF)?",
       "choices": [
         "Each field stores one value rather than a list of values",
@@ -1126,6 +1212,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Data Modeling & Normalization",
+      "year": 2,
       "q": "A table stores order IDs and product IDs, with many products per order and many orders per product. What is a common relational design?",
       "choices": [
         "A junction table with one row per order-product pair",
@@ -1139,6 +1226,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Data Modeling & Normalization",
+      "year": 2,
       "q": "In a table whose key is (OrderID, ProductID), a product description depends only on ProductID. Which issue does this illustrate?",
       "choices": [
         "A partial dependency",
@@ -1152,6 +1240,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Transactions & Concurrency",
+      "year": 3,
       "q": "A transaction reads a value written by another transaction that has not committed. What is this called?",
       "choices": [
         "A dirty read",
@@ -1165,6 +1254,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Transactions & Concurrency",
+      "year": 3,
       "q": "Which ACID property keeps concurrent transactions from interfering as if they ran together in an allowed order?",
       "choices": [
         "Isolation",
@@ -1178,6 +1268,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Transactions & Concurrency",
+      "year": 3,
       "q": "What is a savepoint commonly used for inside a transaction?",
       "choices": [
         "To roll back part of the transaction while keeping earlier work",
@@ -1191,6 +1282,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Indexing & Performance",
+      "year": 3,
       "q": "A composite index is defined on (last_name, first_name). Which lookup most directly matches its leading column?",
       "choices": [
         "Filter by last_name",
@@ -1204,6 +1296,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Indexing & Performance",
+      "year": 3,
       "q": "What is a covering index for a particular query?",
       "choices": [
         "An index containing all columns that query needs",
@@ -1217,6 +1310,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Indexing & Performance",
+      "year": 3,
       "q": "Why can a query using a range condition often benefit from a B-tree index?",
       "choices": [
         "Ordered keys can help locate the range and scan nearby entries",
@@ -1230,6 +1324,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Networking",
+      "year": 2,
       "q": "What is the default port number for HTTPS?",
       "choices": [
         "21",
@@ -1243,6 +1338,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Object-Oriented Programming",
+      "year": 1,
       "q": "Which principle bundles data and the methods that act on it into one unit?",
       "choices": [
         "Inheritance",
@@ -1256,6 +1352,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Algorithms",
+      "year": 2,
       "q": "Which sorting algorithm runs in O(n) time on an already-sorted array?",
       "choices": [
         "Selection sort",
@@ -1269,6 +1366,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Operating Systems",
+      "year": 3,
       "q": "What is a deadlock?",
       "choices": [
         "A process running too slowly",
@@ -1282,6 +1380,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Fundamentals",
+      "year": 1,
       "q": "What is the main purpose of the CPU cache?",
       "choices": [
         "To store the operating system permanently",
@@ -1295,6 +1394,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Fundamentals",
+      "year": 1,
       "q": "In the fetch-decode-execute cycle, what happens during decode?",
       "choices": [
         "The CPU writes the result to the hard drive",
@@ -1308,6 +1408,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Fundamentals",
+      "year": 1,
       "q": "What is the role of the motherboard?",
       "choices": [
         "It connects the CPU, memory, storage, and other parts so they can communicate",
@@ -1321,6 +1422,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Number Systems",
+      "year": 1,
       "q": "Convert the decimal number 13 to binary.",
       "choices": [
         "1100",
@@ -1334,6 +1436,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Number Systems",
+      "year": 1,
       "q": "What is the decimal value of the hexadecimal number FF?",
       "choices": [
         "15",
@@ -1347,6 +1450,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Number Systems",
+      "year": 1,
       "q": "How many different values can 8 bits represent?",
       "choices": [
         "64",
@@ -1360,6 +1464,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Networking",
+      "year": 2,
       "q": "What is the main difference between TCP and UDP?",
       "choices": [
         "UDP encrypts all data by default",
@@ -1373,6 +1478,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Networking",
+      "year": 2,
       "q": "What is an IP address?",
       "choices": [
         "A password for a router",
@@ -1386,6 +1492,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Information Security",
+      "year": 2,
       "q": "What is the difference between encryption and hashing?",
       "choices": [
         "Encryption can be reversed with the right key; hashing is one-way",
@@ -1399,6 +1506,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Information Security",
+      "year": 2,
       "q": "What is a SQL injection attack?",
       "choices": [
         "Inserting malicious SQL through user input so the database runs unintended queries",
@@ -1412,6 +1520,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Information Security",
+      "year": 2,
       "q": "Which control best protects data on a stolen laptop?",
       "choices": [
         "Full-disk encryption",
@@ -1425,6 +1534,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Programming",
+      "year": 1,
       "q": "What does typeof [] return in JavaScript?",
       "choices": [
         "undefined",
@@ -1438,6 +1548,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Programming",
+      "year": 1,
       "q": "In Python, what does x = [1, 2, 3] create?",
       "choices": [
         "A dictionary",
@@ -1451,6 +1562,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Programming",
+      "year": 1,
       "q": "What is a loop used for?",
       "choices": [
         "Handling a network error",
@@ -1464,6 +1576,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Databases",
+      "year": 2,
       "q": "What is a database schema?",
       "choices": [
         "A user interface for writing queries",
@@ -1477,6 +1590,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Databases",
+      "year": 2,
       "q": "Which SQL statement removes rows from a table but keeps the table itself?",
       "choices": [
         "DROP TABLE",
@@ -1490,6 +1604,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Data Structures",
+      "year": 2,
       "q": "What is the average time complexity of a lookup in a hash table?",
       "choices": [
         "O(n squared)",
@@ -1503,6 +1618,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Data Structures",
+      "year": 2,
       "q": "What is a key advantage of an array over a linked list?",
       "choices": [
         "Built-in sorting that is always faster",
@@ -1516,6 +1632,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Object-Oriented Programming",
+      "year": 1,
       "q": "What is inheritance?",
       "choices": [
         "Storing objects in a database",
@@ -1529,6 +1646,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Object-Oriented Programming",
+      "year": 1,
       "q": "What is polymorphism?",
       "choices": [
         "Having many variables with the same name",
@@ -1542,6 +1660,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Algorithms",
+      "year": 2,
       "q": "What is the average time complexity of merge sort?",
       "choices": [
         "O(n)",
@@ -1555,6 +1674,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Algorithms",
+      "year": 2,
       "q": "Which search explores a graph level by level using a queue?",
       "choices": [
         "Depth-first search",
@@ -1568,6 +1688,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Operating Systems",
+      "year": 3,
       "q": "Which of these is NOT one of the four conditions needed for a deadlock?",
       "choices": [
         "Mutual exclusion",
@@ -1581,6 +1702,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Operating Systems",
+      "year": 3,
       "q": "What is the difference between a thread and a process?",
       "choices": [
         "Threads cannot run concurrently",
@@ -1594,6 +1716,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Concurrency",
+      "year": 3,
       "q": "What is a semaphore?",
       "choices": [
         "A type of graphics buffer",
@@ -1607,6 +1730,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Concurrency",
+      "year": 3,
       "q": "What is the difference between concurrency and parallelism?",
       "choices": [
         "Concurrency needs separate computers",
@@ -1620,6 +1744,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Concurrency",
+      "year": 3,
       "q": "How can two locks cause a deadlock?",
       "choices": [
         "Threads run one after another",
@@ -1633,6 +1758,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Fundamentals",
+      "year": 2,
       "q": "How does Direct Memory Access (DMA) improve overall system performance?",
       "choices": [
         "It lets I/O devices transfer data directly to and from RAM without tying up the CPU for every byte",
@@ -1646,6 +1772,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Number Systems",
+      "year": 1,
       "q": "Using 8-bit two's complement representation, what is the binary form of -5?",
       "choices": [
         "11111011",
@@ -1659,6 +1786,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Operating Systems",
+      "year": 3,
       "q": "What happens during a CPU context switch between two processes?",
       "choices": [
         "The OS saves the current process's CPU registers and loads the saved state of the next process",
@@ -1672,6 +1800,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Architecture",
+      "year": 2,
       "q": "Which register holds the memory address of the next instruction to be fetched by the CPU?",
       "choices": [
         "Program Counter (PC)",
@@ -1685,6 +1814,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Architecture",
+      "year": 2,
       "q": "What is the key difference between Harvard architecture and Von Neumann architecture?",
       "choices": [
         "Harvard uses separate memory pathways for instructions and data; Von Neumann shares one memory space",
@@ -1698,6 +1828,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Architecture",
+      "year": 2,
       "q": "How does instruction pipelining increase CPU instruction throughput?",
       "choices": [
         "By overlapping the Fetch, Decode, and Execute stages of multiple instructions at the same time",
@@ -1711,6 +1842,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Architecture",
+      "year": 2,
       "q": "How do RISC (Reduced Instruction Set Computer) architectures generally differ from CISC?",
       "choices": [
         "RISC uses simple, fixed-length instructions that execute in a single clock cycle, relying heavily on registers",
@@ -1724,6 +1856,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Memory & Storage Systems",
+      "year": 3,
       "q": "What is the difference between temporal locality and spatial locality in memory caching?",
       "choices": [
         "Temporal reuses the same address soon; spatial accesses nearby addresses soon",
@@ -1737,6 +1870,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Memory & Storage Systems",
+      "year": 2,
       "q": "Why is SRAM used for CPU caches while DRAM is used for main system memory?",
       "choices": [
         "SRAM is much faster and needs no refresh cycles, while DRAM is denser and cheaper per gigabyte",
@@ -1750,6 +1884,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Memory & Storage Systems",
+      "year": 2,
       "q": "Which RAID level stripes data across disks for speed but provides zero fault tolerance if a drive fails?",
       "choices": [
         "RAID 0",
@@ -1763,6 +1898,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Memory & Storage Systems",
+      "year": 2,
       "q": "What happens when the CPU looks for data in the cache and encounters a cache miss?",
       "choices": [
         "The data must be fetched from a slower lower level of memory (such as L2/L3 or main RAM) and placed into cache",
@@ -1776,6 +1912,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Networking",
+      "year": 3,
       "q": "In a /26 IPv4 subnet (subnet mask 255.255.255.192), how many usable host IP addresses are available?",
       "choices": [
         "62",
@@ -1789,6 +1926,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Information Security",
+      "year": 2,
       "q": "What does the Principle of Least Privilege state?",
       "choices": [
         "Users and processes should be granted only the minimum permissions needed to perform their tasks",
@@ -1802,6 +1940,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Models & Protocols",
+      "year": 3,
       "q": "What is the purpose of ARP (Address Resolution Protocol) in a local IPv4 network?",
       "choices": [
         "Map a known IPv4 address to a hardware MAC address on the local link",
@@ -1815,6 +1954,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Models & Protocols",
+      "year": 3,
       "q": "What is the sequence of packets in TCP's three-way handshake to establish a connection?",
       "choices": [
         "SYN -> SYN-ACK -> ACK",
@@ -1828,6 +1968,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Models & Protocols",
+      "year": 3,
       "q": "At which OSI layer do Ethernet switches primarily forward frames using MAC addresses?",
       "choices": [
         "Layer 2 (Data Link Layer)",
@@ -1841,6 +1982,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Models & Protocols",
+      "year": 3,
       "q": "Why do home and enterprise routers use NAT (Network Address Translation)?",
       "choices": [
         "To let multiple devices with private IPv4 addresses share a single public IPv4 address on the internet",
@@ -1854,6 +1996,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Cryptography & Authentication",
+      "year": 3,
       "q": "How do symmetric encryption (e.g., AES) and asymmetric encryption (e.g., RSA) differ?",
       "choices": [
         "Symmetric uses the same secret key to encrypt and decrypt; asymmetric uses a public/private key pair",
@@ -1867,6 +2010,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Cryptography & Authentication",
+      "year": 3,
       "q": "How is a digital signature created and verified using asymmetric cryptography?",
       "choices": [
         "The sender signs a hash with their private key, and anyone verifies it using the sender's public key",
@@ -1880,6 +2024,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Cryptography & Authentication",
+      "year": 3,
       "q": "What role does a Certificate Authority (CA) play in HTTPS / TLS?",
       "choices": [
         "It digitally signs certificates to bind a domain's identity to its public key",
@@ -1893,6 +2038,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Cryptography & Authentication",
+      "year": 3,
       "q": "In OAuth 2.0 / token-based authentication, what is the purpose of a short-lived access token?",
       "choices": [
         "Authorize API requests on behalf of a user without sending their password on every request",
@@ -1906,6 +2052,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Defense & Firewalls",
+      "year": 3,
       "q": "What is the key difference between an IDS (Intrusion Detection System) and an IPS (Intrusion Prevention System)?",
       "choices": [
         "An IDS monitors and alerts on suspicious traffic, whereas an inline IPS can actively block or drop malicious packets",
@@ -1919,6 +2066,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Defense & Firewalls",
+      "year": 3,
       "q": "How does a stateful firewall differ from a simple stateless packet filter?",
       "choices": [
         "A stateful firewall tracks active connection states and allows return traffic belonging to established sessions",
@@ -1932,6 +2080,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Defense & Firewalls",
+      "year": 3,
       "q": "Why do organizations place public-facing web servers inside a DMZ (Demilitarized Zone) subnet?",
       "choices": [
         "To isolate public servers so that if one is compromised, attackers cannot directly reach the internal private LAN",
@@ -1945,6 +2094,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Defense & Firewalls",
+      "year": 3,
       "q": "How does segmenting a network with VLANs (Virtual LANs) improve security?",
       "choices": [
         "It separates broadcast domains and restricts lateral movement between departments without router/firewall approval",
@@ -1958,6 +2108,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Programming",
+      "year": 1,
       "q": "What happens when a recursive function is called without a reachable base case?",
       "choices": [
         "It keeps calling itself until the call stack overflows",
@@ -1971,6 +2122,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Data Structures",
+      "year": 2,
       "q": "What is the main advantage of a doubly linked list over a singly linked list?",
       "choices": [
         "Nodes can be traversed in both directions and deleted in O(1) time when given a pointer to the node",
@@ -1984,6 +2136,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Object-Oriented Programming",
+      "year": 1,
       "q": "What is the difference between method overriding and method overloading?",
       "choices": [
         "Overriding redefines an inherited method with the same signature in a subclass; overloading defines methods with the same name but different parameter lists",
@@ -1997,6 +2150,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Algorithms",
+      "year": 2,
       "q": "In Breadth-First Search (BFS) on an unweighted graph, which data structure is used to visit nodes level by level?",
       "choices": [
         "A FIFO Queue",
@@ -2010,6 +2164,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Concurrency",
+      "year": 3,
       "q": "How does a counting semaphore differ from a binary mutex?",
       "choices": [
         "A semaphore can allow up to N threads to access a pool of resources concurrently, not just one",
@@ -2023,6 +2178,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Databases",
+      "year": 2,
       "q": "What happens when a foreign key is defined with ON DELETE CASCADE and a parent row is deleted?",
       "choices": [
         "All matching child rows referencing that parent row are automatically deleted as well",
@@ -2036,6 +2192,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "SQL Queries",
+      "year": 2,
       "q": "How does UNION differ from UNION ALL in SQL?",
       "choices": [
         "UNION removes duplicate rows between the combined result sets, while UNION ALL keeps all rows including duplicates",
@@ -2049,6 +2206,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Data Modeling & Normalization",
+      "year": 2,
       "q": "Why do database designers sometimes choose a surrogate key (such as an auto-incrementing ID) over a natural key?",
       "choices": [
         "It stays compact, immutable, and independent of changing real-world business attributes",
@@ -2062,6 +2220,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Transactions & Concurrency",
+      "year": 3,
       "q": "What is a 'dirty read' in concurrent database transactions?",
       "choices": [
         "One transaction reads uncommitted changes made by another transaction that might still roll back",
@@ -2075,6 +2234,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Indexing & Performance",
+      "year": 3,
       "q": "For a composite index on (department_id, last_name), which query predicate can use the index most effectively?",
       "choices": [
         "WHERE department_id = 10 AND last_name = 'Santos'",
@@ -2090,6 +2250,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Algorithms",
+      "year": 3,
       "q": "What is the worst-case time of Quick Sort with a first-element pivot on an already-sorted array?",
       "choices": [
         "O(n log n)",
@@ -2103,6 +2264,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Databases",
+      "year": 2,
       "q": "Which normal form removes transitive dependencies between non-key attributes?",
       "choices": [
         "1NF",
@@ -2116,6 +2278,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "SQL Queries",
+      "year": 3,
       "q": "What does ROW_NUMBER() commonly provide when used as a window function?",
       "choices": [
         "A sequential number for rows within its window ordering",
@@ -2129,6 +2292,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "SQL Queries",
+      "year": 3,
       "q": "What is a key distinction between a window function and GROUP BY aggregation?",
       "choices": [
         "A window function can calculate across related rows while retaining each input row",
@@ -2142,6 +2306,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "SQL Queries",
+      "year": 3,
       "q": "What is a common purpose of a recursive common table expression (CTE)?",
       "choices": [
         "Query hierarchical or recursively related data",
@@ -2155,6 +2320,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Data Modeling & Normalization",
+      "year": 2,
       "q": "What dependency does third normal form (3NF) primarily remove?",
       "choices": [
         "Transitive dependencies of non-key attributes on a key",
@@ -2168,6 +2334,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Data Modeling & Normalization",
+      "year": 3,
       "q": "Which statement characterizes Boyce-Codd normal form (BCNF)?",
       "choices": [
         "Every determinant is a superkey",
@@ -2181,6 +2348,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Data Modeling & Normalization",
+      "year": 3,
       "q": "What does a lossless decomposition guarantee when a relation is split into tables?",
       "choices": [
         "Joining the decomposed tables can recover the original relation without spurious rows",
@@ -2194,6 +2362,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Transactions & Concurrency",
+      "year": 4,
       "q": "What anomaly can serializable isolation prevent compared with weaker isolation levels?",
       "choices": [
         "A non-serializable outcome from interleaved transactions",
@@ -2207,6 +2376,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Transactions & Concurrency",
+      "year": 4,
       "q": "Two transactions each read the same set of rows and then update different rows based on that shared condition. Which anomaly can snapshot-style isolation permit in some systems?",
       "choices": [
         "Write skew",
@@ -2220,6 +2390,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Transactions & Concurrency",
+      "year": 3,
       "q": "What typically happens when two transactions deadlock?",
       "choices": [
         "The database detects the cycle and aborts one transaction so the other can proceed",
@@ -2233,6 +2404,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Indexing & Performance",
+      "year": 3,
       "q": "Why might an optimizer avoid using an index on a low-selectivity column?",
       "choices": [
         "The matching rows may cover so much of the table that a scan costs less",
@@ -2246,6 +2418,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Indexing & Performance",
+      "year": 3,
       "q": "Why can applying a function to an indexed column make a conventional index less useful for a predicate?",
       "choices": [
         "The expression may not match the stored index ordering unless the engine has a matching expression index or rewrite",
@@ -2259,6 +2432,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Indexing & Performance",
+      "year": 3,
       "q": "What is a common cost of maintaining many indexes on a write-heavy table?",
       "choices": [
         "Additional work for inserts, updates, and deletes",
@@ -2272,6 +2446,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Networking",
+      "year": 2,
       "q": "Which OSI layer is responsible for routing packets between networks?",
       "choices": [
         "Transport",
@@ -2285,6 +2460,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Information Security",
+      "year": 2,
       "q": "Which attack injects malicious SQL through user input?",
       "choices": [
         "Cross-site scripting",
@@ -2298,6 +2474,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Operating Systems",
+      "year": 3,
       "q": "Which page replacement algorithm is optimal but impractical, since it needs future knowledge?",
       "choices": [
         "FIFO",
@@ -2311,6 +2488,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Concurrency",
+      "year": 3,
       "q": "What is a race condition?",
       "choices": [
         "Two programs competing for the same CPU",
@@ -2324,6 +2502,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Fundamentals",
+      "year": 1,
       "q": "What does a 3 GHz clock speed measure?",
       "choices": [
         "Three billion clock cycles per second",
@@ -2337,6 +2516,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Fundamentals",
+      "year": 1,
       "q": "Why do modern CPUs include multiple cores?",
       "choices": [
         "To store more data on the hard drive",
@@ -2350,6 +2530,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Fundamentals",
+      "year": 2,
       "q": "What is pipelining in a CPU?",
       "choices": [
         "Storing instructions in a queue on disk",
@@ -2363,6 +2544,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Number Systems",
+      "year": 1,
       "q": "What is -1 written in 8-bit two's complement?",
       "choices": [
         "10000001",
@@ -2376,6 +2558,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Number Systems",
+      "year": 1,
       "q": "What is the decimal value of hexadecimal 1A?",
       "choices": [
         "26",
@@ -2389,6 +2572,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Number Systems",
+      "year": 1,
       "q": "What is the largest positive value in an 8-bit signed two's complement number?",
       "choices": [
         "256",
@@ -2402,6 +2586,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Networking",
+      "year": 2,
       "q": "Which device forwards frames using MAC addresses at Layer 2 of the OSI model?",
       "choices": [
         "Switch",
@@ -2415,6 +2600,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Networking",
+      "year": 2,
       "q": "What does a subnet mask do?",
       "choices": [
         "Assigns MAC addresses to devices",
@@ -2428,6 +2614,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Information Security",
+      "year": 2,
       "q": "What is the principle of least privilege?",
       "choices": [
         "Restricting internet use to office hours",
@@ -2441,6 +2628,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Information Security",
+      "year": 2,
       "q": "What does a man-in-the-middle attack do?",
       "choices": [
         "Guesses passwords from a dictionary",
@@ -2454,6 +2642,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Programming",
+      "year": 1,
       "q": "In JavaScript, what does this print? let a = 5; let b = a; b = 10; console.log(a);",
       "choices": [
         "5",
@@ -2467,6 +2656,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Programming",
+      "year": 1,
       "q": "What is recursion?",
       "choices": [
         "A function that calls itself until a base case is reached",
@@ -2480,6 +2670,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Programming",
+      "year": 2,
       "q": "Which statement describes a pure function?",
       "choices": [
         "It cannot take parameters",
@@ -2493,6 +2684,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Databases",
+      "year": 2,
       "q": "How does a candidate key differ from a primary key?",
       "choices": [
         "A primary key can contain duplicate values",
@@ -2506,6 +2698,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Databases",
+      "year": 2,
       "q": "What does a LEFT JOIN return?",
       "choices": [
         "All rows from the left table, plus matching rows from the right (NULL where none match)",
@@ -2519,6 +2712,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Data Structures",
+      "year": 2,
       "q": "What is the worst-case search time in a binary search tree that has degenerated into a chain?",
       "choices": [
         "O(1)",
@@ -2532,6 +2726,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Data Structures",
+      "year": 2,
       "q": "Which structure is commonly used to build a priority queue?",
       "choices": [
         "Binary heap",
@@ -2545,6 +2740,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Data Structures",
+      "year": 2,
       "q": "Which binary tree traversal visits the left subtree, then the node, then the right subtree?",
       "choices": [
         "Breadth-first",
@@ -2558,6 +2754,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Object-Oriented Programming",
+      "year": 2,
       "q": "Which SOLID principle says a class should have only one reason to change?",
       "choices": [
         "Liskov Substitution Principle",
@@ -2571,6 +2768,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Object-Oriented Programming",
+      "year": 2,
       "q": "What does the Liskov Substitution Principle require?",
       "choices": [
         "Classes must never inherit from other classes",
@@ -2584,6 +2782,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Object-Oriented Programming",
+      "year": 2,
       "q": "Why is composition often preferred over inheritance?",
       "choices": [
         "It reduces tight coupling and rigid class hierarchies",
@@ -2597,6 +2796,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Algorithms",
+      "year": 3,
       "q": "What do dynamic programming solutions rely on?",
       "choices": [
         "Storing answers to overlapping subproblems to avoid recomputation",
@@ -2610,6 +2810,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Algorithms",
+      "year": 3,
       "q": "Dijkstra's algorithm finds shortest paths from one source. What restriction does it have?",
       "choices": [
         "The graph must be a tree",
@@ -2623,6 +2824,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Operating Systems",
+      "year": 3,
       "q": "Which CPU scheduling algorithm can starve long jobs?",
       "choices": [
         "Time slicing with a fixed quantum",
@@ -2636,6 +2838,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Operating Systems",
+      "year": 3,
       "q": "Which page replacement policy evicts the page that has gone unused for the longest time?",
       "choices": [
         "Least frequently used (LFU)",
@@ -2649,6 +2852,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Concurrency",
+      "year": 3,
       "q": "What is a critical section?",
       "choices": [
         "Code that accesses shared resources and must not run in several threads at once",
@@ -2662,6 +2866,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Concurrency",
+      "year": 3,
       "q": "Which mechanism lets a thread wait until a condition becomes true without busy-waiting?",
       "choices": [
         "Global variable",
@@ -2675,6 +2880,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Fundamentals",
+      "year": 3,
       "q": "According to Amdahl's Law, if 50% of a program is strictly serial and 50% is parallelizable, what is the theoretical maximum speedup with infinite CPU cores?",
       "choices": [
         "2x",
@@ -2688,6 +2894,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Number Systems",
+      "year": 2,
       "q": "Why does `(0.1 + 0.2 === 0.3)` evaluate to `false` in standard IEEE 754 binary floating-point arithmetic?",
       "choices": [
         "0.1 and 0.2 have repeating representations in base-2, causing tiny rounding errors when added",
@@ -2701,6 +2908,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Operating Systems",
+      "year": 3,
       "q": "What is Belady's Anomaly in operating system page replacement?",
       "choices": [
         "Increasing the number of physical page frames can sometimes increase the number of page faults under FIFO replacement",
@@ -2714,6 +2922,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Architecture",
+      "year": 3,
       "q": "In a pipelined processor, what is a Read-After-Write (RAW) data hazard and how is it commonly mitigated without stalling?",
       "choices": [
         "An instruction needs a result not yet written back to a register; mitigated by operand forwarding (bypassing) from an execution stage",
@@ -2727,6 +2936,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Architecture",
+      "year": 3,
       "q": "What occurs when a CPU's branch predictor guesses the wrong direction of a conditional jump in an out-of-order pipeline?",
       "choices": [
         "Speculatively fetched instructions in the pipeline must be flushed and execution restarts at the correct branch target",
@@ -2740,6 +2950,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Architecture",
+      "year": 3,
       "q": "How does Superscalar execution differ from simple 5-stage instruction pipelining?",
       "choices": [
         "A superscalar CPU has multiple parallel execution units and can issue and complete more than one instruction per clock cycle",
@@ -2753,6 +2964,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Computer Architecture",
+      "year": 4,
       "q": "In multicore processor caches, what problem does the MESI (Modified, Exclusive, Shared, Invalid) protocol solve?",
       "choices": [
         "Cache coherence—ensuring cores do not read stale data when another core modifies a shared cache line",
@@ -2766,6 +2978,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Memory & Storage Systems",
+      "year": 3,
       "q": "What is the role of the Translation Lookaside Buffer (TLB) in virtual memory hardware?",
       "choices": [
         "It caches recent virtual-to-physical page address translations inside the MMU to avoid slow multi-level page table walks in RAM",
@@ -2779,6 +2992,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Memory & Storage Systems",
+      "year": 3,
       "q": "How does a Write-Back cache policy differ from a Write-Through cache policy?",
       "choices": [
         "Write-Back updates only the cache line (marking it dirty) and writes to main RAM later upon eviction; Write-Through updates both immediately",
@@ -2792,6 +3006,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Memory & Storage Systems",
+      "year": 3,
       "q": "In a 4-way set-associative CPU cache, where can a specific main memory block be placed?",
       "choices": [
         "In any of the 4 cache lines belonging to the specific set determined by the address index bits",
@@ -2805,6 +3020,7 @@ const QUESTION_BANK = {
     {
       "category": "Computer Systems",
       "topic": "Memory & Storage Systems",
+      "year": 3,
       "q": "Why do NAND flash SSDs require Wear Leveling and TRIM / garbage collection?",
       "choices": [
         "Flash blocks must be erased before rewriting and can endure only a limited number of program-erase cycles",
@@ -2818,6 +3034,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Networking",
+      "year": 4,
       "q": "What is the primary distinction between interior routing protocols like OSPF and exterior routing protocols like BGP?",
       "choices": [
         "OSPF finds shortest paths within a single Autonomous System (AS) using link states, while BGP exchanges reachability and policy routes between different ASes across the internet",
@@ -2831,6 +3048,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Information Security",
+      "year": 4,
       "q": "Why is an anti-CSRF (Cross-Site Request Forgery) token or `SameSite` cookie attribute necessary even when a site uses HTTPS?",
       "choices": [
         "Browsers automatically attach session cookies to cross-origin requests triggered by a malicious page unless protected by CSRF tokens or SameSite policies",
@@ -2844,6 +3062,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Models & Protocols",
+      "year": 4,
       "q": "When TCP encounters packet loss and triple duplicate ACKs, how does Congestion Avoidance / Fast Recovery react?",
       "choices": [
         "It halves the congestion window (cwnd) and retransmits the missing segment without resetting cwnd all the way to 1 MSS",
@@ -2857,6 +3076,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Models & Protocols",
+      "year": 3,
       "q": "What catastrophe does the Spanning Tree Protocol (STP / IEEE 802.1D) prevent in redundant Layer 2 Ethernet topologies?",
       "choices": [
         "Broadcast storms and MAC table instability caused by switching loops",
@@ -2870,6 +3090,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Models & Protocols",
+      "year": 3,
       "q": "During a TCP connection teardown, why does the side initiating the active close enter the `TIME_WAIT` state (typically 2×MSL)?",
       "choices": [
         "To ensure the final ACK is received by the peer and to let any delayed packets from the old connection expire from the network",
@@ -2883,6 +3104,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Models & Protocols",
+      "year": 4,
       "q": "How does CIDR route aggregation (supernetting) reduce the size of internet backbone routing tables?",
       "choices": [
         "It combines multiple contiguous IP prefixes into a single shorter prefix advertisement",
@@ -2896,6 +3118,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Cryptography & Authentication",
+      "year": 4,
       "q": "What security guarantee does Ephemeral Diffie-Hellman (ECDHE) provide in TLS 1.3?",
       "choices": [
         "Forward Secrecy—compromising the server's long-term private key in the future cannot decrypt past recorded sessions",
@@ -2909,6 +3132,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Cryptography & Authentication",
+      "year": 4,
       "q": "Why should passwords be hashed with a slow, memory-hard KDF like Argon2id or bcrypt with a unique salt rather than a single fast SHA-256 hash?",
       "choices": [
         "Unique salts defeat precomputed rainbow tables, and tunable work/memory costs drastically slow down GPU/ASIC brute-force cracking",
@@ -2922,6 +3146,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Cryptography & Authentication",
+      "year": 4,
       "q": "Why is AES-GCM (Galois/Counter Mode) preferred over raw AES-CBC without a MAC?",
       "choices": [
         "AES-GCM is an Authenticated Encryption with Associated Data (AEAD) mode that provides both confidentiality and integrity, preventing padding-oracle and tampering attacks",
@@ -2935,6 +3160,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Cryptography & Authentication",
+      "year": 4,
       "q": "What is the critical vulnerability of trusting the `alg` header field in an unverified JSON Web Token (JWT)?",
       "choices": [
         "An attacker may set `\"alg\": \"none\"` or switch RS256 to HS256 (signing with the public key) to forge valid tokens if the server does not enforce the expected algorithm",
@@ -2948,6 +3174,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Defense & Firewalls",
+      "year": 4,
       "q": "How do TCP SYN Cookies help a server survive a SYN Flood DDoS attack?",
       "choices": [
         "The server encodes connection state into the SYN-ACK sequence number and allocates backlog memory only after receiving a valid final ACK",
@@ -2961,6 +3188,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Defense & Firewalls",
+      "year": 4,
       "q": "How does Dynamic ARP Inspection (DAI) with DHCP Snooping prevent ARP spoofing (man-in-the-middle) attacks on a LAN?",
       "choices": [
         "The switch validates ARP packets against a trusted IP-to-MAC-to-port binding table built from legitimate DHCP leases",
@@ -2974,6 +3202,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Defense & Firewalls",
+      "year": 4,
       "q": "What is the core principle of a Zero Trust Network Architecture (ZTNA)?",
       "choices": [
         "Never trust based on network location alone; continuously authenticate, authorize, and encrypt every request regardless of whether it comes from inside or outside the perimeter",
@@ -2987,6 +3216,7 @@ const QUESTION_BANK = {
     {
       "category": "Networking & Security",
       "topic": "Network Defense & Firewalls",
+      "year": 4,
       "q": "Why can a Web Application Firewall (WAF) operating at Layer 7 stop attacks that pass right through a traditional Layer 3/4 stateful firewall?",
       "choices": [
         "A WAF inspects HTTP/HTTPS payloads, headers, and query parameters for application-layer exploits like SQLi and XSS over allowed ports (80/443)",
@@ -3000,6 +3230,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Programming",
+      "year": 2,
       "q": "What does a lexical closure capture in languages like JavaScript or Python?",
       "choices": [
         "A function bundled together with references to the variables in its outer lexical scope, even after the outer function has returned",
@@ -3013,6 +3244,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Data Structures",
+      "year": 3,
       "q": "Although appending to a dynamic array (like `std::vector` or `ArrayList`) occasionally takes O(n) time when resizing, why is a sequence of n appends O(1) amortized time per append?",
       "choices": [
         "Doubling capacity on resize means copying happens at powers of 2, so total copy work across n appends sums to less than 2n",
@@ -3026,6 +3258,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Object-Oriented Programming",
+      "year": 2,
       "q": "What does the Liskov Substitution Principle (the 'L' in SOLID) require of a subclass?",
       "choices": [
         "Objects of a superclass should be replaceable with objects of a subclass without breaking the correctness or contracts expected by the caller",
@@ -3039,6 +3272,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Algorithms",
+      "year": 3,
       "q": "What two properties must a problem have for Dynamic Programming (memoization or tabulation) to be effective?",
       "choices": [
         "Optimal substructure and overlapping subproblems",
@@ -3052,6 +3286,7 @@ const QUESTION_BANK = {
     {
       "category": "Programming",
       "topic": "Concurrency",
+      "year": 4,
       "q": "How do lock-free data structures update shared state safely without using mutexes?",
       "choices": [
         "They use hardware atomic instructions such as Compare-And-Swap (CAS) in a retry loop",
@@ -3065,6 +3300,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Databases",
+      "year": 4,
       "q": "According to the CAP theorem, when a network partition (P) occurs in a distributed database, what trade-off must the system make?",
       "choices": [
         "Choose between Consistency (returning the most recent write or an error) and Availability (every non-failing node returns a response, even if potentially stale)",
@@ -3078,6 +3314,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "SQL Queries",
+      "year": 3,
       "q": "Why can `WHERE col NOT IN (SELECT nullable_col FROM other_table)` unexpectedly return zero rows in SQL?",
       "choices": [
         "If the subquery returns even a single NULL, `col <> NULL` evaluates to UNKNOWN under three-valued logic, filtering out every row",
@@ -3091,6 +3328,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Data Modeling & Normalization",
+      "year": 4,
       "q": "Which normal form specifically eliminates non-trivial multi-valued dependencies (where two independent 1:N attributes are mixed in one table)?",
       "choices": [
         "Fourth Normal Form (4NF)",
@@ -3104,6 +3342,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Transactions & Concurrency",
+      "year": 4,
       "q": "Under Snapshot Isolation (MVCC), what is the 'write skew' anomaly?",
       "choices": [
         "Two concurrent transactions read the same snapshot, make disjoint updates that individually seem valid, and both commit—violating a cross-row invariant",
@@ -3117,6 +3356,7 @@ const QUESTION_BANK = {
     {
       "category": "Database",
       "topic": "Indexing & Performance",
+      "year": 4,
       "q": "When is a Hash Index inferior to a B+Tree Index in a relational database?",
       "choices": [
         "When executing range queries (`BETWEEN`, `<`, `>`), prefix scans, or `ORDER BY` sorting",

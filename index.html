@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Bytebound · CITCS Quest</title>
   <script src="js/font.js?v=2"></script>
-  <link rel="stylesheet" href="css/styles.css?v=38" />
+  <link rel="stylesheet" href="css/styles.css?v=46" />
 </head>
 <body>
   <section class="login-screen" id="loginScreen" aria-labelledby="loginTitle">
@@ -41,12 +41,20 @@
             <label for="usernameInput">Username</label>
             <input id="usernameInput" name="username" type="text" maxlength="24" autocomplete="username" placeholder="Enter your username" required />
           </div>
-          <div class="login-field">
+          <div class="login-field" id="passwordFieldWrap">
             <label for="passwordInput" id="passwordLabel">Password</label>
             <div class="login-password-wrap">
               <input id="passwordInput" name="password" type="password" minlength="6" maxlength="72" autocomplete="current-password" placeholder="Enter your password" required />
               <button type="button" class="login-password-toggle" id="passwordToggleBtn" aria-label="Show password" aria-pressed="false">Show</button>
             </div>
+            <div class="login-forgot-row" id="forgotPasswordRow">
+              <button type="button" class="login-forgot-link" id="forgotPasswordBtn">Forgot password?</button>
+            </div>
+          </div>
+          <div class="login-field" id="forgotNoteWrap" hidden>
+            <label for="forgotNoteInput">Note for Admin (optional)</label>
+            <input id="forgotNoteInput" name="forgotNote" type="text" maxlength="140" placeholder="e.g. Forgot password, please reset" />
+            <small class="login-field-hint">Sends a reset request to the Admin Panel so an administrator can give you a temporary password.</small>
           </div>
           <div class="login-field" id="confirmPasswordWrap" hidden>
             <label for="confirmPasswordInput">Confirm Password</label>
@@ -55,9 +63,20 @@
               <button type="button" class="login-password-toggle" id="confirmPasswordToggleBtn" aria-label="Show confirm password" aria-pressed="false">Show</button>
             </div>
           </div>
+          <div class="login-field" id="registerYearWrap" hidden>
+            <label for="registerYearSelect">Academic Year Level</label>
+            <select id="registerYearSelect" name="academicYear" class="login-select">
+              <option value="1">1st Year — Foundations (Year 1 only)</option>
+              <option value="2">2nd Year — Core IT/CS (Years 1–2)</option>
+              <option value="3">3rd Year — Systems &amp; Security (Years 1–3)</option>
+              <option value="4" selected>4th Year — Full Curriculum (Years 1–4)</option>
+            </select>
+            <small class="login-field-hint">Your Year Level locks after Sign Up to keep quizzes and rankings fair. You can request a year change from an admin later in Settings.</small>
+          </div>
           <p class="login-status" id="loginStatus" aria-live="polite"></p>
           <p class="login-error" id="loginError" role="alert" aria-live="polite"></p>
           <button class="login-submit" id="loginSubmitButton" type="submit">Log In</button>
+          <button type="button" class="login-back-link" id="backToLoginBtn" hidden>← Back to Log In</button>
         </form>
         <p class="login-note" id="loginNote">Usernames are unique and case-insensitive. Passwords are protected server-side.</p>
       </section>
@@ -93,9 +112,12 @@
           <button class="nav-button" data-view="rewards" data-bubble-tag="REWARDS PAGE" data-bubble-title="Achievements" data-bubble-desc="Track unlocked badges across General Campaign, 1v1 Arena duels, and Exclusive Skill Paths."><span class="nav-number">05</span><span class="nav-name">Achievements</span></button>
           <button class="nav-button" data-view="settings" data-bubble-tag="SYSTEM PAGE" data-bubble-title="Settings" data-bubble-desc="Configure Dark/Light theme, Reduced Motion, BGM/SFX volume, keybinds, and player profile or reset."><span class="nav-number">06</span><span class="nav-name">Settings</span></button>
         </nav>
-        <div class="side-code">
-          <span class="eyebrow">Bytebound code</span>
-          <p>Think. Adapt.<br />Try again.</p>
+        <div class="side-footer">
+          <div class="side-code">
+            <span class="eyebrow">Bytebound code</span>
+            <p>Think. Adapt.<br />Try again.</p>
+          </div>
+          <button class="sidebar-logout-button" id="logoutButton" type="button" data-bubble-tag="ACCOUNT" data-bubble-title="Log Out" data-bubble-desc="Save progress and log out of your current account back to the login screen.">Log Out</button>
         </div>
       </aside>
       <main>
@@ -110,7 +132,6 @@
               <button class="start-button cta" id="startGameButton" type="button" data-bubble-tag="CAMPAIGN" data-bubble-title="Start Game" data-bubble-desc="Create a new Campaign save slot or resume an adventure across 16 adaptive IT rooms.">Start game</button>
               <button class="multiplayer-menu-button cta" id="multiplayerMenuButton" type="button" data-bubble-tag="ONLINE 1V1" data-bubble-title="1v1 Multiplayer" data-bubble-desc="Challenge another player in a turn-based synchronized duel using identical IT questions.">1v1 Multiplayer</button>
               <button class="practice-mode-button cta" id="practiceModeButton" type="button" data-bubble-tag="SANDBOX" data-bubble-title="Practice Mode" data-bubble-desc="Rehearse combat in a temporary no-save run without modifying your stats or leaderboard.">Practice Mode</button>
-              <button class="exit-game-button cta" id="exitGameButton" type="button" data-bubble-tag="LOG OUT" data-bubble-title="Exit &amp; Log Out" data-bubble-desc="Save progress and log out of your current account back to the login screen.">Exit</button>
             </div>
           </div>
           <div class="welcome-insights" aria-label="Difficulty and controls">
@@ -370,24 +391,24 @@
     referrerpolicy="no-referrer"
   ></script>
   <script src="js/utils.js"></script>
-  <script src="js/data/collisions.js?v=39"></script>
-  <script src="js/data/questions.js?v=5"></script>
+  <script src="js/data/collisions.js?v=40"></script>
+  <script src="js/data/questions.js?v=6"></script>
   <script src="js/classes/CollisionBlock.js?v=8"></script>
   <script src="js/classes/Sprite.js?v=7"></script>
-  <script src="js/classes/Player.js?v=14"></script>
+  <script src="js/classes/Player.js?v=15"></script>
   <script src="js/classes/Enemy.js?v=15"></script>
   <script src="js/classes/Boss.js?v=7"></script>
-  <script src="js/audio.js?v=13"></script>
-  <script src="js/cards.js?v=8"></script>
+  <script src="js/audio.js?v=15"></script>
+  <script src="js/cards.js?v=9"></script>
   <script src="js/arena.js?v=11"></script>
-  <script src="js/combat.js?v=69"></script>
-  <script src="js/practice.js?v=9"></script>
-  <script src="js/eventListeners.js?v=19"></script>
+  <script src="js/combat.js?v=73"></script>
+  <script src="js/practice.js?v=12"></script>
+  <script src="js/eventListeners.js?v=21"></script>
   <script src="supabase-config.js?v=1"></script>
-  <script src="js/mp-network.js?v=3"></script>
-  <script src="js/mp-matchmaking.js?v=6"></script>
-  <script src="js/mp-ui.js?v=4"></script>
-  <script src="index.js?v=168"></script>
-  <script src="js/tutorials.js?v=14"></script>
+  <script src="js/mp-network.js?v=4"></script>
+  <script src="js/mp-matchmaking.js?v=7"></script>
+  <script src="js/mp-ui.js?v=5"></script>
+  <script src="index.js?v=178"></script>
+  <script src="js/tutorials.js?v=15"></script>
 </body>
 </html>

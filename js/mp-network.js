@@ -766,6 +766,7 @@
               arenaId: this.activeRoomSnapshot.arenaId,
               arenaName: this.activeRoomSnapshot.arenaName,
               category: this.activeRoomSnapshot.category,
+              yearLevel: this.activeRoomSnapshot.yearLevel || 4,
               status: 'waiting',
               playerCount: 1,
               maxPlayers: 2,
@@ -902,7 +903,7 @@
       const publicRooms = [...publicRoomMap.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       const stateKey = JSON.stringify({
         players: players.map((p) => [p.clientId, p.username, p.avatar, p.status, p.roomCode || null, p.isSelf]),
-        rooms: publicRooms.map((r) => [r.code, r.hostName, r.hostAvatar, r.arenaId, r.category, r.status, r.playerCount]),
+        rooms: publicRooms.map((r) => [r.code, r.hostName, r.hostAvatar, r.arenaId, r.category, r.yearLevel || 4, r.status, r.playerCount]),
       });
       if (!force && stateKey === this.lastEmittedStateKey) return;
       this.lastEmittedStateKey = stateKey;
@@ -927,6 +928,7 @@
                   arenaId: row.settings?.arenaId || 'arena',
                   arenaName: row.settings?.arenaName || 'Cyber Arena',
                   category: row.settings?.category || 'ALL',
+                  yearLevel: row.settings?.yearLevel || 4,
                   status: 'waiting',
                   playerCount: 1,
                   maxPlayers: 2,
@@ -962,6 +964,7 @@
           arenaId: room.arenaId,
           arenaName: room.arenaName,
           category: room.category,
+          yearLevel: room.yearLevel || 4,
           username: room.host.username,
           avatar: room.host.avatar,
         });
@@ -980,6 +983,7 @@
               arenaId: room.arenaId,
               arenaName: room.arenaName,
               category: room.category,
+              yearLevel: room.yearLevel || 4,
               status: 'waiting',
               playerCount: 1,
               maxPlayers: 2,
@@ -993,7 +997,7 @@
             host_client_id: room.host.clientId,
             host_name: room.host.username,
             host_avatar: room.host.avatar,
-            settings: { arenaId: room.arenaId, arenaName: room.arenaName, category: room.category },
+            settings: { arenaId: room.arenaId, arenaName: room.arenaName, category: room.category, yearLevel: room.yearLevel || 4 },
             room_state: room,
             updated_at: new Date().toISOString(),
           });
@@ -1031,6 +1035,7 @@
               arenaId: room.arenaId,
               arenaName: room.arenaName,
               category: room.category,
+              yearLevel: room.yearLevel || 4,
               status: 'waiting',
               playerCount: 1,
               maxPlayers: 2,
@@ -1045,7 +1050,7 @@
           guest_client_id: room.guest?.clientId || null,
           guest_name: room.guest?.username || null,
           guest_avatar: room.guest?.avatar || null,
-          settings: { arenaId: room.arenaId, arenaName: room.arenaName, category: room.category },
+          settings: { arenaId: room.arenaId, arenaName: room.arenaName, category: room.category, yearLevel: room.yearLevel || 4 },
           room_state: room,
           updated_at: new Date().toISOString(),
         });

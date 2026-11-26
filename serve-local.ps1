@@ -46,6 +46,44 @@ $script:mpClosedRooms = @{}
 $script:mpEvents = [System.Collections.ArrayList]::new()
 $script:mpSeq = 0
 $script:mpPvpLeaderboard = @{}
+$script:serverStartedAt = [DateTime]::UtcNow
+$script:adminSessions = @{}
+$script:adminUsername = if (-not [string]::IsNullOrWhiteSpace($env:BYTEBOUND_ADMIN_USER)) { $env:BYTEBOUND_ADMIN_USER.Trim() } else { 'sysadmin' }
+$script:adminPassword = if (-not [string]::IsNullOrWhiteSpace($env:BYTEBOUND_ADMIN_PASS)) { $env:BYTEBOUND_ADMIN_PASS } else { 'bytebound-admin' }
+
+function Add-AdminAuditLog([string]$actor, [string]$action, [string]$target, [string]$detail = '') {
+  $entry = @{
+    id = 'aud-' + (New-RandomHex 6)
+    timestamp = [DateTime]::UtcNow.ToString('o')
+    actor = if ([string]::IsNullOrWhiteSpace($actor)) { 'system' } else { $actor }
+    action = $action
+    target = if ([string]::IsNullOrWhiteSpace($target)) { 'system' } else { $target }
+    detail = $detail
+  }
+  if ($null -ne $script:authStore) {
+    if (-not $script:authStore.ContainsKey('auditLogs') -or $null -eq $script:authStore.auditLogs) {
+      $script:authStore.auditLogs = [System.Collections.ArrayList]::new()
+    }
+    $script:authStore.auditLogs.Insert(0, $entry)
+    while ($script:authStore.auditLogs.Count -gt 300) {
+      $script:authStore.auditLogs.RemoveAt($script:authStore.auditLogs.Count - 1)
+    }
+    Save-AuthStore
+  }
+  return $entry
+}
+
+function Resolve-AdminSession([string]$token) {
+  if ([string]::IsNullOrWhiteSpace($token) -or $token.Trim().Length -lt 32) { return $null }
+  $hash = Get-Sha256Hex ($token.Trim())
+  if (-not $script:adminSessions.ContainsKey($hash)) { return $null }
+  $sess = $script:adminSessions[$hash]
+  if ([DateTime]::UtcNow -gt $sess.expiresAt) {
+    $script:adminSessions.Remove($hash)
+    return $null
+  }
+  return $sess
+}
 
 if ([string]::IsNullOrWhiteSpace($AuthStorePath)) {
   $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
@@ -178,8 +216,13 @@ function Convert-PsObjToHashtableEarly($obj) {
 function Load-AuthStore {
   $defaultStore = @{
     nextUserId = 1
+    nextResetId = 1
+    nextYearReqId = 1
     users = @{}
     sessions = @{}
+    resetRequests = [System.Collections.ArrayList]::new()
+    yearRequests = [System.Collections.ArrayList]::new()
+    auditLogs = [System.Collections.ArrayList]::new()
   }
   if (-not (Test-Path -LiteralPath $script:authStoreFile -PathType Leaf)) {
     return $defaultStore
@@ -192,6 +235,29 @@ function Load-AuthStore {
     if (-not $parsed.ContainsKey('users') -or -not ($parsed.users -is [System.Collections.IDictionary])) { $parsed.users = @{} }
     if (-not $parsed.ContainsKey('sessions') -or -not ($parsed.sessions -is [System.Collections.IDictionary])) { $parsed.sessions = @{} }
     if (-not $parsed.ContainsKey('nextUserId')) { $parsed.nextUserId = 1 }
+    if (-not $parsed.ContainsKey('nextResetId')) { $parsed.nextResetId = 1 }
+    if (-not $parsed.ContainsKey('nextYearReqId')) { $parsed.nextYearReqId = 1 }
+    $reqs = [System.Collections.ArrayList]::new()
+    if ($parsed.ContainsKey('resetRequests') -and $parsed.resetRequests -is [System.Collections.IEnumerable] -and -not ($parsed.resetRequests -is [string])) {
+      foreach ($item in $parsed.resetRequests) {
+        if ($null -ne $item) { [void]$reqs.Add($item) }
+      }
+    }
+    $parsed.resetRequests = $reqs
+    $yReqs = [System.Collections.ArrayList]::new()
+    if ($parsed.ContainsKey('yearRequests') -and $parsed.yearRequests -is [System.Collections.IEnumerable] -and -not ($parsed.yearRequests -is [string])) {
+      foreach ($item in $parsed.yearRequests) {
+        if ($null -ne $item) { [void]$yReqs.Add($item) }
+      }
+    }
+    $parsed.yearRequests = $yReqs
+    $aLogs = [System.Collections.ArrayList]::new()
+    if ($parsed.ContainsKey('auditLogs') -and $parsed.auditLogs -is [System.Collections.IEnumerable] -and -not ($parsed.auditLogs -is [string])) {
+      foreach ($item in $parsed.auditLogs) {
+        if ($null -ne $item) { [void]$aLogs.Add($item) }
+      }
+    }
+    $parsed.auditLogs = $aLogs
     return $parsed
   } catch {
     Write-Warning "Failed to load local auth store: $($_.Exception.Message)"
@@ -212,10 +278,43 @@ function Save-AuthStore {
   [IO.File]::Delete($tmpPath)
 }
 
+function Get-SessionUserKey($sessObj) {
+  if ($null -eq $sessObj) { return '' }
+  if ($sessObj -is [System.Collections.IDictionary]) {
+    if ($sessObj.ContainsKey('user_key') -and -not [string]::IsNullOrWhiteSpace([string]$sessObj.user_key)) {
+      return [string]$sessObj.user_key
+    }
+    if ($sessObj.ContainsKey('username_key') -and -not [string]::IsNullOrWhiteSpace([string]$sessObj.username_key)) {
+      return [string]$sessObj.username_key
+    }
+  }
+  return ''
+}
+
+function Get-PendingYearRequestForUser([string]$usernameKey) {
+  if ([string]::IsNullOrWhiteSpace($usernameKey) -or $null -eq $script:authStore -or -not $script:authStore.ContainsKey('yearRequests')) {
+    return $null
+  }
+  foreach ($yrReq in $script:authStore.yearRequests) {
+    if ($yrReq -and $yrReq.username_key -eq $usernameKey -and $yrReq.status -eq 'pending') {
+      return @{
+        id = [int64]$yrReq.id
+        current_year = [int]$yrReq.current_year
+        requested_year = [int]$yrReq.requested_year
+        reason = [string]$yrReq.reason
+        status = 'pending'
+        created_at = [string]$yrReq.created_at
+      }
+    }
+  }
+  return $null
+}
+
 function Serialize-AuthUser($u) {
+  $uKey = [string]$u.username_key
   return @{
     id = [int64]$u.id
-    username_key = [string]$u.username_key
+    username_key = $uKey
     display_name = [string]$u.display_name
     best_score = if ($null -ne $u.best_score) { [int]$u.best_score } else { 0 }
     total_kills = if ($null -ne $u.total_kills) { [int]$u.total_kills } else { 0 }
@@ -225,6 +324,9 @@ function Serialize-AuthUser($u) {
     skill_progress = if ($null -ne $u.skill_progress) { $u.skill_progress } else { @{} }
     review_store = if ($null -ne $u.review_store) { $u.review_store } else { @{} }
     achievements = if ($null -ne $u.achievements) { $u.achievements } else { @{} }
+    is_suspended = [bool]($u.ContainsKey('is_suspended') -and $u.is_suspended)
+    pending_year_request = (Get-PendingYearRequestForUser $uKey)
+    source = if ($u.ContainsKey('source') -and -not [string]::IsNullOrWhiteSpace([string]$u.source)) { [string]$u.source } else { 'local' }
     created_at = [string]$u.created_at
     updated_at = [string]$u.updated_at
     last_login_at = [string]$u.last_login_at
@@ -266,9 +368,11 @@ function Resolve-AuthSession([string]$rawToken) {
     $script:authStore.sessions.Remove($tokenHash)
     return $null
   }
-  $uKey = [string]$sess.user_key
-  if (-not $script:authStore.users.ContainsKey($uKey)) { return $null }
-  return $script:authStore.users[$uKey]
+  $uKey = Get-SessionUserKey $sess
+  if (-not $uKey -or -not $script:authStore.users.ContainsKey($uKey)) { return $null }
+  $uObj = $script:authStore.users[$uKey]
+  if ($uObj.ContainsKey('is_suspended') -and [bool]$uObj.is_suspended) { return $null }
+  return $uObj
 }
 
 $script:authStore = Load-AuthStore
@@ -448,6 +552,11 @@ try {
           $pwHash = New-PasswordHash $password
           $uid = [int64]$script:authStore.nextUserId
           $script:authStore.nextUserId = $uid + 1
+          $yr = 4
+          if ($body.ContainsKey('academicYear') -and $null -ne $body.academicYear) {
+            [void][int]::TryParse([string]$body.academicYear, [ref]$yr)
+            if ($yr -lt 1 -or $yr -gt 4) { $yr = 4 }
+          }
           $newUser = @{
             id = $uid
             username_key = $usernameKey
@@ -459,8 +568,10 @@ try {
             total_answers = 0
             topic_progress = @{}
             skill_progress = @{}
-            review_store = @{}
+            review_store = @{ academicYear = $yr }
             achievements = @{}
+            is_suspended = $false
+            source = 'local'
             created_at = $nowIso
             updated_at = $nowIso
             last_login_at = $nowIso
@@ -468,6 +579,7 @@ try {
           $script:authStore.users[$usernameKey] = $newUser
           $sess = New-AuthSessionForUser $usernameKey
           Save-AuthStore
+          Add-AdminAuditLog $displayName 'PLAYER_SIGNUP' $displayName "Signed up (Year $yr account)" | Out-Null
           Send-JsonResponse $context.Response 200 @{
             ok = $true
             session_token = $sess.session_token
@@ -487,6 +599,10 @@ try {
           $verified = if ($validPw) { Test-PasswordHash $password $storedHash } else { $false }
           if ($null -eq $userObj -or -not $verified) {
             Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'INVALID_CREDENTIALS'; error = 'Invalid username or password.' }
+            continue
+          }
+          if ($userObj.ContainsKey('is_suspended') -and [bool]$userObj.is_suspended) {
+            Send-JsonResponse $context.Response 403 @{ ok = $false; code = 'ACCOUNT_SUSPENDED'; error = 'This account has been locked by an administrator.' }
             continue
           }
           $userObj.last_login_at = $nowIso
@@ -537,7 +653,18 @@ try {
           }
           if ($body.ContainsKey('topicProgress') -and $null -ne $body.topicProgress) { $userObj.topic_progress = $body.topicProgress }
           if ($body.ContainsKey('skillProgress') -and $null -ne $body.skillProgress) { $userObj.skill_progress = $body.skillProgress }
-          if ($body.ContainsKey('reviewStore') -and $null -ne $body.reviewStore) { $userObj.review_store = $body.reviewStore }
+          if ($body.ContainsKey('reviewStore') -and $null -ne $body.reviewStore) {
+            # Enforce locked Academic Year on server: preserve existing server academicYear (1..4)
+            $lockedYear = 0
+            if ($userObj.review_store -is [System.Collections.IDictionary] -and $userObj.review_store.ContainsKey('academicYear')) {
+              [void][int]::TryParse([string]$userObj.review_store.academicYear, [ref]$lockedYear)
+            }
+            $nextReview = $body.reviewStore
+            if ($lockedYear -ge 1 -and $lockedYear -le 4 -and $nextReview -is [System.Collections.IDictionary]) {
+              $nextReview['academicYear'] = $lockedYear
+            }
+            $userObj.review_store = $nextReview
+          }
           if ($body.ContainsKey('achievements') -and $null -ne $body.achievements) { $userObj.achievements = $body.achievements }
           $userObj.updated_at = $nowIso
           $userObj.last_login_at = $nowIso
@@ -571,7 +698,692 @@ try {
           continue
         }
 
+        if ($relativePath -eq 'api/auth/forgot-password') {
+          $displayName = Normalize-AuthUsername ([string]$body.username)
+          $usernameKey = $displayName.ToLowerInvariant()
+          $note = if ($null -ne $body.note) { ([string]$body.note).Trim() } else { '' }
+          if ($note.Length -gt 180) { $note = $note.Substring(0, 180) }
+          if ($displayName.Length -lt 1 -or $displayName.Length -gt 24) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; code = 'INVALID_USERNAME'; error = 'Enter your username (1 to 24 characters).' }
+            continue
+          }
+          if (-not $script:authStore.users.ContainsKey($usernameKey)) {
+            Send-JsonResponse $context.Response 404 @{ ok = $false; code = 'ACCOUNT_NOT_FOUND'; error = "No account found with username `"$displayName`". Please check the spelling or sign up first." }
+            continue
+          }
+          $resolvedDisplay = [string]$script:authStore.users[$usernameKey].display_name
+          $existingReq = $null
+          foreach ($r in $script:authStore.resetRequests) {
+            if ($r -and $r.username_key -eq $usernameKey -and $r.status -eq 'pending') {
+              $existingReq = $r
+              break
+            }
+          }
+          if ($null -ne $existingReq) {
+            if (-not [string]::IsNullOrWhiteSpace($note)) { $existingReq.note = $note }
+            $existingReq.created_at = $nowIso
+            $existingReq.account_found = $true
+          } else {
+            $rid = [int64]$script:authStore.nextResetId
+            $script:authStore.nextResetId = $rid + 1
+            [void]$script:authStore.resetRequests.Add(@{
+              id = $rid
+              username_key = $usernameKey
+              display_name = $resolvedDisplay
+              note = $note
+              status = 'pending'
+              account_found = $true
+              created_at = $nowIso
+              resolved_at = $null
+              resolved_by = $null
+            })
+          }
+          Save-AuthStore
+          $reqDetail = if ($note) { "Requested password reset: $note" } else { 'Submitted Forgot Password request' }
+          Add-AdminAuditLog $resolvedDisplay 'FORGOT_PASSWORD_REQUEST' $resolvedDisplay $reqDetail | Out-Null
+          Send-JsonResponse $context.Response 200 @{
+            ok = $true
+            message = 'Password reset request sent to the administrator. Ask your admin for your temporary password once approved.'
+          }
+          continue
+        }
+
+        if ($relativePath -eq 'api/auth/change-password') {
+          $token = ([string]$body.sessionToken).Trim()
+          $userObj = Resolve-AuthSession $token
+          if ($null -eq $userObj) {
+            Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'SESSION_INVALID'; error = 'Your session has expired. Please log in again.' }
+            continue
+          }
+          $curPw = if ($null -ne $body.currentPassword) { [string]$body.currentPassword } else { '' }
+          $newPw = if ($null -ne $body.newPassword) { [string]$body.newPassword } else { '' }
+          if ($newPw.Length -lt 6 -or $newPw.Length -gt 72 -or [string]::IsNullOrWhiteSpace($newPw)) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; code = 'INVALID_PASSWORD'; error = 'New password must be between 6 and 72 characters.' }
+            continue
+          }
+          $storedHash = if ($userObj.ContainsKey('password_hash')) { [string]$userObj.password_hash } else { '' }
+          if (-not (Test-PasswordHash $curPw $storedHash)) {
+            Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'INVALID_CREDENTIALS'; error = 'Current password is incorrect.' }
+            continue
+          }
+          $userObj.password_hash = New-PasswordHash $newPw
+          $userObj.updated_at = $nowIso
+          $curTokHash = Get-Sha256Hex $token
+          $uk = [string]$userObj.username_key
+          foreach ($sKey in @($script:authStore.sessions.Keys)) {
+            if ($sKey -ne $curTokHash -and (Get-SessionUserKey $script:authStore.sessions[$sKey]) -eq $uk) {
+              $script:authStore.sessions.Remove($sKey)
+            }
+          }
+          Save-AuthStore
+          Add-AdminAuditLog ([string]$userObj.display_name) 'PLAYER_CHANGE_PASSWORD' ([string]$userObj.display_name) 'Updated own password in Settings' | Out-Null
+          Send-JsonResponse $context.Response 200 @{ ok = $true }
+          continue
+        }
+
+        if ($relativePath -eq 'api/auth/request-year-change') {
+          $token = if ($null -ne $body.sessionToken) { ([string]$body.sessionToken).Trim() } else { '' }
+          $userObj = Resolve-AuthSession $token
+          if ($null -eq $userObj -and $body.ContainsKey('username')) {
+            $uDisplay = Normalize-AuthUsername ([string]$body.username)
+            $uKey = $uDisplay.ToLowerInvariant()
+            if ($uKey -and $script:authStore.users.ContainsKey($uKey)) {
+              $userObj = $script:authStore.users[$uKey]
+            } elseif ($uKey -and $body.provider -eq 'supabase' -and $uDisplay.Length -ge 1 -and $uDisplay.Length -le 24) {
+              $curInit = 4
+              if ($body.ContainsKey('currentYear') -and $null -ne $body.currentYear) {
+                [void][int]::TryParse([string]$body.currentYear, [ref]$curInit)
+                if ($curInit -lt 1 -or $curInit -gt 4) { $curInit = 4 }
+              }
+              $uid = [int64]$script:authStore.nextUserId
+              $script:authStore.nextUserId = $uid + 1
+              $userObj = @{
+                id = $uid
+                username_key = $uKey
+                display_name = $uDisplay
+                password_hash = ''
+                best_score = 0
+                total_kills = 0
+                total_correct = 0
+                total_answers = 0
+                topic_progress = @{}
+                skill_progress = @{}
+                review_store = @{ academicYear = $curInit }
+                achievements = @{}
+                is_suspended = $false
+                source = 'supabase'
+                created_at = $nowIso
+                updated_at = $nowIso
+                last_login_at = $nowIso
+              }
+              $script:authStore.users[$uKey] = $userObj
+            }
+          }
+          if ($null -eq $userObj) {
+            Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'SESSION_INVALID'; error = 'Your session has expired. Please log in again.' }
+            continue
+          }
+          $reqYr = 0
+          [void][int]::TryParse([string]$body.requestedYear, [ref]$reqYr)
+          if ($reqYr -lt 1 -or $reqYr -gt 4) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; error = 'Choose a valid academic year between 1st and 4th Year.' }
+            continue
+          }
+          $curYr = 4
+          if ($userObj.review_store -is [System.Collections.IDictionary] -and $userObj.review_store.ContainsKey('academicYear')) {
+            [void][int]::TryParse([string]$userObj.review_store.academicYear, [ref]$curYr)
+            if ($curYr -lt 1 -or $curYr -gt 4) { $curYr = 4 }
+          }
+          if ($reqYr -eq $curYr) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; error = 'You are already set to that Year Level.' }
+            continue
+          }
+          $reason = if ($null -ne $body.reason) { ([string]$body.reason).Trim() } else { '' }
+          if ($reason.Length -gt 180) { $reason = $reason.Substring(0, 180) }
+          $uk = [string]$userObj.username_key
+          $existingYrReq = $null
+          foreach ($item in $script:authStore.yearRequests) {
+            if ($item -and $item.username_key -eq $uk -and $item.status -eq 'pending') {
+              $existingYrReq = $item
+              break
+            }
+          }
+          if ($null -ne $existingYrReq) {
+            $existingYrReq.current_year = $curYr
+            $existingYrReq.requested_year = $reqYr
+            $existingYrReq.reason = $reason
+            $existingYrReq.created_at = $nowIso
+            $savedReq = $existingYrReq
+          } else {
+            $yId = [int64]$script:authStore.nextYearReqId
+            $script:authStore.nextYearReqId = $yId + 1
+            $savedReq = @{
+              id = $yId
+              username_key = $uk
+              display_name = [string]$userObj.display_name
+              current_year = $curYr
+              requested_year = $reqYr
+              reason = $reason
+              status = 'pending'
+              created_at = $nowIso
+              resolved_at = $null
+              resolved_by = $null
+            }
+            [void]$script:authStore.yearRequests.Add($savedReq)
+          }
+          Save-AuthStore
+          $yrDetail = "Requested Year $curYr -> Year $reqYr" + $(if ($reason) { " ($reason)" } else { '' })
+          Add-AdminAuditLog ([string]$userObj.display_name) 'YEAR_CHANGE_REQUEST' ([string]$userObj.display_name) $yrDetail | Out-Null
+          Send-JsonResponse $context.Response 200 @{
+            ok = $true
+            request = $savedReq
+            message = "Year change request sent! Waiting for admin approval to switch to Year $reqYr."
+          }
+          continue
+        }
+
+        if ($relativePath -eq 'api/auth/mirror-account') {
+          $uPayload = if ($body.ContainsKey('user') -and $body.user -is [System.Collections.IDictionary]) { $body.user } else { $null }
+          if ($null -eq $uPayload) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; error = 'Missing user payload.' }
+            continue
+          }
+          $displayName = Normalize-AuthUsername ([string]$uPayload.display_name)
+          $usernameKey = Get-AuthUsernameKey ([string]$uPayload.username_key)
+          if (-not $usernameKey) { $usernameKey = $displayName.ToLowerInvariant() }
+          if (-not $usernameKey) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; error = 'Missing username.' }
+            continue
+          }
+          $yr = 4
+          if ($body.ContainsKey('academicYear') -and $null -ne $body.academicYear) {
+            [void][int]::TryParse([string]$body.academicYear, [ref]$yr)
+            if ($yr -lt 1 -or $yr -gt 4) { $yr = 4 }
+          } elseif ($uPayload.ContainsKey('review_store') -and $uPayload.review_store -is [System.Collections.IDictionary] -and $uPayload.review_store.ContainsKey('academicYear')) {
+            [void][int]::TryParse([string]$uPayload.review_store.academicYear, [ref]$yr)
+            if ($yr -lt 1 -or $yr -gt 4) { $yr = 4 }
+          }
+          $src = if ($body.ContainsKey('source') -and -not [string]::IsNullOrWhiteSpace([string]$body.source)) { [string]$body.source } else { 'supabase' }
+
+          if ($script:authStore.users.ContainsKey($usernameKey)) {
+            $existing = $script:authStore.users[$usernameKey]
+            if ($displayName) { $existing.display_name = $displayName }
+            if ($uPayload.ContainsKey('best_score')) { $existing.best_score = [Math]::Max([int]($existing.best_score), [int]($uPayload.best_score)) }
+            if ($uPayload.ContainsKey('total_kills')) { $existing.total_kills = [Math]::Max([int]($existing.total_kills), [int]($uPayload.total_kills)) }
+            if ($uPayload.ContainsKey('total_correct')) { $existing.total_correct = [Math]::Max([int]($existing.total_correct), [int]($uPayload.total_correct)) }
+            if ($uPayload.ContainsKey('total_answers')) { $existing.total_answers = [Math]::Max([int]($existing.total_answers), [int]($uPayload.total_answers)) }
+            if ($uPayload.ContainsKey('topic_progress') -and $null -ne $uPayload.topic_progress) { $existing.topic_progress = $uPayload.topic_progress }
+            if ($uPayload.ContainsKey('skill_progress') -and $null -ne $uPayload.skill_progress) { $existing.skill_progress = $uPayload.skill_progress }
+            if ($uPayload.ContainsKey('review_store') -and $null -ne $uPayload.review_store) {
+              $existing.review_store = $uPayload.review_store
+            }
+            if (-not ($existing.review_store -is [System.Collections.IDictionary])) { $existing.review_store = @{} }
+            $lockedMirrorYear = 0
+            if ($existing.review_store.ContainsKey('academicYear')) {
+              [void][int]::TryParse([string]$existing.review_store.academicYear, [ref]$lockedMirrorYear)
+            }
+            if ($lockedMirrorYear -lt 1 -or $lockedMirrorYear -gt 4) {
+              $existing.review_store['academicYear'] = $yr
+            }
+            if ($uPayload.ContainsKey('achievements') -and $null -ne $uPayload.achievements) { $existing.achievements = $uPayload.achievements }
+            $existing.last_login_at = $nowIso
+            $existing.updated_at = $nowIso
+            if (-not $existing.ContainsKey('password_hash') -or [string]::IsNullOrWhiteSpace([string]$existing.password_hash)) {
+              $existing.source = $src
+            }
+          } else {
+            $uid = [int64]$script:authStore.nextUserId
+            $script:authStore.nextUserId = $uid + 1
+            $rs = if ($uPayload.ContainsKey('review_store') -and $uPayload.review_store -is [System.Collections.IDictionary]) { $uPayload.review_store } else { @{} }
+            $rs['academicYear'] = $yr
+            $script:authStore.users[$usernameKey] = @{
+              id = $uid
+              username_key = $usernameKey
+              display_name = if ($displayName) { $displayName } else { $usernameKey }
+              password_hash = ''
+              best_score = if ($uPayload.ContainsKey('best_score')) { [int]$uPayload.best_score } else { 0 }
+              total_kills = if ($uPayload.ContainsKey('total_kills')) { [int]$uPayload.total_kills } else { 0 }
+              total_correct = if ($uPayload.ContainsKey('total_correct')) { [int]$uPayload.total_correct } else { 0 }
+              total_answers = if ($uPayload.ContainsKey('total_answers')) { [int]$uPayload.total_answers } else { 0 }
+              topic_progress = if ($uPayload.ContainsKey('topic_progress') -and $null -ne $uPayload.topic_progress) { $uPayload.topic_progress } else { @{} }
+              skill_progress = if ($uPayload.ContainsKey('skill_progress') -and $null -ne $uPayload.skill_progress) { $uPayload.skill_progress } else { @{} }
+              review_store = $rs
+              achievements = if ($uPayload.ContainsKey('achievements') -and $null -ne $uPayload.achievements) { $uPayload.achievements } else { @{} }
+              is_suspended = $false
+              source = $src
+              created_at = if ($uPayload.ContainsKey('created_at') -and $uPayload.created_at) { [string]$uPayload.created_at } else { $nowIso }
+              updated_at = $nowIso
+              last_login_at = $nowIso
+            }
+          }
+          Save-AuthStore
+          Send-JsonResponse $context.Response 200 @{ ok = $true }
+          continue
+        }
+
         Send-JsonResponse $context.Response 404 @{ ok = $false; error = 'Unknown auth endpoint.' }
+        continue
+      }
+
+      if ($relativePath.StartsWith('api/admin/') -and $context.Request.HttpMethod -eq 'POST') {
+        $reader = New-Object IO.StreamReader($context.Request.InputStream, [Text.Encoding]::UTF8)
+        $rawBody = $reader.ReadToEnd()
+        $reader.Close()
+        $body = @{}
+        if (-not [string]::IsNullOrWhiteSpace($rawBody)) {
+          try {
+            $parsed = Convert-PsObjToHashtable ($rawBody | ConvertFrom-Json)
+            if ($parsed -is [hashtable]) { $body = $parsed }
+          } catch {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; error = 'Invalid JSON request body.' }
+            continue
+          }
+        }
+        $nowIso = [DateTime]::UtcNow.ToString('o')
+
+        if ($relativePath -eq 'api/admin/login') {
+          $u = if ($null -ne $body.username) { ([string]$body.username).Trim() } else { '' }
+          $p = if ($null -ne $body.password) { [string]$body.password } else { '' }
+          if ($u.ToLowerInvariant() -ne $script:adminUsername.ToLowerInvariant() -or $p -ne $script:adminPassword) {
+            Add-AdminAuditLog $u 'ADMIN_LOGIN_FAILED' 'system' 'Invalid credentials' | Out-Null
+            Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'INVALID_ADMIN_CREDENTIALS'; error = 'Invalid administrator credentials.' }
+            continue
+          }
+          $tok = New-RandomHex 32
+          $tokHash = Get-Sha256Hex $tok
+          $exp = [DateTime]::UtcNow.AddHours(12)
+          $script:adminSessions[$tokHash] = @{
+            username = $script:adminUsername
+            role = 'superadmin'
+            createdAt = [DateTime]::UtcNow
+            expiresAt = $exp
+          }
+          Add-AdminAuditLog $script:adminUsername 'ADMIN_LOGIN' 'console' 'Authenticated via local server' | Out-Null
+          Send-JsonResponse $context.Response 200 @{
+            ok = $true
+            admin_token = $tok
+            expires_at = $exp.ToString('o')
+            admin = @{ username = $script:adminUsername; role = 'superadmin' }
+          }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/logout') {
+          $tok = ([string]$body.adminToken).Trim()
+          if ($tok.Length -ge 32) {
+            $tokHash = Get-Sha256Hex $tok
+            if ($script:adminSessions.ContainsKey($tokHash)) {
+              $actor = $script:adminSessions[$tokHash].username
+              $script:adminSessions.Remove($tokHash)
+              Add-AdminAuditLog $actor 'ADMIN_LOGOUT' 'console' 'Session terminated' | Out-Null
+            }
+          }
+          Send-JsonResponse $context.Response 200 @{ ok = $true }
+          continue
+        }
+
+        $adminSess = Resolve-AdminSession ([string]$body.adminToken)
+        if ($null -eq $adminSess) {
+          Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'ADMIN_UNAUTHORIZED'; error = 'Admin session expired or unauthorized.' }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/overview') {
+          $nowMs = Get-NowMs
+          Prune-MpState $nowMs
+          $sessionCountByUser = @{}
+          $activeSessionsTotal = 0
+          foreach ($sEntry in @($script:authStore.sessions.Values)) {
+            $expDate = [DateTime]::MinValue
+            if ($sEntry -and [DateTime]::TryParse([string]$sEntry.expires_at, [ref]$expDate) -and $expDate.ToUniversalTime() -gt [DateTime]::UtcNow) {
+              $activeSessionsTotal++
+              $uk = Get-SessionUserKey $sEntry
+              if ($uk) {
+                $sessionCountByUser[$uk] = if ($sessionCountByUser.ContainsKey($uk)) { [int]$sessionCountByUser[$uk] + 1 } else { 1 }
+              }
+            }
+          }
+          $usersList = [System.Collections.ArrayList]::new()
+          foreach ($uObj in $script:authStore.users.Values) {
+            $uk = [string]$uObj.username_key
+            $ser = Serialize-AuthUser $uObj
+            $ser.active_sessions = if ($sessionCountByUser.ContainsKey($uk)) { $sessionCountByUser[$uk] } else { 0 }
+            [void]$usersList.Add($ser)
+          }
+          $roomsList = [System.Collections.ArrayList]::new()
+          foreach ($r in $script:mpRooms.Values) { [void]$roomsList.Add($r) }
+          $playersList = [System.Collections.ArrayList]::new()
+          foreach ($p in $script:mpPlayers.Values) {
+            [void]$playersList.Add(@{
+              clientId = $p.clientId
+              username = $p.username
+              avatar = $p.avatar
+              status = $p.status
+              roomCode = $p.roomCode
+              ageMs = [Math]::Max(0, $nowMs - [int64]$p.lastSeenMs)
+            })
+          }
+          $uptimeSec = [int][Math]::Floor(([DateTime]::UtcNow - $script:serverStartedAt).TotalSeconds)
+          Send-JsonResponse $context.Response 200 @{
+            ok = $true
+            server = @{
+              provider = 'local'
+              uptimeSeconds = $uptimeSec
+              startedAt = $script:serverStartedAt.ToString('o')
+              authStoreFile = $script:authStoreFile
+              activeSessions = $activeSessionsTotal
+              adminSessions = $script:adminSessions.Count
+            }
+            users = $usersList
+            resetRequests = @($script:authStore.resetRequests)
+            yearRequests = @($script:authStore.yearRequests)
+            pvpLeaderboard = @($script:mpPvpLeaderboard.Values)
+            mpPlayers = $playersList
+            mpRooms = $roomsList
+            auditLogs = @($script:authStore.auditLogs)
+          }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/log-activity') {
+          $actName = if ($null -ne $body.action) { ([string]$body.action).Trim() } else { '' }
+          $tgt = if ($null -ne $body.target) { ([string]$body.target).Trim() } else { 'system' }
+          $det = if ($null -ne $body.detail) { ([string]$body.detail).Trim() } else { '' }
+          if (-not $actName) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; error = 'Missing activity action.' }
+            continue
+          }
+          $entry = Add-AdminAuditLog $adminSess.username $actName $tgt $det
+          Send-JsonResponse $context.Response 200 @{ ok = $true; entry = $entry }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/create-user') {
+          $displayName = Normalize-AuthUsername ([string]$body.username)
+          $usernameKey = $displayName.ToLowerInvariant()
+          $password = if ($null -ne $body.password) { [string]$body.password } else { '' }
+          $yr = 4
+          if ($body.ContainsKey('academicYear') -and $null -ne $body.academicYear) {
+            [void][int]::TryParse([string]$body.academicYear, [ref]$yr)
+            if ($yr -lt 1 -or $yr -gt 4) { $yr = 4 }
+          }
+          if ($displayName.Length -lt 1 -or $displayName.Length -gt 24) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; error = 'Username must be between 1 and 24 characters.' }
+            continue
+          }
+          if ($password.Length -lt 6 -or $password.Length -gt 72 -or [string]::IsNullOrWhiteSpace($password)) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; error = 'Password must be between 6 and 72 characters.' }
+            continue
+          }
+          if ($script:authStore.users.ContainsKey($usernameKey)) {
+            Send-JsonResponse $context.Response 409 @{ ok = $false; error = 'That username already exists.' }
+            continue
+          }
+          $uid = [int64]$script:authStore.nextUserId
+          $script:authStore.nextUserId = $uid + 1
+          $newUser = @{
+            id = $uid
+            username_key = $usernameKey
+            display_name = $displayName
+            password_hash = (New-PasswordHash $password)
+            best_score = 0
+            total_kills = 0
+            total_correct = 0
+            total_answers = 0
+            topic_progress = @{}
+            skill_progress = @{}
+            review_store = @{ academicYear = $yr }
+            achievements = @{}
+            is_suspended = $false
+            source = 'local'
+            created_at = $nowIso
+            updated_at = $nowIso
+            last_login_at = $nowIso
+          }
+          $script:authStore.users[$usernameKey] = $newUser
+          Save-AuthStore
+          Add-AdminAuditLog $adminSess.username 'CREATE_ACCOUNT' $displayName "Created new Year $yr player account" | Out-Null
+          Send-JsonResponse $context.Response 200 @{ ok = $true; user = (Serialize-AuthUser $newUser) }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/reset-password') {
+          $uk = Get-AuthUsernameKey ([string]$body.usernameKey)
+          if (-not $uk -or -not $script:authStore.users.ContainsKey($uk)) {
+            Send-JsonResponse $context.Response 404 @{ ok = $false; error = 'User account not found.' }
+            continue
+          }
+          $newPass = if (-not [string]::IsNullOrWhiteSpace([string]$body.newPassword)) { [string]$body.newPassword } else { 'BB-' + (New-RandomHex 4).ToUpperInvariant() }
+          if ($newPass.Length -lt 6 -or $newPass.Length -gt 72) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; error = 'New password must be 6-72 characters.' }
+            continue
+          }
+          $uObj = $script:authStore.users[$uk]
+          $uObj.password_hash = New-PasswordHash $newPass
+          $uObj.updated_at = $nowIso
+          $revoked = 0
+          foreach ($sKey in @($script:authStore.sessions.Keys)) {
+            if ((Get-SessionUserKey $script:authStore.sessions[$sKey]) -eq $uk) {
+              $script:authStore.sessions.Remove($sKey)
+              $revoked++
+            }
+          }
+          foreach ($r in $script:authStore.resetRequests) {
+            if ($r -and $r.username_key -eq $uk -and $r.status -eq 'pending') {
+              $r.status = 'resolved'
+              $r.resolved_at = $nowIso
+              $r.resolved_by = $adminSess.username
+            }
+          }
+          Save-AuthStore
+          Add-AdminAuditLog $adminSess.username 'CHANGE_PASSWORD' $uObj.display_name "Set new password & signed out $revoked active login(s)" | Out-Null
+          Send-JsonResponse $context.Response 200 @{ ok = $true; temporaryPassword = $newPass; revokedSessions = $revoked }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/dismiss-reset-request') {
+          $reqId = 0L
+          [void][int64]::TryParse([string]$body.requestId, [ref]$reqId)
+          foreach ($r in $script:authStore.resetRequests) {
+            if ($r -and [int64]$r.id -eq $reqId -and $r.status -eq 'pending') {
+              $r.status = 'dismissed'
+              $r.resolved_at = $nowIso
+              $r.resolved_by = $adminSess.username
+              break
+            }
+          }
+          Save-AuthStore
+          Add-AdminAuditLog $adminSess.username 'DISMISS_RESET_REQ' "Request #$reqId" 'Dismissed forgot-password request' | Out-Null
+          Send-JsonResponse $context.Response 200 @{ ok = $true }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/set-user-year') {
+          $uk = Get-AuthUsernameKey ([string]$body.usernameKey)
+          if (-not $uk -or -not $script:authStore.users.ContainsKey($uk)) {
+            Send-JsonResponse $context.Response 404 @{ ok = $false; error = 'User account not found.' }
+            continue
+          }
+          $yr = 4
+          [void][int]::TryParse([string]$body.academicYear, [ref]$yr)
+          if ($yr -lt 1 -or $yr -gt 4) { $yr = 4 }
+          $uObj = $script:authStore.users[$uk]
+          if (-not ($uObj.review_store -is [System.Collections.IDictionary])) { $uObj.review_store = @{} }
+          $uObj.review_store['academicYear'] = $yr
+          $uObj.updated_at = $nowIso
+          foreach ($yReq in $script:authStore.yearRequests) {
+            if ($yReq -and $yReq.username_key -eq $uk -and $yReq.status -eq 'pending') {
+              $yReq.status = 'approved'
+              $yReq.resolved_at = $nowIso
+              $yReq.resolved_by = $adminSess.username
+            }
+          }
+          Save-AuthStore
+          Add-AdminAuditLog $adminSess.username 'CHANGE_YEAR_LEVEL' $uObj.display_name "Changed academic year level to Year $yr" | Out-Null
+          Send-JsonResponse $context.Response 200 @{ ok = $true; academicYear = $yr }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/approve-year-request') {
+          $reqId = 0L
+          [void][int64]::TryParse([string]$body.requestId, [ref]$reqId)
+          $targetReq = $null
+          foreach ($yReq in $script:authStore.yearRequests) {
+            if ($yReq -and [int64]$yReq.id -eq $reqId) { $targetReq = $yReq; break }
+          }
+          if ($null -eq $targetReq) {
+            Send-JsonResponse $context.Response 404 @{ ok = $false; error = 'Year change request not found.' }
+            continue
+          }
+          $uk = [string]$targetReq.username_key
+          if (-not $uk -or -not $script:authStore.users.ContainsKey($uk)) {
+            Send-JsonResponse $context.Response 404 @{ ok = $false; error = 'Player account no longer exists.' }
+            continue
+          }
+          $newYr = [int]$targetReq.requested_year
+          $uObj = $script:authStore.users[$uk]
+          if (-not ($uObj.review_store -is [System.Collections.IDictionary])) { $uObj.review_store = @{} }
+          $uObj.review_store['academicYear'] = $newYr
+          $uObj.updated_at = $nowIso
+          $targetReq.status = 'approved'
+          $targetReq.resolved_at = $nowIso
+          $targetReq.resolved_by = $adminSess.username
+          Save-AuthStore
+          Add-AdminAuditLog $adminSess.username 'APPROVE_YEAR_REQ' $uObj.display_name "Approved Year $($targetReq.current_year) -> Year $newYr" | Out-Null
+          Send-JsonResponse $context.Response 200 @{ ok = $true; academicYear = $newYr }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/dismiss-year-request') {
+          $reqId = 0L
+          [void][int64]::TryParse([string]$body.requestId, [ref]$reqId)
+          foreach ($yReq in $script:authStore.yearRequests) {
+            if ($yReq -and [int64]$yReq.id -eq $reqId -and $yReq.status -eq 'pending') {
+              $yReq.status = 'dismissed'
+              $yReq.resolved_at = $nowIso
+              $yReq.resolved_by = $adminSess.username
+              break
+            }
+          }
+          Save-AuthStore
+          Add-AdminAuditLog $adminSess.username 'DISMISS_YEAR_REQ' "Request #$reqId" 'Dismissed year change request' | Out-Null
+          Send-JsonResponse $context.Response 200 @{ ok = $true }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/toggle-suspend') {
+          $uk = Get-AuthUsernameKey ([string]$body.usernameKey)
+          if (-not $uk -or -not $script:authStore.users.ContainsKey($uk)) {
+            Send-JsonResponse $context.Response 404 @{ ok = $false; error = 'User account not found.' }
+            continue
+          }
+          $suspended = [bool]$body.suspended
+          $uObj = $script:authStore.users[$uk]
+          $uObj.is_suspended = $suspended
+          $uObj.updated_at = $nowIso
+          $revoked = 0
+          if ($suspended) {
+            foreach ($sKey in @($script:authStore.sessions.Keys)) {
+              if ((Get-SessionUserKey $script:authStore.sessions[$sKey]) -eq $uk) {
+                $script:authStore.sessions.Remove($sKey)
+                $revoked++
+              }
+            }
+          }
+          Save-AuthStore
+          $actName = if ($suspended) { 'LOCK_ACCOUNT' } else { 'UNLOCK_ACCOUNT' }
+          $actDetail = if ($suspended) { "Locked account & ended $revoked active login(s)" } else { 'Unlocked account access' }
+          Add-AdminAuditLog $adminSess.username $actName $uObj.display_name $actDetail | Out-Null
+          Send-JsonResponse $context.Response 200 @{ ok = $true; is_suspended = $suspended }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/revoke-sessions') {
+          $uk = Get-AuthUsernameKey ([string]$body.usernameKey)
+          $allFlag = [bool]$body.all
+          $revoked = 0
+          foreach ($sKey in @($script:authStore.sessions.Keys)) {
+            if ($allFlag -or ($uk -and (Get-SessionUserKey $script:authStore.sessions[$sKey]) -eq $uk)) {
+              $script:authStore.sessions.Remove($sKey)
+              $revoked++
+            }
+          }
+          Save-AuthStore
+          $tgt = if ($allFlag) { 'All Players' } else { $uk }
+          Add-AdminAuditLog $adminSess.username 'FORCE_LOGOUT' $tgt "Signed out $revoked active login(s)" | Out-Null
+          Send-JsonResponse $context.Response 200 @{ ok = $true; revokedSessions = $revoked }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/reset-progress') {
+          $uk = Get-AuthUsernameKey ([string]$body.usernameKey)
+          if (-not $uk -or -not $script:authStore.users.ContainsKey($uk)) {
+            Send-JsonResponse $context.Response 404 @{ ok = $false; error = 'User account not found.' }
+            continue
+          }
+          $uObj = $script:authStore.users[$uk]
+          $yrKeep = 4
+          if ($uObj.review_store -is [System.Collections.IDictionary] -and $uObj.review_store.ContainsKey('academicYear')) {
+            [void][int]::TryParse([string]$uObj.review_store.academicYear, [ref]$yrKeep)
+            if ($yrKeep -lt 1 -or $yrKeep -gt 4) { $yrKeep = 4 }
+          }
+          $uObj.best_score = 0
+          $uObj.total_kills = 0
+          $uObj.total_correct = 0
+          $uObj.total_answers = 0
+          $uObj.topic_progress = @{}
+          $uObj.skill_progress = @{}
+          $uObj.review_store = @{ academicYear = $yrKeep }
+          $uObj.achievements = @{}
+          $uObj.updated_at = $nowIso
+          if ($script:mpPvpLeaderboard.ContainsKey($uk)) { $script:mpPvpLeaderboard.Remove($uk) }
+          Save-AuthStore
+          Add-AdminAuditLog $adminSess.username 'RESET_PROGRESS' $uObj.display_name 'Cleared game stats, tracker, and scores' | Out-Null
+          Send-JsonResponse $context.Response 200 @{ ok = $true }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/delete-user') {
+          $uk = Get-AuthUsernameKey ([string]$body.usernameKey)
+          if (-not $uk -or -not $script:authStore.users.ContainsKey($uk)) {
+            Send-JsonResponse $context.Response 404 @{ ok = $false; error = 'User account not found.' }
+            continue
+          }
+          $display = [string]$script:authStore.users[$uk].display_name
+          $script:authStore.users.Remove($uk)
+          foreach ($sKey in @($script:authStore.sessions.Keys)) {
+            if ((Get-SessionUserKey $script:authStore.sessions[$sKey]) -eq $uk) { $script:authStore.sessions.Remove($sKey) }
+          }
+          if ($script:mpPvpLeaderboard.ContainsKey($uk)) { $script:mpPvpLeaderboard.Remove($uk) }
+          Save-AuthStore
+          Add-AdminAuditLog $adminSess.username 'DELETE_ACCOUNT' $display 'Permanently deleted account and records' | Out-Null
+          Send-JsonResponse $context.Response 200 @{ ok = $true }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/close-room') {
+          $rCode = ([string]$body.roomCode).Trim().ToUpperInvariant()
+          if (-not $rCode -or -not $script:mpRooms.ContainsKey($rCode)) {
+            Send-JsonResponse $context.Response 404 @{ ok = $false; error = 'Multiplayer room not found.' }
+            continue
+          }
+          Close-MpRoom $rCode 'Room closed by system administrator.' (Get-NowMs)
+          Add-AdminAuditLog $adminSess.username 'FORCE_CLOSE_ROOM' $rCode 'Terminated active multiplayer lobby' | Out-Null
+          Send-JsonResponse $context.Response 200 @{ ok = $true }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/delete-pvp-entry') {
+          $pKey = ([string]$body.playerName).Trim().ToLowerInvariant()
+          if ($pKey -and $script:mpPvpLeaderboard.ContainsKey($pKey)) {
+            $script:mpPvpLeaderboard.Remove($pKey)
+            Add-AdminAuditLog $adminSess.username 'PURGE_PVP_ENTRY' $pKey 'Removed 1v1 leaderboard entry' | Out-Null
+          }
+          Send-JsonResponse $context.Response 200 @{ ok = $true }
+          continue
+        }
+
+        Send-JsonResponse $context.Response 404 @{ ok = $false; error = 'Unknown admin endpoint.' }
         continue
       }
 
@@ -604,6 +1416,7 @@ try {
               arenaId = $r.arenaId
               arenaName = $r.arenaName
               category = $r.category
+              yearLevel = if ($r.ContainsKey('yearLevel') -and $r.yearLevel) { [int]$r.yearLevel } else { 4 }
               status = $r.status
               playerCount = 1
               maxPlayers = 2
@@ -763,6 +1576,7 @@ try {
             arenaId = [string]$payload.arenaId
             arenaName = [string]$payload.arenaName
             category = [string]$payload.category
+            yearLevel = if ($payload.ContainsKey('yearLevel') -and $payload.yearLevel) { [int]$payload.yearLevel } else { 4 }
             maxPlayers = 2
             host = @{
               clientId = $cid
@@ -897,6 +1711,7 @@ try {
             if ($payload.arenaId) { $room.arenaId = [string]$payload.arenaId }
             if ($payload.arenaName) { $room.arenaName = [string]$payload.arenaName }
             if ($payload.category) { $room.category = [string]$payload.category }
+            if ($payload.ContainsKey('yearLevel') -and $payload.yearLevel) { $room.yearLevel = [int]$payload.yearLevel }
             $room.host.ready = $false
             if ($null -ne $room.guest) { $room.guest.ready = $false }
             $room.updatedAtMs = $nowMs

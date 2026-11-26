@@ -6,6 +6,156 @@ const REVIEW_DELAY = 3;      // answers to wait before a missed question can com
 const REVIEW_LIMIT = 25;     // most questions kept in the review queue
 const BASELINE_ATTEMPTS = 3; // first N attempts per topic form the diagnostic baseline
 const REVIEW_STORAGE_KEY = 'kings-pigs-review-v1';
+const ACADEMIC_YEAR_STORAGE_KEY = 'bytebound-academic-year-v1';
+const ACADEMIC_YEARS = [1, 2, 3, 4];
+const ACADEMIC_YEAR_META = {
+  1: {
+    year: 1,
+    label: '1st Year',
+    shortLabel: '1st Yr',
+    rangeLabel: '1st Year only',
+    summary: 'Foundations: Computing basics, number systems, intro programming, OOP, and digital literacy.',
+  },
+  2: {
+    year: 2,
+    label: '2nd Year',
+    shortLabel: '2nd Yr',
+    rangeLabel: 'Years 1–2',
+    summary: 'Adds Data Structures, Algorithms basics, Architecture, Memory, Networking 1, Databases & SQL.',
+  },
+  3: {
+    year: 3,
+    label: '3rd Year',
+    shortLabel: '3rd Yr',
+    rangeLabel: 'Years 1–3',
+    summary: 'Adds Operating Systems, Network Protocols, Security, Cryptography, Transactions, Indexing & Concurrency.',
+  },
+  4: {
+    year: 4,
+    label: '4th Year',
+    shortLabel: '4th Yr',
+    rangeLabel: 'All Years (1–4)',
+    summary: 'Full curriculum including enterprise security, distributed databases, multicore coherence & advanced topics.',
+  },
+};
+
+let activeAcademicYear = 4;
+let activeAcademicYearStorageKey = ACADEMIC_YEAR_STORAGE_KEY;
+
+function normalizeAcademicYear(value, fallback = 4) {
+  const num = Number(value);
+  if (Number.isInteger(num) && num >= 1 && num <= 4) return num;
+  return fallback;
+}
+
+function getQuestionYear(question) {
+  if (!question || typeof question !== 'object') return null;
+  return Number.isInteger(question.year) && question.year >= 1 && question.year <= 4 ? question.year : null;
+}
+
+function getActiveAcademicYear() {
+  return normalizeAcademicYear(activeAcademicYear, 4);
+}
+
+function getAcademicYearMeta(year = getActiveAcademicYear()) {
+  return ACADEMIC_YEAR_META[normalizeAcademicYear(year, 4)] || ACADEMIC_YEAR_META[4];
+}
+
+function getAcademicYearLabel(year = getActiveAcademicYear()) {
+  return getAcademicYearMeta(year).label;
+}
+
+function getAcademicYearRangeLabel(year = getActiveAcademicYear()) {
+  return getAcademicYearMeta(year).rangeLabel;
+}
+
+// Strict eligibility check: unclassified questions (missing/invalid year) are ALWAYS excluded.
+function isQuestionEligibleForYear(question, maxYear = getActiveAcademicYear()) {
+  const qYear = getQuestionYear(question);
+  if (qYear === null) return false;
+  return qYear <= normalizeAcademicYear(maxYear, 4);
+}
+
+function getEligibleQuestionsForDifficulty(difficulty, maxYear = getActiveAcademicYear()) {
+  const list = (typeof QUESTION_BANK !== 'undefined' && Array.isArray(QUESTION_BANK[difficulty]))
+    ? QUESTION_BANK[difficulty]
+    : [];
+  const cap = normalizeAcademicYear(maxYear, 4);
+  return list.filter((q) => isQuestionEligibleForYear(q, cap));
+}
+
+function getAllEligibleQuestions(maxYear = getActiveAcademicYear()) {
+  const cap = normalizeAcademicYear(maxYear, 4);
+  return DIFFICULTIES.flatMap((diff) => getEligibleQuestionsForDifficulty(diff, cap));
+}
+
+function getTopicMinYear(category, topic) {
+  let minY = null;
+  for (const diff of DIFFICULTIES) {
+    const list = (typeof QUESTION_BANK !== 'undefined' && Array.isArray(QUESTION_BANK[diff])) ? QUESTION_BANK[diff] : [];
+    for (const q of list) {
+      if (q.category !== category || q.topic !== topic) continue;
+      const y = getQuestionYear(q);
+      if (y !== null && (minY === null || y < minY)) minY = y;
+    }
+  }
+  return minY;
+}
+
+function getEligibleTopicCount(category, topic, maxYear = getActiveAcademicYear()) {
+  const cap = normalizeAcademicYear(maxYear, 4);
+  let count = 0;
+  for (const diff of DIFFICULTIES) {
+    const list = (typeof QUESTION_BANK !== 'undefined' && Array.isArray(QUESTION_BANK[diff])) ? QUESTION_BANK[diff] : [];
+    for (const q of list) {
+      if (q.category === category && q.topic === topic && isQuestionEligibleForYear(q, cap)) count++;
+    }
+  }
+  return count;
+}
+
+function readSavedAcademicYear(profileId) {
+  const key = profileId ? `${ACADEMIC_YEAR_STORAGE_KEY}:${encodeURIComponent(String(profileId).trim().toLowerCase())}` : ACADEMIC_YEAR_STORAGE_KEY;
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null || raw === '') return null;
+    const parsed = Number(raw);
+    return Number.isInteger(parsed) && parsed >= 1 && parsed <= 4 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function selectAcademicYearProfile(profileId) {
+  const norm = String(profileId || '').trim().toLowerCase();
+  activeAcademicYearStorageKey = norm ? `${ACADEMIC_YEAR_STORAGE_KEY}:${encodeURIComponent(norm)}` : ACADEMIC_YEAR_STORAGE_KEY;
+  const saved = readSavedAcademicYear(norm);
+  activeAcademicYear = saved !== null ? saved : 4;
+  return activeAcademicYear;
+}
+
+function setActiveAcademicYear(year, { profileId = null, persist = true, syncCloud = true } = {}) {
+  const nextYear = normalizeAcademicYear(year, 4);
+  activeAcademicYear = nextYear;
+  const targetKey = profileId
+    ? `${ACADEMIC_YEAR_STORAGE_KEY}:${encodeURIComponent(String(profileId).trim().toLowerCase())}`
+    : activeAcademicYearStorageKey;
+  if (persist) {
+    try {
+      localStorage.setItem(targetKey, String(nextYear));
+    } catch (error) {
+      console.error('Unable to save academic year preference.', error);
+    }
+    if (syncCloud && typeof scheduleUserProfileSync === 'function') {
+      scheduleUserProfileSync();
+    }
+  }
+  if (typeof window !== 'undefined' && window.mpUI && !window.mpUI.snapshot?.currentRoom) {
+    window.mpUI.selectedYearLevel = nextYear;
+  }
+  return nextYear;
+}
+
 let practiceRunActive = false;
 
 const QUESTION_DIFFICULTY = new Map();
@@ -44,7 +194,7 @@ function getTopicCapabilityMeta(stats) {
   }
   if (state === 'weak') return { state, label: 'NEEDS FOCUS', tone: 'weak' };
   if (state === 'diagnostic') return { state, label: 'CALIBRATING', tone: 'diagnostic' };
-  return { state, label: 'UNEXPLORED', tone: 'unexplored' };
+  return { state, label: 'NOT STARTED', tone: 'unexplored' };
 }
 
 function getCapabilityRank(accuracyRatio, attempted, masteredCount = 0, totalTopics = 5) {
@@ -153,9 +303,29 @@ function recordReview(question, correct) {
   saveReviewStore();
 }
 
-function dueReviewQuestion() {
-  const entry = reviewQueue.find((item) => item.due <= answerCount);
-  return entry ? questionByText(entry.text) : null;
+function dueReviewQuestion(maxYear = getActiveAcademicYear()) {
+  const cap = normalizeAcademicYear(maxYear, 4);
+  for (const item of reviewQueue) {
+    if (item.due > answerCount) continue;
+    const match = questionByText(item.text);
+    if (match && isQuestionEligibleForYear(match, cap)) return match;
+  }
+  return null;
+}
+
+function getEligibleReviewQuestions(maxYear = getActiveAcademicYear()) {
+  const cap = normalizeAcademicYear(maxYear, 4);
+  const seen = new Set();
+  const out = [];
+  for (const item of reviewQueue) {
+    if (!item || typeof item.text !== 'string' || seen.has(item.text)) continue;
+    const match = questionByText(item.text);
+    if (match && isQuestionEligibleForYear(match, cap)) {
+      seen.add(item.text);
+      out.push(match);
+    }
+  }
+  return out;
 }
 
 class AdaptiveDifficulty {
@@ -222,14 +392,16 @@ class AdaptiveDifficulty {
     }
   }
 
-  // Finds the weakest topic (or unexplored/diagnostic topic) for Boss Weakness Exams or Tracker insights.
-  getWeakestTarget(preferredCategory = null) {
+  // Finds the weakest eligible topic (or unexplored/diagnostic topic) for Boss Weakness Exams or Tracker insights.
+  getWeakestTarget(preferredCategory = null, maxYear = getActiveAcademicYear()) {
+    const cap = normalizeAcademicYear(maxYear, 4);
     const candidates = [];
     const categories = preferredCategory && DISCIPLINE_CATEGORIES.includes(preferredCategory)
       ? [preferredCategory]
       : DISCIPLINE_CATEGORIES;
     for (const category of categories) {
       for (const topic of CATEGORY_TOPICS[category] || []) {
+        if (getEligibleTopicCount(category, topic, cap) <= 0) continue;
         const stats = getTopicStats(category, topic);
         const state = getTopicMasteryState(stats);
         const ratio = stats.attempted ? stats.correct / stats.attempted : 0;
@@ -252,9 +424,10 @@ class AdaptiveDifficulty {
     return candidates.sort((a, b) => b.weight - a.weight)[0] || null;
   }
 
-  nextQuestion() {
+  nextQuestion(maxYear = getActiveAcademicYear()) {
+    const cap = normalizeAcademicYear(maxYear, 4);
     const isBossEncounter = typeof battle !== 'undefined' && Boolean(battle?.enemy?.isBoss);
-    const due = dueReviewQuestion();
+    const due = dueReviewQuestion(cap);
     const reviewChance = isBossEncounter ? BOSS_REVIEW_CHANCE : REVIEW_CHANCE;
     if (due && (!this.focusCategory || due.category === this.focusCategory) && Math.random() < reviewChance) {
       this.fromReview = true;
@@ -270,23 +443,33 @@ class AdaptiveDifficulty {
     }
     this.fromReview = false;
 
-    // 1. Choose target topic fairly at the topic level (or boss weakness target).
+    // 1. Choose target topic strictly from topics that have eligible questions for the player's year.
     let chosenTopicEntry = null;
     if (isBossEncounter) {
-      chosenTopicEntry = this.getWeakestTarget(this.focusCategory);
+      chosenTopicEntry = this.getWeakestTarget(this.focusCategory, cap);
+      if (!chosenTopicEntry && this.focusCategory) {
+        chosenTopicEntry = this.getWeakestTarget(null, cap);
+      }
     }
     if (!chosenTopicEntry) {
-      const topicEntries = [];
-      const categories = this.focusCategory ? [this.focusCategory] : DISCIPLINE_CATEGORIES;
-      for (const category of categories) {
-        for (const topic of CATEGORY_TOPICS[category] || []) {
-          topicEntries.push({
-            category,
-            topic,
-            state: getTopicMasteryState(getTopicStats(category, topic)),
-            weight: getTopicNeedWeight(category, topic),
-          });
+      const collectTopics = (cats) => {
+        const entries = [];
+        for (const category of cats) {
+          for (const topic of CATEGORY_TOPICS[category] || []) {
+            if (getEligibleTopicCount(category, topic, cap) <= 0) continue;
+            entries.push({
+              category,
+              topic,
+              state: getTopicMasteryState(getTopicStats(category, topic)),
+              weight: getTopicNeedWeight(category, topic),
+            });
+          }
         }
+        return entries;
+      };
+      let topicEntries = collectTopics(this.focusCategory ? [this.focusCategory] : DISCIPLINE_CATEGORIES);
+      if (!topicEntries.length && this.focusCategory) {
+        topicEntries = collectTopics(DISCIPLINE_CATEGORIES);
       }
       chosenTopicEntry = pickWeighted(topicEntries, (entry) => entry.weight);
     }
@@ -298,34 +481,61 @@ class AdaptiveDifficulty {
     // 2. Determine difficulty for the chosen discipline/topic.
     let targetLevel = this.categoryLevel(targetCategory);
     if (isBossEncounter) {
-      targetLevel = Math.max(1, targetLevel); // Bosses test at least Medium difficulty
+      targetLevel = Math.max(1, targetLevel); // Bosses test at least Medium difficulty when eligible
     } else if (topicState === 'weak' && targetLevel === 2) {
       targetLevel = 1; // Step down from Hard to Medium when remediating a weak topic
     } else if (topicState === 'mastered' && targetLevel === 0) {
       targetLevel = 1; // Nudge mastered topics up from Easy to Medium
     }
     this.level = targetLevel;
-    const key = DIFFICULTIES[targetLevel] || 'easy';
+    let key = DIFFICULTIES[targetLevel] || 'easy';
 
-    // 3. Draw an unused question matching the chosen topic & difficulty.
-    let pool = QUESTION_BANK[key].filter(
-      (q) => q.category === targetCategory && (!targetTopic || q.topic === targetTopic) && !this.used[key].includes(q),
-    );
-    if (pool.length === 0) {
-      // Clear used questions for this specific topic so all 4 questions in the topic cycle cleanly
-      this.used[key] = this.used[key].filter(
-        (q) => !(q.category === targetCategory && (!targetTopic || q.topic === targetTopic)),
+    // 3. Filter eligible pool by academic year BEFORE random/adaptive draw (never leak later-year or unclassified questions).
+    const drawEligibleFor = (diffKey, cat, top) => {
+      const eligible = getEligibleQuestionsForDifficulty(diffKey, cap).filter(
+        (q) => (!cat || q.category === cat) && (!top || q.topic === top),
       );
-      pool = QUESTION_BANK[key].filter(
-        (q) => q.category === targetCategory && (!targetTopic || q.topic === targetTopic),
-      );
-    }
-    if (pool.length === 0) {
-      pool = QUESTION_BANK[key].filter((q) => !this.used[key].includes(q));
-      if (pool.length === 0) {
-        this.used[key] = [];
-        pool = QUESTION_BANK[key];
+      if (!eligible.length) return [];
+      let unused = eligible.filter((q) => !this.used[diffKey].includes(q));
+      if (!unused.length) {
+        const eligibleSet = new Set(eligible);
+        this.used[diffKey] = this.used[diffKey].filter((q) => !eligibleSet.has(q));
+        unused = eligible;
       }
+      return unused;
+    };
+
+    let pool = drawEligibleFor(key, targetCategory, targetTopic);
+    if (!pool.length && targetTopic) {
+      // If the chosen difficulty has no eligible questions for this topic at this year, stay in the same topic across other difficulties.
+      const altOrder = DIFFICULTIES.filter((d) => d !== key);
+      for (const altKey of altOrder) {
+        const altPool = drawEligibleFor(altKey, targetCategory, targetTopic);
+        if (altPool.length) {
+          key = altKey;
+          pool = altPool;
+          break;
+        }
+      }
+    }
+    if (!pool.length) {
+      pool = drawEligibleFor(key, targetCategory, null);
+    }
+    if (!pool.length) {
+      pool = drawEligibleFor(key, null, null);
+    }
+    if (!pool.length) {
+      for (const altKey of DIFFICULTIES) {
+        const altPool = drawEligibleFor(altKey, null, null);
+        if (altPool.length) {
+          key = altKey;
+          pool = altPool;
+          break;
+        }
+      }
+    }
+    if (!pool.length) {
+      return null;
     }
 
     const q = pool[Math.floor(Math.random() * pool.length)] || pickWeighted(pool);
@@ -403,7 +613,7 @@ const SKILL_TREES = {
     skills: [
       { id: 'foundation', name: 'Hardware Tuning', description: 'Tune your knight’s gear for stronger physical attacks.', effect: '+1 ATK per rank', bonus: { attack: 1 } },
       { id: 'operatingSystem', name: 'OS Stability', description: 'Harden system defenses to reduce incoming damage.', effect: '+1 DEF per rank', bonus: { defense: 1 }, requires: ['foundation'] },
-      { id: 'kernelAegis', name: 'Kernel Aegis', description: 'Costs 10 MP; blocks standard hits, fully heals you, grants 40 MP and an ATK/DEF surge, but wrong answers drain HP/MP and bosses pierce the shield.', effect: 'Active Card: Shield Normal Hits + Full Heal + 35/70/105 DMG (4t CD)', bonus: {}, isExclusiveActive: true, activeCardId: 'kernel_aegis', maxRank: 3, requires: ['operatingSystem'] },
+      { id: 'kernelAegis', name: 'Kernel Aegis', description: 'Costs 10 MP & charges via 3–5 consecutive correct answers (up to 1.5x); blocks standard hits, fully heals you, grants 40–60 MP and an ATK/DEF surge, while wrong answers drain/pierce.', effect: 'Active Skill: Shield Normal Hits + Full Heal + Surge (3–5 Streak Charge)', bonus: {}, isExclusiveActive: true, activeCardId: 'kernel_aegis', maxRank: 3, requires: ['operatingSystem'] },
       { id: 'recovery', name: 'Recovery Protocol', description: 'Restore more health whenever you answer correctly.', effect: '+2 HP per correct answer per rank', bonus: { bonusHeal: 2 }, requires: ['kernelAegis'] },
       { id: 'virtualization', name: 'Virtualization', description: 'Run isolated virtual systems to expand your health reserve.', effect: '+5 max HP per rank', bonus: { maxHp: 5 }, requires: ['kernelAegis'] },
       { id: 'thermalControl', name: 'Thermal Control', description: 'Keep hardware stable under pressure and reinforce your armor.', effect: '+2 DEF per rank', bonus: { defense: 2 }, requires: ['recovery'] },
@@ -417,7 +627,7 @@ const SKILL_TREES = {
     skills: [
       { id: 'foundation', name: 'Firewall', description: 'Filter incoming threats and strengthen your guard.', effect: '+1 DEF per rank', bonus: { defense: 1 } },
       { id: 'threatAnalysis', name: 'Threat Analysis', description: 'Identify weak points and turn threat intelligence into damage.', effect: '+1 ATK per rank', bonus: { attack: 1 }, requires: ['foundation'] },
-      { id: 'packetLockdown', name: 'Packet Lockdown', description: 'Costs 10 MP; stuns foes for 8–12 turns, deals 40–120 breach damage, makes them take 50% more hit damage, and grants 20 MP.', effect: 'Active Card: 8–12t Stun + 40/80/120 DMG + 1.5x Vulnerable (3t CD)', bonus: {}, isExclusiveActive: true, activeCardId: 'packet_lockdown', maxRank: 3, requires: ['threatAnalysis'] },
+      { id: 'packetLockdown', name: 'Packet Lockdown', description: 'Costs 10 MP & charges via 3–5 consecutive correct answers (up to 1.5x); stuns foes for 8–12+ turns, deals breach damage, makes them take 50% more hit damage, and restores MP.', effect: 'Active Skill: Stun + Breach DMG + 1.5x Vulnerable (3–5 Streak Charge)', bonus: {}, isExclusiveActive: true, activeCardId: 'packet_lockdown', maxRank: 3, requires: ['threatAnalysis'] },
       { id: 'secureChannel', name: 'Secure Channel', description: 'Recover mana through safe, reliable communication.', effect: '+2 MP per correct answer per rank', bonus: { bonusMana: 2 }, requires: ['packetLockdown'] },
       { id: 'intrusionDetection', name: 'Intrusion Detection', description: 'Detect hostile activity early and prepare a stronger response.', effect: '+1 ATK and +1 DEF per rank', bonus: { attack: 1, defense: 1 }, requires: ['packetLockdown'] },
       { id: 'packetRouting', name: 'Packet Routing', description: 'Route resources efficiently to increase your mana capacity.', effect: '+5 max MP per rank', bonus: { maxMana: 5 }, requires: ['secureChannel'] },
@@ -431,7 +641,7 @@ const SKILL_TREES = {
     skills: [
       { id: 'foundation', name: 'Algorithm Efficiency', description: 'Improve attack routines with more efficient algorithms.', effect: '+1 ATK per rank', bonus: { attack: 1 } },
       { id: 'errorHandling', name: 'Error Handling', description: 'Catch mistakes early and reduce the impact of enemy attacks.', effect: '+1 DEF per rank', bonus: { defense: 1 }, requires: ['foundation'] },
-      { id: 'overburnExecution', name: 'Overburn Execution', description: 'Costs 15 MP; deals 100–200 base damage, doubles buffs, gains a 1.5× execute below 40% HP, and burns for 20–60 damage per turn for 5 turns.', effect: 'Active Card: 100–200+ DMG (Execute) & 20–60 Burn/t (2t CD)', bonus: {}, isExclusiveActive: true, activeCardId: 'plasma_compile', maxRank: 3, requires: ['errorHandling'] },
+      { id: 'overburnExecution', name: 'Overburn Execution', description: 'Costs 15 MP & charges via 3–5 consecutive correct answers (up to 1.5x); deals massive damage (1.5× Execute below 40% HP), doubles buffs, and inflicts Inferno Burn for 5 turns.', effect: 'Active Skill: Massive DMG (Execute) & Burn/t (3–5 Streak Charge)', bonus: {}, isExclusiveActive: true, activeCardId: 'plasma_compile', maxRank: 3, requires: ['errorHandling'] },
       { id: 'codeReuse', name: 'Code Reuse', description: 'Reuse reliable recovery routines to heal more on correct answers.', effect: '+2 HP per correct answer per rank', bonus: { bonusHeal: 2 }, requires: ['overburnExecution'] },
       { id: 'concurrency', name: 'Concurrency', description: 'Coordinate parallel tasks to restore mana more efficiently.', effect: '+2 MP per correct answer per rank', bonus: { bonusMana: 2 }, requires: ['overburnExecution'] },
       { id: 'runtimeOptimization', name: 'Runtime Optimization', description: 'Optimize execution paths for greater combat output.', effect: '+1 ATK and +1 DEF per rank', bonus: { attack: 1, defense: 1 }, requires: ['codeReuse'] },
@@ -807,12 +1017,14 @@ const HERO_HEAL_FLASH_TICKS = 4;
 const HERO_HEAL_TINT_TICKS = 30;
 const DEFEND_COOLDOWN_TURNS = 2;
 const DEFEND_EFFECT_FRAMES = 24;
+const EXCLUSIVE_MIN_STREAK = 3;
+const EXCLUSIVE_MAX_STREAK = 5;
 const runDeck = [...STARTING_DECK];        // card ids in this run's deck; rewards add to it
 const hero = {};
 const stats = {};
 const battle = {
   enemy: null, enemyFollower: null, phase: 'choose', card: null, question: null, remedial: null, block: 0, tempDefense: 0,
-  remedialDefenseBuff: false, cardAnim: null,
+  remedialDefenseBuff: false, cardAnim: null, exclusiveCastCharge: 0,
   defendCooldownTurns: 0, defendUsedThisTurn: false, defendEffectT: 0,
   exclusiveCooldownTurns: 0, exclusiveUsedThisTurn: false, exclusiveAppearTick: 0,
   enemyStunTurns: 0, enemyBurnTurns: 0, enemyBurnDamage: 0,
@@ -838,7 +1050,7 @@ const battle = {
 function resetRuntimeBattleState() {
   Object.assign(battle, {
     enemy: null, enemyFollower: null, phase: 'choose', card: null, question: null, remedial: null,
-    block: 0, tempDefense: 0, remedialDefenseBuff: false, cardAnim: null,
+    block: 0, tempDefense: 0, remedialDefenseBuff: false, cardAnim: null, exclusiveCastCharge: 0,
     defendCooldownTurns: 0, defendUsedThisTurn: false, defendEffectT: 0,
     exclusiveCooldownTurns: 0, exclusiveUsedThisTurn: false, exclusiveAppearTick: 0,
     enemyStunTurns: 0, enemyBurnTurns: 0, enemyBurnDamage: 0,
@@ -928,7 +1140,7 @@ function endMultiplayerMatchState() {
 function resetRun() {
   endMultiplayerMatchState();
   resetRuntimeBattleState();
-  Object.assign(hero, { hp: 100, maxHp: 100, mana: 100, maxMana: 100, attack: 12, defense: 2, empowerCost: 20, bonusHeal: 0, bonusMana: 0, runInvincible: false, necroAlly: null, necroAllies: [], tempAttack: 0 });
+  Object.assign(hero, { hp: 100, maxHp: 100, mana: 100, maxMana: 100, attack: 12, defense: 2, empowerCost: 20, bonusHeal: 0, bonusMana: 0, runInvincible: false, necroAlly: null, necroAllies: [], tempAttack: 0, ultCharge: 0 });
   for (const key of SKILL_TREE_KEYS) {
     for (const skill of SKILL_TREES[key].skills) {
       applySkillBonus(skill.bonus, skillProgress[key].ranks[skill.id]);
@@ -983,13 +1195,8 @@ function fillHand() {
   }
   if (!multiplayerMatchActive) {
     const exId = getUnlockedExclusiveCardId();
-    if (exId) {
-      const cooling = (battle.exclusiveCooldownTurns || 0) > 0;
-      const shouldShow = cooling || (battle.exclusiveAppearTick || 0) % 2 === 0 || Math.random() < 0.65;
-      battle.exclusiveAppearTick = (battle.exclusiveAppearTick || 0) + 1;
-      if (shouldShow && !battle.hand.includes(exId)) {
-        battle.hand.push(exId);
-      }
+    if (exId && !battle.hand.includes(exId)) {
+      battle.hand.push(exId);
     }
   }
 }
@@ -1114,6 +1321,53 @@ function renderExplore() {
   setPanel('');
 }
 
+function getExclusiveChargeMult(charge = hero.ultCharge) {
+  const c = Math.max(0, Math.min(EXCLUSIVE_MAX_STREAK, Math.round(Number(charge) || 0)));
+  if (c >= 5) return { charge: 5, tier: 3, mult: 1.5, tag: '5/5 MAX OVERDRIVE (1.5×)', readyLabel: '1.5× MAX (5/5)' };
+  if (c === 4) return { charge: 4, tier: 2, mult: 1.25, tag: '4/5 OVERCHARGED (1.25×)', readyLabel: '1.25× (4/5)' };
+  if (c === 3) return { charge: 3, tier: 1, mult: 1.0, tag: '3/5 READY', readyLabel: 'READY (3/5)' };
+  return { charge: c, tier: 0, mult: 1.0, tag: '', readyLabel: `STREAK ${c}/${EXCLUSIVE_MIN_STREAK}` };
+}
+
+function updateExclusiveChargeOnAnswer(correct, wasExclusiveCast = false) {
+  const prev = Math.max(0, Math.min(EXCLUSIVE_MAX_STREAK, Math.round(Number(hero.ultCharge) || 0)));
+  if (wasExclusiveCast) {
+    return '';
+  }
+  const exId = getUnlockedExclusiveCardId();
+  const hasExclusiveActive = Boolean(exId);
+  if (correct) {
+    const next = Math.min(EXCLUSIVE_MAX_STREAK, prev + 1);
+    hero.ultCharge = next;
+    if (!hasExclusiveActive) return '';
+    const exCard = CARD_LIBRARY[exId];
+    const exName = exCard ? exCard.name : 'Exclusive Skill';
+    if (next === 3 && prev < 3) {
+      popup('hero', 'SKILL READY (3/5)!', '#ffe07a', { offsetX: 0, y: HERO_SPOT.y - 108 });
+      Sound.play('unlock');
+      return `★ ${exName} CHARGED (3/5)! Use now or keep answering correctly up to 5/5 (1.5×)!`;
+    }
+    if (next === 4 && prev < 4) {
+      popup('hero', 'OVERCHARGE 4/5!', '#6fe3e8', { offsetX: 0, y: HERO_SPOT.y - 108 });
+      return `⚡ ${exName} OVERCHARGED (4/5) — 1.25× power!`;
+    }
+    if (next === 5 && prev < 5) {
+      popup('hero', 'MAX OVERDRIVE 5/5!', '#ff9659', { offsetX: 0, y: HERO_SPOT.y - 108 });
+      Sound.play('unlock');
+      return `⚡ ${exName} MAX OVERDRIVE (5/5) — 1.5× power!`;
+    }
+    if (next < EXCLUSIVE_MIN_STREAK) {
+      return `${exName} charge: ${next}/${EXCLUSIVE_MIN_STREAK} consecutive correct.`;
+    }
+    return '';
+  }
+  hero.ultCharge = 0;
+  if (hasExclusiveActive && prev > 0) {
+    return `Streak broken — Exclusive Skill charge reset (${prev} → 0).`;
+  }
+  return '';
+}
+
 function renderBattle() {
   const cards = battle.hand.map((id, i) => {
     const card = CARD_LIBRARY[id];
@@ -1121,27 +1375,36 @@ function renderBattle() {
       ? getCardRoleMeta(card)
       : { tone: card.kind === 'hit' ? 'offense' : 'defense', category: card.kind === 'hit' ? 'attack' : 'defense', label: card.kind === 'hit' ? 'ATTACK' : 'DEFENSE', iconSvg: '' };
     const defendCooling = card.id === 'defend' && battle.defendCooldownTurns > 0;
-    const exclusiveCooling = card.exclusiveActive && (battle.exclusiveCooldownTurns || 0) > 0;
-    const coolingTurns = defendCooling ? battle.defendCooldownTurns : (exclusiveCooling ? battle.exclusiveCooldownTurns : 0);
-    const isCooling = defendCooling || exclusiveCooling;
+    const coolingTurns = defendCooling ? battle.defendCooldownTurns : 0;
+    const isCooling = defendCooling;
     const costVal = cardCost(card, hero);
     const manaBlocked = hero.mana < costVal;
-    const blocked = manaBlocked || isCooling;
 
     if (card.exclusiveActive) {
-      const statusText = isCooling
-        ? `CD ${coolingTurns}t`
+      const chargeInfo = getExclusiveChargeMult(hero.ultCharge);
+      const streakLocked = chargeInfo.charge < EXCLUSIVE_MIN_STREAK;
+      const blocked = streakLocked || manaBlocked;
+      const needed = Math.max(0, EXCLUSIVE_MIN_STREAK - chargeInfo.charge);
+      const pipsHtml = [1, 2, 3, 4, 5].map((idx) => {
+        const lit = chargeInfo.charge >= idx;
+        const isOver = idx > EXCLUSIVE_MIN_STREAK;
+        return `<span class="active-skill-pip${lit ? ' is-lit' : ''}${isOver ? ' is-overcharge' : ''}" aria-hidden="true"></span>`;
+      }).join('');
+      const statusText = streakLocked
+        ? `STREAK ${chargeInfo.charge}/${EXCLUSIVE_MIN_STREAK}`
         : manaBlocked
           ? `NEED ${costVal} MP`
-          : `READY · ${costVal} MP`;
-      const statusCls = isCooling ? 'is-cd' : (manaBlocked ? 'is-low-mp' : 'is-ready');
-      const activeDesc = isCooling
-        ? `Recharging (${coolingTurns} turn${coolingTurns === 1 ? '' : 's'} left) · ${describeCard(card, hero)}`
-        : describeCard(card, hero);
+          : `${chargeInfo.readyLabel} · ${costVal} MP`;
+      const statusCls = streakLocked ? 'is-cd' : (manaBlocked ? 'is-low-mp' : 'is-ready');
+      const activeDesc = streakLocked
+        ? `Answer ${needed} more consecutive correct to charge · ${describeCard(card, hero)}`
+        : `${chargeInfo.charge >= 4 ? `Overcharged ${chargeInfo.mult}× (${chargeInfo.charge}/5 streak) · ` : 'Charged (hold up to 5/5 for 1.5×) · '}${describeCard(card, hero)}`;
       const cls = [
         'is-exclusive-card',
         `card-${card.id}`,
-        isCooling ? 'is-cooling-down' : '',
+        streakLocked ? 'is-cooling-down' : '',
+        chargeInfo.charge === 4 && !manaBlocked ? 'is-overcharged-4' : '',
+        chargeInfo.charge >= 5 && !manaBlocked ? 'is-overcharged-5' : '',
         manaBlocked ? 'is-unaffordable' : '',
       ].filter(Boolean).join(' ');
       return `<button class="${cls}" data-act="card" data-val="${i}" ${blocked ? 'disabled' : ''}>
@@ -1149,6 +1412,7 @@ function renderBattle() {
         <span class="active-skill-content">
           <span class="active-skill-ribbon">
             <span class="active-skill-tag">★ ACTIVE SKILL · ${esc(role.discipline || 'RELIC')}</span>
+            <span class="active-skill-pips" aria-label="Skill streak charge ${chargeInfo.charge} of 5">${pipsHtml}</span>
             <span class="active-skill-status ${statusCls}">${esc(statusText)}</span>
           </span>
           <span class="active-skill-name"><span class="active-skill-key">${i + 1}.</span> ${esc(card.name)}</span>
@@ -1171,6 +1435,7 @@ function renderBattle() {
       isCooling ? 'is-cooling-down' : '',
       manaBlocked ? 'is-unaffordable' : '',
     ].filter(Boolean).join(' ');
+    const blocked = manaBlocked || isCooling;
     return `<button class="${cls}" data-act="card" data-val="${i}" ${blocked ? 'disabled' : ''}>
       <span class="battle-card-top">
         <span class="battle-card-role">
@@ -1228,6 +1493,17 @@ function withShuffledChoices(question) {
 
 function renderQuestion() {
   const q = battle.question;
+  if (!q) {
+    setPanel(`<div class="battle-feedback-row">
+        <div class="battle-feedback-copy">
+          <p><strong>No eligible questions found for ${esc(getAcademicYearLabel())}.</strong></p>
+          <p class="log">Adjust your Academic Year filter in Settings to unlock additional curriculum topics.</p>
+        </div>
+        <button data-act="continue">Back to hand</button>
+      </div>`);
+    battle.phase = 'choose';
+    return;
+  }
   const choices = q.choices.map((text, i) => {
     return `<button data-act="answer" data-val="${i}">${i + 1}. ${esc(text)}</button>`;
   }).join('');
@@ -1403,7 +1679,7 @@ function startBattle(enemy) {
         }
       : null,
     phase: 'intro', card: null, question: null, remedial: null, block: 0, popups: [], tempDefense: 0,
-    remedialDefenseBuff: false, cardAnim: null,
+    remedialDefenseBuff: false, cardAnim: null, exclusiveCastCharge: 0,
     defendCooldownTurns: 0, defendUsedThisTurn: false, defendEffectT: 0,
     exclusiveCooldownTurns: 0, exclusiveUsedThisTurn: false,
     enemyStunTurns: 0, enemyBurnTurns: 0, enemyBurnDamage: 0,
@@ -1438,7 +1714,7 @@ function chooseCard(index) {
   const card = id && CARD_LIBRARY[id];
   if (!card) return;
   if (id === 'defend' && battle.defendCooldownTurns > 0) return;
-  if (card.exclusiveActive && (battle.exclusiveCooldownTurns || 0) > 0) return;
+  if (card.exclusiveActive && (hero.ultCharge || 0) < EXCLUSIVE_MIN_STREAK) return;
   const cost = cardCost(card, hero);
   if (hero.mana < cost) return;
   if (id === 'defend') {
@@ -1446,8 +1722,11 @@ function chooseCard(index) {
     battle.defendUsedThisTurn = true;
   }
   if (card.exclusiveActive) {
-    battle.exclusiveCooldownTurns = card.cooldown || 3;
+    battle.exclusiveCastCharge = Math.max(EXCLUSIVE_MIN_STREAK, Math.min(EXCLUSIVE_MAX_STREAK, Math.round(Number(hero.ultCharge) || 0)));
+    hero.ultCharge = 0;
     battle.exclusiveUsedThisTurn = true;
+  } else {
+    battle.exclusiveCastCharge = 0;
   }
   mpState.pendingCardCost = cost;
   hero.mana -= cost;
@@ -1518,6 +1797,7 @@ function answerQuestion(index) {
   recordReview(q, correct);
   stats.streak = correct ? stats.streak + 1 : 0;
   recordAchievementProgress('bestStreak', stats.streak);
+  const chargeNote = updateExclusiveChargeOnAnswer(correct, Boolean(CARD_LIBRARY[battle.card]?.exclusiveActive));
   adaptive.record(correct);
   Sound.play(correct ? 'correct' : 'wrong');
 
@@ -1544,8 +1824,10 @@ function answerQuestion(index) {
     }
     emitFx(HERO_SPOT.x, HERO_SPOT.y - 80, '#7fd49a', 14, 2.5);
     notes.push(`Focus restores ${heal} HP and 5 mana (streak ${stats.streak}).`);
+    if (chargeNote) notes.push(chargeNote);
   } else {
     notes.push('Saved for review.');
+    if (chargeNote) notes.push(chargeNote);
     if (getNecroAllies().length > 0) {
       notes.push('Summoned allies hold back on a wrong answer.');
     }
@@ -1562,21 +1844,22 @@ function answerQuestion(index) {
   }
 }
 
-function buildRemedialQuestions(count) {
+function buildRemedialQuestions(count, maxYear = getActiveAcademicYear()) {
+  const cap = normalizeAcademicYear(maxYear, 4);
   const picked = [];
   const usedTexts = new Set();
 
-  // 1. Prioritize missed questions from the spaced-review queue.
+  // 1. Prioritize missed questions from the spaced-review queue that are eligible for the player's year.
   for (const entry of reviewQueue) {
     if (picked.length >= count) break;
-    const match = typeof findQuestionByText === 'function' ? findQuestionByText(entry.text) : null;
-    if (match && !usedTexts.has(match.q)) {
+    const match = typeof findQuestionByText === 'function' ? findQuestionByText(entry.text) : questionByText(entry.text);
+    if (match && isQuestionEligibleForYear(match, cap) && !usedTexts.has(match.q)) {
       usedTexts.add(match.q);
       picked.push({ ...match, difficulty: QUESTION_DIFFICULTY.get(match.q) || 'medium', remedialSource: 'REVIEW DRILL' });
     }
   }
 
-  // 2. Fill remaining slots with foundational (easy/medium) questions, preferring weaker topics.
+  // 2. Fill remaining slots with year-eligible foundational (easy/medium, then hard if needed) questions, preferring weaker topics.
   const weakTopics = new Set(
     Object.values(topicProgress)
       .flatMap((cat) => Object.entries(cat))
@@ -1584,8 +1867,8 @@ function buildRemedialQuestions(count) {
       .map(([name]) => name)
   );
   const easyAndMedium = [
-    ...(QUESTION_BANK.easy || []).map((q) => ({ ...q, difficulty: 'easy' })),
-    ...(QUESTION_BANK.medium || []).map((q) => ({ ...q, difficulty: 'medium' })),
+    ...getEligibleQuestionsForDifficulty('easy', cap).map((q) => ({ ...q, difficulty: 'easy' })),
+    ...getEligibleQuestionsForDifficulty('medium', cap).map((q) => ({ ...q, difficulty: 'medium' })),
   ];
   const weakPool = shuffle(easyAndMedium.filter((q) => !usedTexts.has(q.q) && weakTopics.has(q.topic)));
   for (const q of weakPool) {
@@ -1599,6 +1882,19 @@ function buildRemedialQuestions(count) {
     if (picked.length >= count) break;
     usedTexts.add(q.q);
     picked.push({ ...q, remedialSource: 'REMEDIAL DRILL' });
+  }
+
+  if (picked.length < count) {
+    const hardEligible = shuffle(
+      getEligibleQuestionsForDifficulty('hard', cap)
+        .filter((q) => !usedTexts.has(q.q))
+        .map((q) => ({ ...q, difficulty: 'hard' }))
+    );
+    for (const q of hardEligible) {
+      if (picked.length >= count) break;
+      usedTexts.add(q.q);
+      picked.push({ ...q, remedialSource: 'REMEDIAL DRILL' });
+    }
   }
   return picked.map((entry) => withShuffledChoices(entry));
 }
@@ -1658,6 +1954,7 @@ function answerRemedialQuestion(index) {
   recordReview(q, correct);
   stats.streak = correct ? stats.streak + 1 : 0;
   recordAchievementProgress('bestStreak', stats.streak);
+  updateExclusiveChargeOnAnswer(correct, false);
   adaptive.record(correct);
   Sound.play(correct ? 'correct' : 'wrong');
 
@@ -1853,17 +2150,20 @@ function resolveCard(id, correct) {
     return `${card.name}: +${bonus} defense for this battle.`;
   }
   if (card.kind === 'aegis') {
+    const chargeInfo = getExclusiveChargeMult(battle.exclusiveCastCharge);
+    battle.exclusiveCastCharge = 0;
     if (!correct) {
       return `Wrong answer! ${card.name} failed to activate.`;
     }
     const rank = Math.max(1, skillProgress.computerSystems?.ranks?.kernelAegis || 1);
-    const shockDmg = 35 * rank;
-    const atkSurge = 4 * rank;
-    const defSurge = 3 * rank;
+    const m = chargeInfo.mult;
+    const shockDmg = Math.round(35 * rank * m);
+    const atkSurge = Math.round(4 * rank * m);
+    const defSurge = Math.round(3 * rank * m);
     hero.runInvincible = true;
     const prevHp = hero.hp;
     hero.hp = hero.maxHp;
-    const mpGain = Math.min(hero.maxMana - hero.mana, 40);
+    const mpGain = Math.min(hero.maxMana - hero.mana, Math.round(40 * m));
     hero.mana += mpGain;
     hero.tempAttack = (hero.tempAttack || 0) + atkSurge;
     battle.tempDefense += defSurge;
@@ -1886,17 +2186,21 @@ function resolveCard(id, correct) {
     emitFx(HERO_SPOT.x, HERO_SPOT.y - 80, '#ffe07a', 26, 4.2);
     emitFx(HERO_SPOT.x, HERO_SPOT.y - 80, '#6fe3e8', 18, 3.2);
     Sound.play('block');
-    return `${card.name} (R${rank})! Run Invincible + Full HP + ${mpGain} MP + ${shockDmg} Aegis DMG + ${atkSurge} ATK/${defSurge} DEF!`;
+    const tierNote = chargeInfo.tier >= 2 ? ` [${chargeInfo.tag}]` : '';
+    return `${card.name} (R${rank})${tierNote}! Run Invincible + Full HP + ${mpGain} MP + ${shockDmg} Aegis DMG + ${atkSurge} ATK/${defSurge} DEF!`;
   }
   if (card.kind === 'stun') {
+    const chargeInfo = getExclusiveChargeMult(battle.exclusiveCastCharge);
+    battle.exclusiveCastCharge = 0;
     if (!correct) {
       return `Wrong answer! ${card.name} missed.`;
     }
     const rank = Math.max(1, skillProgress.networkingSecurity?.ranks?.packetLockdown || 1);
-    const stunTurns = 8 + (rank - 1) * 2;
-    const breachDmg = 40 * rank;
+    const m = chargeInfo.mult;
+    const stunTurns = Math.round((8 + (rank - 1) * 2) * m);
+    const breachDmg = Math.round(40 * rank * m);
     battle.enemyStunTurns = stunTurns;
-    const mpGain = Math.min(hero.maxMana - hero.mana, 20);
+    const mpGain = Math.min(hero.maxMana - hero.mana, Math.round(20 * m));
     hero.mana += mpGain;
     battle.stunAnimT = 50;
     triggerCardActionAnim(card.id, true);
@@ -1915,9 +2219,12 @@ function resolveCard(id, correct) {
     emitFx(FOE_SPOT.x, FOE_SPOT.y - 80, '#6fe3e8', 28, 4.5);
     emitFx(FOE_SPOT.x, FOE_SPOT.y - 80, '#e8fbff', 16, 3.2);
     Sound.play('heavy');
-    return `${card.name} (R${rank}): ${breachDmg} DMG, ${battle.enemy.name} STUNNED ${battle.enemyStunTurns}t (1.5x Vulnerable) + ${mpGain} MP!`;
+    const tierNote = chargeInfo.tier >= 2 ? ` [${chargeInfo.tag}]` : '';
+    return `${card.name} (R${rank})${tierNote}: ${breachDmg} DMG, ${battle.enemy.name} STUNNED ${battle.enemyStunTurns}t (1.5x Vulnerable) + ${mpGain} MP!`;
   }
   if (card.kind === 'burn_hit') {
+    const chargeInfo = getExclusiveChargeMult(battle.exclusiveCastCharge);
+    battle.exclusiveCastCharge = 0;
     if (!correct) {
       battle.chargeCard = false;
       battle.chargeMaxT = 0;
@@ -1925,12 +2232,13 @@ function resolveCard(id, correct) {
       return `Wrong answer! ${card.name} fizzled out.`;
     }
     const rank = Math.max(1, skillProgress.programming?.ranks?.overburnExecution || 1);
+    const m = chargeInfo.mult;
     const baseDmg = 100 + (rank - 1) * 50;
     const passiveAndBuffBonus = (Math.max(0, (hero.attack || 12) - 12) + (hero.tempAttack || 0)) * 2;
     const isExecute = battle.enemy && battle.enemy.hp <= battle.enemy.maxHp * 0.4;
-    const dmg = Math.round((baseDmg + passiveAndBuffBonus) * (isExecute ? 1.5 : 1));
+    const dmg = Math.round((baseDmg + passiveAndBuffBonus) * m * (isExecute ? 1.5 : 1));
     battle.enemyBurnTurns = 5;
-    battle.enemyBurnDamage = 20 * rank;
+    battle.enemyBurnDamage = Math.round(20 * rank * m);
     battle.burnAnimT = 52;
     triggerCardActionAnim(card.id, true);
     if (battle.enemy && !battle.enemy.isMultiplayerPlayer) {
@@ -1947,7 +2255,8 @@ function resolveCard(id, correct) {
     battle.projectileDamage = 0;
     emitFx(HERO_SPOT.x + 60, HERO_SPOT.y - 90, '#ff7b47', 16, 3.4);
     Sound.play('heavy');
-    return `${card.name} (R${rank})${isExecute ? ' [EXECUTE!]' : ''}! ${dmg} DMG + ${battle.enemyBurnDamage}/turn Burning (${battle.enemyBurnTurns}t).`;
+    const tierNote = chargeInfo.tier >= 2 ? ` [${chargeInfo.tag}]` : '';
+    return `${card.name} (R${rank})${tierNote}${isExecute ? ' [EXECUTE!]' : ''}! ${dmg} DMG + ${battle.enemyBurnDamage}/turn Burning (${battle.enemyBurnTurns}t).`;
   }
   return 'Nothing happened.';
 }
@@ -2077,11 +2386,7 @@ function finishChoosePhase() {
   } else if (battle.defendCooldownTurns > 0) {
     battle.defendCooldownTurns--;
   }
-  if (battle.exclusiveUsedThisTurn) {
-    battle.exclusiveUsedThisTurn = false;
-  } else if ((battle.exclusiveCooldownTurns || 0) > 0) {
-    battle.exclusiveCooldownTurns--;
-  }
+  battle.exclusiveUsedThisTurn = false;
   battle.phase = 'choose';
   fillHand();
   renderBattle();
@@ -2460,13 +2765,15 @@ function mpGetQuestionForRound(round) {
   if (Array.isArray(mpState.questions) && mpState.questions.length > 0) {
     return mpState.questions[round % mpState.questions.length];
   }
-  const fallback = (typeof QUESTION_BANK !== 'undefined' && QUESTION_BANK.easy && QUESTION_BANK.easy[0]) || {
+  const eligible = getAllEligibleQuestions(mpState.yearLevel || 4);
+  const fallback = eligible[0] || {
     q: 'What does CPU stand for?',
     choices: ['Central Processing Unit', 'Computer Power Unit', 'Core Program Utility', 'Control Processing Unit'],
     answer: 0,
     explain: 'CPU stands for Central Processing Unit.',
     category: 'Computer Systems',
-    topic: 'Hardware',
+    topic: 'Computer Fundamentals',
+    year: 1,
     difficulty: 'easy',
   };
   return fallback;
@@ -2489,6 +2796,7 @@ function startMultiplayerMatch(matchConfig, role, selfClientId) {
     arenaId: matchConfig.arenaId || 'arena',
     arenaName: matchConfig.arenaName || 'Cyber Arena',
     category: matchConfig.category || 'ALL',
+    yearLevel: normalizeAcademicYear(matchConfig.yearLevel, 4),
     role: selfRole,
     selfClientId: selfClientId || selfSlot.clientId || null,
     selfName: selfSlot.username || (typeof activePlayerName !== 'undefined' ? activePlayerName : 'Knight'),

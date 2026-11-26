@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bytebound Admin Panel</title>
+  <link rel="stylesheet" href="css/admin.css?v=5" />
+</head>
+<body>
+  <!-- Admin Sign-In Gate -->
+  <section class="adm-auth-screen" id="adminAuthScreen" aria-labelledby="adminAuthTitle">
+    <div class="adm-auth-card">
+      <div class="adm-auth-brand">
+        <span class="adm-logo-mark" aria-hidden="true">BB</span>
+        <div>
+          <span class="adm-auth-kicker">BYTEBOUND MANAGEMENT</span>
+          <h1 id="adminAuthTitle">Admin Panel</h1>
+        </div>
+      </div>
+      <p class="adm-auth-desc">
+        Manage player accounts, handle forgot-password requests, edit quiz questions, review leaderboards, and monitor live 1v1 matches.
+      </p>
+      <form class="adm-auth-form" id="adminLoginForm" novalidate>
+        <label class="adm-field">
+          <span>Admin Username</span>
+          <input id="adminUsernameInput" type="text" autocomplete="username" placeholder="sysadmin" value="sysadmin" required />
+        </label>
+        <label class="adm-field">
+          <span>Admin Password</span>
+          <input id="adminPasswordInput" type="password" autocomplete="current-password" placeholder="Enter admin password" required />
+        </label>
+        <label class="adm-field">
+          <span>Connect To</span>
+          <select id="adminProviderMode" aria-label="Backend connection mode">
+            <option value="auto" selected>Auto (Cloud DB → Local Server)</option>
+            <option value="local">Local Server (serve-local.cmd)</option>
+            <option value="supabase">Cloud Database (Supabase)</option>
+          </select>
+        </label>
+        <p class="adm-auth-error" id="adminAuthError" role="alert" aria-live="polite"></p>
+        <button class="adm-btn adm-btn-primary adm-btn-full" id="adminLoginSubmit" type="submit">Log In to Admin Panel</button>
+      </form>
+      <div class="adm-auth-foot">
+        <span class="adm-mono-hint">Default local admin: <code>sysadmin</code> / <code>bytebound-admin</code></span>
+        <a class="adm-link" href="index.html">← Return to Player Game</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Admin Shell -->
+  <div class="adm-shell" id="adminShell" hidden>
+    <aside class="adm-sidebar" id="adminSidebar" aria-label="Admin navigation">
+      <div class="adm-sidebar-head">
+        <span class="adm-logo-mark" aria-hidden="true">BB</span>
+        <div>
+          <strong>Bytebound Admin</strong>
+          <small>Management Console</small>
+        </div>
+      </div>
+
+      <div class="adm-nav-group">
+        <span class="adm-nav-label">Menu</span>
+        <button class="adm-nav-item is-active" type="button" data-adm-tab="overview">
+          <span class="adm-nav-dot" aria-hidden="true"></span>
+          <span>Dashboard</span>
+        </button>
+        <button class="adm-nav-item" type="button" data-adm-tab="users">
+          <span class="adm-nav-dot" aria-hidden="true"></span>
+          <span>Accounts</span>
+          <span class="adm-nav-badge" id="navBadgeUsers">0</span>
+        </button>
+        <button class="adm-nav-item" type="button" data-adm-tab="resets">
+          <span class="adm-nav-dot" aria-hidden="true"></span>
+          <span>Requests</span>
+          <span class="adm-nav-badge" id="navBadgeResets">0</span>
+        </button>
+        <button class="adm-nav-item" type="button" data-adm-tab="questions">
+          <span class="adm-nav-dot" aria-hidden="true"></span>
+          <span>Questions</span>
+          <span class="adm-nav-badge" id="navBadgeQuestions">0</span>
+        </button>
+        <button class="adm-nav-item" type="button" data-adm-tab="leaderboards">
+          <span class="adm-nav-dot" aria-hidden="true"></span>
+          <span>Leaderboards</span>
+        </button>
+        <button class="adm-nav-item" type="button" data-adm-tab="multiplayer">
+          <span class="adm-nav-dot" aria-hidden="true"></span>
+          <span>Multiplayer</span>
+          <span class="adm-nav-badge" id="navBadgeRooms">0</span>
+        </button>
+        <button class="adm-nav-item" type="button" data-adm-tab="audit">
+          <span class="adm-nav-dot" aria-hidden="true"></span>
+          <span>Activity Log</span>
+        </button>
+      </div>
+
+      <div class="adm-sidebar-foot">
+        <div class="adm-env-pill" id="adminProviderPill">
+          <span class="adm-status-dot is-ok"></span>
+          <span id="adminProviderText">Connecting…</span>
+        </div>
+        <a class="adm-btn adm-btn-ghost adm-btn-sm" href="index.html">Open Player Game ↗</a>
+        <button class="adm-btn adm-btn-danger-outline adm-btn-sm" id="adminLogoutBtn" type="button">Log Out</button>
+      </div>
+    </aside>
+
+    <div class="adm-workspace">
+      <header class="adm-topbar">
+        <div class="adm-topbar-left">
+          <button class="adm-mobile-menu" id="adminMobileMenuBtn" type="button" aria-label="Toggle admin menu">☰</button>
+          <div>
+            <h2 id="adminPageTitle">Dashboard</h2>
+            <small id="adminPageSubtitle">Overview of player accounts, password requests, questions, and live matches.</small>
+          </div>
+        </div>
+        <div class="adm-topbar-right">
+          <span class="adm-latency-pill" id="adminStatusBadge">Live</span>
+          <button class="adm-btn adm-btn-secondary adm-btn-sm" id="adminRefreshBtn" type="button">↻ Refresh</button>
+          <span class="adm-actor-chip" id="adminActorChip">sysadmin</span>
+        </div>
+      </header>
+
+      <div class="adm-toast" id="adminToast" role="status" aria-live="polite" hidden></div>
+
+      <main class="adm-main" id="adminMain"></main>
+    </div>
+  </div>
+
+  <!-- Inspector / Action Modal -->
+  <div class="adm-modal-backdrop" id="adminModalBackdrop" hidden aria-hidden="true">
+    <div class="adm-modal" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
+      <header class="adm-modal-head">
+        <h3 id="adminModalTitle">Details</h3>
+        <button class="adm-modal-close" id="adminModalClose" type="button" aria-label="Close modal">✕</button>
+      </header>
+      <div class="adm-modal-body" id="adminModalBody"></div>
+      <footer class="adm-modal-foot" id="adminModalFoot"></footer>
+    </div>
+  </div>
+
+  <script src="supabase-config.js?v=1"></script>
+  <script src="js/data/questions.js?v=6"></script>
+  <script src="js/admin.js?v=6"></script>
+</body>
+</html>

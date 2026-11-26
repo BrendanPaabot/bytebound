@@ -156,6 +156,28 @@ class Player extends Sprite {
         this.position.x += blockRight - currentLeft + 0.01
         this.velocity.x = 0
         this.updateHitbox()
+        continue
+      }
+
+      if (currentRight > blockLeft && currentLeft < blockRight) {
+        const wasInsideSolidBand =
+          collisionBlock.type === 'wall' ||
+          (
+            previousHitbox.y + previousHitbox.height > collisionBlock.position.y + 2 &&
+            previousHitbox.y < collisionBlock.position.y + collisionBlock.height - 2
+          )
+        if (!wasInsideSolidBand) continue
+
+        const pushLeft = currentRight - blockLeft
+        const pushRight = blockRight - currentLeft
+        if (pushLeft <= pushRight) {
+          this.position.x -= pushLeft + 0.01
+          this.velocity.x = Math.min(0, this.velocity.x)
+        } else {
+          this.position.x += pushRight + 0.01
+          this.velocity.x = Math.max(0, this.velocity.x)
+        }
+        this.updateHitbox()
       }
     }
   }
