@@ -2,19 +2,20 @@
 // Rewards after each win add cards to this run's deck. Unlocks depend on lifetime progress,
 // so the reward pool grows across runs without any extra saved data.
 const STARTING_DECK = ['strike', 'power', 'defend', 'mend'];
+const SOLO_STARTING_DECK = ['strike', 'power', 'defend', 'mend', 'charge'];
 
 // cost: mana (number) or 'empower' (uses the hero's Power Strike cost from upgrades).
 // kind: hit | defend | charge | heal | mana | buff
 const CARD_LIBRARY = {
   strike: { id: 'strike', name: 'Strike', cost: 0, kind: 'hit', power: 1, start: true, text: 'Base attack damage.' },
-  power: { id: 'power', name: 'Power Strike', cost: 'empower', kind: 'hit', power: 1.5, start: true, text: 'Costs mana for 1.5x damage.' },
+  power: { id: 'power', name: 'Power Strike', cost: 'empower', kind: 'hit', power: 1.55, start: true, text: 'Costs mana for 1.55x damage.' },
   defend: { id: 'defend', name: 'Defend', cost: 0, kind: 'defend', start: true, text: 'Blocks most of the next hit. 2-turn cooldown.' },
   charge: { id: 'charge', name: 'Charge Mana', cost: 0, kind: 'charge', start: true, text: 'Restores mana.' },
-  quick: { id: 'quick', name: 'Quick Jab', cost: 0, kind: 'hit', power: 0.6, manaOnCorrect: 3, unlock: null, text: 'A weaker hit that restores 3 mana when correct.' },
-  mend: { id: 'mend', name: 'Mend', cost: 0, kind: 'heal', heal: 6, unlock: null, text: 'Restores HP when correct.' },
-  siphon: { id: 'siphon', name: 'Siphon', cost: 0, kind: 'mana', gain: 8, unlock: { metric: 'correct', goal: 10, text: 'Answer 10 questions correctly' }, text: 'Restores 8 mana when correct.' },
-  heavy: { id: 'heavy', name: 'Heavy Blow', cost: 30, kind: 'hit', power: 2.2, unlock: { metric: 'kills', goal: 5, text: 'Defeat 5 viruses' }, text: 'Costs 30 mana for a crushing hit.' },
-  fortify: { id: 'fortify', name: 'Fortify', cost: 0, kind: 'buff', defense: 2, unlock: { metric: 'kills', goal: 10, text: 'Defeat 10 viruses' }, text: '+2 defense for the rest of the battle.' },
+  quick: { id: 'quick', name: 'Quick Jab', cost: 0, kind: 'hit', power: 0.65, manaOnCorrect: 8, unlock: null, text: 'A swift hit that restores 8 mana when correct.' },
+  mend: { id: 'mend', name: 'Mend', cost: 0, kind: 'heal', heal: 12, unlock: null, text: 'Restores 12+ HP when correct.' },
+  siphon: { id: 'siphon', name: 'Siphon', cost: 0, kind: 'mana', gain: 16, chipPower: 0.4, unlock: { metric: 'correct', goal: 10, text: 'Answer 10 questions correctly' }, text: 'Restores 16 mana and deals light chip damage when correct.' },
+  heavy: { id: 'heavy', name: 'Heavy Blow', cost: 25, kind: 'hit', power: 2.4, unlock: { metric: 'kills', goal: 5, text: 'Defeat 5 viruses' }, text: 'Costs 25 mana for a crushing hit.' },
+  fortify: { id: 'fortify', name: 'Fortify', cost: 0, kind: 'buff', defense: 3, manaOnCorrect: 4, unlock: { metric: 'kills', goal: 10, text: 'Defeat 10 viruses' }, text: '+3 defense for the battle and +4 mana when correct.' },
   overclock: { id: 'overclock', name: 'Overclock', cost: 10, kind: 'hit', power: 1, correctMult: 2, unlock: { metric: 'bosses', goal: 1, text: 'Defeat a mini boss' }, text: 'Costs 10 mana. Double damage when correct.' },
   kernel_aegis: { id: 'kernel_aegis', name: 'Kernel Aegis', cost: 10, kind: 'aegis', exclusiveActive: true, chargeMin: 3, chargeMax: 5, text: 'Charges via 3–5 answer streak (up to 1.5x). Blocks hits + full heal + 40–60 MP + surge; wrong answers drain/pierce.' },
   packet_lockdown: { id: 'packet_lockdown', name: 'Packet Lockdown', cost: 10, kind: 'stun', stunTurns: 8, exclusiveActive: true, chargeMin: 3, chargeMax: 5, text: 'Charges via 3–5 answer streak (up to 1.5x). 8–12t stun, breach DMG, +50% hit DMG while stunned & MP.' },
@@ -36,9 +37,8 @@ function describeCard(card, hero) {
     case 'hit': {
       const effectiveAtk = hero.attack + (hero.tempAttack || 0);
       const hit = Math.round(effectiveAtk * card.power * (card.correctMult || 1));
-      const glance = Math.round(effectiveAtk * 0.3);
-      const extra = card.manaOnCorrect ? ` +${card.manaOnCorrect} mana if correct.` : '';
-      return `${hit} damage if correct, ${glance} if not.${extra}`;
+      const extra = card.manaOnCorrect ? ` +${card.manaOnCorrect} MP if correct.` : '';
+      return `${hit} damage if correct, misses if wrong.${extra}`;
     }
     case 'defend':
       return 'Blocks 75% of the next hit if correct, 25% if not. 2-turn cooldown.';
@@ -46,10 +46,15 @@ function describeCard(card, hero) {
       return '+25 mana if correct, +10 if not.';
     case 'heal':
       return `Restores ${card.heal + hero.bonusHeal} HP if correct, 2 if not.`;
-    case 'mana':
-      return `+${card.gain} mana if correct, 2 if not.`;
-    case 'buff':
-      return `+${card.defense} defense for this battle.`;
+    case 'mana': {
+      const effectiveAtk = hero.attack + (hero.tempAttack || 0);
+      const chip = card.chipPower ? ` + ${Math.max(1, Math.round(effectiveAtk * card.chipPower))} DMG` : '';
+      return `+${card.gain} mana${chip} if correct, +2 MP if not.`;
+    }
+    case 'buff': {
+      const mpTxt = card.manaOnCorrect ? ` +${card.manaOnCorrect} MP` : '';
+      return `+${card.defense} DEF for battle${mpTxt} if correct (+1 DEF if not).`;
+    }
     case 'aegis': {
       const rank = typeof skillProgress !== 'undefined' ? Math.max(1, skillProgress.computerSystems?.ranks?.kernelAegis || 1) : 1;
       return `Shields normal hits + Full HP + 40–60 MP + ${35 * rank}–${Math.round(35 * rank * 1.5)} DMG (wrong drains MP & pierces). 3–5 Streak.`;

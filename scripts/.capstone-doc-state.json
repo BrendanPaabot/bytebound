@@ -1,27 +1,27 @@
 {
-  "lastUpdated": "2026-11-27 15:57:09",
+  "lastUpdated": "2026-11-27 16:52:33",
   "fileHashes": {
-    "CHANGES.md": "9d655e9fe375aae04760565e24086b849c26961191f76c7438cf1ff03f948ffe",
+    "CHANGES.md": "7c9712b7b78f08b3027b8201362bf5ccdec3ba2f0e19fb822edbbec2ca37dfae",
     "SUPABASE_SETUP.md": "25a0aec13efce6c04dbb93941741a7321e934dae05ce0617a566ae83addbdc4b",
     "admin.html": "969bb7e013775a164921f64046e02d8693cd2f3269906f5ee03d8972f3ae29e0",
     "css/admin.css": "e90af5d80a8a673fb93e520f76190bffbfd6ac6cb76e3f087c75280e886163b9",
-    "css/styles.css": "37cd46c06cdeb756e136d05306a60b0fe14f35890beca27abee8c7b6c1f3c039",
+    "css/styles.css": "e6ccb82d3e278febff47e3e91af7d39f4c7f74ec9661d453fd86912265a63f79",
     "data/questions.json": "82e7eb5f183ffcf4e57d61756fab7dead7fc84bb6a0d3de0b4df4ea991fec9a1",
-    "index.html": "1a799cb74b83b008674950194b7d4b4d705fb359397b530c33372f6c1c6577ff",
+    "index.html": "5e1deda26acabf460d9a8aefb826c05ba202ceacae20c70e431817e3899b966b",
     "index.js": "3145668a33dbb2bdc6a3f5a6cbc8dcc768dc785daf792242967dd3dbe4ca6d58",
     "js/admin.js": "6794de5220ed929be1a9c76d496b6a912e3e7e08e8bde541cbc68097f5a6c9dd",
     "js/arena.js": "d3a6cbd16e65ab62f672be2efd2101ead7b406ebbc548be1cb5218e5c37b80ed",
     "js/audio.js": "97347de761983a5b70d5cbaededd703f0a0cd5a867cd659a9e6d1ee2367ced41",
-    "js/cards.js": "1304a8ea68286c0fffe5f30a529472cf0ad96c77ca4b93e9c32b6d7925e60e32",
+    "js/cards.js": "43fb4d5f1e9263e68b1b0db2866646ca30aadd43b61fce211da057b5bf785537",
     "js/classes/Boss.js": "28fb9faf63b98b37939cb6a9bf0297885f9db05cc18013d1cb98c0a021239ac8",
     "js/classes/CollisionBlock.js": "e21d4788c4eb2dc19c271d65d9954a300cdd399642e8ad43ddbe4d707f4fae1c",
     "js/classes/Enemy.js": "90601fb7ce11cdc55522c8c1a5a5dad161f07468a80f739fe217c4783410080c",
     "js/classes/Player.js": "e7ba19b4f81b926d43d516434147f0b561c3463ce27e21896cf0ab703b6aa03e",
     "js/classes/Sprite.js": "c69edeed222ced4fd9de897b3c94cfc5390c5bd923c962a435d9cf9ffa0ffbaf",
-    "js/combat.js": "bb0762a005520a5e9facb104ccf66c625aed747617ce45b6dc462fdf9a9eb14f",
+    "js/combat.js": "e1b56babb0339ef6c3fdd9a2c69fb939ddb69a7a9e4c7da5e3bbd55dfdc7cde7",
     "js/data/collisions.js": "e0c402744fb54110ab639f69c8154e9d865b6f9207815e00570d59d9b454c9e5",
     "js/data/questions.js": "0a43edb05d9f37100b981fb0d7cf0aa0008b1613d5f3dcd258001b2962b0c251",
-    "js/eventListeners.js": "aeacd4f9ceaa8e7589813fc63fbba559a24764a1890b9be03f6132f3e88ff2e6",
+    "js/eventListeners.js": "d2f3505d07371bd6720f310e55da09d231192a19a3d22a4a945451982a0e1d93",
     "js/font.js": "47033d7606f99faa816ffb1ca38881aba9c179e29edab007b63728b260f3f74b",
     "js/mp-matchmaking.js": "de48bc22c85cc7d96ea7cc9d3b9eda2e855deeb9c631d11e9168a7a4274471cf",
     "js/mp-network.js": "866562ebf86f903ccbee63e2fbcc825861951e7a2de83e9dc7603e501d733d88",
@@ -45,6 +45,66 @@
     "supabase/schema.sql": "4e569da949e958e77440b2128d9948af420471a015719ccbfc8864f58a0c423a"
   },
   "revisionHistory": [
+    {
+      "timestamp": "2026-11-27 16:25:10",
+      "trigger": "manual",
+      "areas": "Documentation Sync",
+      "summary": "Fixed low-MP soft-lock with smart hand draw + universal Remedial Surge, rebalanced cards/counters, and scaled combat rewards & enemies with adaptive question difficulty"
+    },
+    {
+      "timestamp": "2026-11-27 16:24:32",
+      "trigger": "agent-edit",
+      "areas": "Documentation/Config (`CHANGES.md`)",
+      "summary": "Auto-synced after agent update to `CHANGES.md`."
+    },
+    {
+      "timestamp": "2026-11-27 16:24:26",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`css/styles.css`)",
+      "summary": "Auto-synced after agent update to `css/styles.css`."
+    },
+    {
+      "timestamp": "2026-11-27 16:24:20",
+      "trigger": "agent-edit",
+      "areas": "Combat & Exclusive Skills (`js/combat.js`)",
+      "summary": "Auto-synced after agent update to `js/combat.js`."
+    },
+    {
+      "timestamp": "2026-11-27 16:23:52",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`index.html`)",
+      "summary": "Auto-synced after agent update to `index.html`."
+    },
+    {
+      "timestamp": "2026-11-27 16:23:49",
+      "trigger": "agent-edit",
+      "areas": "Documentation Sync",
+      "summary": "Auto-synced after agent update to `css/styles.css`."
+    },
+    {
+      "timestamp": "2026-11-27 16:23:46",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`css/styles.css`)",
+      "summary": "Auto-synced after agent update to `css/styles.css`."
+    },
+    {
+      "timestamp": "2026-11-27 16:22:25",
+      "trigger": "agent-edit",
+      "areas": "Combat & Exclusive Skills (`js/combat.js`)",
+      "summary": "Auto-synced after agent update to `js/combat.js`."
+    },
+    {
+      "timestamp": "2026-11-27 16:21:42",
+      "trigger": "agent-edit",
+      "areas": "Documentation/Config (`js/eventListeners.js`)",
+      "summary": "Auto-synced after agent update to `js/eventListeners.js`."
+    },
+    {
+      "timestamp": "2026-11-27 16:21:35",
+      "trigger": "agent-edit",
+      "areas": "Combat & Exclusive Skills (`js/cards.js`)",
+      "summary": "Auto-synced after agent update to `js/cards.js`."
+    },
     {
       "timestamp": "2026-11-27 15:47:27",
       "trigger": "manual",
@@ -284,66 +344,6 @@
       "trigger": "agent-edit",
       "areas": "Auth, Backend & SQL Schema (`serve-local.ps1`)",
       "summary": "Auto-synced after agent update to `serve-local.ps1`."
-    },
-    {
-      "timestamp": "2026-11-27 13:38:58",
-      "trigger": "agent-edit",
-      "areas": "Auth, Backend & SQL Schema (`supabase/migration-rate-limiting.sql`)",
-      "summary": "Auto-synced after agent update to `supabase/migration-rate-limiting.sql`."
-    },
-    {
-      "timestamp": "2026-11-27 13:38:55",
-      "trigger": "agent-edit",
-      "areas": "Auth, Backend & SQL Schema (`serve-local.ps1`)",
-      "summary": "Auto-synced after agent update to `serve-local.ps1`."
-    },
-    {
-      "timestamp": "2026-11-27 13:29:06",
-      "trigger": "manual",
-      "areas": "Documentation Sync",
-      "summary": "Updated login, sign-up, and password input fonts to case-distinct monospace/sans-serif for clear uppercase/lowercase visibility"
-    },
-    {
-      "timestamp": "2026-11-27 13:28:33",
-      "trigger": "agent-edit",
-      "areas": "UI Shell & Styling (`index.html`)",
-      "summary": "Auto-synced after agent update to `index.html`."
-    },
-    {
-      "timestamp": "2026-11-27 13:28:28",
-      "trigger": "agent-edit",
-      "areas": "UI Shell & Styling (`css/styles.css`)",
-      "summary": "Auto-synced after agent update to `css/styles.css`."
-    },
-    {
-      "timestamp": "2026-11-27 13:11:54",
-      "trigger": "build-questions",
-      "areas": "Documentation Sync",
-      "summary": "Rebuilt question bank (240 questions: Y1:45 Y2:86 Y3:89 Y4:20)."
-    },
-    {
-      "timestamp": "2026-11-27 13:11:53",
-      "trigger": "manual",
-      "areas": "Documentation Sync",
-      "summary": "Initial generation of live auto-updating Capstone Study Documentation"
-    },
-    {
-      "timestamp": "2026-11-27 13:11:53",
-      "trigger": "baseline-sync",
-      "areas": "Exclusive Active Skills, Battle Panel Layout",
-      "summary": "Removed standalone Ultimate move; moved 3–5 consecutive correct streak scaling (1.0× / 1.25× / 1.5×) directly onto Exclusive Active Skills and fixed battle `.actions` full-width grid alignment."
-    },
-    {
-      "timestamp": "2026-11-26 (Prior Milestone)",
-      "trigger": "milestone",
-      "areas": "Admin Console, Question Bank Pagination, Activity Log",
-      "summary": "Added comprehensive standalone Admin Console (`admin.html`, `js/admin.js`, `migration-admin-console.sql`), non-existent forgot-password rejection, persistent Activity Log, and Question Bank page 1..N pagination."
-    },
-    {
-      "timestamp": "2026-11-25 (Prior Milestone)",
-      "trigger": "milestone",
-      "areas": "Adaptive BGM Audio & Room 02 Collisions",
-      "summary": "Added adaptive Web Audio BGM (ambient menu/explore, chiptune-rock battle, complextro-breakcore-classical boss themes) and fixed Room 02 platform/wall watertight collisions."
     }
   ]
 }

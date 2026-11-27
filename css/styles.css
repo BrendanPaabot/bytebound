@@ -1229,6 +1229,7 @@ button {
   transform: translateY(-2px);
 }
 .game-panel button.is-remedial-action {
+  grid-column: 1 / -1;
   border: 2px solid #4be3b0 !important;
   border-top: 4px solid #a8ffe2 !important;
   background: linear-gradient(135deg, #103a32 0%, #0b1e1c 100%) !important;
@@ -1240,13 +1241,28 @@ button {
   filter: brightness(1.15);
   transform: translateY(-2px);
 }
-.battle-buff-pill {
+.battle-buff-pill,
+.battle-adaptive-pill {
   padding: 3px 7px;
   border: 1px solid #ffe07a;
   background: rgba(255, 224, 122, .16);
   color: #ffe07a;
   font: 700 9px/1 var(--pixel);
   white-space: nowrap;
+}
+.battle-adaptive-pill.is-comeback {
+  border-color: #4be3b0;
+  background: rgba(75, 227, 176, .16);
+  color: #9fffe0;
+}
+.battle-adaptive-pill.is-mastery {
+  border-color: #ff9f5a;
+  background: rgba(255, 159, 90, .18);
+  color: #ffd5a8;
+}
+.adaptive-bonus-chip {
+  color: #8df5b8;
+  font-weight: 700;
 }
 .remedial-header {
   display: flex;
@@ -9054,6 +9070,7 @@ summary:focus-visible,
 }
 
 .app.is-playing .battle-buff-pill,
+.app.is-playing .battle-adaptive-pill,
 .app.is-playing .mp-turn-pill,
 .app.is-playing .ally-turn-pill,
 .app.is-playing .enemy-follower-pill,

@@ -60,7 +60,7 @@ function handleKey(rawKey, down, repeat = false) {
     const isMp = typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive;
     if (phase === 'mp_waiting' || phase === 'mp_dying') return;
     if (phase === 'choose') {
-      if (!isMp && key === 'r' && hero.mana <= 0 && typeof startRemedialChallenge === 'function') startRemedialChallenge();
+      if (!isMp && key === 'r' && (typeof canUseRemedialSurge === 'function' ? canUseRemedialSurge() : hero.mana <= 0) && typeof startRemedialChallenge === 'function') startRemedialChallenge();
       else if (n >= 0 && n < battle.hand.length) chooseCard(n);
     }
     else if (phase === 'question' && n >= 0 && n < 4) answerQuestion(n);

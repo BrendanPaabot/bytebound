@@ -328,6 +328,17 @@ function getEligibleReviewQuestions(maxYear = getActiveAcademicYear()) {
   return out;
 }
 
+const QUESTION_DIFFICULTY_SCALE = {
+  easy: { mult: 1.0, bonusMp: 5, bonusHp: 0, label: 'STANDARD', counterMult: 1.0 },
+  medium: { mult: 1.18, bonusMp: 8, bonusHp: 2, label: '+18% MED BONUS', counterMult: 0.95 },
+  hard: { mult: 1.38, bonusMp: 12, bonusHp: 4, label: '+38% HARD MASTERY', counterMult: 0.88 },
+};
+
+function getQuestionDifficultyScale(diff) {
+  const key = String(diff || '').toLowerCase();
+  return QUESTION_DIFFICULTY_SCALE[key] || QUESTION_DIFFICULTY_SCALE.easy;
+}
+
 class AdaptiveDifficulty {
   constructor() {
     this.focusCategory = null;
@@ -337,10 +348,14 @@ class AdaptiveDifficulty {
   reset() {
     this.level = 0;
     this.mediumStreak = 0;
+    this.missStreak = 0;
+    this.correctStreak = 0;
+    this.consecutiveMisses = 0;
+    this.recentResults = [];
     this.used = { easy: [], medium: [], hard: [] };
     this.fromReview = false;
     this.categoryState = Object.fromEntries(
-      DISCIPLINE_CATEGORIES.map((cat) => [cat, { level: 0, mediumStreak: 0 }]),
+      DISCIPLINE_CATEGORIES.map((cat) => [cat, { level: 0, mediumStreak: 0, missStreak: 0, correctStreak: 0 }]),
     );
     this.lastSelection = {
       mode: 'adaptive',
@@ -348,11 +363,54 @@ class AdaptiveDifficulty {
       category: DISCIPLINE_CATEGORIES[0] || 'Computer Systems',
       topic: null,
       difficulty: 'easy',
+      difficultyScale: getQuestionDifficultyScale('easy'),
     };
     this.calibrateFromProgress();
   }
 
   get name() { return DIFFICULTIES[this.level] || 'easy'; }
+
+  getRecentAccuracy() {
+    if (!Array.isArray(this.recentResults) || !this.recentResults.length) return null;
+    const hits = this.recentResults.filter(Boolean).length;
+    return hits / this.recentResults.length;
+  }
+
+  getAdaptiveCombatProfile() {
+    const count = Array.isArray(this.recentResults) ? this.recentResults.length : 0;
+    const recentAcc = this.getRecentAccuracy();
+    if ((this.consecutiveMisses || 0) >= 2 || (count >= 4 && recentAcc !== null && recentAcc < 0.5)) {
+      return {
+        mode: 'comeback',
+        label: 'COMEBACK ASSIST',
+        enemyHpMult: 1.0,
+        enemyAtkMult: 1.0,
+        enemyDmgMult: 0.8,
+        recoveryMult: 1.25,
+        questionShift: -1,
+      };
+    }
+    if (count >= 6 && recentAcc !== null && recentAcc >= 0.8) {
+      return {
+        mode: 'mastery',
+        label: 'ADAPTIVE MASTERY',
+        enemyHpMult: 1.15,
+        enemyAtkMult: 1.08,
+        enemyDmgMult: 1.05,
+        recoveryMult: 1.0,
+        questionShift: 1,
+      };
+    }
+    return {
+      mode: 'balanced',
+      label: '',
+      enemyHpMult: 1.0,
+      enemyAtkMult: 1.0,
+      enemyDmgMult: 1.0,
+      recoveryMult: 1.0,
+      questionShift: 0,
+    };
+  }
 
   categoryLevel(category) {
     return this.categoryState?.[category]?.level ?? this.level;
@@ -374,7 +432,7 @@ class AdaptiveDifficulty {
       let level = 0;
       if (attempted >= 8 && ratio >= 0.8) level = 2;
       else if (attempted >= 3 && ratio >= 0.62) level = 1;
-      this.categoryState[category] = { level, mediumStreak: 0 };
+      this.categoryState[category] = { level, mediumStreak: 0, missStreak: 0, correctStreak: 0 };
       if (attempted > 0) {
         levelSum += level;
         activeCategories++;
@@ -424,22 +482,28 @@ class AdaptiveDifficulty {
     return candidates.sort((a, b) => b.weight - a.weight)[0] || null;
   }
 
-  nextQuestion(maxYear = getActiveAcademicYear()) {
+  nextQuestion(maxYear = getActiveAcademicYear(), context = {}) {
     const cap = normalizeAcademicYear(maxYear, 4);
-    const isBossEncounter = typeof battle !== 'undefined' && Boolean(battle?.enemy?.isBoss);
+    const ctxEnemy = context?.enemy || (typeof battle !== 'undefined' ? battle?.enemy : null);
+    const isBossEncounter = Boolean(ctxEnemy?.isBoss);
+    const roomNumber = Number(context?.roomNumber || (typeof level !== 'undefined' ? level : 1)) || 1;
+    const cardId = context?.cardId || null;
+    const profile = this.getAdaptiveCombatProfile();
     const due = dueReviewQuestion(cap);
     const reviewChance = isBossEncounter ? BOSS_REVIEW_CHANCE : REVIEW_CHANCE;
     if (due && (!this.focusCategory || due.category === this.focusCategory) && Math.random() < reviewChance) {
       this.fromReview = true;
       const diff = QUESTION_DIFFICULTY.get(due.q) || this.categoryDifficultyName(due.category);
+      const scale = getQuestionDifficultyScale(diff);
       this.lastSelection = {
         mode: 'review',
         badge: isBossEncounter ? 'BOSS REVIEW CHECK' : 'SPACED REVIEW',
         category: due.category,
         topic: due.topic,
         difficulty: diff,
+        difficultyScale: scale,
       };
-      return due;
+      return { ...due, difficulty: diff };
     }
     this.fromReview = false;
 
@@ -477,16 +541,45 @@ class AdaptiveDifficulty {
     const targetCategory = chosenTopicEntry?.category || this.focusCategory || DISCIPLINE_CATEGORIES[0];
     const targetTopic = chosenTopicEntry?.topic || null;
     const topicState = chosenTopicEntry?.state || 'unexplored';
+    const card = cardId && typeof CARD_LIBRARY !== 'undefined' ? CARD_LIBRARY[cardId] : null;
+    const isHighRiskCard = Boolean(card && (card.exclusiveActive || card.id === 'heavy' || card.id === 'overclock'));
+    const isRecoveryCard = Boolean(card && (card.kind === 'charge' || card.kind === 'mana' || card.kind === 'heal' || card.id === 'quick'));
+    const isElite = Boolean(ctxEnemy && !isBossEncounter && (ctxEnemy.brute || ctxEnemy.nyrmed || ctxEnemy.grenu));
 
-    // 2. Determine difficulty for the chosen discipline/topic.
+    // 2. Scale question difficulty by discipline skill, room depth, enemy tier, card risk, and recent performance.
     let targetLevel = this.categoryLevel(targetCategory);
+    if (roomNumber >= 12 && topicState === 'mastered') {
+      targetLevel = Math.max(targetLevel, 2);
+    } else if (roomNumber >= 6 && (topicState === 'practicing' || topicState === 'mastered')) {
+      targetLevel = Math.max(targetLevel, 1);
+    }
     if (isBossEncounter) {
-      targetLevel = Math.max(1, targetLevel); // Bosses test at least Medium difficulty when eligible
-    } else if (topicState === 'weak' && targetLevel === 2) {
+      const recentAcc = this.getRecentAccuracy();
+      if (ctxEnemy?.isFinal && (recentAcc === null ? this.categoryLevel(targetCategory) >= 1 : recentAcc >= 0.65)) {
+        targetLevel = Math.max(targetLevel, 2);
+      } else if (profile.mode !== 'comeback') {
+        targetLevel = Math.max(targetLevel, 1);
+      }
+    } else if (isElite && typeof stats !== 'undefined' && (stats.streak || 0) >= 2 && topicState !== 'weak') {
+      targetLevel = Math.max(targetLevel, 1);
+    }
+    if (topicState === 'weak' && targetLevel === 2) {
       targetLevel = 1; // Step down from Hard to Medium when remediating a weak topic
     } else if (topicState === 'mastered' && targetLevel === 0) {
       targetLevel = 1; // Nudge mastered topics up from Easy to Medium
     }
+    if (isHighRiskCard && profile.mode !== 'comeback') {
+      targetLevel = Math.min(2, targetLevel + 1);
+    }
+    if (isRecoveryCard && profile.mode === 'comeback') {
+      targetLevel = Math.min(targetLevel, 1);
+    }
+    if (profile.questionShift < 0) {
+      targetLevel = Math.max(0, targetLevel + profile.questionShift);
+    } else if (profile.questionShift > 0 && topicState !== 'weak') {
+      targetLevel = Math.min(2, targetLevel + profile.questionShift);
+    }
+    targetLevel = Math.max(0, Math.min(2, targetLevel));
     this.level = targetLevel;
     let key = DIFFICULTIES[targetLevel] || 'easy';
 
@@ -549,51 +642,93 @@ class AdaptiveDifficulty {
     } else if (this.focusCategory) {
       badge = 'PINNED FOCUS';
       mode = 'pinned-focus';
+    } else if (profile.mode === 'comeback') {
+      badge = 'COMEBACK ASSIST';
+      mode = 'comeback';
+    } else if (isHighRiskCard) {
+      badge = 'HIGH-POWER CHALLENGE';
+      mode = 'high-power';
     } else if (topicState === 'weak') {
       badge = 'WEAK TOPIC FOCUS';
       mode = 'weak-focus';
     } else if (topicState === 'unexplored' || topicState === 'diagnostic') {
       badge = 'DIAGNOSTIC PROBE';
       mode = 'diagnostic';
+    } else if (profile.mode === 'mastery') {
+      badge = 'MASTERY SURGE';
+      mode = 'mastery';
     } else if (topicState === 'mastered') {
       badge = 'MASTERY CHALLENGE';
       mode = 'mastery';
     }
 
+    const scale = getQuestionDifficultyScale(key);
     this.lastSelection = {
       mode,
       badge,
       category: q.category,
       topic: q.topic,
       difficulty: key,
+      difficultyScale: scale,
     };
-    return q;
+    return { ...q, difficulty: key };
   }
 
-  // Correct answers raise difficulty for that discipline (and overall), wrong answers lower it.
-  // Medium advances to Hard only after two consecutive correct answers at Medium.
+  // Smooth adaptive progression: avoids harsh single-miss yo-yo drops while rewarding steady accuracy.
   record(correct, question = typeof battle !== 'undefined' ? battle?.question : null) {
     const category = question?.category;
+    this.recentResults = Array.isArray(this.recentResults) ? this.recentResults : [];
+    this.recentResults.push(Boolean(correct));
+    while (this.recentResults.length > 8) this.recentResults.shift();
+    this.consecutiveMisses = correct ? 0 : (this.consecutiveMisses || 0) + 1;
+    const recentAcc = this.getRecentAccuracy();
+
     if (category && this.categoryState?.[category]) {
       const catState = this.categoryState[category];
       if (!correct) {
         catState.mediumStreak = 0;
-        catState.level = Math.max(0, catState.level - 1);
-      } else if (catState.level === 0) {
-        catState.level = 1;
-      } else if (catState.level === 1 && ++catState.mediumStreak >= 2) {
-        catState.level = 2;
-        catState.mediumStreak = 0;
+        catState.correctStreak = 0;
+        catState.missStreak = (catState.missStreak || 0) + 1;
+        if (catState.level === 2) {
+          catState.level = 1;
+        } else if (catState.level === 1 && (catState.missStreak >= 2 || this.consecutiveMisses >= 2)) {
+          catState.level = 0;
+        }
+      } else {
+        catState.missStreak = 0;
+        catState.correctStreak = (catState.correctStreak || 0) + 1;
+        if (catState.level === 0) {
+          if (catState.correctStreak >= 2 || (this.recentResults.length >= 3 && recentAcc !== null && recentAcc >= 0.7)) {
+            catState.level = 1;
+            catState.correctStreak = 0;
+          }
+        } else if (catState.level === 1 && ++catState.mediumStreak >= 2) {
+          catState.level = 2;
+          catState.mediumStreak = 0;
+        }
       }
       this.level = catState.level;
     } else if (!correct) {
       this.mediumStreak = 0;
-      this.level = Math.max(0, this.level - 1);
-    } else if (this.level === 0) {
-      this.level = 1;
-    } else if (this.level === 1 && ++this.mediumStreak >= 2) {
-      this.level = 2;
-      this.mediumStreak = 0;
+      this.correctStreak = 0;
+      this.missStreak = (this.missStreak || 0) + 1;
+      if (this.level === 2) {
+        this.level = 1;
+      } else if (this.level === 1 && (this.missStreak >= 2 || this.consecutiveMisses >= 2)) {
+        this.level = 0;
+      }
+    } else {
+      this.missStreak = 0;
+      this.correctStreak = (this.correctStreak || 0) + 1;
+      if (this.level === 0) {
+        if (this.correctStreak >= 2 || (this.recentResults.length >= 3 && recentAcc !== null && recentAcc >= 0.7)) {
+          this.level = 1;
+          this.correctStreak = 0;
+        }
+      } else if (this.level === 1 && ++this.mediumStreak >= 2) {
+        this.level = 2;
+        this.mediumStreak = 0;
+      }
     }
   }
 }
@@ -1019,7 +1154,8 @@ const DEFEND_COOLDOWN_TURNS = 2;
 const DEFEND_EFFECT_FRAMES = 24;
 const EXCLUSIVE_MIN_STREAK = 3;
 const EXCLUSIVE_MAX_STREAK = 5;
-const runDeck = [...STARTING_DECK];        // card ids in this run's deck; rewards add to it
+const SOLO_DECK_BASE = typeof SOLO_STARTING_DECK !== 'undefined' ? SOLO_STARTING_DECK : STARTING_DECK;
+const runDeck = [...SOLO_DECK_BASE];        // card ids in this run's deck; rewards add to it
 const hero = {};
 const stats = {};
 const battle = {
@@ -1147,7 +1283,7 @@ function resetRun() {
     }
   }
   Object.assign(stats, { kills: 0, correct: 0, total: 0, streak: 0, roomKills: 0, upgrades: [], cardsTaken: 0 });
-  runDeck.splice(0, runDeck.length, ...STARTING_DECK);
+  runDeck.splice(0, runDeck.length, ...SOLO_DECK_BASE);
   adaptive.reset();
 }
 resetRun();
@@ -1176,6 +1312,26 @@ const shuffle = (items) => {
   return items;
 };
 
+function isCardCurrentlyPlayable(id) {
+  const card = id && CARD_LIBRARY[id];
+  if (!card) return false;
+  if (card.id === 'defend' && (battle.defendCooldownTurns || 0) > 0) return false;
+  if (card.exclusiveActive && (hero.ultCharge || 0) < EXCLUSIVE_MIN_STREAK) return false;
+  return (hero.mana || 0) >= cardCost(card, hero);
+}
+
+function hasPlayableStandardCard(hand = battle.hand) {
+  return Array.isArray(hand) && hand.some((id) => !CARD_LIBRARY[id]?.exclusiveActive && isCardCurrentlyPlayable(id));
+}
+
+function hasPlayableCardInHand(hand = battle.hand) {
+  return Array.isArray(hand) && hand.some((id) => isCardCurrentlyPlayable(id));
+}
+
+function canUseRemedialSurge() {
+  return !multiplayerMatchActive && ((hero.mana || 0) <= 0 || !hasPlayableCardInHand(battle.hand));
+}
+
 // Deck handling: draw from the draw pile; when it runs out, shuffle the discard pile back in.
 function drawCardId() {
   if (battle.drawPile.length === 0) {
@@ -1192,6 +1348,30 @@ function fillHand() {
     const id = drawCardId();
     if (!id) break;
     battle.hand.push(id);
+  }
+  // Never strand the player with a hand of only unaffordable/cooldown cards if a playable card exists in deck/discard.
+  if (!multiplayerMatchActive && battle.hand.length > 0 && !hasPlayableStandardCard(battle.hand)) {
+    const preferIds = ['charge', 'siphon', 'quick', 'strike', 'mend', 'fortify'];
+    const pickPlayableIndex = (pile) => {
+      for (const pid of preferIds) {
+        const idx = pile.findIndex((cid) => cid === pid && isCardCurrentlyPlayable(cid));
+        if (idx >= 0) return idx;
+      }
+      return pile.findIndex((cid) => !CARD_LIBRARY[cid]?.exclusiveActive && isCardCurrentlyPlayable(cid));
+    };
+    let sourcePile = battle.drawPile;
+    let pickedIdx = pickPlayableIndex(sourcePile);
+    if (pickedIdx < 0) {
+      sourcePile = battle.discard;
+      pickedIdx = pickPlayableIndex(sourcePile);
+    }
+    if (pickedIdx >= 0) {
+      const [rescueCard] = sourcePile.splice(pickedIdx, 1);
+      const replacedCard = battle.hand.pop();
+      if (replacedCard) battle.drawPile.push(replacedCard);
+      battle.hand.push(rescueCard);
+      shuffle(battle.drawPile);
+    }
   }
   if (!multiplayerMatchActive) {
     const exId = getUnlockedExclusiveCardId();
@@ -1460,17 +1640,27 @@ function renderBattle() {
     window.ByteboundTutorial?.onBattlePhaseRendered?.('choose');
     return;
   }
-  const noManaRemedial = !multiplayerMatchActive && hero.mana <= 0
-    ? `<button class="is-remedial-action" data-act="remedial">R. Remedial Surge ✦<small>0 MP Only · Answer 2–5 remedial questions for buff + HP/MP restore</small></button>`
+  const remedialOpen = canUseRemedialSurge();
+  const remedialSubtitle = hero.mana <= 0
+    ? '0 MP Recovery · Answer 2–5 remedial questions for buff + HP/MP restore'
+    : `No Playable Cards (${hero.mana} MP) · Answer 2–5 remedial questions to restore MP & buff`;
+  const noManaRemedial = remedialOpen
+    ? `<button class="is-remedial-action" data-act="remedial">R. Remedial Surge ✦<small>${esc(remedialSubtitle)}</small></button>`
     : '';
   const buffParts = [];
   if ((hero.tempAttack || 0) > 0) buffParts.push(`+${hero.tempAttack} ATK`);
   if ((battle.tempDefense || 0) > 0) buffParts.push(`+${battle.tempDefense} DEF`);
   const buffBadge = buffParts.length ? `<span class="battle-buff-pill">${buffParts.join(' · ')}</span>` : '';
+  const adaptiveProfile = !multiplayerMatchActive && typeof adaptive?.getAdaptiveCombatProfile === 'function'
+    ? adaptive.getAdaptiveCombatProfile()
+    : null;
+  const adaptiveBadge = adaptiveProfile && adaptiveProfile.mode !== 'balanced'
+    ? `<span class="battle-adaptive-pill is-${esc(adaptiveProfile.mode)}">${esc(adaptiveProfile.label)}</span>`
+    : '';
   setPanel(`<div class="battle-bar-head">
       <span class="log">${esc(battle.log)}</span>
       <span class="intent">${isHeavy() ? 'Next: HEAVY attack!' : 'Next: Normal attack'}</span>
-      ${buffBadge}
+      ${adaptiveBadge}${buffBadge}
       <span class="dim">Deck: ${runDeck.length} (${battle.drawPile.length} left)</span>
     </div>
     <div class="actions">${cards}${noManaRemedial}</div>`);
@@ -1507,9 +1697,12 @@ function renderQuestion() {
   const choices = q.choices.map((text, i) => {
     return `<button data-act="answer" data-val="${i}">${i + 1}. ${esc(text)}</button>`;
   }).join('');
-  const diffLabel = multiplayerMatchActive
-    ? String(q.difficulty || 'medium').toUpperCase()
-    : (adaptive.lastSelection?.difficulty || adaptive.name).toUpperCase();
+  const qDiffKey = String(q.difficulty || (multiplayerMatchActive ? 'medium' : (adaptive.lastSelection?.difficulty || adaptive.name))).toLowerCase();
+  const diffLabel = qDiffKey.toUpperCase();
+  const qScale = !multiplayerMatchActive ? getQuestionDifficultyScale(qDiffKey) : null;
+  const bonusChip = qScale && qScale.mult > 1
+    ? ` · <span class="adaptive-bonus-chip">+${Math.round((qScale.mult - 1) * 100)}% POWER · +${qScale.bonusMp} MP</span>`
+    : '';
   const reasonBadge = multiplayerMatchActive
     ? `1V1 SYNCED · ROUND ${mpState.round + 1}`
     : (battle.fromReview
@@ -1517,7 +1710,7 @@ function renderQuestion() {
       : (adaptive.lastSelection?.badge || 'ADAPTIVE'));
   setPanel(`<div class="battle-bar-head">
       <p class="question">${esc(q.q)}</p>
-      <span class="tag">${esc(q.category)} · ${esc(q.topic)} · ${esc(diffLabel)} · <span class="adaptive-reason-tag">${esc(reasonBadge)}</span></span>
+      <span class="tag">${esc(q.category)} · ${esc(q.topic)} · ${esc(diffLabel)}${bonusChip} · <span class="adaptive-reason-tag">${esc(reasonBadge)}</span></span>
     </div>
     <div class="choices">${choices}</div>`);
   applyPortraitQuestionLayout(q.choices);
@@ -1665,6 +1858,18 @@ function startBattle(enemy) {
   battle.exclusiveCooldownTurns = 0;
   battle.exclusiveAppearTick = 0;
   hero.tempAttack = 0;
+  const adaptiveProfile = !multiplayerMatchActive && typeof adaptive?.getAdaptiveCombatProfile === 'function'
+    ? adaptive.getAdaptiveCombatProfile()
+    : null;
+  if (adaptiveProfile && adaptiveProfile.mode === 'mastery' && enemy && !enemy._adaptiveScaled) {
+    enemy.maxHp = Math.round((enemy.maxHp || 40) * adaptiveProfile.enemyHpMult);
+    enemy.hp = Math.round((enemy.hp || enemy.maxHp) * adaptiveProfile.enemyHpMult);
+    enemy.attack = Math.max(1, Math.round((enemy.attack || 8) * adaptiveProfile.enemyAtkMult));
+    enemy._adaptiveScaled = true;
+  }
+  const masteryNote = adaptiveProfile && adaptiveProfile.mode === 'mastery'
+    ? ' · Adaptive Mastery active (+15% foe resilience).'
+    : '';
   fillHand();
   Object.assign(battle, {
     enemy,
@@ -1698,7 +1903,7 @@ function startBattle(enemy) {
     rewards: [], upgrades: [],
     outcomeFlags: { killRecorded: false, rewardClaimed: false, upgradeClaimed: false, necroResolved: false },
     flash: { hero: 0, enemy: 0 }, fromReview: false, newUnlocks: [],
-    log: enemy.nyrmed ? `${enemy.name} & follower Grenu block the way!` : enemy.isBoss ? `${enemy.name} blocks the way!` : `A wild ${enemy.name} appeared!`,
+    log: (enemy.nyrmed ? `${enemy.name} & follower Grenu block the way!` : enemy.isBoss ? `${enemy.name} blocks the way!` : `A wild ${enemy.name} appeared!`) + masteryNote,
   });
   Sound.play(enemy.isBoss ? 'bossIntro' : 'encounter');
   Sound.music(enemy.isBoss ? 'boss' : 'battle');
@@ -1769,7 +1974,12 @@ function chooseCard(index) {
       });
     }
   } else {
-    battle.question = withShuffledChoices(adaptive.nextQuestion());
+    const roomDepth = typeof level !== 'undefined' ? Number(level) || 1 : 1;
+    battle.question = withShuffledChoices(adaptive.nextQuestion(getActiveAcademicYear(), {
+      cardId: id,
+      enemy: battle.enemy,
+      roomNumber: roomDepth,
+    }));
     battle.fromReview = adaptive.fromReview;
   }
   battle.phase = 'question';
@@ -1810,12 +2020,16 @@ function answerQuestion(index) {
         showSkillPointEarnedBanner(q.category);
       }
     }
-    // Performance-based recovery: a correct answer heals HP and restores mana, scaled by streak.
-    const heal = 4 + 2 * Math.min(stats.streak, 5) + hero.bonusHeal;
+    // Performance & difficulty scaling: harder questions and streaks restore more HP and MP.
+    const qScale = getQuestionDifficultyScale(q?.difficulty);
+    const profile = adaptive.getAdaptiveCombatProfile();
+    const baseHeal = 4 + 2 * Math.min(stats.streak, 5) + hero.bonusHeal + (qScale.bonusHp || 0);
+    const heal = Math.round(baseHeal * (profile.recoveryMult || 1));
+    const mpFocusGain = (qScale.bonusMp || 5) + hero.bonusMana;
     const previousHp = hero.hp;
     const previousMana = hero.mana;
     hero.hp = Math.min(hero.maxHp, hero.hp + heal);
-    hero.mana = Math.min(hero.maxMana, hero.mana + 5 + hero.bonusMana);
+    hero.mana = Math.min(hero.maxMana, hero.mana + mpFocusGain);
     const actualHeal = hero.hp - previousHp;
     const actualManaGain = hero.mana - previousMana;
     showHealFeedback(actualHeal, { offsetX: 58, y: HERO_SPOT.y - 78 });
@@ -1823,7 +2037,8 @@ function answerQuestion(index) {
       popup('hero', `+${actualManaGain} MP`, '#7ef0a2', { offsetX: -56, y: HERO_SPOT.y - 54, style: 'heal' });
     }
     emitFx(HERO_SPOT.x, HERO_SPOT.y - 80, '#7fd49a', 14, 2.5);
-    notes.push(`Focus restores ${heal} HP and 5 mana (streak ${stats.streak}).`);
+    const tierNote = qScale.bonusMp > 5 ? ` · ${String(q?.difficulty || 'medium').toUpperCase()} bonus` : '';
+    notes.push(`Focus restores ${heal} HP and ${mpFocusGain} mana (streak ${stats.streak}${tierNote}).`);
     if (chargeNote) notes.push(chargeNote);
   } else {
     notes.push('Saved for review.');
@@ -1900,7 +2115,7 @@ function buildRemedialQuestions(count, maxYear = getActiveAcademicYear()) {
 }
 
 function startRemedialChallenge() {
-  if (battle.phase !== 'choose' || multiplayerMatchActive || hero.mana > 0) return;
+  if (battle.phase !== 'choose' || !canUseRemedialSurge()) return;
   const total = 2 + Math.floor(Math.random() * 4); // 2 to 5 consecutive remedial questions
   const questions = buildRemedialQuestions(total);
   if (!questions.length) return;
@@ -2058,6 +2273,12 @@ function triggerCardActionAnim(cardId, correct) {
 // Resolves the card played this turn and returns a short description of what happened.
 function resolveCard(id, correct) {
   const card = CARD_LIBRARY[id];
+  const qScale = (!multiplayerMatchActive && typeof getQuestionDifficultyScale === 'function')
+    ? getQuestionDifficultyScale(battle.question?.difficulty)
+    : { mult: 1, bonusMp: 5, bonusHp: 0, label: 'STANDARD', counterMult: 1 };
+  const multTag = (!multiplayerMatchActive && qScale.mult > 1 && battle.question?.difficulty)
+    ? ` [${String(battle.question.difficulty).toUpperCase()} +${Math.round((qScale.mult - 1) * 100)}%]`
+    : '';
   if (card.kind === 'hit') {
     if (!correct) {
       battle.chargeCard = false;
@@ -2066,7 +2287,7 @@ function resolveCard(id, correct) {
       return 'Wrong answer! Your attack missed.';
     }
     const stunMult = battle.enemyStunTurns > 0 ? 1.5 : 1;
-    const dmg = Math.round((hero.attack + (hero.tempAttack || 0)) * card.power * (card.correctMult || 1) * stunMult);
+    const dmg = Math.round((hero.attack + (hero.tempAttack || 0)) * card.power * (card.correctMult || 1) * stunMult * qScale.mult);
     const note = card.id === 'strike' ? '' : `${card.name}! `;
     if (card.manaOnCorrect) {
       const prevMp = hero.mana;
@@ -2092,7 +2313,7 @@ function resolveCard(id, correct) {
     if (card.id === 'power' && !document.body.classList.contains('reduce-motion')) {
       battle.cameraShakeT = Math.max(battle.cameraShakeT, 0.85);
     }
-    return `${note}You hit for ${dmg}.`;
+    return `${note}You hit for ${dmg}.${multTag}`;
   }
   if (card.kind === 'defend') {
     battle.block = correct ? 0.75 : 0.25;
@@ -2111,17 +2332,17 @@ function resolveCard(id, correct) {
     return correct ? 'Guard up: you block 75% of the next hit.' : 'Shaky guard: you block 25% of the next hit.';
   }
   if (card.kind === 'charge') {
-    const gain = correct ? 25 : 10;
+    const gain = correct ? Math.round(25 * qScale.mult) : 10;
     const prevMp = hero.mana;
     hero.mana = Math.min(hero.maxMana, hero.mana + gain);
     triggerCardActionAnim(card.id, correct);
     popup('hero', `+${hero.mana - prevMp || gain} MP`, '#7ef0a2', { offsetX: -56, y: HERO_SPOT.y - 70, style: 'heal' });
     emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#7ef0a2', 14, 2);
     Sound.play('charge');
-    return `You charge ${gain} mana.`;
+    return `You charge ${gain} mana.${correct ? multTag : ''}`;
   }
   if (card.kind === 'heal') {
-    const heal = correct ? card.heal + hero.bonusHeal : 2;
+    const heal = correct ? Math.round((card.heal + hero.bonusHeal) * qScale.mult) : 2;
     const previousHp = hero.hp;
     hero.hp = Math.min(hero.maxHp, hero.hp + heal);
     const healed = hero.hp - previousHp;
@@ -2129,25 +2350,44 @@ function resolveCard(id, correct) {
     showHealFeedback(healed, { offsetX: -60, y: HERO_SPOT.y - 62 });
     emitFx(HERO_SPOT.x, HERO_SPOT.y - 80, '#7fd49a', 12, 2);
     Sound.play('heal');
-    return `${card.name} restores ${healed} HP.`;
+    return `${card.name} restores ${healed} HP.${correct ? multTag : ''}`;
   }
   if (card.kind === 'mana') {
-    const gain = correct ? card.gain : 2;
+    const gain = correct ? Math.round(card.gain * qScale.mult) : 2;
     const prevMp = hero.mana;
     hero.mana = Math.min(hero.maxMana, hero.mana + gain);
     triggerCardActionAnim(card.id, correct);
     popup('hero', `+${hero.mana - prevMp || gain} MP`, '#7ef0a2', { offsetX: -56, y: HERO_SPOT.y - 70, style: 'heal' });
     emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#7ef0a2', 12, 2);
+    let chipNote = '';
+    if (correct && card.chipPower && battle.enemy && !battle.enemy.isMultiplayerPlayer) {
+      const chipDmg = Math.max(1, Math.round((hero.attack + (hero.tempAttack || 0)) * card.chipPower * qScale.mult));
+      battle.enemy.hp = Math.max(0, battle.enemy.hp - chipDmg);
+      if (battle.enemy.hp <= 0) battle.enemyDefeatT = 0;
+      popup('enemy', `-${chipDmg}`, '#ffd27a');
+      battle.lungeT = 1;
+      battle.heroAttackT = BATTLE_ATTACK_FRAME_COUNT * BATTLE_ATTACK_FRAME_BUFFER;
+      chipNote = ` & deals ${chipDmg} DMG`;
+    }
     Sound.play('charge');
-    return `${card.name} restores ${gain} mana.`;
+    return `${card.name} restores ${gain} mana${chipNote}.${correct ? multTag : ''}`;
   }
   if (card.kind === 'buff') {
     const bonus = correct ? card.defense : 1;
     battle.tempDefense += bonus;
+    let mpNote = '';
+    if (correct && card.manaOnCorrect) {
+      const prevMp = hero.mana;
+      hero.mana = Math.min(hero.maxMana, hero.mana + card.manaOnCorrect);
+      if (hero.mana > prevMp) {
+        popup('hero', `+${hero.mana - prevMp} MP`, '#7ef0a2', { offsetX: -56, y: HERO_SPOT.y - 70, style: 'heal' });
+      }
+      mpNote = ` and +${card.manaOnCorrect} MP`;
+    }
     triggerCardActionAnim(card.id, correct);
     emitFx(HERO_SPOT.x, HERO_SPOT.y - 70, '#c9b6ff', 12, 2);
     Sound.play('block');
-    return `${card.name}: +${bonus} defense for this battle.`;
+    return `${card.name}: +${bonus} defense for this battle${mpNote}.`;
   }
   if (card.kind === 'aegis') {
     const chargeInfo = getExclusiveChargeMult(battle.exclusiveCastCharge);
@@ -2156,10 +2396,10 @@ function resolveCard(id, correct) {
       return `Wrong answer! ${card.name} failed to activate.`;
     }
     const rank = Math.max(1, skillProgress.computerSystems?.ranks?.kernelAegis || 1);
-    const m = chargeInfo.mult;
+    const m = chargeInfo.mult * qScale.mult;
     const shockDmg = Math.round(35 * rank * m);
-    const atkSurge = Math.round(4 * rank * m);
-    const defSurge = Math.round(3 * rank * m);
+    const atkSurge = Math.round(4 * rank * chargeInfo.mult);
+    const defSurge = Math.round(3 * rank * chargeInfo.mult);
     hero.runInvincible = true;
     const prevHp = hero.hp;
     hero.hp = hero.maxHp;
@@ -2196,8 +2436,8 @@ function resolveCard(id, correct) {
       return `Wrong answer! ${card.name} missed.`;
     }
     const rank = Math.max(1, skillProgress.networkingSecurity?.ranks?.packetLockdown || 1);
-    const m = chargeInfo.mult;
-    const stunTurns = Math.round((8 + (rank - 1) * 2) * m);
+    const m = chargeInfo.mult * qScale.mult;
+    const stunTurns = Math.round((8 + (rank - 1) * 2) * chargeInfo.mult);
     const breachDmg = Math.round(40 * rank * m);
     battle.enemyStunTurns = stunTurns;
     const mpGain = Math.min(hero.maxMana - hero.mana, Math.round(20 * m));
@@ -2232,7 +2472,7 @@ function resolveCard(id, correct) {
       return `Wrong answer! ${card.name} fizzled out.`;
     }
     const rank = Math.max(1, skillProgress.programming?.ranks?.overburnExecution || 1);
-    const m = chargeInfo.mult;
+    const m = chargeInfo.mult * qScale.mult;
     const baseDmg = 100 + (rank - 1) * 50;
     const passiveAndBuffBonus = (Math.max(0, (hero.attack || 12) - 12) + (hero.tempAttack || 0)) * 2;
     const isExecute = battle.enemy && battle.enemy.hp <= battle.enemy.maxHp * 0.4;
@@ -2434,11 +2674,18 @@ function performEnemyAttack({ fromWrongAnswer = false } = {}) {
     return;
   }
   // Enemy turn: every third turn (every second for bosses) is a telegraphed heavy attack.
+  // Counter damage scales smoothly with enemy attack, question difficulty, and Comeback Assist.
   const heavy = isHeavy();
+  const qScale = (!multiplayerMatchActive && typeof getQuestionDifficultyScale === 'function')
+    ? getQuestionDifficultyScale(battle.question?.difficulty)
+    : { counterMult: 1 };
+  const adaptiveProfile = (!multiplayerMatchActive && typeof adaptive?.getAdaptiveCombatProfile === 'function')
+    ? adaptive.getAdaptiveCombatProfile()
+    : { enemyDmgMult: 1 };
   let dmg = fromWrongAnswer
-    ? Math.max(24, Math.round(foe.attack * (heavy ? 2.2 : 1.8) - hero.defense - battle.tempDefense))
+    ? Math.max(Math.round(foe.attack * 1.15), Math.round(foe.attack * (heavy ? 1.85 : 1.45) - hero.defense - battle.tempDefense))
     : Math.max(1, Math.round(foe.attack * (heavy ? 1.7 : 1) - hero.defense - battle.tempDefense));
-  dmg = Math.max(1, Math.round(dmg * (1 - battle.block)));
+  dmg = Math.max(1, Math.round(dmg * (fromWrongAnswer ? (qScale.counterMult || 1) : 1) * (adaptiveProfile.enemyDmgMult || 1) * (1 - battle.block)));
   let aegisBreakNote = '';
   let aegisOverload = false;
   if (hero.runInvincible) {

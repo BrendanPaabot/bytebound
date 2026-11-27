@@ -7,13 +7,13 @@
 <!-- AUTO:START:snapshot -->
 | Metric | Live Value |
 | :--- | :--- |
-| **Last Auto-Synced** | `2026-11-27 15:57:09` |
-| **Git Branch / HEAD** | `main` @ `3cbcbc3` |
-| **Tracked Source Modules** | `42` files (`55,735` lines, `2012.7 KB`) |
+| **Last Auto-Synced** | `2026-11-27 16:52:33` |
+| **Git Branch / HEAD** | `main` @ `4727d04` |
+| **Tracked Source Modules** | `42` files (`56,007` lines, `2026.7 KB`) |
 | **Question Bank Coverage** | `240` questions across `4` disciplines & `20` topics |
 | **Campaign Structure** | `16` authored rooms · `RUN_LENGTH = 32` (2 campaign loops) |
 | **Achievements** | `48` tracked milestones |
-| **Active Asset Cache Versions** | `styles.css?v=49`, `js/audio.js?v=15`, `js/cards.js?v=9`, `js/combat.js?v=74`, `js/practice.js?v=12`, `index.js?v=180`, `js/tutorials.js?v=15`, `admin.css?v=6`, `admin.js?v=8` |
+| **Active Asset Cache Versions** | `styles.css?v=50`, `js/audio.js?v=15`, `js/cards.js?v=10`, `js/combat.js?v=75`, `js/practice.js?v=12`, `index.js?v=180`, `js/tutorials.js?v=15`, `admin.css?v=6`, `admin.js?v=8` |
 <!-- AUTO:END:snapshot -->
 
 ---
@@ -68,8 +68,8 @@ flowchart TD
 ## 4. Core Learning, Gameplay & Governance Systems
 
 ### 4.1 Adaptive Difficulty & Spaced Review Engine (`js/combat.js`)
-- **Per-Discipline Difficulty Calibration (`AdaptiveDifficulty`):** Tracks independent difficulty tiers (`0` Easy, `1` Medium, `2` Hard) across each of the 4 CS/IT disciplines and calibrates initial tiers directly from stored `topicProgress`.
-- **Escalation & Step-Down:** Two consecutive correct answers at Medium (`mediumStreak >= 2`) advance the category to Hard; any wrong answer immediately steps difficulty down by one tier and resets `mediumStreak`.
+- **Per-Discipline Calibration & Rolling Combat Profiling (`AdaptiveDifficulty`):** Tracks independent difficulty tiers (`0` Easy, `1` Medium, `2` Hard) across each of the 4 CS/IT disciplines calibrated from `topicProgress`, plus a rolling 8-answer performance window (`Comeback Assist` vs. `Balanced` vs. `Adaptive Mastery`).
+- **Context-Aware Escalation & Difficulty-Scaled Rewards:** Question difficulty dynamically scales with discipline competence, campaign room depth, enemy tier (`Drius`/Bosses), and high-risk cards (`Heavy Blow`, `Overclock`, Exclusives). Harder questions directly amplify card effects and focus recovery (**Easy**: `1.0×` power / `+5 MP`; **Medium**: `1.18×` / `+8 MP` / `+2 HP`; **Hard**: `1.38×` / `+12 MP` / `+4 HP`) while softening wrong-answer counters on Hard (`0.88×`) and stepping down smoothly without single-miss yo-yo drops.
 - **Weak-Topic Prioritization & Spaced Review:** Topics below `75%` accuracy receive weighted priority. Missed questions enter a bounded review queue (`REVIEW_LIMIT = 25`) and resurface after `REVIEW_DELAY = 3` subsequent answers (`REVIEW_CHANCE = 0.30` in regular battles, raised to `BOSS_REVIEW_CHANCE = 0.50` against bosses).
 - **Runtime Choice Shuffling (`withShuffledChoices`):** Randomizes option positions every time a question renders without mutating `data/questions.json`, preventing positional memorization.
 
@@ -93,7 +93,7 @@ flowchart TD
   - **`4/5` (`OVERCHARGED`):** Boosts damage, MP gain, buff magnitude, and stun duration to **`1.25×`**.
   - **`5/5` (`MAX OVERDRIVE`):** Maximizes skill output at **`1.5×`**, consuming the streak charge (`5 → 0`) upon activation without self-charging on that cast turn.
 - **Database Exclusive (`Necromancy`):** Passive-slot capstone (`activeCardId: null`) allowing players to spend MP to raise up to `3` defeated enemies/bosses as sequential undead allies that strike after correct answers.
-- **`0 MP` Remedial Surge Recovery:** Prevents soft-locks when out of MP by letting the player answer `2–5` foundational/missed remedial questions for full MP + `35%` HP + `+8 ATK / +4 DEF` on a perfect score, or proportional recovery if at least one answer is correct.
+- **Anti-Soft-Lock Deck Guarantee & Universal Remedial Surge (`canUseRemedialSurge()`):** Solo runs start with `SOLO_STARTING_DECK` including `Charge Mana` (`0 MP`); `fillHand()` automatically substitutes an affordable/mana-generating card from draw or discard whenever a drawn hand lacks playable cards; and **Remedial Surge (`R`)** unlocks both at `0 MP` and whenever every card in hand exceeds current MP (e.g., `12 MP` with only `Power Strike`/`Heavy Blow`). Answering `2–5` remedial questions restores full MP + `35%` HP + `+8 ATK / +4 DEF` on a perfect score, or proportional recovery if at least one answer is correct.
 
 ### 4.5 Academic Year Restrictions & Approval Workflow
 - Players select their enrolling Academic Year (`Year 1`–`Year 4`) at registration; gameplay filters all questions via `isQuestionEligibleForYear(question, cap)` across campaign combat, remedial drills, Topic Drills, and multiplayer question selection.
@@ -147,14 +147,14 @@ flowchart TD
 | ID | Card | Base Cost | Kind | Pool | Effect Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `strike` | **Strike** | 0 MP | `hit` | Starter Deck | Base attack damage. |
-| `power` | **Power Strike** | Empower (20+ MP) | `hit` | Starter Deck | Costs mana for 1.5x damage. |
+| `power` | **Power Strike** | Empower (20+ MP) | `hit` | Starter Deck | Costs mana for 1.55x damage. |
 | `defend` | **Defend** | 0 MP | `defend` | Starter Deck | Blocks most of the next hit. 2-turn cooldown. |
 | `charge` | **Charge Mana** | 0 MP | `charge` | Starter Deck | Restores mana. |
-| `quick` | **Quick Jab** | 0 MP | `hit` | Unlockable Reward | A weaker hit that restores 3 mana when correct. |
-| `mend` | **Mend** | 0 MP | `heal` | Unlockable Reward | Restores HP when correct. |
-| `siphon` | **Siphon** | 0 MP | `mana` | Unlockable Reward | Restores 8 mana when correct. |
-| `heavy` | **Heavy Blow** | 30 MP | `hit` | Unlockable Reward | Costs 30 mana for a crushing hit. |
-| `fortify` | **Fortify** | 0 MP | `buff` | Unlockable Reward | +2 defense for the rest of the battle. |
+| `quick` | **Quick Jab** | 0 MP | `hit` | Unlockable Reward | A swift hit that restores 8 mana when correct. |
+| `mend` | **Mend** | 0 MP | `heal` | Unlockable Reward | Restores 12+ HP when correct. |
+| `siphon` | **Siphon** | 0 MP | `mana` | Unlockable Reward | Restores 16 mana and deals light chip damage when correct. |
+| `heavy` | **Heavy Blow** | 25 MP | `hit` | Unlockable Reward | Costs 25 mana for a crushing hit. |
+| `fortify` | **Fortify** | 0 MP | `buff` | Unlockable Reward | +3 defense for the battle and +4 mana when correct. |
 | `overclock` | **Overclock** | 10 MP | `hit` | Unlockable Reward | Costs 10 mana. Double damage when correct. |
 | `kernel_aegis` | **Kernel Aegis** | 10 MP | `aegis` | Exclusive (3–5 Streak) | Charges via 3–5 answer streak (up to 1.5x). Blocks hits + full heal + 40–60 MP + surge; wrong answers drain/pierce. |
 | `packet_lockdown` | **Packet Lockdown** | 10 MP | `stun` | Exclusive (3–5 Streak) | Charges via 3–5 answer streak (up to 1.5x). 8–12t stun, breach DMG, +50% hit DMG while stunned & MP. |
@@ -276,27 +276,27 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 <!-- AUTO:START:inventory -->
 | File Path | Lines | Size (KB) | Functional Role |
 | :--- | :---: | :---: | :--- |
-| [`CHANGES.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/CHANGES.md) | 60 | 10.2 | Concise changelog and migration overview aligned with live system revisions |
+| [`CHANGES.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/CHANGES.md) | 63 | 11.6 | Concise changelog and migration overview aligned with live system revisions |
 | [`SUPABASE_SETUP.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/SUPABASE_SETUP.md) | 24 | 3.2 | Cloud PostgreSQL and Realtime setup instructions |
 | [`admin.html`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/admin.html) | 146 | 6.4 | Standalone Administrator Management Console shell and layout containers |
 | [`css/admin.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/admin.css) | 1,165 | 21.6 | Styling and responsive grid layouts for the standalone Admin Management Console |
-| [`css/styles.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/styles.css) | 14,936 | 401.1 | Complete responsive design system (Dark/Light themes, battle cards, skill tree, portrait/landscape media queries) |
+| [`css/styles.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/styles.css) | 14,953 | 401.5 | Complete responsive design system (Dark/Light themes, battle cards, skill tree, portrait/landscape media queries) |
 | [`data/questions.json`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/data/questions.json) | 3,369 | 125.9 | Authoritative 240-question curriculum bank tagged by category, topic, year (1–4), and difficulty |
 | [`index.html`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.html) | 479 | 31.1 | Main player SPA shell (Auth, Quest Hub, Practice, Battle Canvas, Tracker, Maps, Skill Tree, Settings) |
 | [`index.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.js) | 10,387 | 413.5 | Game loop, 16-room engine, sprite/animation rendering, physics, save profiles, auth flows, achievements, Hub UI |
 | [`js/admin.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/admin.js) | 2,231 | 99.4 | Admin Console client controller (Supabase RPC + local server fallback, pagination, requests, logs, CRUD) |
 | [`js/arena.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/arena.js) | 101 | 3.3 | Battle arena biome canvas backdrop rendering themes |
 | [`js/audio.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/audio.js) | 974 | 33.2 | Procedural Web Audio synthesizer: SFX + adaptive BGM (ambient explore, chiptune-rock battle, complextro-classical boss) |
-| [`js/cards.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/cards.js) | 157 | 9.5 | CARD_LIBRARY definitions, mana costs, dynamic damage/buff descriptions, and card role metadata |
+| [`js/cards.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/cards.js) | 162 | 9.9 | CARD_LIBRARY definitions, mana costs, dynamic damage/buff descriptions, and card role metadata |
 | [`js/classes/Boss.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/classes/Boss.js) | 259 | 10.0 | Mini Boss (Kor, Grenu) and Final Boss (King Crolue) combat stats and sprite state machines |
 | [`js/classes/CollisionBlock.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/classes/CollisionBlock.js) | 34 | 0.9 | Axis-aligned and polygonal collision platform/wall primitives |
 | [`js/classes/Enemy.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/classes/Enemy.js) | 395 | 15.7 | Enemy patrol AI, sprite states, and encounter triggers |
 | [`js/classes/Player.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/classes/Player.js) | 280 | 8.6 | Player movement, gravity, horizontal/vertical collision pushout, sprite states, and door interaction |
 | [`js/classes/Sprite.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/classes/Sprite.js) | 157 | 4.7 | Frame-based sprite sheet loader and animation renderer |
-| [`js/combat.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/combat.js) | 3,443 | 139.4 | AdaptiveDifficulty engine, spaced review, Academic Year gating, Skill Trees, card combat, 3–5 streak exclusive skills |
+| [`js/combat.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/combat.js) | 3,690 | 151.2 | AdaptiveDifficulty engine, spaced review, Academic Year gating, Skill Trees, card combat, 3–5 streak exclusive skills |
 | [`js/data/collisions.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/data/collisions.js) | 294 | 16.6 | Compiled platform, wall, and conveyor collision geometry for all 16 authored rooms |
 | [`js/data/questions.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/data/questions.js) | 3,372 | 126.1 | Compiled browser-ready QUESTION_BANK bundle generated from data/questions.json |
-| [`js/eventListeners.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/eventListeners.js) | 231 | 9.0 | Keyboard and battle hotkey dispatchers across explore, map, skill tree, and combat phases |
+| [`js/eventListeners.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/eventListeners.js) | 231 | 9.1 | Keyboard and battle hotkey dispatchers across explore, map, skill tree, and combat phases |
 | [`js/font.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/font.js) | 7 | 0.1 | Local bitmap/pixel webfont loader and fallback registration |
 | [`js/mp-matchmaking.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/mp-matchmaking.js) | 765 | 27.2 | 1v1 competitive room creation, invitation codes, Elo rating updates, and match lifecycle |
 | [`js/mp-network.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/mp-network.js) | 1,439 | 54.1 | Cross-device Supabase Realtime + local HTTP 1v1 lobby, presence, and broadcast synchronization |
@@ -346,6 +346,16 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 <!-- AUTO:START:revisions -->
 | Timestamp | Trigger | Changed Areas / Files | Revision Summary |
 | :--- | :--- | :--- | :--- |
+| `2026-11-27 16:25:10` | `manual` | Documentation Sync | Fixed low-MP soft-lock with smart hand draw + universal Remedial Surge, rebalanced cards/counters, and scaled combat rewards & enemies with adaptive question difficulty |
+| `2026-11-27 16:24:32` | `agent-edit` | Documentation/Config (`CHANGES.md`) | Auto-synced after agent update to `CHANGES.md`. |
+| `2026-11-27 16:24:26` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
+| `2026-11-27 16:24:20` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
+| `2026-11-27 16:23:52` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-27 16:23:49` | `agent-edit` | Documentation Sync | Auto-synced after agent update to `css/styles.css`. |
+| `2026-11-27 16:23:46` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
+| `2026-11-27 16:22:25` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
+| `2026-11-27 16:21:42` | `agent-edit` | Documentation/Config (`js/eventListeners.js`) | Auto-synced after agent update to `js/eventListeners.js`. |
+| `2026-11-27 16:21:35` | `agent-edit` | Combat & Exclusive Skills (`js/cards.js`) | Auto-synced after agent update to `js/cards.js`. |
 | `2026-11-27 15:47:27` | `manual` | Documentation Sync | Moved Shared Computer checkbox below Log In button on authentication card |
 | `2026-11-27 15:47:10` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
 | `2026-11-27 15:45:56` | `manual` | Documentation Sync | Fixed Shared Computer checkbox alignment and matched login safety font to Bytebound UI typography |
@@ -376,14 +386,4 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 | `2026-11-27 13:43:31` | `agent-edit` | Documentation/Config (`SUPABASE_SETUP.md`) | Auto-synced after agent update to `SUPABASE_SETUP.md`. |
 | `2026-11-27 13:43:28` | `agent-edit` | Admin Console (`admin.html`) | Auto-synced after agent update to `admin.html`. |
 | `2026-11-27 13:43:26` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-27 13:42:44` | `agent-edit` | Admin Console (`js/admin.js`) | Auto-synced after agent update to `js/admin.js`. |
-| `2026-11-27 13:41:35` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
-| `2026-11-27 13:41:29` | `agent-edit` | 1v1 Multiplayer (`js/mp-network.js`) | Auto-synced after agent update to `js/mp-network.js`. |
-| `2026-11-27 13:41:13` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
-| `2026-11-27 13:41:09` | `agent-edit` | 1v1 Multiplayer (`js/mp-network.js`) | Auto-synced after agent update to `js/mp-network.js`. |
-| `2026-11-27 13:41:04` | `agent-edit` | 1v1 Multiplayer (`js/mp-matchmaking.js`) | Auto-synced after agent update to `js/mp-matchmaking.js`. |
-| `2026-11-27 13:40:40` | `agent-edit` | 1v1 Multiplayer (`js/mp-ui.js`) | Auto-synced after agent update to `js/mp-ui.js`. |
-| `2026-11-27 13:40:38` | `agent-edit` | 1v1 Multiplayer (`js/mp-network.js`) | Auto-synced after agent update to `js/mp-network.js`. |
-| `2026-11-27 13:40:06` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
-| `2026-11-27 13:39:11` | `agent-edit` | Auth, Backend & SQL Schema (`serve-local.ps1`) | Auto-synced after agent update to `serve-local.ps1`. |
 <!-- AUTO:END:revisions -->
