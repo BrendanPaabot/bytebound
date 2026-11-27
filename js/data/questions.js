@@ -1122,6 +1122,846 @@ const QUESTION_BANK = {
       ],
       "answer": 0,
       "explain": "Database engines automatically build a unique index on the primary key to enforce uniqueness and speed up lookups."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Logic & Truth Tables",
+      "year": 1,
+      "q": "If P is True and Q is False, what is the truth value of (P AND Q)?",
+      "choices": [
+        "True",
+        "False",
+        "Undefined",
+        "Cannot be determined"
+      ],
+      "answer": 1,
+      "explain": "A conjunction (P AND Q) is True only when both P and Q are True."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Logic & Truth Tables",
+      "year": 1,
+      "q": "Which logical operator flips True to False and False to True?",
+      "choices": [
+        "OR (∨)",
+        "AND (∧)",
+        "NOT (¬)",
+        "XOR (⊕)"
+      ],
+      "answer": 2,
+      "explain": "Negation (¬P) reverses the truth value of a proposition."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Logic & Truth Tables",
+      "year": 1,
+      "q": "For (P OR Q) to be False, what must the truth values of P and Q be?",
+      "choices": [
+        "Both must be True",
+        "At least one must be False",
+        "Both must be False",
+        "P is True and Q is False"
+      ],
+      "answer": 2,
+      "explain": "An inclusive disjunction (P ∨ Q) is False only when every operand is False."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Logic & Truth Tables",
+      "year": 1,
+      "q": "What is the negation of the statement \"Today is Monday\"?",
+      "choices": [
+        "Today is Tuesday",
+        "Today is not Monday",
+        "Yesterday was Monday",
+        "Tomorrow is Monday"
+      ],
+      "answer": 1,
+      "explain": "The negation of proposition P states simply that P is not the case (\"Today is not Monday\")."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Sets, Functions & Relations",
+      "year": 1,
+      "q": "Given sets A = {1, 2, 3} and B = {3, 4, 5}, what is the intersection A ∩ B?",
+      "choices": [
+        "{1, 2, 3, 4, 5}",
+        "{3}",
+        "{1, 2}",
+        "{4, 5}"
+      ],
+      "answer": 1,
+      "explain": "The intersection A ∩ B contains only elements common to both sets, which is {3}."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Sets, Functions & Relations",
+      "year": 1,
+      "q": "Given A = {a, b} and B = {b, c}, what is the union A ∪ B?",
+      "choices": [
+        "{b}",
+        "{a, c}",
+        "{a, b, c}",
+        "{a, b, b, c}"
+      ],
+      "answer": 2,
+      "explain": "Set union combines all distinct elements from both sets without duplicates: {a, b, c}."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Sets, Functions & Relations",
+      "year": 1,
+      "q": "What is the cardinality |S| of the set S = {2, 4, 6, 8, 10}?",
+      "choices": [
+        "4",
+        "5",
+        "10",
+        "30"
+      ],
+      "answer": 1,
+      "explain": "Cardinality measures the number of distinct elements in a set, and S has 5 elements."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Sets, Functions & Relations",
+      "year": 1,
+      "q": "Which symbol denotes the empty set containing zero elements?",
+      "choices": [
+        "∞",
+        "∈",
+        "∅",
+        "⊆"
+      ],
+      "answer": 2,
+      "explain": "The symbol ∅ (or {}) represents the empty set."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Boolean Algebra & Logic Circuits",
+      "year": 1,
+      "q": "Which logic gate outputs 1 only when ALL of its inputs are 1?",
+      "choices": [
+        "OR",
+        "AND",
+        "XOR",
+        "NOR"
+      ],
+      "answer": 1,
+      "explain": "An AND gate outputs 1 exclusively when every input equals 1."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Boolean Algebra & Logic Circuits",
+      "year": 1,
+      "q": "Which logic gate outputs 1 only when its two inputs are different?",
+      "choices": [
+        "AND",
+        "XNOR",
+        "XOR",
+        "NAND"
+      ],
+      "answer": 2,
+      "explain": "Exclusive OR (XOR) outputs 1 when inputs differ (0 and 1, or 1 and 0)."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Boolean Algebra & Logic Circuits",
+      "year": 1,
+      "q": "In Boolean algebra, what does the expression A + 0 simplify to?",
+      "choices": [
+        "0",
+        "1",
+        "A",
+        "NOT A"
+      ],
+      "answer": 2,
+      "explain": "By the identity law for Boolean OR, adding 0 leaves A unchanged: A + 0 = A."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Boolean Algebra & Logic Circuits",
+      "year": 1,
+      "q": "In Boolean algebra, what does the product A · 0 equal?",
+      "choices": [
+        "A",
+        "1",
+        "0",
+        "NOT A"
+      ],
+      "answer": 2,
+      "explain": "By the domination (annihilation) law, anything ANDed with 0 always equals 0."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Graph Theory & Trees",
+      "year": 2,
+      "q": "In an undirected graph, what is the degree of a vertex?",
+      "choices": [
+        "Its shortest distance from the root",
+        "The number of edges connected to it",
+        "The maximum weight of all edges",
+        "Its position in topological sort"
+      ],
+      "answer": 1,
+      "explain": "A vertex’s degree counts how many edge endpoints touch that vertex (with self-loops counting twice)."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Graph Theory & Trees",
+      "year": 2,
+      "q": "What defines a simple cycle-free connected undirected graph?",
+      "choices": [
+        "A complete graph",
+        "A tree",
+        "A bipartite multigraph",
+        "A directed loop"
+      ],
+      "answer": 1,
+      "explain": "A tree is a connected undirected graph that contains no cycles."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Graph Theory & Trees",
+      "year": 2,
+      "q": "What do you call edges in a graph that have a specific one-way direction (u → v)?",
+      "choices": [
+        "Undirected edges",
+        "Directed edges",
+        "Parallel chords",
+        "Incidence loops"
+      ],
+      "answer": 1,
+      "explain": "Directed edges (arcs) point from a source vertex to a destination vertex."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Graph Theory & Trees",
+      "year": 2,
+      "q": "In a rooted tree, what is a node that has no children called?",
+      "choices": [
+        "Root node",
+        "Internal node",
+        "Leaf node",
+        "Sibling node"
+      ],
+      "answer": 2,
+      "explain": "Nodes with zero child branches at the bottom of a tree are leaves."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Combinatorics, Induction & Modular Math",
+      "year": 2,
+      "q": "If you have 3 shirts and 4 pairs of pants, how many distinct outfits can you form?",
+      "choices": [
+        "7",
+        "12",
+        "24",
+        "81"
+      ],
+      "answer": 1,
+      "explain": "By the Product Rule of counting, independent choices multiply: 3 × 4 = 12."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Combinatorics, Induction & Modular Math",
+      "year": 2,
+      "q": "What is the value of 17 mod 5?",
+      "choices": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "answer": 1,
+      "explain": "Dividing 17 by 5 gives quotient 3 with remainder 2, so 17 mod 5 = 2."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Combinatorics, Induction & Modular Math",
+      "year": 2,
+      "q": "What is 4 factorial (4!) equal to?",
+      "choices": [
+        "10",
+        "16",
+        "24",
+        "48"
+      ],
+      "answer": 2,
+      "explain": "4! = 4 × 3 × 2 × 1 = 24."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Combinatorics, Induction & Modular Math",
+      "year": 2,
+      "q": "In a 2-step proof by mathematical induction, what are the two parts called?",
+      "choices": [
+        "Hypothesis and conclusion",
+        "Base case and inductive step",
+        "Domain and codomain",
+        "Converse and inverse"
+      ],
+      "answer": 1,
+      "explain": "Mathematical induction proves a base case (e.g., n = 0 or 1) and an inductive step showing P(k) implies P(k + 1)."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "HCI & Usability Principles",
+      "year": 3,
+      "q": "Which Nielsen usability heuristic is satisfied when a download progress bar keeps users informed?",
+      "choices": [
+        "Visibility of system status",
+        "Aesthetic and minimalist design",
+        "Match between system and real world",
+        "Flexibility and efficiency"
+      ],
+      "answer": 0,
+      "explain": "Progress indicators provide timely feedback so users always know what the system is doing."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "HCI & Usability Principles",
+      "year": 3,
+      "q": "Which HTML attribute improves screen-reader accessibility for meaningful images?",
+      "choices": [
+        "tabindex",
+        "alt",
+        "border",
+        "draggable"
+      ],
+      "answer": 1,
+      "explain": "The alt attribute supplies a text alternative that assistive screen readers announce for images."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "HCI & Usability Principles",
+      "year": 3,
+      "q": "What is a low-fidelity rough sketch of a screen layout called in UI/UX design?",
+      "choices": [
+        "Unit test",
+        "Wireframe",
+        "Schema migration",
+        "Reverse proxy"
+      ],
+      "answer": 1,
+      "explain": "Wireframes map content hierarchy and layout before final colors and visual polish."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "HCI & Usability Principles",
+      "year": 3,
+      "q": "Asking for confirmation before deleting a user account demonstrates which HCI principle?",
+      "choices": [
+        "Visibility of status",
+        "Error prevention",
+        "Accelerator shortcuts",
+        "Recognition rather than recall"
+      ],
+      "answer": 1,
+      "explain": "Confirmation dialogs prevent accidental destructive mistakes before they execute."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "SDLC & Agile Methodologies",
+      "year": 2,
+      "q": "Which SDLC model moves strictly sequentially through Requirements, Design, Implementation, Verification, and Maintenance?",
+      "choices": [
+        "Agile Scrum",
+        "Waterfall",
+        "Extreme Programming",
+        "Kanban"
+      ],
+      "answer": 1,
+      "explain": "The traditional Waterfall model flows linearly downward from one completed phase to the next."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "SDLC & Agile Methodologies",
+      "year": 2,
+      "q": "In Scrum, what is a fixed-length timebox (typically 1 to 4 weeks) where a usable increment is built?",
+      "choices": [
+        "A spike",
+        "A Sprint",
+        "A backlog",
+        "A burnup"
+      ],
+      "answer": 1,
+      "explain": "Sprints are short, repeatable iterations that produce a shippable product increment."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "SDLC & Agile Methodologies",
+      "year": 2,
+      "q": "Which Scrum role prioritizes the Product Backlog to maximize product value?",
+      "choices": [
+        "Scrum Master",
+        "Product Owner",
+        "QA Engineer",
+        "Release Manager"
+      ],
+      "answer": 1,
+      "explain": "The Product Owner owns and prioritizes backlog items based on stakeholder and user value."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "SDLC & Agile Methodologies",
+      "year": 2,
+      "q": "In Scrum, what is the brief daily 15-minute synchronization meeting called?",
+      "choices": [
+        "Sprint Retrospective",
+        "Daily Stand-up (Daily Scrum)",
+        "Sprint Planning",
+        "Postmortem"
+      ],
+      "answer": 1,
+      "explain": "The Daily Scrum aligns teammates quickly on progress and blockers for the day."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Requirements & UML Modeling",
+      "year": 2,
+      "q": "Which type of requirement specifies WHAT a system must do (such as \"Users can reset forgotten passwords\")?",
+      "choices": [
+        "Non-functional requirement",
+        "Functional requirement",
+        "Physical constraint",
+        "Hardware SLA"
+      ],
+      "answer": 1,
+      "explain": "Functional requirements describe concrete features and behaviors the software provides."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Requirements & UML Modeling",
+      "year": 2,
+      "q": "Which UML diagram depicts actors interacting with high-level system goals (like Login or Checkout)?",
+      "choices": [
+        "Use Case diagram",
+        "Deployment diagram",
+        "Component diagram",
+        "Package diagram"
+      ],
+      "answer": 0,
+      "explain": "Use Case diagrams illustrate system boundaries, user roles (actors), and core user goals."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Requirements & UML Modeling",
+      "year": 2,
+      "q": "In Agile, which format commonly expresses user requirements: \"As a [role], I want [goal], so that [benefit]\"?",
+      "choices": [
+        "Class invariant",
+        "User story",
+        "Traceability table",
+        "Entity schema"
+      ],
+      "answer": 1,
+      "explain": "User stories capture requirements from the end user’s perspective concisely."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Requirements & UML Modeling",
+      "year": 2,
+      "q": "Which classification applies to \"The page must load in under 1.5 seconds for 500 concurrent users\"?",
+      "choices": [
+        "Functional requirement",
+        "Non-functional requirement",
+        "User persona",
+        "Syntax rule"
+      ],
+      "answer": 1,
+      "explain": "Performance, scalability, and reliability constraints are non-functional quality requirements."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Testing & QA",
+      "year": 2,
+      "q": "Which level of testing verifies a single function, method, or class in isolation?",
+      "choices": [
+        "Unit testing",
+        "System testing",
+        "Acceptance testing",
+        "Stress testing"
+      ],
+      "answer": 0,
+      "explain": "Unit tests isolate the smallest testable pieces of code to validate their behavior quickly."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Testing & QA",
+      "year": 2,
+      "q": "What is regression testing designed to verify?",
+      "choices": [
+        "That new changes have not broken existing features",
+        "Only first-time database seeding",
+        "Hardware thermal throttling",
+        "User interface font rendering only"
+      ],
+      "answer": 0,
+      "explain": "Regression suites re-run existing checks after edits to catch unintended side effects."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Testing & QA",
+      "year": 2,
+      "q": "Which testing approach evaluates inputs and outputs without inspecting internal source code?",
+      "choices": [
+        "White-box testing",
+        "Black-box testing",
+        "Code profiling",
+        "Static AST linting"
+      ],
+      "answer": 1,
+      "explain": "Black-box testing treats the software as an opaque box focused on specification behavior."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Testing & QA",
+      "year": 2,
+      "q": "Which final test phase validates whether stakeholders/customers accept the system for release?",
+      "choices": [
+        "Unit testing",
+        "User Acceptance Testing (UAT)",
+        "Mutation testing",
+        "Lint check"
+      ],
+      "answer": 1,
+      "explain": "UAT confirms the finished software satisfies real business and end-user criteria."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Architecture & Design Patterns",
+      "year": 3,
+      "q": "What does MVC stand for in software architecture?",
+      "choices": [
+        "Module-Vector-Cache",
+        "Model-View-Controller",
+        "Memory-Virtual-Core",
+        "Micro-Version-Container"
+      ],
+      "answer": 1,
+      "explain": "MVC separates data/business rules (Model), presentation (View), and input coordination (Controller)."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Architecture & Design Patterns",
+      "year": 3,
+      "q": "Which creational design pattern ensures a class has only one shared instance globally?",
+      "choices": [
+        "Observer",
+        "Singleton",
+        "Decorator",
+        "Iterator"
+      ],
+      "answer": 1,
+      "explain": "Singleton restricts instantiation to a single shared object across an application."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Architecture & Design Patterns",
+      "year": 3,
+      "q": "Which architectural goal describes modules with focused internal responsibilities and minimal inter-module dependencies?",
+      "choices": [
+        "High coupling and low cohesion",
+        "Low coupling and high cohesion",
+        "Zero abstraction",
+        "Global shared mutability"
+      ],
+      "answer": 1,
+      "explain": "Good modular design pairs high cohesion inside modules with loose (low) coupling between them."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Architecture & Design Patterns",
+      "year": 3,
+      "q": "In microservices architecture, how is an application structured compared to a single monolith?",
+      "choices": [
+        "Everything compiles into one tightly linked UI script",
+        "As small independent services focused on distinct capabilities",
+        "Without any network communication",
+        "Inside one shared SQLite file only"
+      ],
+      "answer": 1,
+      "explain": "Microservices split a system into independently deployable services communicating over APIs or events."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "HTML, CSS & Responsive UI",
+      "year": 1,
+      "q": "Which HTML5 element semantically represents a site’s primary navigation links?",
+      "choices": [
+        "<div>",
+        "<nav>",
+        "<aside>",
+        "<span>"
+      ],
+      "answer": 1,
+      "explain": "Semantic <nav> tags identify major navigation link blocks for browsers and screen readers."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "HTML, CSS & Responsive UI",
+      "year": 1,
+      "q": "In the CSS Box Model, which property controls space INSIDE an element’s border around its content?",
+      "choices": [
+        "margin",
+        "padding",
+        "outline",
+        "z-index"
+      ],
+      "answer": 1,
+      "explain": "Padding sits between content and border, whereas margin pushes outside the border."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "HTML, CSS & Responsive UI",
+      "year": 1,
+      "q": "Which CSS display value activates one-dimensional row or column flexible layout?",
+      "choices": [
+        "display: block",
+        "display: flex",
+        "display: inline",
+        "display: none"
+      ],
+      "answer": 1,
+      "explain": "Flexbox (display: flex) distributes items smoothly along a main axis and cross axis."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "HTML, CSS & Responsive UI",
+      "year": 1,
+      "q": "Which HTML meta tag helps mobile browsers scale responsive pages to device screen width?",
+      "choices": [
+        "<meta charset=\"utf-8\">",
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+        "<meta http-equiv=\"refresh\">",
+        "<meta name=\"author\">"
+      ],
+      "answer": 1,
+      "explain": "The viewport meta tag prevents mobile browsers from zooming out to a fake 980px desktop layout."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "JavaScript, DOM & Async",
+      "year": 1,
+      "q": "Which DOM method returns the first element matching a given CSS selector?",
+      "choices": [
+        "document.getElementStyle()",
+        "document.querySelector()",
+        "document.createNode()",
+        "document.matchCss()"
+      ],
+      "answer": 1,
+      "explain": "querySelector() locates the first matching element for any CSS selector string."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "JavaScript, DOM & Async",
+      "year": 1,
+      "q": "In a form submit event listener, what does event.preventDefault() stop?",
+      "choices": [
+        "JavaScript execution completely",
+        "The browser’s default full-page form reload/submission",
+        "CSS transitions",
+        "All sibling click events"
+      ],
+      "answer": 1,
+      "explain": "preventDefault() cancels the native browser action so custom JS can handle the submission."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "JavaScript, DOM & Async",
+      "year": 1,
+      "q": "Which method converts a JavaScript object into a JSON text string?",
+      "choices": [
+        "JSON.parse()",
+        "JSON.stringify()",
+        "JSON.encode()",
+        "Object.serialize()"
+      ],
+      "answer": 1,
+      "explain": "JSON.stringify() serializes objects/arrays into valid JSON text."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "JavaScript, DOM & Async",
+      "year": 1,
+      "q": "Which keyword pauses inside an async function until a Promise settles?",
+      "choices": [
+        "defer",
+        "yield",
+        "await",
+        "hold"
+      ],
+      "answer": 2,
+      "explain": "await pauses execution inside an async function until the Promise resolves or rejects."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "REST APIs & HTTP Semantics",
+      "year": 2,
+      "q": "Which HTTP method is conventionally used to retrieve a resource without modifying server state?",
+      "choices": [
+        "POST",
+        "GET",
+        "DELETE",
+        "PATCH"
+      ],
+      "answer": 1,
+      "explain": "GET requests fetch representations safely without changing server data."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "REST APIs & HTTP Semantics",
+      "year": 2,
+      "q": "What does the HTTP status code 404 indicate?",
+      "choices": [
+        "Server crashed internally",
+        "Requested resource was not found",
+        "Client lacks permission even when logged in",
+        "Created successfully"
+      ],
+      "answer": 1,
+      "explain": "404 Not Found means the requested endpoint or resource does not exist on the server."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "REST APIs & HTTP Semantics",
+      "year": 2,
+      "q": "Which HTTP status code specifically confirms a new resource was created (commonly after POST)?",
+      "choices": [
+        "200",
+        "201",
+        "302",
+        "400"
+      ],
+      "answer": 1,
+      "explain": "201 Created signals that a request succeeded and generated a new server resource."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "REST APIs & HTTP Semantics",
+      "year": 2,
+      "q": "Which HTTP header specifies the MIME format (such as application/json) of the request or response body?",
+      "choices": [
+        "Accept-Language",
+        "Content-Type",
+        "User-Agent",
+        "Host"
+      ],
+      "answer": 1,
+      "explain": "Content-Type tells the receiver how to parse the payload body."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Web Auth & Backend Security",
+      "year": 3,
+      "q": "Why should user passwords always be stored using a slow salted hash like bcrypt or Argon2 rather than plain text?",
+      "choices": [
+        "To make login URLs shorter",
+        "So leaked databases do not expose real passwords",
+        "To let CSS style input fields",
+        "To compress HTML templates"
+      ],
+      "answer": 1,
+      "explain": "Salted adaptive hashing protects credentials against rainbow-table and brute-force attacks if a database leaks."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Web Auth & Backend Security",
+      "year": 3,
+      "q": "What does the cookie flag HttpOnly prevent?",
+      "choices": [
+        "The server from reading the cookie",
+        "Client-side JavaScript (document.cookie) from reading the cookie",
+        "Sending cookies over HTTPS",
+        "Expiring the session"
+      ],
+      "answer": 1,
+      "explain": "HttpOnly blocks JavaScript access to sensitive session cookies, mitigating session theft via XSS."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Web Auth & Backend Security",
+      "year": 3,
+      "q": "Which protocol encrypts HTTP traffic between a browser and a web server?",
+      "choices": [
+        "FTP",
+        "HTTPS (HTTP over TLS)",
+        "Telnet",
+        "ICMP"
+      ],
+      "answer": 1,
+      "explain": "HTTPS wraps HTTP inside TLS encryption to protect confidentiality and integrity in transit."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Web Auth & Backend Security",
+      "year": 3,
+      "q": "What security risk occurs when an app inserts untrusted user input directly into HTML with innerHTML?",
+      "choices": [
+        "DNS amplification",
+        "Cross-Site Scripting (XSS)",
+        "BGP hijacking",
+        "ARP spoofing"
+      ],
+      "answer": 1,
+      "explain": "Unescaped user HTML/script injection lets attackers execute arbitrary JavaScript in victims’ browsers."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Mobile & Cross-Platform Development",
+      "year": 3,
+      "q": "Which framework allows writing one Dart codebase that compiles natively for iOS and Android?",
+      "choices": [
+        "Laravel",
+        "Flutter",
+        "jQuery",
+        "Apache Tomcat"
+      ],
+      "answer": 1,
+      "explain": "Flutter uses Dart and its own rendering engine to target iOS, Android, web, and desktop from one codebase."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Mobile & Cross-Platform Development",
+      "year": 3,
+      "q": "What does PWA stand for in modern web/mobile engineering?",
+      "choices": [
+        "Private Wireless Adapter",
+        "Progressive Web App",
+        "Public Window API",
+        "Portable Widget Archive"
+      ],
+      "answer": 1,
+      "explain": "Progressive Web Apps combine web reach with offline caching and installability like native mobile apps."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Mobile & Cross-Platform Development",
+      "year": 3,
+      "q": "Which mobile feature allows an app to alert the user with timely messages even when the app is closed?",
+      "choices": [
+        "Media queries",
+        "Push notifications",
+        "Inline SVG",
+        "Table joins"
+      ],
+      "answer": 1,
+      "explain": "Push notification services (APNs / FCM) deliver OS alerts even when the app is backgrounded."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Mobile & Cross-Platform Development",
+      "year": 3,
+      "q": "Why are mobile UI touch targets typically recommended to be at least 44–48px wide and tall?",
+      "choices": [
+        "To match desktop mouse cursors",
+        "To accommodate human fingertips comfortably without mis-taps",
+        "To reduce CSS file size",
+        "To force horizontal scrolling"
+      ],
+      "answer": 1,
+      "explain": "Human fingertips cover a larger area than a mouse pointer, so ~44–48dp/px targets prevent tapping errors."
     }
   ],
   "medium": [
@@ -2244,6 +3084,846 @@ const QUESTION_BANK = {
       ],
       "answer": 0,
       "explain": "B-tree composite indexes follow the leftmost-prefix rule, so filtering by the leading column (`department_id`) and `last_name` uses the index directly."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Logic & Truth Tables",
+      "year": 1,
+      "q": "Under what condition is the conditional implication (P → Q) False?",
+      "choices": [
+        "Whenever P is False",
+        "Only when P is True and Q is False",
+        "When both P and Q are False",
+        "When P is False and Q is True"
+      ],
+      "answer": 1,
+      "explain": "An implication P → Q is violated (False) solely when a True hypothesis fails to produce a True conclusion."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Logic & Truth Tables",
+      "year": 1,
+      "q": "What is a compound proposition that evaluates to True for every possible truth assignment called?",
+      "choices": [
+        "Contradiction",
+        "Tautology",
+        "Contingency",
+        "Quantifier"
+      ],
+      "answer": 1,
+      "explain": "A tautology is always True across every row of its truth table (e.g., P ∨ ¬P)."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Logic & Truth Tables",
+      "year": 1,
+      "q": "Given the implication P → Q, what is its contrapositive?",
+      "choices": [
+        "Q → P",
+        "¬P → ¬Q",
+        "¬Q → ¬P",
+        "P ∧ ¬Q"
+      ],
+      "answer": 2,
+      "explain": "The contrapositive reverses and negates both sides (¬Q → ¬P) and always shares the same truth value as P → Q."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Logic & Truth Tables",
+      "year": 1,
+      "q": "When is the biconditional (P ↔ Q) True?",
+      "choices": [
+        "Only when both P and Q are True",
+        "Whenever P and Q share the same truth value",
+        "Whenever Q is False",
+        "Only when P is True"
+      ],
+      "answer": 1,
+      "explain": "P ↔ Q (\"if and only if\") holds whenever P and Q are both True or both False."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Sets, Functions & Relations",
+      "year": 1,
+      "q": "How many total subsets (|P(S)|) does a set S with 4 elements have?",
+      "choices": [
+        "8",
+        "12",
+        "16",
+        "24"
+      ],
+      "answer": 2,
+      "explain": "A set of size n has 2^n subsets; for n = 4, 2^4 = 16 subsets (including ∅ and S itself)."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Sets, Functions & Relations",
+      "year": 1,
+      "q": "If A = {1, 2} and B = {x, y, z}, how many ordered pairs are in the Cartesian product A × B?",
+      "choices": [
+        "5",
+        "6",
+        "8",
+        "9"
+      ],
+      "answer": 1,
+      "explain": "Cartesian product size is |A| × |B| = 2 × 3 = 6 ordered pairs."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Sets, Functions & Relations",
+      "year": 2,
+      "q": "What makes a function f: A → B injective (one-to-one)?",
+      "choices": [
+        "Every element of B is mapped to by some element of A",
+        "Distinct inputs in A always map to distinct outputs in B",
+        "The domain and codomain have infinitely many elements",
+        "f(x) equals 0 for some x"
+      ],
+      "answer": 1,
+      "explain": "An injective function never assigns two different domain elements to the same codomain value."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Sets, Functions & Relations",
+      "year": 2,
+      "q": "Given U = {1, 2, 3, 4, 5} and A = {2, 4}, what is the set difference U − A?",
+      "choices": [
+        "{2, 4}",
+        "{1, 3, 5}",
+        "{1, 2, 3, 4, 5}",
+        "∅"
+      ],
+      "answer": 1,
+      "explain": "U − A contains elements in U that are not in A: {1, 3, 5}."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Boolean Algebra & Logic Circuits",
+      "year": 1,
+      "q": "According to De Morgan’s Law, NOT (A AND B) is logically equivalent to what expression?",
+      "choices": [
+        "(NOT A) AND (NOT B)",
+        "(NOT A) OR (NOT B)",
+        "A OR (NOT B)",
+        "A XOR B"
+      ],
+      "answer": 1,
+      "explain": "De Morgan’s Law flips the operator when distributing negation: ¬(A · B) = ¬A + ¬B."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Boolean Algebra & Logic Circuits",
+      "year": 1,
+      "q": "Which single gate can implement NOT, AND, and OR (making it functionally complete / universal)?",
+      "choices": [
+        "XOR gate",
+        "NAND gate",
+        "Buffer gate",
+        "XNOR without inversion"
+      ],
+      "answer": 1,
+      "explain": "Both NAND and NOR are universal gates capable of building any Boolean logic circuit."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Boolean Algebra & Logic Circuits",
+      "year": 2,
+      "q": "In digital logic, how does a full adder differ from a half adder?",
+      "choices": [
+        "A full adder cannot output a carry bit",
+        "A full adder accepts a Carry-In bit in addition to two operand bits",
+        "A full adder adds 8-bit words only",
+        "A half adder uses XOR while a full adder uses none"
+      ],
+      "answer": 1,
+      "explain": "A half adder adds A + B, whereas a full adder computes A + B + CarryIn so adders can chain together."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Boolean Algebra & Logic Circuits",
+      "year": 2,
+      "q": "In Boolean algebra, what does the idempotent law state for A + A?",
+      "choices": [
+        "2A",
+        "1",
+        "A",
+        "0"
+      ],
+      "answer": 2,
+      "explain": "By idempotency in Boolean algebra, A + A = A and A · A = A."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Graph Theory & Trees",
+      "year": 2,
+      "q": "How many edges does a tree with 10 vertices always have?",
+      "choices": [
+        "8",
+        "9",
+        "10",
+        "20"
+      ],
+      "answer": 1,
+      "explain": "Every tree with n vertices has exactly n − 1 edges, so 10 − 1 = 9 edges."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Graph Theory & Trees",
+      "year": 2,
+      "q": "How many edges exist in a simple complete graph K5 (5 vertices, each connected to all others)?",
+      "choices": [
+        "5",
+        "10",
+        "15",
+        "20"
+      ],
+      "answer": 1,
+      "explain": "A complete graph K_n has n(n − 1)/2 edges: 5 × 4 / 2 = 10."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Graph Theory & Trees",
+      "year": 2,
+      "q": "What defines a bipartite graph?",
+      "choices": [
+        "Every vertex has degree 2",
+        "Vertices can be split into two disjoint sets with edges only between sets",
+        "Every edge has two weights",
+        "It has exactly two connected components"
+      ],
+      "answer": 1,
+      "explain": "In a bipartite graph, vertices partition into U and V such that no edge connects two vertices inside the same set."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Graph Theory & Trees",
+      "year": 2,
+      "q": "In a graph representation of a network, what is a path that starts and ends at the same vertex called?",
+      "choices": [
+        "A spanning forest",
+        "A cycle (or closed walk)",
+        "An isolated bridge",
+        "A leaf arc"
+      ],
+      "answer": 1,
+      "explain": "A closed simple path returning to its starting vertex forms a cycle."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Combinatorics, Induction & Modular Math",
+      "year": 2,
+      "q": "By the Pigeonhole Principle, what is the minimum number of students needed in a room to guarantee at least two share a birth month?",
+      "choices": [
+        "12",
+        "13",
+        "24",
+        "25"
+      ],
+      "answer": 1,
+      "explain": "With 12 possible months (pigeonholes), 12 + 1 = 13 students guarantee at least one shared month."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Combinatorics, Induction & Modular Math",
+      "year": 2,
+      "q": "How many ways can 3 distinct medals (Gold, Silver, Bronze) be awarded among 5 runners (order matters)?",
+      "choices": [
+        "10",
+        "15",
+        "60",
+        "125"
+      ],
+      "answer": 2,
+      "explain": "Permutations P(5, 3) = 5 × 4 × 3 = 60 distinct podium orderings."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Combinatorics, Induction & Modular Math",
+      "year": 2,
+      "q": "In a 24-hour clock (mod 24), if it is 19:00 now, what time will it be 9 hours later?",
+      "choices": [
+        "02:00",
+        "04:00",
+        "05:00",
+        "28:00"
+      ],
+      "answer": 1,
+      "explain": "(19 + 9) mod 24 = 28 mod 24 = 4 (04:00)."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Combinatorics, Induction & Modular Math",
+      "year": 2,
+      "q": "If a survey asks 30 students and 18 like Java, 15 like Python, and 7 like both, how many like at least one?",
+      "choices": [
+        "26",
+        "30",
+        "33",
+        "40"
+      ],
+      "answer": 0,
+      "explain": "By Inclusion-Exclusion: |A ∪ B| = 18 + 15 − 7 = 26 students."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "HCI & Usability Principles",
+      "year": 3,
+      "q": "What does Fitts’s Law predict about pointing targets (like buttons on a screen)?",
+      "choices": [
+        "Color contrast determines font readability",
+        "Larger and closer targets are faster and easier to click accurately",
+        "More menu options always speed up choices",
+        "Users ignore top navigation bars"
+      ],
+      "answer": 1,
+      "explain": "Fitts’s Law models movement time as a function of distance and target size—bigger, closer targets reduce effort."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "HCI & Usability Principles",
+      "year": 3,
+      "q": "Under WCAG accessibility contrast guidelines, why must foreground text maintain a strong luminance ratio against its background?",
+      "choices": [
+        "To reduce GPU clock usage",
+        "So users with low vision or color deficiency can read clearly",
+        "To increase image file size",
+        "To bypass HTTPS handshakes"
+      ],
+      "answer": 1,
+      "explain": "High contrast ratios ensure legibility for people with visual impairments or glare on mobile screens."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "HCI & Usability Principles",
+      "year": 3,
+      "q": "In Donald Norman’s UI design terms, what is a visual cue (such as a raised button shadow or underline) that signals how to interact?",
+      "choices": [
+        "A memory leak",
+        "A signifier",
+        "A mutex lock",
+        "A schema index"
+      ],
+      "answer": 1,
+      "explain": "Signifiers communicate where and how a user can act (for example, underlining links or adding click affordances)."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "HCI & Usability Principles",
+      "year": 3,
+      "q": "Why does showing an icon plus clear text label beat a mystery icon alone (Recognition over Recall)?",
+      "choices": [
+        "Users do not have to memorize hidden symbol meanings from past sessions",
+        "It disables keyboard focus",
+        "It eliminates HTTP headers",
+        "It replaces database indexing"
+      ],
+      "answer": 0,
+      "explain": "Visible cues let users recognize options immediately instead of recalling obscure meanings from memory."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "SDLC & Agile Methodologies",
+      "year": 2,
+      "q": "What is the primary goal of a Sprint Retrospective at the end of a Scrum Sprint?",
+      "choices": [
+        "Deploy database backups manually",
+        "Inspect team workflow and identify concrete process improvements for next sprint",
+        "Write the initial project charter",
+        "Replace the Product Owner"
+      ],
+      "answer": 1,
+      "explain": "Retrospectives help the team reflect on what went well, what hurt velocity, and what to improve next."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "SDLC & Agile Methodologies",
+      "year": 2,
+      "q": "In a Kanban board, why do teams enforce Work-In-Progress (WIP) limits on columns?",
+      "choices": [
+        "To hide unfinished tickets",
+        "To expose bottlenecks and finish started tasks faster instead of overloading",
+        "To stop code reviews",
+        "To mandate longer sprints"
+      ],
+      "answer": 1,
+      "explain": "WIP limits prevent context-switching overload and force bottlenecks to be resolved before pulling more work."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "SDLC & Agile Methodologies",
+      "year": 3,
+      "q": "Which SDLC model explicitly evaluates engineering and budget risks on every loop before committing to the next iteration?",
+      "choices": [
+        "Spiral model",
+        "Big-Bang model",
+        "Strict Waterfall",
+        "Code-and-fix"
+      ],
+      "answer": 0,
+      "explain": "Boehm’s Spiral model cycles through planning, risk analysis, engineering, and evaluation."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "SDLC & Agile Methodologies",
+      "year": 3,
+      "q": "What does \"technical debt\" refer to in software engineering?",
+      "choices": [
+        "Monthly cloud hosting invoices",
+        "Extra future rework cost incurred by choosing quick shortcuts over clean design today",
+        "Hardware depreciation on developer laptops",
+        "Employee overtime wages"
+      ],
+      "answer": 1,
+      "explain": "Quick workarounds ship faster short-term but accumulate maintenance interest that slows later changes."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Requirements & UML Modeling",
+      "year": 2,
+      "q": "Which UML diagram captures time-ordered message exchanges between objects across lifelines?",
+      "choices": [
+        "Class diagram",
+        "Sequence diagram",
+        "Deployment diagram",
+        "ER diagram"
+      ],
+      "answer": 1,
+      "explain": "Sequence diagrams illustrate object lifelines vertically and chronological calls horizontally."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Requirements & UML Modeling",
+      "year": 2,
+      "q": "In a UML Class diagram, how does Composition (filled diamond) differ from Aggregation (hollow diamond)?",
+      "choices": [
+        "Composition implies strong ownership where the child cannot exist without the parent",
+        "Aggregation only models database tables",
+        "Composition forbids methods on classes",
+        "There is no difference"
+      ],
+      "answer": 0,
+      "explain": "In composition, destroying the whole destroys its parts; in aggregation, parts can outlive the container."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Requirements & UML Modeling",
+      "year": 2,
+      "q": "What is the purpose of a Requirements Traceability Matrix (RTM)?",
+      "choices": [
+        "Encrypt user sessions",
+        "Link each requirement to its design modules, code, and verifying test cases",
+        "Auto-format CSS selectors",
+        "Benchmark CPU cores"
+      ],
+      "answer": 1,
+      "explain": "An RTM guarantees no requirement is forgotten and every test traces back to a stated need."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Requirements & UML Modeling",
+      "year": 2,
+      "q": "In Agile engineering, what are \"Acceptance Criteria\" on a user story?",
+      "choices": [
+        "Salary grades for engineers",
+        "Testable conditions that define exactly when a story is complete and correct",
+        "Server firewall rules",
+        "Color palettes only"
+      ],
+      "answer": 1,
+      "explain": "Acceptance criteria give developers and QA shared pass/fail conditions for completing a story."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Testing & QA",
+      "year": 3,
+      "q": "What is Boundary Value Analysis (BVA) in black-box testing?",
+      "choices": [
+        "Testing values right at, just below, and just above valid range edges (e.g., 0, 1, 100, 101)",
+        "Measuring network ping to data centers",
+        "Inspecting variable names only",
+        "Skipping negative inputs"
+      ],
+      "answer": 0,
+      "explain": "Off-by-one bugs cluster around range boundaries, so testing boundary edges catches defects efficiently."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Testing & QA",
+      "year": 3,
+      "q": "What is the Red-Green-Refactor cycle in Test-Driven Development (TDD)?",
+      "choices": [
+        "Deploy broken code, hotfix production, delete tests",
+        "Write a failing test (Red), write minimal passing code (Green), then clean up design (Refactor)",
+        "Design database tables before interviews",
+        "Code UI first, ignore tests"
+      ],
+      "answer": 1,
+      "explain": "TDD drives modular, well-tested design by writing a failing specification test before production code."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Testing & QA",
+      "year": 3,
+      "q": "In unit testing, what is a test \"mock\" or \"stub\" used for?",
+      "choices": [
+        "To replace slow external dependencies (like payment APIs or databases) with controlled test doubles",
+        "To deploy production containers",
+        "To compress PNG textures",
+        "To bypass syntax compilation"
+      ],
+      "answer": 0,
+      "explain": "Test doubles isolate the unit under test from flaky networks, clocks, or external databases."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Testing & QA",
+      "year": 3,
+      "q": "How does Verification differ from Validation in QA?",
+      "choices": [
+        "Verification checks \"Are we building the product right (per specs)?\"; Validation checks \"Did we build the right product (user needs)?\"",
+        "Validation happens before requirements exist",
+        "Verification requires external customers only",
+        "They are identical terms"
+      ],
+      "answer": 0,
+      "explain": "Verification ensures compliance with technical specifications; validation confirms real user needs are met."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Architecture & Design Patterns",
+      "year": 3,
+      "q": "Which behavioral design pattern lets a subject automatically notify subscribed observers when its state changes?",
+      "choices": [
+        "Adapter",
+        "Observer",
+        "Factory Method",
+        "Flyweight"
+      ],
+      "answer": 1,
+      "explain": "Observer establishes a one-to-many publish/subscribe dependency so listeners update on state changes."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Architecture & Design Patterns",
+      "year": 3,
+      "q": "What problem does Dependency Injection (DI) solve?",
+      "choices": [
+        "It hardcodes SQL queries inside UI views",
+        "It supplies required dependencies from outside a class so components stay loosely coupled and easily testable",
+        "It encrypts browser cookies automatically",
+        "It removes interfaces from OOP"
+      ],
+      "answer": 1,
+      "explain": "Passing dependencies in rather than instantiating concrete classes internally makes swapping implementations and mocking simple."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Architecture & Design Patterns",
+      "year": 3,
+      "q": "Which structural pattern wraps an incompatible existing class with a new interface expected by clients?",
+      "choices": [
+        "Strategy",
+        "Adapter",
+        "Prototype",
+        "Builder"
+      ],
+      "answer": 1,
+      "explain": "Adapter translates one interface into another so existing classes collaborate cleanly without modification."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Architecture & Design Patterns",
+      "year": 3,
+      "q": "Which design pattern lets an algorithm (such as tax calculation or sorting) be swapped cleanly at runtime?",
+      "choices": [
+        "Singleton",
+        "Strategy",
+        "Composite",
+        "Bridge"
+      ],
+      "answer": 1,
+      "explain": "Strategy encapsulates interchangeable behaviors behind a common interface."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "HTML, CSS & Responsive UI",
+      "year": 1,
+      "q": "Which CSS selector has higher specificity: `#header` (ID), `.nav` (class), or `header` (tag)?",
+      "choices": [
+        "`header` tag",
+        "`.nav` class",
+        "`#header` ID",
+        "All three have equal specificity"
+      ],
+      "answer": 2,
+      "explain": "CSS specificity ranks inline styles > ID (#header) > class/attribute/pseudo-class (.nav) > element (header)."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "HTML, CSS & Responsive UI",
+      "year": 1,
+      "q": "What does a CSS `@media (max-width: 768px)` rule do?",
+      "choices": [
+        "Disables CSS on desktop permanently",
+        "Applies styles only when the viewport width is 768px or narrower",
+        "Forces images to download twice",
+        "Locks page zoom at 200%"
+      ],
+      "answer": 1,
+      "explain": "Media queries adapt layouts dynamically for tablets, phones, and other viewport breakpoints."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "HTML, CSS & Responsive UI",
+      "year": 1,
+      "q": "How does `1rem` differ from `1em` in CSS font sizing?",
+      "choices": [
+        "`rem` is relative to the root `<html>` font size, whereas `em` compounds relative to the parent element",
+        "`rem` is fixed at 10px everywhere",
+        "`em` only works inside CSS Grid",
+        "There is no difference"
+      ],
+      "answer": 0,
+      "explain": "Using rem prevents accidental compounding sizes inside deeply nested components."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "HTML, CSS & Responsive UI",
+      "year": 1,
+      "q": "Which CSS layout system excels at two-dimensional page grids controlling rows AND columns simultaneously?",
+      "choices": [
+        "CSS Grid (`display: grid`)",
+        "Float left",
+        "Table-cell margin hacks",
+        "Inline-block spacing"
+      ],
+      "answer": 0,
+      "explain": "CSS Grid manages both row and column tracks simultaneously, ideal for dashboards and cards."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "JavaScript, DOM & Async",
+      "year": 2,
+      "q": "What is Event Delegation in DOM programming?",
+      "choices": [
+        "Adding separate listeners to 1,000 child buttons manually",
+        "Attaching one listener to a parent container and checking `event.target.closest()` using bubbling",
+        "Disabling event propagation globally",
+        "Using setTimeout inside CSS"
+      ],
+      "answer": 1,
+      "explain": "Event delegation uses event bubbling so one parent listener handles clicks for dynamic child elements efficiently."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "JavaScript, DOM & Async",
+      "year": 2,
+      "q": "How does `localStorage` differ from `sessionStorage` in web browsers?",
+      "choices": [
+        "`localStorage` persists across browser restarts, while `sessionStorage` clears when the tab/session ends",
+        "`sessionStorage` is shared across all computers on LAN",
+        "`localStorage` stores binary SQL databases only",
+        "They have identical lifetimes"
+      ],
+      "answer": 0,
+      "explain": "localStorage stays until explicitly cleared; sessionStorage is scoped to a single browser tab lifetime."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "JavaScript, DOM & Async",
+      "year": 2,
+      "q": "When calling `fetch(url)`, why should you check `if (!response.ok)` instead of relying only on `try/catch`?",
+      "choices": [
+        "`fetch()` does not reject on HTTP error codes like 404 or 500; it only rejects on network failures",
+        "`fetch()` never returns JSON",
+        "`try/catch` ignores syntax errors",
+        "`response.ok` encrypts tokens"
+      ],
+      "answer": 0,
+      "explain": "HTTP 404/500 responses resolve the fetch Promise normally with `response.ok === false`."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "JavaScript, DOM & Async",
+      "year": 2,
+      "q": "What are the three possible states of a JavaScript Promise?",
+      "choices": [
+        "Idle, Ready, Broken",
+        "Pending, Fulfilled, Rejected",
+        "Queued, Cached, Closed",
+        "Open, Locked, Deleted"
+      ],
+      "answer": 1,
+      "explain": "A Promise starts Pending and settles into either Fulfilled (success) or Rejected (error)."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "REST APIs & HTTP Semantics",
+      "year": 2,
+      "q": "What does it mean for an HTTP method like GET, PUT, or DELETE to be idempotent?",
+      "choices": [
+        "It runs without TLS encryption",
+        "Repeating the identical request multiple times produces the same server state as running it once",
+        "It always returns HTTP 500 on retry",
+        "It bypasses database constraints"
+      ],
+      "answer": 1,
+      "explain": "Idempotent methods can be safely retried on network timeouts without creating duplicate resources."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "REST APIs & HTTP Semantics",
+      "year": 2,
+      "q": "How does HTTP status 401 Unauthorized differ from 403 Forbidden?",
+      "choices": [
+        "401 means missing/invalid authentication credentials; 403 means authenticated but lacking permission",
+        "401 is a server crash; 403 is a redirect",
+        "403 means the URL moved permanently",
+        "They mean the exact same thing"
+      ],
+      "answer": 0,
+      "explain": "401 challenges identity (log in first), while 403 refuses an authenticated user without required role rights."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "REST APIs & HTTP Semantics",
+      "year": 2,
+      "q": "Why do REST APIs restrict each request to be stateless?",
+      "choices": [
+        "Servers store full UI DOM trees per client",
+        "Each request carries everything needed (like auth token & parameters), letting any server instance handle it",
+        "Databases must be deleted after each request",
+        "Cookies are prohibited on HTTPS"
+      ],
+      "answer": 1,
+      "explain": "Stateless requests let APIs scale horizontally behind load balancers without sticky session memory."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "REST APIs & HTTP Semantics",
+      "year": 2,
+      "q": "Why do browsers sometimes send an HTTP `OPTIONS` request before a cross-origin `POST` or `DELETE`?",
+      "choices": [
+        "To download favicon icons",
+        "As a CORS preflight check asking the server whether the cross-origin method and headers are allowed",
+        "To compress images",
+        "To reset DNS TTL"
+      ],
+      "answer": 1,
+      "explain": "CORS preflight requests verify server permissions (`Access-Control-Allow-*`) before executing non-simple cross-origin writes."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Web Auth & Backend Security",
+      "year": 3,
+      "q": "What does Cross-Site Request Forgery (CSRF) exploit?",
+      "choices": [
+        "SQL syntax concatenation inside queries",
+        "A browser automatically attaching session cookies to forged requests triggered from another site",
+        "Weak Wi-Fi WPA passwords",
+        "Overflowing image buffer sizes"
+      ],
+      "answer": 1,
+      "explain": "CSRF tricks an authenticated user’s browser into sending unintended state-changing requests along with cookies."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Web Auth & Backend Security",
+      "year": 3,
+      "q": "Which cookie attribute helps prevent CSRF by controlling whether cookies travel with cross-site requests?",
+      "choices": [
+        "SameSite (Strict / Lax)",
+        "Max-Font",
+        "Viewport",
+        "Placeholder"
+      ],
+      "answer": 0,
+      "explain": "SameSite=Lax or Strict stops browsers from sending session cookies on unauthorized cross-site POSTs."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Web Auth & Backend Security",
+      "year": 3,
+      "q": "What are the three Base64URL-encoded sections of a standard JSON Web Token (JWT)?",
+      "choices": [
+        "Username, Password, Salt",
+        "Header, Payload, Signature",
+        "Host, Port, Path",
+        "Salt, Hash, Table"
+      ],
+      "answer": 1,
+      "explain": "A JWT is structured as `header.payload.signature`, allowing servers to verify payload integrity."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Web Auth & Backend Security",
+      "year": 3,
+      "q": "Why does checking `role === \"admin\"` ONLY inside frontend JavaScript fail to secure an API?",
+      "choices": [
+        "Frontend CSS overrides JavaScript booleans",
+        "Attackers can call the backend API directly via curl or Postman, bypassing client checks",
+        "HTTPS removes HTTP headers",
+        "JWTs expire every second"
+      ],
+      "answer": 1,
+      "explain": "Authorization must always be enforced on the server, since clients can inspect or bypass frontend logic."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Mobile & Cross-Platform Development",
+      "year": 3,
+      "q": "In a Progressive Web App (PWA), what component runs in the background to intercept network requests and cache assets offline?",
+      "choices": [
+        "CSS Reset",
+        "Service Worker",
+        "HTML Comment",
+        "WebGL Shader"
+      ],
+      "answer": 1,
+      "explain": "Service Workers act as programmable client proxies enabling offline pages, background sync, and caching."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Mobile & Cross-Platform Development",
+      "year": 3,
+      "q": "Why must mobile apps save transient form input during OS background/pause lifecycle events?",
+      "choices": [
+        "Mobile OSes may terminate backgrounded apps at any time to reclaim RAM",
+        "Screen brightness locks RAM edits",
+        "CSS animations delete localStorage",
+        "Push tokens erase state"
+      ],
+      "answer": 0,
+      "explain": "Persisting state in pause/background hooks prevents data loss when mobile systems kill background processes."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Mobile & Cross-Platform Development",
+      "year": 3,
+      "q": "What are CSS `env(safe-area-inset-*)` values used for on modern smartphones?",
+      "choices": [
+        "Adding box shadows to tables",
+        "Keeping interactive UI clear of hardware notches, camera cutouts, and home swipe bars",
+        "Doubling font weights",
+        "Encrypting WebSockets"
+      ],
+      "answer": 1,
+      "explain": "Safe-area insets prevent headers or bottom bars from overlapping rounded corners, notches, or gesture bars."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Mobile & Cross-Platform Development",
+      "year": 3,
+      "q": "What is an \"offline-first\" data strategy in mobile applications?",
+      "choices": [
+        "Requiring 5G signal on every button tap",
+        "Reading/writing a local on-device store immediately and syncing queued changes when connectivity returns",
+        "Disabling local caches completely",
+        "Storing passwords in URL query parameters"
+      ],
+      "answer": 1,
+      "explain": "Offline-first apps stay fast and usable in spotty networks by syncing local state with the server asynchronously."
     }
   ],
   "hard": [
@@ -3366,6 +5046,846 @@ const QUESTION_BANK = {
       ],
       "answer": 0,
       "explain": "Hash indexes scatter keys uniformly across buckets with no ordering, so they only support equality lookups, whereas B+Trees maintain sorted leaf pages for range scans."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Logic & Truth Tables",
+      "year": 1,
+      "q": "Using Modus Tollens, given \"If P, then Q\" (P → Q) and \"NOT Q\" (¬Q), what valid conclusion follows?",
+      "choices": [
+        "P is True",
+        "¬P (P is False)",
+        "Q is True",
+        "P ↔ Q"
+      ],
+      "answer": 1,
+      "explain": "By Modus Tollens, if P guarantees Q and Q failed (¬Q), then P must be False (¬P)."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Logic & Truth Tables",
+      "year": 1,
+      "q": "What is the correct negation of the quantified statement \"For all x, P(x) is true\" (∀x P(x))?",
+      "choices": [
+        "∀x ¬P(x)",
+        "∃x ¬P(x) (\"There exists an x where P(x) is false\")",
+        "∃x P(x)",
+        "¬(∃x P(x))"
+      ],
+      "answer": 1,
+      "explain": "By De Morgan’s Law for quantifiers, disproving a universal claim only requires one counterexample: ∃x ¬P(x)."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Logic & Truth Tables",
+      "year": 2,
+      "q": "If P → Q is True and Q → P is False, which single statement MUST be True?",
+      "choices": [
+        "P is True and Q is False",
+        "P is False and Q is True",
+        "Both P and Q are True",
+        "Both P and Q are False"
+      ],
+      "answer": 1,
+      "explain": "Q → P is False only when Q is True and P is False; under that assignment P → Q (False → True) is indeed True."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Logic & Truth Tables",
+      "year": 2,
+      "q": "In natural deduction, why can knowing (P ∨ Q) and ¬P let you deduce Q?",
+      "choices": [
+        "Disjunctive Syllogism",
+        "Circular Induction",
+        "Converse Fallacy",
+        "Universal Instantiation"
+      ],
+      "answer": 0,
+      "explain": "Disjunctive Syllogism eliminates the False branch of an OR, leaving Q as necessarily True."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Sets, Functions & Relations",
+      "year": 2,
+      "q": "Which three properties must a binary relation R on a set satisfy to be an equivalence relation?",
+      "choices": [
+        "Injective, surjective, bijective",
+        "Reflexive, symmetric, transitive",
+        "Antisymmetric, linear, finite",
+        "Connected, planar, acyclic"
+      ],
+      "answer": 1,
+      "explain": "Equivalence relations partition a set into classes because they are reflexive (aRa), symmetric (aRb ⇒ bRa), and transitive."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Sets, Functions & Relations",
+      "year": 2,
+      "q": "How does a partial order relation differ from an equivalence relation?",
+      "choices": [
+        "A partial order is antisymmetric instead of symmetric",
+        "A partial order is never transitive",
+        "A partial order is never reflexive",
+        "Partial orders require empty sets"
+      ],
+      "answer": 0,
+      "explain": "Partial orders (like ≤ or ⊆) are reflexive, antisymmetric (aRb and bRa ⇒ a = b), and transitive."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Sets, Functions & Relations",
+      "year": 2,
+      "q": "When does a function f: A → B have a two-sided inverse function f⁻¹: B → A?",
+      "choices": [
+        "Whenever f is a bijection (both injective and surjective)",
+        "Whenever |A| > |B|",
+        "Whenever f(a) is constant",
+        "Whenever A is infinite"
+      ],
+      "answer": 0,
+      "explain": "Only bijections pair every element of A uniquely with every element of B, making inversion well-defined."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Sets, Functions & Relations",
+      "year": 2,
+      "q": "How many elements are in the power set of the empty set P(∅)?",
+      "choices": [
+        "0",
+        "1",
+        "2",
+        "Undefined"
+      ],
+      "answer": 1,
+      "explain": "The empty set has 0 elements, so |P(∅)| = 2^0 = 1 (the single subset is ∅ itself)."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Boolean Algebra & Logic Circuits",
+      "year": 2,
+      "q": "Using the Boolean Absorption Law, what does A + (A · B) simplify to?",
+      "choices": [
+        "B",
+        "A · B",
+        "A",
+        "A + B"
+      ],
+      "answer": 2,
+      "explain": "Factoring A(1 + B) = A · 1 = A; the second term is absorbed completely by A."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Boolean Algebra & Logic Circuits",
+      "year": 2,
+      "q": "Simplify the Boolean expression (A · B) + (A · B') where B' is NOT B:",
+      "choices": [
+        "B",
+        "A",
+        "A + B",
+        "0"
+      ],
+      "answer": 1,
+      "explain": "Distributing A gives A · (B + B') = A · 1 = A."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Boolean Algebra & Logic Circuits",
+      "year": 2,
+      "q": "In Karnaugh maps (K-maps), what cell group sizes are valid when looping adjacent 1s to minimize logic?",
+      "choices": [
+        "Any prime number (3, 5, 7)",
+        "Powers of two (1, 2, 4, 8, 16)",
+        "Multiples of 3",
+        "Odd sizes only"
+      ],
+      "answer": 1,
+      "explain": "Adjacent Gray-code cells eliminate k variables only when grouped in rectangular blocks of size 2^k."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Boolean Algebra & Logic Circuits",
+      "year": 2,
+      "q": "What does a dual of a Boolean equation swap?",
+      "choices": [
+        "Variables A and B",
+        "AND (·) with OR (+), and 0 with 1 (leaving variables uncomplemented)",
+        "Every variable with its complement only",
+        "XOR with MUX"
+      ],
+      "answer": 1,
+      "explain": "The Duality Principle exchanges · ↔ + and 0 ↔ 1 while keeping literals unchanged."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Graph Theory & Trees",
+      "year": 2,
+      "q": "By the Handshaking Lemma, if an undirected graph has 6 edges, what is the sum of all vertex degrees?",
+      "choices": [
+        "6",
+        "10",
+        "12",
+        "36"
+      ],
+      "answer": 2,
+      "explain": "Every edge contributes 2 to the total degree sum: ∑ deg(v) = 2|E| = 2 × 6 = 12."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Graph Theory & Trees",
+      "year": 2,
+      "q": "When does a connected undirected graph contain an Euler circuit (visiting every edge once and returning to start)?",
+      "choices": [
+        "Every vertex has even degree",
+        "Exactly 4 vertices have odd degree",
+        "The graph is a tree",
+        "It contains at least one odd-degree vertex"
+      ],
+      "answer": 0,
+      "explain": "Euler’s Theorem states a connected graph has an Euler circuit iff every vertex has an even degree."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Graph Theory & Trees",
+      "year": 3,
+      "q": "In a connected undirected graph, when does an open Euler path (non-circuit) exist?",
+      "choices": [
+        "When every vertex has degree 1",
+        "When exactly 2 vertices have odd degree",
+        "When all vertices have odd degree",
+        "Never"
+      ],
+      "answer": 1,
+      "explain": "An open Euler trail starts at one odd-degree vertex and ends at the second odd-degree vertex (exactly two odd vertices)."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Graph Theory & Trees",
+      "year": 3,
+      "q": "By Euler’s planar graph formula (V − E + F = 2), if a connected planar graph has 6 vertices and 9 edges, how many faces (F) does it divide the plane into?",
+      "choices": [
+        "3",
+        "4",
+        "5",
+        "7"
+      ],
+      "answer": 2,
+      "explain": "6 − 9 + F = 2 ⇒ F = 5 faces (including the unbounded outer face)."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Combinatorics, Induction & Modular Math",
+      "year": 3,
+      "q": "How many 2-person teams can be chosen from 5 students when team order does not matter (C(5, 2))?",
+      "choices": [
+        "7",
+        "10",
+        "20",
+        "25"
+      ],
+      "answer": 1,
+      "explain": "C(5, 2) = (5 × 4) / (2 × 1) = 10 unique 2-person combinations."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Combinatorics, Induction & Modular Math",
+      "year": 3,
+      "q": "When does a linear congruence ax ≡ 1 (mod m) have a unique multiplicative inverse for a modulo m?",
+      "choices": [
+        "When a < m",
+        "When gcd(a, m) = 1 (a and m are coprime)",
+        "When m is even",
+        "Whenever a divides m"
+      ],
+      "answer": 1,
+      "explain": "Modular inverses exist if and only if a and m share no common factors other than 1 (coprime)."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Combinatorics, Induction & Modular Math",
+      "year": 3,
+      "q": "In a rooted binary tree where every internal node has 2 children and there are 6 leaves, how many internal nodes exist?",
+      "choices": [
+        "4",
+        "5",
+        "6",
+        "11"
+      ],
+      "answer": 1,
+      "explain": "In a full binary tree, internal nodes i = leaves l − 1 = 6 − 1 = 5."
+    },
+    {
+      "category": "Discrete Mathematics",
+      "topic": "Combinatorics, Induction & Modular Math",
+      "year": 3,
+      "q": "By Fermat’s Little Theorem, for a prime p = 7, what is 3⁶ mod 7?",
+      "choices": [
+        "0",
+        "1",
+        "3",
+        "6"
+      ],
+      "answer": 1,
+      "explain": "Since 3 is not divisible by prime 7, Fermat’s Little Theorem states 3^(7−1) ≡ 1 (mod 7)."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "HCI & Usability Principles",
+      "year": 3,
+      "q": "What does Hick’s Law state about user decision time in menus and interfaces?",
+      "choices": [
+        "Decision time drops to zero above 20 options",
+        "Reaction/decision time increases logarithmically as the number of choices grows",
+        "Larger buttons slow down keyboard entry",
+        "Users prefer unlabelled icons"
+      ],
+      "answer": 1,
+      "explain": "Hick’s Law (RT = a + b log₂(n)) explains why cluttered menus with too many options slow down user decisions."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "HCI & Usability Principles",
+      "year": 3,
+      "q": "During usability testing, what is the \"Think-Aloud Protocol\"?",
+      "choices": [
+        "Asking testers to narrate their thoughts, confusion, and expectations continuously while completing tasks",
+        "Developers reading code aloud in code review",
+        "Measuring raw server CPU load",
+        "Automated Selenium browser replay"
+      ],
+      "answer": 0,
+      "explain": "Think-aloud sessions uncover mental-model mismatches that click analytics alone miss."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "HCI & Usability Principles",
+      "year": 3,
+      "q": "Which WAI-ARIA role/attribute announces dynamic status updates (like toast messages) to screen readers without stealing focus?",
+      "choices": [
+        "aria-hidden=\"true\"",
+        "aria-live=\"polite\"",
+        "aria-disabled=\"true\"",
+        "tabindex=\"-1\""
+      ],
+      "answer": 1,
+      "explain": "aria-live regions inform assistive technology about asynchronous updates while keeping keyboard focus uninterrupted."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "HCI & Usability Principles",
+      "year": 3,
+      "q": "How does Formative Usability Testing differ from Summative Usability Testing?",
+      "choices": [
+        "Formative finds design flaws early to iterate; Summative benchmarks final KPIs (completion rate, time-on-task)",
+        "Formative runs only after public launch",
+        "Summative never uses real participants",
+        "They differ only in font choice"
+      ],
+      "answer": 0,
+      "explain": "Formative tests diagnose UX problems mid-design, whereas summative studies evaluate measurable benchmark metrics."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "SDLC & Agile Methodologies",
+      "year": 3,
+      "q": "What distinguishes Continuous Delivery from Continuous Deployment?",
+      "choices": [
+        "Continuous Delivery requires a human approval trigger before production release; Continuous Deployment ships every passing build automatically",
+        "Continuous Deployment skips automated tests",
+        "Continuous Delivery does not use Git",
+        "They are mutually exclusive frameworks"
+      ],
+      "answer": 0,
+      "explain": "Both automate testing and packaging, but Continuous Deployment releases straight to users without a manual gate."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "SDLC & Agile Methodologies",
+      "year": 3,
+      "q": "Why is Brooks’s Law (\"Adding manpower to a late software project makes it later\") true in complex systems?",
+      "choices": [
+        "New compilers cost more money",
+        "Ramp-up mentoring and exponential N(N−1)/2 communication channels initially slow existing output",
+        "Git branches cannot exceed 3 developers",
+        "Databases disallow parallel reads"
+      ],
+      "answer": 1,
+      "explain": "Onboarding time and rising coordination overhead outweigh short-term coding capacity on urgent deadlines."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "SDLC & Agile Methodologies",
+      "year": 3,
+      "q": "In trunk-based development, what do Feature Flags (toggles) allow teams to do safely?",
+      "choices": [
+        "Commit unfinished code behind a disabled runtime switch without blocking continuous integration",
+        "Skip code compilation altogether",
+        "Share plaintext passwords in Git",
+        "Avoid writing unit tests"
+      ],
+      "answer": 0,
+      "explain": "Feature toggles decouple deploying code to production from exposing unfinished features to users."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "SDLC & Agile Methodologies",
+      "year": 3,
+      "q": "What does the \"Strangler Fig\" migration strategy do when modernizing a legacy monolith?",
+      "choices": [
+        "Deletes the legacy database on day one",
+        "Incrementally replaces old routes with new services behind a proxy until the monolith shrinks away",
+        "Rewrites everything in 2 years with zero releases",
+        "Locks all schemas permanently"
+      ],
+      "answer": 1,
+      "explain": "Routing endpoints slice-by-slice to new services lowers big-bang rewrite risk."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Requirements & UML Modeling",
+      "year": 3,
+      "q": "In a UML Use Case diagram, when does Case A `«include»` Case B versus `«extend»` Case B?",
+      "choices": [
+        "`«include»` means B is mandatory sub-behavior of A; `«extend»` means conditional optional behavior triggered at an extension point",
+        "`«extend»` always runs first",
+        "`«include»` is only for database tables",
+        "They are interchangeable labels"
+      ],
+      "answer": 0,
+      "explain": "Included steps always execute as part of the base use case, while extensions trigger only under optional conditions."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Requirements & UML Modeling",
+      "year": 3,
+      "q": "Which UML behavioral diagram best models an entity’s legal lifecycle transitions (e.g., Draft → Pending → Approved → Archived)?",
+      "choices": [
+        "State Machine diagram",
+        "Object diagram",
+        "Component diagram",
+        "Package diagram"
+      ],
+      "answer": 0,
+      "explain": "State Machine diagrams define valid states, events, guard conditions, and transitions over an object’s lifetime."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Requirements & UML Modeling",
+      "year": 3,
+      "q": "According to IEEE 830 / ISO 29148 SRS quality criteria, what makes a requirement \"verifiable\"?",
+      "choices": [
+        "It uses persuasive adjectives like \"fast and user-friendly\"",
+        "An objective test, measurement, or inspection can prove whether the software satisfies it",
+        "It was emailed by a manager",
+        "It omits performance thresholds"
+      ],
+      "answer": 1,
+      "explain": "Ambiguous words like \"user-friendly\" fail verifiability; measurable thresholds (e.g., \"< 200ms at p95\") make tests objective."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Requirements & UML Modeling",
+      "year": 3,
+      "q": "What is \"scope creep\" during requirements engineering?",
+      "choices": [
+        "Controlled backlog grooming with Tradeoff analysis",
+        "Unchecked addition of unapproved features after baseline freeze, threatening schedule and budget",
+        "Deleting dead CSS rules",
+        "Automated dependency updates"
+      ],
+      "answer": 1,
+      "explain": "Unmanaged changes expand work without adjusting timeline, staffing, or test budget."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Testing & QA",
+      "year": 3,
+      "q": "Why does achieving 100% statement coverage NOT guarantee 100% branch coverage?",
+      "choices": [
+        "A conditional `if (x) { f(); }` without an `else` executes all statements when `x` is true while leaving the false branch untested",
+        "Statement coverage skips loops completely",
+        "Branch coverage only measures CSS",
+        "Compilers delete branches in debug mode"
+      ],
+      "answer": 0,
+      "explain": "Branch/decision coverage requires exercising both true and false outcomes of every conditional edge."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Testing & QA",
+      "year": 3,
+      "q": "What does the Test Automation Pyramid recommend regarding proportions of Unit, Integration, and E2E UI tests?",
+      "choices": [
+        "Many fast isolated Unit tests at the base, moderate Integration tests in the middle, and fewer slow E2E UI tests at the top",
+        "90% manual clicks and 10% unit tests",
+        "Zero integration tests",
+        "Only browser screenshots"
+      ],
+      "answer": 0,
+      "explain": "Heavy unit coverage catches logic defects cheaply while keeping CI fast and less flaky than giant UI-only suites."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Testing & QA",
+      "year": 4,
+      "q": "How does Mutation Testing evaluate the quality of a test suite?",
+      "choices": [
+        "By fuzzing random SQL strings",
+        "By injecting small artificial code faults (mutants) and measuring whether the existing tests fail and catch them",
+        "By running UI animations at 2× speed",
+        "By scrambling database passwords"
+      ],
+      "answer": 1,
+      "explain": "If a mutant passes all tests (\"survives\"), it exposes a blind spot in your assertions."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Testing & QA",
+      "year": 4,
+      "q": "What characterizes a \"flaky test\" in a CI/CD pipeline?",
+      "choices": [
+        "A test that passes or fails non-deterministically on identical code (often from race conditions, clock skew, or shared test state)",
+        "A test checking UI layout geometry",
+        "A test written in TypeScript",
+        "A benchmark running under 5ms"
+      ],
+      "answer": 0,
+      "explain": "Flaky tests erode team trust in CI and usually trace to timing dependencies or leaking mutable state."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Architecture & Design Patterns",
+      "year": 3,
+      "q": "Which GoF structural pattern attaches extra responsibilities (such as logging, caching, or compression) to an object dynamically without subclass explosion?",
+      "choices": [
+        "Decorator",
+        "Memento",
+        "State",
+        "Interpreter"
+      ],
+      "answer": 0,
+      "explain": "Decorator wraps objects matching the same interface to layer composable runtime behaviors."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Architecture & Design Patterns",
+      "year": 3,
+      "q": "What is the core rule of the Dependency Inversion Principle (the \"D\" in SOLID)?",
+      "choices": [
+        "Store SQL directly inside view buttons",
+        "High-level policy modules should depend on abstractions/interfaces rather than concrete low-level details",
+        "Every file must import every sibling file",
+        "Avoid all polymorphism"
+      ],
+      "answer": 1,
+      "explain": "Depending on interfaces decouples business rules from volatile storage, transport, or UI implementations."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Architecture & Design Patterns",
+      "year": 4,
+      "q": "In distributed systems architecture, what does the Outbox Pattern prevent?",
+      "choices": [
+        "CSS z-index overlap",
+        "Inconsistency where a database commit succeeds but publishing the corresponding domain event crashes/fails",
+        "Browser popup blockers",
+        "Slow PNG decoding"
+      ],
+      "answer": 1,
+      "explain": "Writing the event into a transactional outbox table inside the same DB commit ensures reliable at-least-once event delivery."
+    },
+    {
+      "category": "Software Engineering",
+      "topic": "Software Architecture & Design Patterns",
+      "year": 4,
+      "q": "Why do microservice architectures use a Circuit Breaker pattern around downstream network calls?",
+      "choices": [
+        "To cut electrical power to servers",
+        "To fail fast when a dependency is down, preventing cascading thread exhaustion across upstream callers",
+        "To compress REST payloads",
+        "To enforce CamelCase JSON keys"
+      ],
+      "answer": 1,
+      "explain": "Opening a circuit breaker avoids piling up slow timeouts against a failing service so systems degrade gracefully."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "HTML, CSS & Responsive UI",
+      "year": 2,
+      "q": "What happens when you give an element `position: sticky; top: 0` inside a scrolling container?",
+      "choices": [
+        "It vanishes behind the body permanently",
+        "It scrolls normally until reaching `top: 0`, then sticks within its scrolling parent bounds",
+        "It detaches from the DOM tree",
+        "It triggers a full page reload"
+      ],
+      "answer": 1,
+      "explain": "Sticky positioning acts like relative until crossing its scroll threshold, then stays pinned inside its parent container."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "HTML, CSS & Responsive UI",
+      "year": 2,
+      "q": "In CSS Grid, what does `grid-template-columns: repeat(auto-fit, minmax(220px, 1fr))` accomplish?",
+      "choices": [
+        "Fixes cards permanently to 220px only",
+        "Automatically wraps responsive equal-width columns of at least 220px without extra media queries",
+        "Hides overflow text with ellipses",
+        "Locks columns to 1 vertical stack"
+      ],
+      "answer": 1,
+      "explain": "auto-fit + minmax() dynamically adjusts column count to container width cleanly across devices."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "HTML, CSS & Responsive UI",
+      "year": 2,
+      "q": "Why does `box-sizing: border-box` simplify responsive layouts compared to default `content-box`?",
+      "choices": [
+        "Declared `width` and `height` already include padding and borders, preventing unexpected overflow",
+        "It disables margins completely",
+        "It removes border radius",
+        "It makes every box a circle"
+      ],
+      "answer": 0,
+      "explain": "With border-box, adding padding or a 2px border no longer pushes a `width: 100%` box past 100%."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "HTML, CSS & Responsive UI",
+      "year": 2,
+      "q": "Why is animating `transform` and `opacity` smoother at 60fps than animating `width`, `top`, or `left`?",
+      "choices": [
+        "`transform` and `opacity` run on the GPU compositor without forcing costly layout reflow and repaint passes",
+        "`width` animations require HTTPS",
+        "`opacity` disables DOM events",
+        "`top` runs only on iOS"
+      ],
+      "answer": 0,
+      "explain": "Layout-triggering properties recalculate geometry across the tree every frame, whereas compositor transforms skip reflow."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "JavaScript, DOM & Async",
+      "year": 2,
+      "q": "What is a JavaScript closure?",
+      "choices": [
+        "A syntax error closing a curly brace early",
+        "A function that retains access to variables from its outer lexical scope even after that outer function has returned",
+        "Clearing `localStorage` on tab close",
+        "Stopping event bubbling immediately"
+      ],
+      "answer": 1,
+      "explain": "Closures keep private lexical bindings alive cleanly for callbacks, factories, and encapsulation."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "JavaScript, DOM & Async",
+      "year": 2,
+      "q": "Why does `Promise.all([p1, p2])` typically outperform sequentially `await`ing two independent API requests?",
+      "choices": [
+        "Both requests execute concurrently in flight instead of waiting for `p1` to finish before starting `p2`",
+        "It compresses JSON bodies automatically",
+        "It skips CORS headers",
+        "It caches responses forever"
+      ],
+      "answer": 0,
+      "explain": "Starting independent Promises concurrently slashes total wait time from sum(t1 + t2) to max(t1, t2)."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "JavaScript, DOM & Async",
+      "year": 3,
+      "q": "In the browser Event Loop, which runs first after the current synchronous call stack finishes: a resolved `Promise.then()` callback or a `setTimeout(..., 0)` callback?",
+      "choices": [
+        "`setTimeout(..., 0)` runs first",
+        "`Promise.then()` (microtask queue) runs before the next macrotask (`setTimeout`)",
+        "Whichever was registered last wins",
+        "They run simultaneously on two UI threads"
+      ],
+      "answer": 1,
+      "explain": "The event loop drains the entire microtask queue (Promises) completely before dequeuing the next task/macrotask."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "JavaScript, DOM & Async",
+      "year": 3,
+      "q": "How does debouncing differ from throttling an input or scroll handler?",
+      "choices": [
+        "Debouncing waits until activity pauses for a quiet delay; throttling runs at most once per fixed time interval",
+        "Throttling runs only once ever",
+        "Debouncing cancels Promises permanently",
+        "There is no difference"
+      ],
+      "answer": 0,
+      "explain": "Debounce waits for typing to stop (great for search boxes), whereas throttle caps execution rate (great for scroll/resize)."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "REST APIs & HTTP Semantics",
+      "year": 3,
+      "q": "How do HTTP `PUT` and `PATCH` differ semantically in REST APIs?",
+      "choices": [
+        "`PUT` replaces the target resource completely (idempotent full update), while `PATCH` applies partial modifications",
+        "`PATCH` deletes resources only",
+        "`PUT` cannot carry JSON bodies",
+        "`PATCH` is cacheable like `GET` by default"
+      ],
+      "answer": 0,
+      "explain": "PUT substitutes the full representation; PATCH updates specific fields."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "REST APIs & HTTP Semantics",
+      "year": 3,
+      "q": "What does the HTTP status code `429 Too Many Requests` signify, and which header often pairs with it?",
+      "choices": [
+        "Server out of RAM; `Content-Length`",
+        "Client hit a rate limit; `Retry-After`",
+        "Expired TLS cert; `Strict-Transport`",
+        "Missing CORS; `Host`"
+      ],
+      "answer": 1,
+      "explain": "429 enforces API throttling/rate limits, typically returning `Retry-After` to tell clients when to back off."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "REST APIs & HTTP Semantics",
+      "year": 3,
+      "q": "How do `ETag` and `If-None-Match` HTTP headers optimize API bandwidth?",
+      "choices": [
+        "Clients send the cached ETag; if unchanged, the server replies `304 Not Modified` with an empty body",
+        "They force re-downloading full JSON payloads on every poll",
+        "They compress TLS certificates",
+        "They replace OAuth tokens"
+      ],
+      "answer": 0,
+      "explain": "Conditional GET requests avoid transferring unchanged payloads, returning lightweight 304 confirmations instead."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "REST APIs & HTTP Semantics",
+      "year": 3,
+      "q": "In paginated APIs over rapidly changing feeds, why does cursor-based pagination avoid missing or duplicate rows better than `OFFSET/LIMIT`?",
+      "choices": [
+        "Cursor pagination compresses rows with gzip",
+        "New inserts shifting row positions do not skew a stable cursor anchor (like `created_at < cursor`)",
+        "SQL forbids `LIMIT` clauses above 100",
+        "Cursors hide HTTP status codes"
+      ],
+      "answer": 1,
+      "explain": "Offset pagination shifts indices whenever new records arrive mid-scroll; keyset/cursor pagination stays anchored cleanly."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Web Auth & Backend Security",
+      "year": 4,
+      "q": "How does a strict `Content-Security-Policy` (CSP) header protect against XSS even if an HTML injection bug slips through?",
+      "choices": [
+        "It hashes user passwords in the browser",
+        "It restricts allowed script origins and blocks unauthorized inline scripts/eval execution",
+        "It turns off TLS verification",
+        "It caches API tokens in URLs"
+      ],
+      "answer": 1,
+      "explain": "CSP provides defense-in-depth by telling the browser which script/style/connect sources are trustworthy."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Web Auth & Backend Security",
+      "year": 4,
+      "q": "In OAuth 2.0 Authorization Code flow for public mobile/SPA clients, why is PKCE (Proof Key for Code Exchange) required?",
+      "choices": [
+        "To eliminate TLS certificates",
+        "To bind the authorization code to a cryptographic `code_verifier` so intercepted auth codes cannot be exchanged by attackers",
+        "To share client secrets inside HTML tags",
+        "To replace all HTTP POSTs with GET"
+      ],
+      "answer": 1,
+      "explain": "PKCE prevents authorization code interception attacks in clients that cannot safely hold a static client secret."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Web Auth & Backend Security",
+      "year": 4,
+      "q": "When using short-lived JWT access tokens + rotating refresh tokens, why should compromised refresh tokens trigger family revocation?",
+      "choices": [
+        "Rotating each refresh token detects token reuse/theft immediately so the whole token family can be invalidated server-side",
+        "JWT payloads grow larger otherwise",
+        "Browsers expire JWTs after 10ms",
+        "It increases CSS paint speed"
+      ],
+      "answer": 0,
+      "explain": "If an already-rotated refresh token reappears, it indicates theft—revoking its family locks out the attacker immediately."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Web Auth & Backend Security",
+      "year": 4,
+      "q": "Why does setting `Access-Control-Allow-Credentials: true` forbid `Access-Control-Allow-Origin: *` in CORS?",
+      "choices": [
+        "Wildcards are invalid syntax in HTTP",
+        "Allowing any arbitrary origin to issue credentialed requests would expose authenticated user data across the entire web",
+        "Cookies cannot be sent over CORS",
+        "Browsers block JSON responses with `*`"
+      ],
+      "answer": 1,
+      "explain": "Servers must whitelist explicit trusted origins whenever cookies or auth credentials are permitted cross-origin."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Mobile & Cross-Platform Development",
+      "year": 4,
+      "q": "How do \"Universal Links\" (iOS) / \"App Links\" (Android) improve security over basic custom URL schemes (like `myapp://`)?",
+      "choices": [
+        "They use verified HTTPS domains backed by hosted `apple-app-site-association` / `assetlinks.json` files so other apps cannot hijack your links",
+        "They disable TLS completely",
+        "They store routes in plaintext SMS",
+        "They ignore domain verification"
+      ],
+      "answer": 0,
+      "explain": "OS-verified domain associations ensure only your legitimate app opens your HTTPS deep links."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Mobile & Cross-Platform Development",
+      "year": 4,
+      "q": "In cross-platform frameworks like React Native, why do modern architectures replace the legacy asynchronous JSON bridge with JSI / direct native bindings?",
+      "choices": [
+        "Eliminating JSON serialization on every frame allows synchronous, low-overhead native calls and smooth 60–120fps animations",
+        "JSON does not support integers",
+        "Web browsers require JSI",
+        "To remove TypeScript support"
+      ],
+      "answer": 0,
+      "explain": "Direct C++/host-object bindings eliminate JSON marshalling bottlenecks between JS threads and native UI views."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Mobile & Cross-Platform Development",
+      "year": 4,
+      "q": "Why should mobile clients batch analytics/sync requests and use exponential backoff on failed uploads?",
+      "choices": [
+        "To avoid draining cellular radio battery and overwhelming recovering backend servers with retry storms",
+        "Mobile OSes prohibit single JSON objects",
+        "Backoff upgrades Wi-Fi to 5G",
+        "Batching disables HTTPS TLS"
+      ],
+      "answer": 0,
+      "explain": "Keeping the cellular radio waking up constantly destroys battery life, and unbacked-off retries worsen outages."
+    },
+    {
+      "category": "Web & Mobile Development",
+      "topic": "Mobile & Cross-Platform Development",
+      "year": 4,
+      "q": "What happens when you store sensitive authentication tokens in plain unencrypted SharedPreferences / AsyncStorage instead of Keychain / EncryptedSharedPreferences?",
+      "choices": [
+        "CSS dark mode stops rendering",
+        "Rooted devices, backups, or malware on the device can read the plaintext tokens directly",
+        "Push notifications fail immediately",
+        "Tokens expire twice as fast"
+      ],
+      "answer": 1,
+      "explain": "Hardware-backed secure enclaves (iOS Keychain / Android Keystore) protect secret tokens at rest."
     }
   ]
 };

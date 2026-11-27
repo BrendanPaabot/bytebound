@@ -355,12 +355,15 @@ class Enemy {
   constructor(run, index, opts = {}) {
     this.nyrmed = Boolean(opts.nyrmed);
     this.grenu = !this.nyrmed && Boolean(opts.grenu);
-    this.brute = !this.nyrmed && !this.grenu && index % 3 === 2;
+    this.brute = !this.nyrmed && !this.grenu && (Boolean(opts.brute) || index % 3 === 2);
     this.name = this.nyrmed ? 'Nyrmed' : this.grenu ? 'Grenu' : this.brute ? 'Drius' : 'Virus Grunt';
     this.maxHp = this.nyrmed ? 95 : this.grenu ? 85 : this.brute ? 70 : 40;
     this.hp = this.maxHp;
     this.attack = this.nyrmed ? 15 : this.grenu ? 13 : this.brute ? 12 : 8;
     this.turns = 0;
+    this.loopTier = 0;
+    this.loopArmor = 0;
+    this.loopDmgReduction = 0;
     // Drawn about as tall as the king so the viruses stand out in the rooms; Nyrmed is slightly larger than Drius.
     this.scale = this.nyrmed ? 2.45 : this.grenu ? 2.15 : this.brute ? 2.1 : 1.8;
     this.w = PIG_W * this.scale;

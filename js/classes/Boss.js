@@ -219,6 +219,9 @@ class Boss extends Enemy {
     this.hp = this.maxHp;
     this.attack = isFinal ? 14 : this.grenu ? 13 : 12;
     this.heavyEvery = 2;
+    this.loopTier = 0;
+    this.loopArmor = 0;
+    this.loopDmgReduction = 0;
     this.speed = this.grenu ? 0.45 : 0;
     this.dir = -1;
     this.h = BOSS_EXPLORE_HEIGHT;

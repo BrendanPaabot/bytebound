@@ -9,6 +9,7 @@
    5. [`supabase/migration-admin-console.sql`](./supabase/migration-admin-console.sql) — adds standalone administrator accounts, sessions, audit logs, forgot-password reset queue, academic year change requests, and Admin RPCs.
    6. [`supabase/migration-rate-limiting.sql`](./supabase/migration-rate-limiting.sql) — adds private sliding-window rate limiting (`public.api_rate_limits`) across login, admin login, forgot-password, year-change requests, and throttled leaderboard writes.
    7. [`supabase/migration-security-safety.sql`](./supabase/migration-security-safety.sql) — adds failed-login alerting, temporary-password change enforcement, global security banner broadcasts (`system_security_notices`), and tightened `multiplayer_rooms` RLS policies.
+   8. [`supabase/migration-multiplayer-rooms-realtime.sql`](./supabase/migration-multiplayer-rooms-realtime.sql) — purges dead/stale rows from `public.multiplayer_rooms`, adds auto-expiring `expires_at` TTL + trigger, `REPLICA IDENTITY FULL` for live Realtime `DELETE` events, `mp_prune_stale_rooms()`, `mp_heartbeat_room()`, and `admin_close_multiplayer_room()`.
 3. Verify the project URL and publishable key (or legacy anon key) in `supabase-config.js`:
 
    ```js

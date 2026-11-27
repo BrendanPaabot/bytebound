@@ -7,13 +7,13 @@
 <!-- AUTO:START:snapshot -->
 | Metric | Live Value |
 | :--- | :--- |
-| **Last Auto-Synced** | `2026-11-27 16:52:33` |
-| **Git Branch / HEAD** | `main` @ `4727d04` |
-| **Tracked Source Modules** | `42` files (`56,007` lines, `2026.7 KB`) |
-| **Question Bank Coverage** | `240` questions across `4` disciplines & `20` topics |
+| **Last Auto-Synced** | `2026-11-28 02:06:08` |
+| **Git Branch / HEAD** | `main` @ `9b54cfc` |
+| **Tracked Source Modules** | `44` files (`68,188` lines, `2514.6 KB`) |
+| **Question Bank Coverage** | `420` questions across `7` disciplines & `35` topics |
 | **Campaign Structure** | `16` authored rooms · `RUN_LENGTH = 32` (2 campaign loops) |
-| **Achievements** | `48` tracked milestones |
-| **Active Asset Cache Versions** | `styles.css?v=50`, `js/audio.js?v=15`, `js/cards.js?v=10`, `js/combat.js?v=75`, `js/practice.js?v=12`, `index.js?v=180`, `js/tutorials.js?v=15`, `admin.css?v=6`, `admin.js?v=8` |
+| **Achievements** | `54` tracked milestones |
+| **Active Asset Cache Versions** | `styles.css?v=59`, `js/audio.js?v=15`, `js/cards.js?v=12`, `js/combat.js?v=84`, `js/practice.js?v=16`, `index.js?v=188`, `js/tutorials.js?v=19`, `admin.css?v=6`, `admin.js?v=10` |
 <!-- AUTO:END:snapshot -->
 
 ---
@@ -68,26 +68,32 @@ flowchart TD
 ## 4. Core Learning, Gameplay & Governance Systems
 
 ### 4.1 Adaptive Difficulty & Spaced Review Engine (`js/combat.js`)
-- **Per-Discipline Calibration & Rolling Combat Profiling (`AdaptiveDifficulty`):** Tracks independent difficulty tiers (`0` Easy, `1` Medium, `2` Hard) across each of the 4 CS/IT disciplines calibrated from `topicProgress`, plus a rolling 8-answer performance window (`Comeback Assist` vs. `Balanced` vs. `Adaptive Mastery`).
+- **Per-Discipline Calibration & Rolling Combat Profiling (`AdaptiveDifficulty`):** Tracks independent difficulty tiers (`0` Easy, `1` Medium, `2` Hard) across each of the 7 CS/IT disciplines calibrated from `topicProgress`, plus a rolling 8-answer performance window (`Comeback Assist` vs. `Balanced` vs. `Adaptive Mastery`).
 - **Context-Aware Escalation & Difficulty-Scaled Rewards:** Question difficulty dynamically scales with discipline competence, campaign room depth, enemy tier (`Drius`/Bosses), and high-risk cards (`Heavy Blow`, `Overclock`, Exclusives). Harder questions directly amplify card effects and focus recovery (**Easy**: `1.0×` power / `+5 MP`; **Medium**: `1.18×` / `+8 MP` / `+2 HP`; **Hard**: `1.38×` / `+12 MP` / `+4 HP`) while softening wrong-answer counters on Hard (`0.88×`) and stepping down smoothly without single-miss yo-yo drops.
 - **Weak-Topic Prioritization & Spaced Review:** Topics below `75%` accuracy receive weighted priority. Missed questions enter a bounded review queue (`REVIEW_LIMIT = 25`) and resurface after `REVIEW_DELAY = 3` subsequent answers (`REVIEW_CHANCE = 0.30` in regular battles, raised to `BOSS_REVIEW_CHANCE = 0.50` against bosses).
 - **Runtime Choice Shuffling (`withShuffledChoices`):** Randomizes option positions every time a question renders without mutating `data/questions.json`, preventing positional memorization.
 
 ### 4.2 Diagnostic Baseline, Capability Radar & Research Export
 - **Baseline Window:** Each topic records the player's first `3` attempts into `baselineCorrect` and `baselineAttempted`.
-- **Post-Baseline Learning Gain:** Subsequent answers populate post-baseline accuracy, allowing the **Tracker (`03 · Tracker`)** view to render `+Delta%` improvement per topic, per discipline, and overall, visualized via a 4-axis SVG Capability Radar.
+- **Post-Baseline Learning Gain:** Subsequent answers populate post-baseline accuracy, allowing the **Tracker (`03 · Tracker`)** view to render `+Delta%` improvement per topic, per discipline, and overall, visualized via a dynamic 7-axis SVG Capability Radar.
 - **Research CSV Export:** One-click CSV export (`bytebound-learning-report-<player>.csv`) outputs structured per-topic attempt, baseline, post-baseline, accuracy delta, and adaptive tier metrics for statistical analysis.
 
 ### 4.3 Study, Campaign & Competitive Modes
-1. **Campaign Mode (`index.js`):** 16 authored rooms looped up to `RUN_LENGTH = 32` encounters across 7 districts (`Data Center`, `BB Corp`, `BB Corp Street`, `Net Cafe`, `Hospital`, `Bank`, `Corp Supply`), explorable via the interactive draggable/zoomable RPG Campaign Map (`M`).
-2. **Topic Drill (`02 · Topic Drill`, `js/practice.js`):** Focused non-combat study mode with `Adaptive`, `Mixed`, `Easy`, `Medium`, `Hard`, `Weak Topic Spotlight`, and `Review missed` filters. Updates baseline/post-baseline metrics and awards `1 Skill Point` per `5` correct answers without HP loss.
+1. **Campaign Mode (`index.js`):** 16 authored rooms looped up to `RUN_LENGTH = 32` encounters across 7 districts (`Data Center`, `BB Corp`, `BB Corp Street`, `Net Cafe`, `Hospital`, `Bank`, `Corp Supply`), inspectable via the calm-themed draggable/zoomable RPG Campaign Map (`M`) with crisp pixel padlocks (`PIXEL_LOCK_SVG`) for locked rooms and **strictly on-foot navigation** through dungeon doors (no map teleportation). Completing a loop resets current-cycle map exploration (`visitedRooms` & cycle node clears) and deploys **punishing Loop II+ escalations**: exponential HP (`2.4^cycle`) and ATK (`1.65^cycle`) multipliers + flat scaling, **Loop Armor + damage reduction** (`applyLoopEnemyMitigation`), accelerated heavy attacks, and **elite `+1–2` enemy reinforcements**.
+2. **Topic Drill (`02 · Topic Drill`, `js/practice.js`):** Focused non-combat study mode with `Adaptive`, `Mixed`, `Easy`, `Medium`, `Hard`, `Weak Topic Spotlight`, `Review missed`, and 7-discipline filter chips (marking `Software Engineering` as `2nd Yr+` until Year 2 and `HCI & Usability Principles` at Year 3+). Updates baseline/post-baseline metrics and awards `1 Skill Point` per `5` correct answers without HP loss.
 3. **Practice Mode:** Full sandbox combat simulation that avoids mutating saved campaign slots or leaderboard standings.
 4. **1v1 Competitive Arena (`js/mp-network.js`, `js/mp-matchmaking.js`, `js/mp-ui.js`):** Synchronized real-time player-versus-player duels via Supabase Realtime Presence/Broadcast or local HTTP `/api/mp/*` polling, backed by an Elo-rated PvP leaderboard.
 
-### 4.4 Card Combat & Streak-Charged Exclusive Active Skills
-- **Full-Width Tactical Hand (`4` Cards + Optional Exclusive Relic):** Players select a card, answer an adaptive CS/IT question to resolve the action at full strength (or diminished/missed effect on failure), and manage MP and `Defend` cooldowns (`2` turns).
+### 4.4 Card Combat, Hit-Shield Bar, Overclock Mastery, MP Clarity & Blood-Sacrifice Hint
+- **Full-Width Tactical Hand (`4` Cards + Optional Exclusive Relic):** Players select a card, answer an adaptive CS/IT question to resolve the action at full strength (or diminished/missed effect on failure), and manage MP and `Defend` cooldowns (`2` turns). Both in-battle unit plaques (`drawStatTag`) and `#playHud` clearly distinguish crimson **`Health`** from vivid azure **`Mana`** (`#playPlayerManaFill` + pixel mana diamond glyph) without redundant `MP` clutter.
+- **Prismatic Hex-Chevron Hit-Shield Bar (`1–5` Charges):** Bosses (`2` Loop I / `3` Final Boss, up to `5` on higher loops) and escalated Loop II+ foes (`1–5`) spawn with an iconic segmented cyan Hit-Shield bar above HP (`computeEnemyStartingShield`). Every direct attack (or each strike of multi-hit actives like `Async Cascade`) cracks `-1 Shield` regardless of raw damage magnitude until shattered. Computer Systems specialists unlock this symmetrically via **`Kernel Aegis`** (`Passive`: start every battle with `1/2/3` Hit-Shield charges; `Active`: refills Aegis Shield to `3/4/5` charges + full heal + MP/stat surge).
+- **Progressive SP Economy & Dedicated Overclock Skill Tree Page (`js/combat.js`, `index.js`):** SP intervals scale smoothly (**`5`** correct for SP `1–5`, **`8`** for SP `6–10`, **`10`** thereafter) and Skill ranks cost **`1 / 2 / 3 SP`** (`42 SP` to max all `7` nodes). Maxing all `7` nodes (`21/21` ranks) reveals a unique **Overclock Portal (`OVERCLOCK TREE · ASCEND ▸`)** button at the tip of the maxed discipline route (`data-open-overclock-tree`), opening a dedicated cyber-circuit **Overclock Skill Tree** page (`.is-overclock-page`, dark cyber-vault & light arctic-blueprint theme) inside `#skillTreeOverlay` without cluttering the main tree. Upgrades scale **`2 → 3 → 4 → 5+ SP`**: **Overclock ATK** (`+2 ATK & +2 Armor Pierce` countering Loop Armor), **Kernel Vitality** (`+10 Max HP & +1 DEF`), **Mana Conduit** (`+10 Max Mana & +2 Mana/answer`), and **Blood Efficiency** (`-5%` Blood Hint HP cost per rank, capped at `35%`).
+- **Blood-Sacrifice Hint (`useBloodHint()` / `[H]`):** During solo combat questions (`hero.hp > cost`), players can pay **50% of their Max HP** (`Math.round(hero.maxHp * 0.5)`, reducible to **`35%`** via Blood Efficiency Overclock) with a tactile panel rattle (`bloodRattle`) and pixel blood splatter animation (`drawBloodSplatter`) to purge wrong choices and reveal a redacted conceptual **Blood Clue** (`[???]`) derived from `question.explain`. Disabled whenever current HP is at or below the sacrifice cost.
 - **3–5 Consecutive Correct Answer Streak Charge (`hero.ultCharge`):**
-  - Unlocked Exclusive Active Skills (**`Kernel Aegis`**, **`Packet Lockdown`**, **`Overburn Execution`**) always remain visible in solo combat with a 5-pip charge gauge (`0/3` → `5/5`).
+  - Unlocked Exclusive Active Skills (**`Kernel Aegis`**, **`Packet Lockdown`**, **`Overburn Execution`**, **`Proof by Contradiction`**, **`System Refactor`**, **`Async Cascade`**) always remain visible in solo combat with a 5-pip charge gauge (`0/3` → `5/5`).
+  - **Discrete Mathematics (`Proof by Contradiction`):** Deals logic damage, reflects upcoming normal enemy attacks back (`1.5×–2.25×`), eliminates `2` wrong choices (`50/50`) on upcoming solo questions, and arms a `2×` Logical Crit on the next hit.
+  - **Software Engineering (`System Refactor`):** Deals architecture damage scaled by deck size, halves card MP costs (`effectiveCardCost`) for `2–4` turns, resets `Defend` cooldown, and grants **Rollback Guard** stacks that catch mistakes without breaking streaks or triggering enemy counters.
+  - **Web & Mobile Development (`Async Cascade`):** Strikes `3×` in an Async Burst, echoes the next correct card (`+75%`), and applies **Rate-Limit** (`−40%` incoming enemy damage).
   - **Below `3` Consecutive Correct:** Card remains disabled (`STREAK X/3`). Any wrong answer resets streak charge back to `0`.
   - **`3/5` (`READY`):** Enables the Exclusive Skill at **`1.0×` base power**.
   - **`4/5` (`OVERCHARGED`):** Boosts damage, MP gain, buff magnitude, and stun duration to **`1.25×`**.
@@ -96,8 +102,18 @@ flowchart TD
 - **Anti-Soft-Lock Deck Guarantee & Universal Remedial Surge (`canUseRemedialSurge()`):** Solo runs start with `SOLO_STARTING_DECK` including `Charge Mana` (`0 MP`); `fillHand()` automatically substitutes an affordable/mana-generating card from draw or discard whenever a drawn hand lacks playable cards; and **Remedial Surge (`R`)** unlocks both at `0 MP` and whenever every card in hand exceeds current MP (e.g., `12 MP` with only `Power Strike`/`Heavy Blow`). Answering `2–5` remedial questions restores full MP + `35%` HP + `+8 ATK / +4 DEF` on a perfect score, or proportional recovery if at least one answer is correct.
 
 ### 4.5 Academic Year Restrictions & Approval Workflow
-- Players select their enrolling Academic Year (`Year 1`–`Year 4`) at registration; gameplay filters all questions via `isQuestionEligibleForYear(question, cap)` across campaign combat, remedial drills, Topic Drills, and multiplayer question selection.
+- Players select their enrolling Academic Year (`Year 1`–`Year 4`) at registration; gameplay filters all questions via `isQuestionEligibleForYear(question, cap)` across campaign combat, remedial drills, Topic Drills, and multiplayer question selection. Specifically, **`HCI & Usability Principles` is scheduled at Year 3**, leaving **`Software Engineering` locked until Year 2+** across Topic Drill (`2nd Yr+`), Capability Tracker, and the Skill Tree (`isSkillTreeYearLocked`).
 - Free client-side switching is intentionally locked in Settings so students cannot artificially inflate scores using lower-year questions; students must submit a **Year Change Request** (`request-year-change` / `auth_request_year_change`) reviewed and approved/dismissed by an administrator.
+
+### 4.6 Adaptive Quests, Refresh Cycles, Campaign Supply Crates, Weekly Leaderboards & 13 Prestige Titles (`js/quests.js`)
+BYTEBOUND pairs its diagnostic tracker and Skill Trees with a **Refreshable Quest & Prestige System** accessible via the **Quest Hub Auto-Swiping Widget** (auto-rotating across the 3 Quest Pages every `3000ms` (`3s`) with GPU `translate3d` transitions, anchored equal panel height, per-slide scroll, detailed pixel-art flame icon, and hover/wheel/manual pause) and anywhere in-game via **`QUESTS · [O]`** or **`O`**:
+1. **Page 1 — Adaptive Study Quests (`quest-theme-adaptive`, Daily Reset + Topic Reroll):** Refreshes daily at midnight (`00:00`) with a once-daily Weak-Topic Reroll (`rerollWeakTopic()`), tracked alongside a persistent **Daily Study Streak Counter** (*Patch the Vulnerability*, *Weak-Topic Specialist*, *Hard-Mode Scholar*, *Combo Architect*). Completing `3/3` Adaptive Quests awards `+1` Bonus Supply Crate.
+2. **Page 2 — Campaign & District Bounties (`quest-theme-bounties`, Weekly Reset + Bonus Refresh):** Automatically refreshes weekly on Monday `00:00` (`normalizeWeeklyWindow()`) with `1` bonus weekly cycle refresh once all bounties are claimed (*Terminal Lockdown*, *Clutch Recovery*, *Flawless Execution*, *Citadel Sovereign*).
+3. **Page 3 — Arena & Discipline Quests (`quest-theme-arena`, Weekly Reset + Bonus Refresh):** Refreshes weekly alongside Bounties (*Friendly Spar*, *Full-Stack Defender*, *Rising Challenger*).
+4. **Page 4 — Prestige Titles & Supply Crates (`#questOverlay` Tab 4, `quest-theme-prestige`):**
+   - **Campaign Supply Crates (`#cratesHudButton` / `#supplyCrateOverlay`):** Every claimed quest awards `+1` Supply Crate redeemable during Solo Campaign runs for three tactical boons: **Vitality Cell** (`+25 HP / +25 MP Refill`), **Tactical Cache** (Free 3-card Bonus Deck Draft), or **Focus Relic** (start next battle with `1/5` Exclusive Charge, or `+1` immediately in battle).
+   - **13 Permanent Cosmetic Prestige Titles (`PRESTIGE_TITLES`):** Uniquely styled pixel-crest badges equipable across Profile Bar (`#playerTitleSlot`), **Weekly (`W##`) / All-Time Leaderboards**, Settings, and **1v1 Arena** (*[Bug Hunter]*, *[Packet Warden]*, *[Zero-Miss Tactician]*, *[Citadel Champion]*, *[Grand Cartographer]*, *[Apex Sovereign]*, *[Codex Laureate]*, *[Campaign Vanguard]*, *[Scholar Prime]*, *[Arena Gladiator]*, *[Arcane Architect]*, *[Flamekeeper]*, *[Arena Contender]*).
+- **Discipline & Wildcard SP Rewards (`grantBonusSkillPoint()`):** Quest claims grant targeted Discipline SP or flexible **★ Wildcard SP** usable in any unlocked Skill Tree (`skillPointsAvailable(key)` / `getWildcardSkillPoints()`).
 
 ---
 
@@ -106,8 +122,8 @@ flowchart TD
 > Questions are stored in [`data/questions.json`](file:///c:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/data/questions.json) and compiled into [`js/data/questions.js`](file:///c:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/data/questions.js) via `node scripts/build-questions.js`.
 
 <!-- AUTO:START:questions -->
-- **Total Questions:** `240` (`80` Easy · `80` Medium · `80` Hard)
-- **Academic Year Distribution:** Year 1: `45` · Year 2: `86` · Year 3: `89` · Year 4: `20`
+- **Total Questions:** `420` (`140` Easy · `140` Medium · `140` Hard)
+- **Academic Year Distribution:** Year 1: `79` · Year 2: `154` · Year 3: `155` · Year 4: `32`
 
 | Discipline | Topic | Easy | Medium | Hard | Total | Years |
 | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
@@ -121,6 +137,11 @@ flowchart TD
 | Database | Indexing & Performance | 4 | 4 | 4 | **12** | Y3, Y4 |
 | Database | SQL Queries | 4 | 4 | 4 | **12** | Y2, Y3 |
 | Database | Transactions & Concurrency | 4 | 4 | 4 | **12** | Y3, Y4 |
+| Discrete Mathematics | Boolean Algebra & Logic Circuits | 4 | 4 | 4 | **12** | Y1, Y2 |
+| Discrete Mathematics | Combinatorics, Induction & Modular Math | 4 | 4 | 4 | **12** | Y2, Y3 |
+| Discrete Mathematics | Graph Theory & Trees | 4 | 4 | 4 | **12** | Y2, Y3 |
+| Discrete Mathematics | Logic & Truth Tables | 4 | 4 | 4 | **12** | Y1, Y2 |
+| Discrete Mathematics | Sets, Functions & Relations | 4 | 4 | 4 | **12** | Y1, Y2 |
 | Networking & Security | Cryptography & Authentication | 4 | 4 | 4 | **12** | Y3, Y4 |
 | Networking & Security | Information Security | 4 | 4 | 4 | **12** | Y1, Y2, Y4 |
 | Networking & Security | Network Defense & Firewalls | 4 | 4 | 4 | **12** | Y1, Y3, Y4 |
@@ -131,6 +152,16 @@ flowchart TD
 | Programming | Data Structures | 4 | 4 | 4 | **12** | Y1, Y2, Y3 |
 | Programming | Object-Oriented Programming | 4 | 4 | 4 | **12** | Y1, Y2 |
 | Programming | Programming | 4 | 4 | 4 | **12** | Y1, Y2 |
+| Software Engineering | HCI & Usability Principles | 4 | 4 | 4 | **12** | Y3 |
+| Software Engineering | Requirements & UML Modeling | 4 | 4 | 4 | **12** | Y2, Y3 |
+| Software Engineering | SDLC & Agile Methodologies | 4 | 4 | 4 | **12** | Y2, Y3 |
+| Software Engineering | Software Architecture & Design Patterns | 4 | 4 | 4 | **12** | Y3, Y4 |
+| Software Engineering | Software Testing & QA | 4 | 4 | 4 | **12** | Y2, Y3, Y4 |
+| Web & Mobile Development | HTML, CSS & Responsive UI | 4 | 4 | 4 | **12** | Y1, Y2 |
+| Web & Mobile Development | JavaScript, DOM & Async | 4 | 4 | 4 | **12** | Y1, Y2, Y3 |
+| Web & Mobile Development | Mobile & Cross-Platform Development | 4 | 4 | 4 | **12** | Y3, Y4 |
+| Web & Mobile Development | REST APIs & HTTP Semantics | 4 | 4 | 4 | **12** | Y2, Y3 |
+| Web & Mobile Development | Web Auth & Backend Security | 4 | 4 | 4 | **12** | Y3, Y4 |
 <!-- AUTO:END:questions -->
 
 ---
@@ -143,7 +174,7 @@ flowchart TD
 - **Diagnostic & Skill Economy:** `BASELINE_ATTEMPTS = 3` attempts/topic · `SKILL_POINT_INTERVAL = 5` correct answers/SP · `DEFEND_COOLDOWN_TURNS = 2`
 - **Exclusive Skill Streak Charge:** Unlocks at `EXCLUSIVE_MIN_STREAK = 3` consecutive correct (`1.0×`), overcharges at `4` (`1.25×`), peaks at `EXCLUSIVE_MAX_STREAK = 5` (`1.5× Max Overdrive`), resets to `0` on any wrong answer or cast.
 
-### Combat Card Library (`13` Cards — `js/cards.js`)
+### Combat Card Library (`16` Cards — `js/cards.js`)
 | ID | Card | Base Cost | Kind | Pool | Effect Summary |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `strike` | **Strike** | 0 MP | `hit` | Starter Deck | Base attack damage. |
@@ -156,16 +187,19 @@ flowchart TD
 | `heavy` | **Heavy Blow** | 25 MP | `hit` | Unlockable Reward | Costs 25 mana for a crushing hit. |
 | `fortify` | **Fortify** | 0 MP | `buff` | Unlockable Reward | +3 defense for the battle and +4 mana when correct. |
 | `overclock` | **Overclock** | 10 MP | `hit` | Unlockable Reward | Costs 10 mana. Double damage when correct. |
-| `kernel_aegis` | **Kernel Aegis** | 10 MP | `aegis` | Exclusive (3–5 Streak) | Charges via 3–5 answer streak (up to 1.5x). Blocks hits + full heal + 40–60 MP + surge; wrong answers drain/pierce. |
+| `kernel_aegis` | **Kernel Aegis** | 10 MP | `aegis` | Exclusive (3–5 Streak) | Passive: Start battles with 1–3 Hit-Shields. Active: Refills Aegis Shield (3–5 hits), full heal, 40–60 MP & surge. |
 | `packet_lockdown` | **Packet Lockdown** | 10 MP | `stun` | Exclusive (3–5 Streak) | Charges via 3–5 answer streak (up to 1.5x). 8–12t stun, breach DMG, +50% hit DMG while stunned & MP. |
 | `plasma_compile` | **Overburn Execution** | 15 MP | `burn_hit` | Exclusive (3–5 Streak) | Charges via 3–5 answer streak (up to 1.5x). Heavy DMG (Execute <40% HP) + Inferno Burn (5t). |
+| `proof_contradiction` | **Proof by Contradiction** | 10 MP | `logic_proof` | Exclusive (3–5 Streak) | Charges via 3–5 answer streak (up to 1.5x). Reflects next enemy hit, eliminates 2 wrong choices on next questions & arms 2x Logical Crit. |
+| `system_refactor` | **System Refactor** | 12 MP | `refactor` | Exclusive (3–5 Streak) | Charges via 3–5 answer streak (up to 1.5x). Architecture DMG, halves card MP costs (2–4t), resets Defend CD & grants Rollback Guard. |
+| `async_cascade` | **Async Cascade** | 12 MP | `async_burst` | Exclusive (3–5 Streak) | Charges via 3–5 answer streak (up to 1.5x). 3-hit Async Burst, echoes your next card (+75%) & Rate-Limits enemy (-40% DMG). |
 
-### Discipline Skill Trees (`28` Nodes — `js/combat.js`)
+### Discipline Skill Trees (`49` Nodes — `js/combat.js`)
 | Discipline | Skill Node | Type | Live Effect Summary |
 | :--- | :--- | :--- | :--- |
 | Computer Systems | Hardware Tuning | Passive | +1 ATK per rank |
 | Computer Systems | OS Stability | Passive | +1 DEF per rank |
-| Computer Systems | **★ Kernel Aegis** | Exclusive (Max R3) | Active Skill: Shield Normal Hits + Full Heal + Surge (3–5 Streak Charge) |
+| Computer Systems | **★ Kernel Aegis** | Exclusive (Max R3) | Passive: 1–3 Battle Shield · Active: 3–5 Shield + Heal + Surge |
 | Computer Systems | Recovery Protocol | Passive | +2 HP per correct answer per rank |
 | Computer Systems | Virtualization | Passive | +5 max HP per rank |
 | Computer Systems | Thermal Control | Passive | +2 DEF per rank |
@@ -191,6 +225,27 @@ flowchart TD
 | Database | Replication | Passive | +5 max MP per rank |
 | Database | Query Optimizer | Passive | +1 ATK and +1 DEF per rank |
 | Database | ACID Guarantee | Passive | +3 HP per correct answer per rank |
+| Discrete Mathematics | Boolean Axiom | Passive | +1 ATK per rank |
+| Discrete Mathematics | Truth Table Foresight | Passive | +1 DEF and +4 max MP per rank |
+| Discrete Mathematics | **★ Proof by Contradiction** | Exclusive (Max R3) | Active Skill: Hit Reflect + 50/50 Proof Hints + 2x Crit (3–5 Streak Charge) |
+| Discrete Mathematics | Combinatorial Edge | Passive | +2 MP per correct answer per rank |
+| Discrete Mathematics | Graph Traversal | Passive | +2 HP per correct answer per rank |
+| Discrete Mathematics | Inductive Momentum | Passive | +1 ATK and +1 DEF per rank |
+| Discrete Mathematics | Q.E.D. Mastery | Passive | +2 ATK per rank |
+| Software Engineering | Clean Architecture | Passive | +1 DEF per rank |
+| Software Engineering | Unit Testing | Passive | +5 max HP per rank |
+| Software Engineering | **★ System Refactor** | Exclusive (Max R3) | Active Skill: 50% MP Cost + Defend Reset + Rollback Guard (3–5 Streak Charge) |
+| Software Engineering | Agile Sprint | Passive | +2 MP per correct answer per rank |
+| Software Engineering | Usability Polish | Passive | +2 HP per correct answer per rank |
+| Software Engineering | Design Patterns | Passive | +1 ATK and +1 DEF per rank |
+| Software Engineering | Full-Lifecycle Mastery | Passive | +1 ATK and +8 max HP per rank |
+| Web & Mobile Development | Responsive Layout | Passive | +5 max HP per rank |
+| Web & Mobile Development | REST Endpoint | Passive | +1 ATK per rank |
+| Web & Mobile Development | **★ Async Cascade** | Exclusive (Max R3) | Active Skill: 3-Hit Burst + Next Card Echo (+75%) + Rate-Limit (3–5 Streak Charge) |
+| Web & Mobile Development | Event Loop Flow | Passive | +2 MP per correct answer per rank |
+| Web & Mobile Development | Progressive Cache | Passive | +2 HP per correct answer per rank |
+| Web & Mobile Development | Cross-Platform Sync | Passive | +1 ATK and +1 DEF per rank |
+| Web & Mobile Development | Hypertext Overdrive | Passive | +2 ATK per rank |
 <!-- AUTO:END:combat -->
 
 ---
@@ -202,7 +257,7 @@ flowchart TD
 
 <!-- AUTO:START:world -->
 - **Campaign Structure:** `16` unique rooms looped up to `RUN_LENGTH = 32` encounters (`32` rooms across `2` loops). Mini Boss **Kor** guards `Executive Floor` (Room `5`), **Grenu** spawns in `Control Deck 2` (Loop 2), and **Final Boss King Crolue** guards all 4 branch finales (Rooms `9`, `12`, `14`, `16`).
-- **Achievements Breakdown (`48` Total):** General: `17` · Study/Tracker/Leaderboard: `12` · 1v1 PvP: `8` · Exclusive Mastery: `10` · Onboarding (`Codex Laureate`): `1`.
+- **Achievements Breakdown (`54` Total):** General: `17` · Study/Tracker/Leaderboard: `12` · 1v1 PvP: `8` · Exclusive Mastery: `16` · Onboarding (`Codex Laureate`): `1`.
 
 | Room | Name | District / Theme | Enemies (`pigs`) | Boss / Finale Checkpoint |
 | :---: | :--- | :--- | :---: | :--- |
@@ -245,7 +300,7 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 - **Accounts (`users`):** Search/filter users, create accounts, inspect detailed player progress/skills/stats modals, edit Academic Year directly, issue temporary passwords, revoke sessions, suspend/unsuspend accounts, reset run progress, or delete users.
 - **Requests (`resets`):** Actionable inbox recording both **Forgot-Password Requests** and **Academic Year Change Requests** with one-click approval, custom temporary password assignment, or dismissal.
 - **Questions (`questions`):** Full searchable/filterable browser for the compiled question bank with **numbered pagination (`1 … N`)** so overflowed datasets remain accessible page-by-page.
-- **Leaderboards & Multiplayer (`leaderboards`, `multiplayer`):** Inspect/moderate Arcade and 1v1 Elo standings and close stale multiplayer rooms.
+- **Leaderboards & Multiplayer (`leaderboards`, `multiplayer`):** Inspect/moderate Arcade and 1v1 Elo standings, observe real-time `public.multiplayer_rooms` updates (`waiting` → `full` → `in_match` → auto-deleted on match completion/unload or 60s TTL expiry via `supabase/migration-multiplayer-rooms-realtime.sql`), and forcibly close rooms in both Local Server and Supabase modes (`admin_close_multiplayer_room()`).
 - **Activity Log (`audit`):** Persistent timestamped audit trail recording account signups, password/year requests, and administrative actions across sessions.
 
 <!-- AUTO:START:backend -->
@@ -254,13 +309,14 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 - **Admin Console API (`17`):** `/api/admin/approve-year-request`, `/api/admin/close-room`, `/api/admin/create-user`, `/api/admin/delete-pvp-entry`, `/api/admin/delete-user`, `/api/admin/dismiss-reset-request`, `/api/admin/dismiss-year-request`, `/api/admin/log-activity`, `/api/admin/login`, `/api/admin/logout`, `/api/admin/overview`, `/api/admin/reset-password`, `/api/admin/reset-progress`, `/api/admin/revoke-sessions`, `/api/admin/set-security-notice`, `/api/admin/set-user-year`, `/api/admin/toggle-suspend`
 - **Multiplayer & PvP API (`5`):** `/api/mp/event`, `/api/mp/pvp-leaderboard`, `/api/mp/pvp-reset`, `/api/mp/pvp-result`, `/api/mp/state`
 
-### Supabase PostgreSQL Migrations (`13` Tables · `33` RPC Functions across `10` Files)
+### Supabase PostgreSQL Migrations (`13` Tables · `37` RPC Functions across `11` Files)
 | Migration Script | Tables Created / Referenced | RPC Functions Defined |
 | :--- | :--- | :--- |
 | `supabase/migration-1v1-leaderboard.sql` | `pvp_leaderboard_entries` | `submit_leaderboard_run()`, `submit_pvp_match_result()`, `reset_user_profile()` |
 | `supabase/migration-admin-console.sql` | `password_reset_requests`, `year_change_requests`, `admin_accounts`, `admin_sessions`, `admin_audit_logs` | `_serialize_auth_user()`, `_resolve_session_user_id()`, `auth_log_in()`, `auth_request_year_change()`, `auth_request_password_reset()`, `auth_change_password()`, `_resolve_admin_session()`, `admin_log_in()`, `admin_get_overview()`, `admin_create_user()`, `admin_reset_user_password()`, `admin_dismiss_reset_request()`, `admin_set_user_year()`, `admin_approve_year_request()`, `admin_dismiss_year_request()`, `admin_toggle_suspend_user()`, `admin_reset_user_progress()`, `admin_revoke_user_sessions()`, `admin_delete_user()`, `admin_delete_leaderboard_entry()` |
 | `supabase/migration-cleanup-users-and-sss-pin.sql` | — | — |
 | `supabase/migration-leaderboard-run-checks.sql` | `users`, `leaderboard_entries` | `upsert_user_profile()`, `reset_user_profile()`, `submit_leaderboard_run()` |
+| `supabase/migration-multiplayer-rooms-realtime.sql` | — | `trg_mp_rooms_touch_ttl()`, `mp_prune_stale_rooms()`, `mp_heartbeat_room()`, `admin_close_multiplayer_room()` |
 | `supabase/migration-password-auth.sql` | `user_credentials`, `user_sessions` | `_serialize_auth_user()`, `_resolve_session_user_id()`, `auth_sign_up()`, `auth_log_in()`, `auth_get_session()`, `auth_logout()`, `auth_save_profile()`, `auth_reset_profile()`, `submit_leaderboard_run()`, `submit_pvp_match_result()` |
 | `supabase/migration-profile-pin.sql` | — | `upsert_user_profile()`, `reset_user_profile()` |
 | `supabase/migration-rate-limiting.sql` | `api_rate_limits` | `_check_rate_limit()`, `_clear_rate_limit()`, `auth_log_in()`, `auth_request_password_reset()`, `auth_request_year_change()`, `admin_log_in()`, `submit_leaderboard_run()` |
@@ -276,33 +332,34 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 <!-- AUTO:START:inventory -->
 | File Path | Lines | Size (KB) | Functional Role |
 | :--- | :---: | :---: | :--- |
-| [`CHANGES.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/CHANGES.md) | 63 | 11.6 | Concise changelog and migration overview aligned with live system revisions |
-| [`SUPABASE_SETUP.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/SUPABASE_SETUP.md) | 24 | 3.2 | Cloud PostgreSQL and Realtime setup instructions |
+| [`CHANGES.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/CHANGES.md) | 83 | 18.9 | Concise changelog and migration overview aligned with live system revisions |
+| [`SUPABASE_SETUP.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/SUPABASE_SETUP.md) | 25 | 3.5 | Cloud PostgreSQL and Realtime setup instructions |
 | [`admin.html`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/admin.html) | 146 | 6.4 | Standalone Administrator Management Console shell and layout containers |
 | [`css/admin.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/admin.css) | 1,165 | 21.6 | Styling and responsive grid layouts for the standalone Admin Management Console |
-| [`css/styles.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/styles.css) | 14,953 | 401.5 | Complete responsive design system (Dark/Light themes, battle cards, skill tree, portrait/landscape media queries) |
-| [`data/questions.json`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/data/questions.json) | 3,369 | 125.9 | Authoritative 240-question curriculum bank tagged by category, topic, year (1–4), and difficulty |
-| [`index.html`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.html) | 479 | 31.1 | Main player SPA shell (Auth, Quest Hub, Practice, Battle Canvas, Tracker, Maps, Skill Tree, Settings) |
-| [`index.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.js) | 10,387 | 413.5 | Game loop, 16-room engine, sprite/animation rendering, physics, save profiles, auth flows, achievements, Hub UI |
-| [`js/admin.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/admin.js) | 2,231 | 99.4 | Admin Console client controller (Supabase RPC + local server fallback, pagination, requests, logs, CRUD) |
+| [`css/styles.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/styles.css) | 17,459 | 475.9 | Complete responsive design system (Dark/Light themes, battle cards, skill tree, portrait/landscape media queries) |
+| [`data/questions.json`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/data/questions.json) | 5,889 | 220.1 | Authoritative 240-question curriculum bank tagged by category, topic, year (1–4), and difficulty |
+| [`index.html`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.html) | 489 | 34.1 | Main player SPA shell (Auth, Quest Hub, Practice, Battle Canvas, Tracker, Maps, Skill Tree, Settings) |
+| [`index.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.js) | 11,473 | 468.1 | Game loop, 16-room engine, sprite/animation rendering, physics, save profiles, auth flows, achievements, Hub UI |
+| [`js/admin.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/admin.js) | 2,366 | 104.8 | Admin Console client controller (Supabase RPC + local server fallback, pagination, requests, logs, CRUD) |
 | [`js/arena.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/arena.js) | 101 | 3.3 | Battle arena biome canvas backdrop rendering themes |
 | [`js/audio.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/audio.js) | 974 | 33.2 | Procedural Web Audio synthesizer: SFX + adaptive BGM (ambient explore, chiptune-rock battle, complextro-classical boss) |
-| [`js/cards.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/cards.js) | 162 | 9.9 | CARD_LIBRARY definitions, mana costs, dynamic damage/buff descriptions, and card role metadata |
-| [`js/classes/Boss.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/classes/Boss.js) | 259 | 10.0 | Mini Boss (Kor, Grenu) and Final Boss (King Crolue) combat stats and sprite state machines |
+| [`js/cards.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/cards.js) | 220 | 14.4 | CARD_LIBRARY definitions, mana costs, dynamic damage/buff descriptions, and card role metadata |
+| [`js/classes/Boss.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/classes/Boss.js) | 262 | 10.1 | Mini Boss (Kor, Grenu) and Final Boss (King Crolue) combat stats and sprite state machines |
 | [`js/classes/CollisionBlock.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/classes/CollisionBlock.js) | 34 | 0.9 | Axis-aligned and polygonal collision platform/wall primitives |
-| [`js/classes/Enemy.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/classes/Enemy.js) | 395 | 15.7 | Enemy patrol AI, sprite states, and encounter triggers |
+| [`js/classes/Enemy.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/classes/Enemy.js) | 398 | 15.8 | Enemy patrol AI, sprite states, and encounter triggers |
 | [`js/classes/Player.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/classes/Player.js) | 280 | 8.6 | Player movement, gravity, horizontal/vertical collision pushout, sprite states, and door interaction |
 | [`js/classes/Sprite.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/classes/Sprite.js) | 157 | 4.7 | Frame-based sprite sheet loader and animation renderer |
-| [`js/combat.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/combat.js) | 3,690 | 151.2 | AdaptiveDifficulty engine, spaced review, Academic Year gating, Skill Trees, card combat, 3–5 streak exclusive skills |
+| [`js/combat.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/combat.js) | 4,590 | 196.6 | AdaptiveDifficulty engine, spaced review, Academic Year gating, Skill Trees, card combat, 3–5 streak exclusive skills |
 | [`js/data/collisions.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/data/collisions.js) | 294 | 16.6 | Compiled platform, wall, and conveyor collision geometry for all 16 authored rooms |
-| [`js/data/questions.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/data/questions.js) | 3,372 | 126.1 | Compiled browser-ready QUESTION_BANK bundle generated from data/questions.json |
-| [`js/eventListeners.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/eventListeners.js) | 231 | 9.1 | Keyboard and battle hotkey dispatchers across explore, map, skill tree, and combat phases |
+| [`js/data/questions.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/data/questions.js) | 5,892 | 220.3 | Compiled browser-ready QUESTION_BANK bundle generated from data/questions.json |
+| [`js/eventListeners.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/eventListeners.js) | 269 | 10.9 | Keyboard and battle hotkey dispatchers across explore, map, skill tree, and combat phases |
 | [`js/font.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/font.js) | 7 | 0.1 | Local bitmap/pixel webfont loader and fallback registration |
-| [`js/mp-matchmaking.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/mp-matchmaking.js) | 765 | 27.2 | 1v1 competitive room creation, invitation codes, Elo rating updates, and match lifecycle |
-| [`js/mp-network.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/mp-network.js) | 1,439 | 54.1 | Cross-device Supabase Realtime + local HTTP 1v1 lobby, presence, and broadcast synchronization |
-| [`js/mp-ui.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/mp-ui.js) | 862 | 38.6 | 1v1 Multiplayer lobby browser, room drawer, and HUD controls |
-| [`js/practice.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/practice.js) | 595 | 25.4 | Non-combat Topic Drill study mode with Adaptive/Mixed/Tier filters and tracker updates |
-| [`js/tutorials.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/tutorials.js) | 3,457 | 136.6 | 17 guided interactive page tours and onboarding lessons with Codex Laureate tracking |
+| [`js/mp-matchmaking.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/mp-matchmaking.js) | 783 | 28.0 | 1v1 competitive room creation, invitation codes, Elo rating updates, and match lifecycle |
+| [`js/mp-network.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/mp-network.js) | 1,601 | 60.6 | Cross-device Supabase Realtime + local HTTP 1v1 lobby, presence, and broadcast synchronization |
+| [`js/mp-ui.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/mp-ui.js) | 866 | 39.4 | 1v1 Multiplayer lobby browser, room drawer, and HUD controls |
+| [`js/practice.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/practice.js) | 659 | 28.4 | Non-combat Topic Drill study mode with Adaptive/Mixed/Tier filters and tracker updates |
+| [`js/quests.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/quests.js) | 1,948 | 83.5 | Project source module |
+| [`js/tutorials.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/tutorials.js) | 3,460 | 138.4 | 17 guided interactive page tours and onboarding lessons with Codex Laureate tracking |
 | [`js/utils.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/utils.js) | 30 | 0.6 | Shared collision polygon, array, and canvas helper utilities |
 | [`scripts/build-questions.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/scripts/build-questions.js) | 109 | 4.3 | Validates data/questions.json schema/coverage, compiles js/data/questions.js, and triggers doc sync |
 | [`serve-local.cmd`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/serve-local.cmd) | 5 | 0.1 | Windows one-click launcher for serve-local.ps1 |
@@ -312,6 +369,7 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 | [`supabase/migration-admin-console.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-admin-console.sql) | 849 | 35.0 | Supabase SQL schema / migration script |
 | [`supabase/migration-cleanup-users-and-sss-pin.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-cleanup-users-and-sss-pin.sql) | 27 | 1.0 | Supabase SQL schema / migration script |
 | [`supabase/migration-leaderboard-run-checks.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-leaderboard-run-checks.sql) | 387 | 12.4 | Supabase SQL schema / migration script |
+| [`supabase/migration-multiplayer-rooms-realtime.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-multiplayer-rooms-realtime.sql) | 182 | 6.3 | Supabase SQL schema / migration script |
 | [`supabase/migration-password-auth.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-password-auth.sql) | 634 | 21.3 | Supabase SQL schema / migration script |
 | [`supabase/migration-profile-pin.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-profile-pin.sql) | 164 | 5.0 | Supabase SQL schema / migration script |
 | [`supabase/migration-rate-limiting.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-rate-limiting.sql) | 490 | 17.2 | Supabase SQL schema / migration script |
@@ -346,44 +404,44 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 <!-- AUTO:START:revisions -->
 | Timestamp | Trigger | Changed Areas / Files | Revision Summary |
 | :--- | :--- | :--- | :--- |
-| `2026-11-27 16:25:10` | `manual` | Documentation Sync | Fixed low-MP soft-lock with smart hand draw + universal Remedial Surge, rebalanced cards/counters, and scaled combat rewards & enemies with adaptive question difficulty |
-| `2026-11-27 16:24:32` | `agent-edit` | Documentation/Config (`CHANGES.md`) | Auto-synced after agent update to `CHANGES.md`. |
-| `2026-11-27 16:24:26` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
-| `2026-11-27 16:24:20` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
-| `2026-11-27 16:23:52` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-27 16:23:49` | `agent-edit` | Documentation Sync | Auto-synced after agent update to `css/styles.css`. |
-| `2026-11-27 16:23:46` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
-| `2026-11-27 16:22:25` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
-| `2026-11-27 16:21:42` | `agent-edit` | Documentation/Config (`js/eventListeners.js`) | Auto-synced after agent update to `js/eventListeners.js`. |
-| `2026-11-27 16:21:35` | `agent-edit` | Combat & Exclusive Skills (`js/cards.js`) | Auto-synced after agent update to `js/cards.js`. |
-| `2026-11-27 15:47:27` | `manual` | Documentation Sync | Moved Shared Computer checkbox below Log In button on authentication card |
-| `2026-11-27 15:47:10` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-27 15:45:56` | `manual` | Documentation Sync | Fixed Shared Computer checkbox alignment and matched login safety font to Bytebound UI typography |
-| `2026-11-27 15:45:32` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
-| `2026-11-27 15:44:20` | `manual` | Documentation Sync | Fixed Shared Computer checkbox alignment and matched login safety font to Bytebound UI typography |
-| `2026-11-27 15:43:54` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-27 15:43:40` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
-| `2026-11-27 14:24:44` | `manual` | Documentation Sync | Polished security banner button typography and finalized security safety verification |
-| `2026-11-27 14:23:44` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
-| `2026-11-27 14:20:51` | `manual` | Documentation Sync | Implemented user-facing data safety warnings, password strength meter, failed-login & temp-password alerts, shared-PC wipe, admin security notice broadcast, and HTTP security headers |
-| `2026-11-27 14:20:30` | `agent-edit` | Documentation/Config (`CHANGES.md`) | Auto-synced after agent update to `CHANGES.md`. |
-| `2026-11-27 14:20:16` | `agent-edit` | Documentation/Config (`SUPABASE_SETUP.md`) | Auto-synced after agent update to `SUPABASE_SETUP.md`. |
-| `2026-11-27 14:19:12` | `agent-edit` | Admin Console (`js/admin.js`) | Auto-synced after agent update to `js/admin.js`. |
-| `2026-11-27 14:18:08` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
-| `2026-11-27 14:17:29` | `agent-edit` | Admin Console (`css/admin.css`) | Auto-synced after agent update to `css/admin.css`. |
-| `2026-11-27 14:17:26` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
-| `2026-11-27 14:17:23` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-27 14:16:49` | `agent-edit` | Admin Console (`admin.html`) | Auto-synced after agent update to `admin.html`. |
-| `2026-11-27 14:16:38` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-27 14:15:07` | `agent-edit` | Auth, Backend & SQL Schema (`serve-local.ps1`) | Auto-synced after agent update to `serve-local.ps1`. |
-| `2026-11-27 14:14:58` | `agent-edit` | Documentation Sync | Auto-synced after agent update to `_headers`. |
-| `2026-11-27 14:14:31` | `agent-edit` | Auth, Backend & SQL Schema (`supabase/migration-security-safety.sql`) | Auto-synced after agent update to `supabase/migration-security-safety.sql`. |
-| `2026-11-27 14:13:28` | `agent-edit` | Documentation Sync | Auto-synced after agent update to `_headers`. |
-| `2026-11-27 13:45:01` | `manual` | Documentation Sync | Defer multiplayer network connection until opening 1v1 Multiplayer so solo players generate zero lobby traffic |
-| `2026-11-27 13:44:49` | `agent-edit` | 1v1 Multiplayer (`js/mp-ui.js`) | Auto-synced after agent update to `js/mp-ui.js`. |
-| `2026-11-27 13:43:57` | `manual` | Documentation Sync | Implemented full client & server rate limiting, exponential backoff, lazy multiplayer sockets, and SQL rate-limit migration |
-| `2026-11-27 13:43:33` | `agent-edit` | Documentation/Config (`CHANGES.md`) | Auto-synced after agent update to `CHANGES.md`. |
-| `2026-11-27 13:43:31` | `agent-edit` | Documentation/Config (`SUPABASE_SETUP.md`) | Auto-synced after agent update to `SUPABASE_SETUP.md`. |
-| `2026-11-27 13:43:28` | `agent-edit` | Admin Console (`admin.html`) | Auto-synced after agent update to `admin.html`. |
-| `2026-11-27 13:43:26` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 01:39:49` | `manual` | Documentation Sync | Base Blood Hint cost on Max HP and require strictly more HP than cost |
+| `2026-11-28 01:39:35` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
+| `2026-11-28 01:39:17` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 01:39:14` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
+| `2026-11-28 01:38:50` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 01:38:45` | `agent-edit` | Guided Tutorials (`js/tutorials.js`) | Auto-synced after agent update to `js/tutorials.js`. |
+| `2026-11-28 01:38:38` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
+| `2026-11-28 01:29:30` | `manual` | Documentation Sync | Move Overclock Mastery into dedicated Overclock Skill Tree page unlocked via maxed-route portal button |
+| `2026-11-28 01:29:15` | `agent-edit` | Documentation/Config (`CHANGES.md`) | Auto-synced after agent update to `CHANGES.md`. |
+| `2026-11-28 01:28:14` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
+| `2026-11-28 01:25:29` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 01:25:06` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 01:12:59` | `manual` | Documentation Sync | Align Kernel Aegis battle card description with 1-5 Hit-Shield passive/active |
+| `2026-11-28 01:12:42` | `agent-edit` | Combat & Exclusive Skills (`js/cards.js`) | Auto-synced after agent update to `js/cards.js`. |
+| `2026-11-28 01:06:54` | `manual` | Documentation Sync | Add progressive SP pacing, Overclock Mastery sink, and 1-5 Hit-Shield bar with Kernel Aegis passive |
+| `2026-11-28 01:06:28` | `agent-edit` | Documentation/Config (`CHANGES.md`) | Auto-synced after agent update to `CHANGES.md`. |
+| `2026-11-28 00:59:19` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 00:59:15` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 00:58:53` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
+| `2026-11-28 00:58:50` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 00:58:47` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 00:58:21` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 00:58:18` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 00:57:59` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 00:57:56` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 00:55:21` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
+| `2026-11-28 00:54:57` | `agent-edit` | Documentation Sync | Auto-synced after agent update to `js/combat.js`. |
+| `2026-11-28 00:52:59` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
+| `2026-11-28 00:52:54` | `agent-edit` | Combat & Exclusive Skills (`js/cards.js`) | Auto-synced after agent update to `js/cards.js`. |
+| `2026-11-28 00:05:38` | `manual` | Documentation Sync | Avoid splitting Blood Hint redaction tag on truncation |
+| `2026-11-28 00:05:29` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
+| `2026-11-28 00:02:59` | `manual` | Documentation Sync | Fix PIXEL_LOCK_SVG declaration order & duplicate missedInBattle key, remove redundant MP label beside Mana, and redesign Quests UI to be minimalistic and uncramped |
+| `2026-11-28 00:02:08` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
+| `2026-11-28 00:01:48` | `agent-edit` | Documentation/Config (`js/quests.js`) | Auto-synced after agent update to `js/quests.js`. |
+| `2026-11-28 00:01:00` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
+| `2026-11-28 00:00:49` | `agent-edit` | Documentation/Config (`js/quests.js`) | Auto-synced after agent update to `js/quests.js`. |
+| `2026-11-28 00:00:46` | `agent-edit` | Documentation Sync | Auto-synced after agent update to `js/quests.js`. |
+| `2026-11-28 00:00:43` | `agent-edit` | Documentation/Config (`js/quests.js`) | Auto-synced after agent update to `js/quests.js`. |
+| `2026-11-27 23:59:12` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-27 23:59:09` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
 <!-- AUTO:END:revisions -->

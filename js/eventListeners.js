@@ -13,6 +13,31 @@ function handleKey(rawKey, down, repeat = false) {
     if (!down && (key === 'a' || key === 'd')) keys[key].pressed = false;
     return;
   }
+  const appVisible = !document.getElementById('app')?.hidden;
+  const inLiveMp = typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive;
+  if (typeof window.ByteboundQuests?.isCrateModalOpen === 'function' && window.ByteboundQuests.isCrateModalOpen()) {
+    if (down && !repeat && key === 'escape') {
+      window.ByteboundQuests.closeSupplyCrateModal();
+    }
+    if (!down && (key === 'a' || key === 'd')) keys[key].pressed = false;
+    return;
+  }
+  if (typeof window.ByteboundQuests?.isOpen === 'function' && window.ByteboundQuests.isOpen()) {
+    if (down && !repeat && (key === 'o' || key === 'escape')) {
+      window.ByteboundQuests.closeOverlay();
+    } else if (down && !repeat && key === 'u' && !inLiveMp) {
+      window.ByteboundQuests.closeOverlay();
+      if (typeof openSkillTree === 'function') openSkillTree();
+    } else if (down && !repeat && (rawKey === 'ArrowLeft' || rawKey === 'ArrowRight')) {
+      const pages = window.ByteboundQuests.PAGES || [];
+      const cur = document.querySelector('.quest-page-tab.is-active[data-quest-overlay-page]');
+      const idx = cur ? Number(cur.dataset.questOverlayPage) : 0;
+      const delta = rawKey === 'ArrowLeft' ? -1 : 1;
+      if (pages.length) window.ByteboundQuests.setOverlayPage((idx + delta + pages.length) % pages.length);
+    }
+    if (!down && (key === 'a' || key === 'd')) keys[key].pressed = false;
+    return;
+  }
   if (worldMapOpen) {
     if (down && key === 'm' && !repeat && typeof closeWorldMap === 'function') closeWorldMap()
     if (!down && (key === 'a' || key === 'd')) keys[key].pressed = false
@@ -23,13 +48,23 @@ function handleKey(rawKey, down, repeat = false) {
     if (!down && (key === 'a' || key === 'd')) keys[key].pressed = false
     return
   }
-  if (down && !repeat && key === 'm' && playViewActive && mode !== 'menu' && !(typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive)) {
+  if (down && !repeat && key === 'o' && appVisible && !inLiveMp) {
+    const activeEl = document.activeElement;
+    if (!(activeEl && activeEl.closest && activeEl.closest('input, textarea, select'))) {
+      window.ByteboundQuests?.openOverlay?.();
+      return;
+    }
+  }
+  if (down && !repeat && key === 'm' && playViewActive && mode !== 'menu' && !inLiveMp) {
     if (typeof openWorldMap === 'function') openWorldMap()
     return
   }
-  if (down && !repeat && key === 'u' && playViewActive && mode !== 'menu' && !(typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive)) {
-    openSkillTree()
-    return
+  if (down && !repeat && key === 'u' && appVisible && !inLiveMp) {
+    const activeEl = document.activeElement;
+    if (!(activeEl && activeEl.closest && activeEl.closest('input, textarea, select'))) {
+      openSkillTree()
+      return
+    }
   }
   if (mode !== 'menu' && !playViewActive) {
     if (key === 'a' || key === 'd') keys[key].pressed = false
@@ -63,7 +98,10 @@ function handleKey(rawKey, down, repeat = false) {
       if (!isMp && key === 'r' && (typeof canUseRemedialSurge === 'function' ? canUseRemedialSurge() : hero.mana <= 0) && typeof startRemedialChallenge === 'function') startRemedialChallenge();
       else if (n >= 0 && n < battle.hand.length) chooseCard(n);
     }
-    else if (phase === 'question' && n >= 0 && n < 4) answerQuestion(n);
+    else if (phase === 'question') {
+      if (!isMp && key === 'h' && typeof useBloodHint === 'function') useBloodHint();
+      else if (n >= 0 && n < 4) answerQuestion(n);
+    }
     else if (!isMp && phase === 'remedial' && n >= 0 && n < 4 && typeof answerRemedialQuestion === 'function') answerRemedialQuestion(n);
     else if (!isMp && phase === 'upgrade' && n >= 0 && n < battle.upgrades.length) applyUpgrade(n);
     else if (!isMp && phase === 'reward' && n >= 0 && n < battle.rewards.length) pickReward(n);

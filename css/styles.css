@@ -8,7 +8,7 @@
 
 @font-face {
   font-family: 'Home Video';
-  src: url('../assets/fonts/HomeVideo-Bold.ttf') format('truetype');
+  src: url('../assets/fonts/HomeVideo-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 700;
   font-display: swap;
@@ -82,6 +82,7 @@
   --success-copy: #507049;
   --error-copy: #a94737;
   --font-home-video: 'Home Video', monospace;
+  --readable-mono: 'Cascadia Mono', 'Consolas', 'SFMono-Regular', 'Menlo', 'Liberation Mono', 'Courier New', monospace;
   --pixel: var(--font-home-video);
   --body: var(--font-home-video);
 }
@@ -1039,8 +1040,9 @@ button {
 .skill-points-total { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 64px; padding: 8px 14px; border: 2px solid var(--gold-dark); background: var(--ink); color: var(--gold); }
 .skill-points-total strong { font: 22px var(--pixel); }
 .skill-points-total span { font: 7px/1.7 var(--pixel); }
-.skill-points-topics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.skill-points-topics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px; }
 .skill-point-topic { display: grid; align-content: center; gap: 4px; min-width: 0; padding: 7px 9px; border: 1px solid var(--line); border-left: 4px solid var(--gold-dark); background: var(--card); }
+.skill-point-topic.is-wildcard-topic { border-left-color: #ffe07a; background: linear-gradient(135deg, rgba(242, 187, 97, .16), rgba(40, 28, 10, .4)); }
 .skill-point-topic.tree-networkingSecurity { border-left-color: var(--blue); }
 .skill-point-topic.tree-programming { border-left-color: var(--green); }
 .skill-point-topic.tree-database { border-left-color: var(--red); }
@@ -1442,12 +1444,12 @@ button {
 }
 .world-map-legend-item { display: inline-flex; align-items: center; gap: 7px; }
 .world-map-dot { width: 10px; height: 10px; border: 1px solid rgba(255,255,255,.35); display: inline-block; }
-.world-map-dot.is-current { background: #f2bb61; border-color: #fff3c4; box-shadow: 0 0 8px rgba(242,187,97,.7); }
-.world-map-dot.is-cleared { background: #63b57d; }
-.world-map-dot.is-visited { background: #6aa2b8; }
-.world-map-dot.is-unexplored { background: #263138; }
-.world-map-dot.is-branch { background: #d36a52; }
-.world-map-dot.is-boss { background: #e25b45; border-color: #ffd38e; box-shadow: 0 0 7px rgba(226, 91, 69, .65); }
+.world-map-dot.is-current { background: #e0af5a; border-color: #f3e4b8; }
+.world-map-dot.is-cleared { background: #5a966c; }
+.world-map-dot.is-visited { background: #648e9e; }
+.world-map-dot.is-unexplored { background: #262f35; }
+.world-map-dot.is-branch { background: #b86a56; }
+.world-map-dot.is-boss { background: #b85646; border-color: #e2b887; }
 .world-map-viewport {
   position: relative;
   flex: 1;
@@ -1457,13 +1459,10 @@ button {
   cursor: grab;
   touch-action: none;
   user-select: none;
-  background-color: #0b1316;
+  background-color: #12161b;
   background-image:
-    radial-gradient(circle at 22% 62%, rgba(158, 126, 230, .14), transparent 36%),
-    radial-gradient(circle at 50% 24%, rgba(242, 187, 97, .12), transparent 38%),
-    radial-gradient(circle at 78% 62%, rgba(95, 194, 154, .14), transparent 36%),
-    radial-gradient(rgba(141, 177, 150, .20) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 22px 22px;
+    radial-gradient(rgba(164, 174, 180, .09) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 .world-map-viewport.is-panning { cursor: grabbing; }
 .world-map-particles {
@@ -1517,59 +1516,54 @@ button {
 }
 .world-map-edge {
   fill: none;
-  stroke: #32414a;
-  stroke-width: 3;
+  stroke: #323c42;
+  stroke-width: 2.5;
   stroke-linecap: square;
   stroke-linejoin: round;
-  transition: stroke .2s ease, stroke-width .2s ease, opacity .2s ease, filter .2s ease;
+  transition: stroke .2s ease, stroke-width .2s ease, opacity .2s ease;
 }
 .world-map-edge.is-locked {
-  stroke: #2c3942;
-  opacity: .48;
+  stroke: #2b343b;
+  opacity: .42;
   stroke-dasharray: 4 6;
 }
 .world-map-edge.is-available,
 .world-map-edge.is-active {
-  stroke: #7fb8cc;
-  opacity: .92;
-  stroke-dasharray: 9 5;
-  animation: skillEdgeFlow 1.8s linear infinite;
-  filter: drop-shadow(0 0 4px rgba(127, 184, 204, .35));
+  stroke: #6e94a3;
+  opacity: .78;
+  stroke-dasharray: 8 5;
 }
 .world-map-edge.is-completed {
-  stroke: #63c782;
-  stroke-width: 3.5;
-  opacity: .96;
+  stroke: #58996d;
+  stroke-width: 3;
+  opacity: .88;
   stroke-dasharray: none;
   animation: none;
-  filter: drop-shadow(0 0 5px rgba(99, 199, 130, .4));
 }
-.world-map-edge.is-branch:not(.is-completed):not(.is-locked) { stroke: #d89b44; stroke-dasharray: 6 4; }
+.world-map-edge.is-branch:not(.is-completed):not(.is-locked) { stroke: #9e8152; stroke-dasharray: 6 4; }
 .world-map-edge.is-branch.is-active:not(.is-completed) {
-  stroke: #f2bb61;
-  stroke-dasharray: 10 5;
-  animation: skillEdgeFlow 1.6s linear infinite;
+  stroke: #b99457;
+  stroke-dasharray: 8 5;
 }
 .world-map-edge.is-hover-highlight {
-  stroke: #f2bb61 !important;
-  stroke-width: 4.5 !important;
+  stroke: #e2b05a !important;
+  stroke-width: 3.5 !important;
   opacity: 1 !important;
-  filter: drop-shadow(0 0 8px rgba(242, 187, 97, .75)) !important;
 }
 .world-map-edge.is-cycle { stroke: #4c5860; stroke-dasharray: 4 5; }
 .world-map-track-tag {
   position: absolute;
   padding: 4px 9px;
-  border: 1px solid #2e3e47;
-  background: rgba(16, 23, 28, .92);
-  color: #8ea1aa;
+  border: 1px solid #2e383f;
+  background: rgba(18, 23, 27, .92);
+  color: #8b989f;
   font: 7px/1 var(--pixel);
   letter-spacing: 0.05em;
   pointer-events: none;
 }
-.world-map-track-tag.is-cafe { border-color: #6b529c; color: #c7b1f5; }
-.world-map-track-tag.is-hosp { border-color: #3a7c66; color: #8adbb8; }
-.world-map-track-tag.is-hub { border-color: #b48436; color: #f2bb61; }
+.world-map-track-tag.is-cafe { border-color: #4f4666; color: #b5aad1; }
+.world-map-track-tag.is-hosp { border-color: #3f5e53; color: #94bfb0; }
+.world-map-track-tag.is-hub { border-color: #78643e; color: #d6b67c; }
 .biome-node {
   position: absolute;
   z-index: 2;
@@ -1590,19 +1584,19 @@ button {
   transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, background-color .16s ease, filter .16s ease, opacity .16s ease;
 }
 .biome-node:hover {
-  transform: translateY(-3px) scale(1.04);
+  transform: translateY(-2px);
   z-index: 5;
-  border-color: #f2bb61;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, .48), 0 0 12px rgba(242, 187, 97, .28);
+  border-color: #d9a753;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .38);
 }
 .biome-node.is-selected { box-shadow: 0 0 0 2px #dce8eb; }
-.biome-node.zone-datacenter { border-top-color: #6ea9bd; }
-.biome-node.zone-bbcorp { border-top-color: #d38b52; }
-.biome-node.zone-mainroad { border-top-color: #f2bb61; min-height: 96px; }
-.biome-node.zone-netcafe { border-top-color: #9e7ee6; }
-.biome-node.zone-supply { border-top-color: #d9954c; }
-.biome-node.zone-hospital { border-top-color: #5fc29a; }
-.biome-node.zone-bank { border-top-color: #e3c15b; }
+.biome-node.zone-datacenter { border-top-color: #648e9e; }
+.biome-node.zone-bbcorp { border-top-color: #b58258; }
+.biome-node.zone-mainroad { border-top-color: #d4a659; min-height: 96px; }
+.biome-node.zone-netcafe { border-top-color: #8474ab; }
+.biome-node.zone-supply { border-top-color: #b48352; }
+.biome-node.zone-hospital { border-top-color: #5d9b80; }
+.biome-node.zone-bank { border-top-color: #bda459; }
 .biome-node-thumb {
   position: relative;
   width: 100%;
@@ -1632,29 +1626,27 @@ button {
 }
 .biome-node.is-locked,
 .biome-node.is-unexplored {
-  opacity: .54;
-  filter: saturate(.42);
-  background: #10161a;
-  border-color: #27343b;
+  opacity: .62;
+  filter: grayscale(.55);
+  background: #14181c;
+  border-color: #293137;
 }
 .biome-node.is-unlocked,
 .biome-node.is-visited {
   opacity: 1;
-  background: #18242c;
-  border-color: #5b879c;
-  box-shadow: 0 0 10px rgba(110, 169, 189, .18);
+  background: #182127;
+  border-color: #537687;
 }
 .biome-node.is-cleared {
   opacity: 1;
-  background: #15261e;
-  border-color: #488e62;
-  box-shadow: 0 0 12px rgba(99, 181, 125, .24);
+  background: #17231d;
+  border-color: #497e5c;
 }
 .biome-node.is-current {
   opacity: 1;
-  border-color: #f2bb61;
-  background: #242116;
-  animation: worldMapNodeIn .24s ease-out both, worldMapCurrentPulse 2.2s ease-in-out infinite;
+  border-color: #e0ad58;
+  background: #232018;
+  box-shadow: 0 0 0 1px rgba(224, 173, 88, .45);
 }
 .biome-node.is-boss-node {
   border-width: 2px;
@@ -1825,13 +1817,10 @@ button {
 :root:not([data-theme="dark"]) .world-map-inspector-links { color: #4f554f; }
 :root:not([data-theme="dark"]) .world-map-legend { border-color: #d3cebc; background: #e1dcc9; color: #4f554f; }
 :root:not([data-theme="dark"]) .world-map-viewport {
-  background-color: #ebe6d5;
+  background-color: #ebe6da;
   background-image:
-    radial-gradient(circle at 22% 62%, rgba(124, 96, 198, .15), transparent 36%),
-    radial-gradient(circle at 50% 24%, rgba(210, 154, 62, .14), transparent 38%),
-    radial-gradient(circle at 78% 62%, rgba(71, 148, 114, .15), transparent 36%),
-    radial-gradient(rgba(97, 118, 91, .22) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 100% 100%, 22px 22px;
+    radial-gradient(rgba(55, 62, 68, .09) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 :root:not([data-theme="dark"]) .world-map-zoom-status {
   background: rgba(255, 250, 240, .92);
@@ -4232,6 +4221,12 @@ body {
 .app:not(.is-playing) .settings-card.tone-green { border-top-color: #8bc78e !important; }
 .app:not(.is-playing) .cap-discipline-card.tone-red,
 .app:not(.is-playing) .settings-card.tone-red { border-top-color: #cf8b7b !important; }
+.app:not(.is-playing) .cap-discipline-card.tone-indigo,
+.app:not(.is-playing) .settings-card.tone-indigo { border-top-color: #9d8cff !important; }
+.app:not(.is-playing) .cap-discipline-card.tone-teal,
+.app:not(.is-playing) .settings-card.tone-teal { border-top-color: #45c9a8 !important; }
+.app:not(.is-playing) .cap-discipline-card.tone-magenta,
+.app:not(.is-playing) .settings-card.tone-magenta { border-top-color: #f075b4 !important; }
 .app:not(.is-playing) .achievement-card:not(.is-unlocked) { border-top-color: #5d6a63 !important; }
 
 /* Pixel buttons */
@@ -4709,6 +4704,9 @@ body {
 .achievement-cat-pill.theme-ns { color: #6fe3e8; background: rgba(111, 227, 232, .16); }
 .achievement-cat-pill.theme-pr { color: #ff7b47; background: rgba(255, 123, 71, .16); }
 .achievement-cat-pill.theme-db { color: #c77dff; background: rgba(199, 125, 255, .18); }
+.achievement-cat-pill.theme-dm { color: #9d8cff; background: rgba(157, 140, 255, .18); }
+.achievement-cat-pill.theme-se { color: #45c9a8; background: rgba(69, 201, 168, .18); }
+.achievement-cat-pill.theme-wm { color: #f075b4; background: rgba(240, 117, 180, .18); }
 .achievement-card.cat-pvp { border-left: 4px solid #69b4c6 !important; }
 .achievement-card.cat-pvp.is-unlocked .achievement-icon { border-color: #69b4c6 !important; color: #bff8fb !important; }
 .achievement-card.cat-pvp .achievement-progress i { background: #69b4c6; }
@@ -4725,6 +4723,15 @@ body {
 .achievement-card.cat-exclusive.theme-db { border-left-color: #c77dff !important; }
 .achievement-card.cat-exclusive.theme-db.is-unlocked .achievement-icon { border-color: #c77dff !important; color: #c77dff !important; }
 .achievement-card.cat-exclusive.theme-db .achievement-progress i { background: #c77dff; }
+.achievement-card.cat-exclusive.theme-dm { border-left-color: #9d8cff !important; }
+.achievement-card.cat-exclusive.theme-dm.is-unlocked .achievement-icon { border-color: #9d8cff !important; color: #9d8cff !important; }
+.achievement-card.cat-exclusive.theme-dm .achievement-progress i { background: #9d8cff; }
+.achievement-card.cat-exclusive.theme-se { border-left-color: #45c9a8 !important; }
+.achievement-card.cat-exclusive.theme-se.is-unlocked .achievement-icon { border-color: #45c9a8 !important; color: #45c9a8 !important; }
+.achievement-card.cat-exclusive.theme-se .achievement-progress i { background: #45c9a8; }
+.achievement-card.cat-exclusive.theme-wm { border-left-color: #f075b4 !important; }
+.achievement-card.cat-exclusive.theme-wm.is-unlocked .achievement-icon { border-color: #f075b4 !important; color: #f075b4 !important; }
+.achievement-card.cat-exclusive.theme-wm .achievement-progress i { background: #f075b4; }
 .leaderboard-table thead { font: 700 11px/1.2 var(--pixel); }
 .leaderboard-table th,
 .leaderboard-table td {
@@ -5421,6 +5428,9 @@ html.is-theme-transitioning *::after {
 .run-save-card.theme-ns { border-left-color: #6fe3e8 !important; }
 .run-save-card.theme-pr { border-left-color: #ff7b47 !important; }
 .run-save-card.theme-db { border-left-color: #c77dff !important; }
+.run-save-card.theme-dm { border-left-color: #9d8cff !important; }
+.run-save-card.theme-se { border-left-color: #45c9a8 !important; }
+.run-save-card.theme-wm { border-left-color: #f075b4 !important; }
 .run-save-main { min-width: 0; display: grid; gap: 6px; }
 .run-save-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .run-save-top strong { font: 700 12px/1.3 var(--pixel); }
@@ -5542,10 +5552,16 @@ html.is-theme-transitioning *::after {
 .run-save-role-pill.theme-ns { color: #6fe3e8; }
 .run-save-role-pill.theme-pr { color: #ff7b47; }
 .run-save-role-pill.theme-db { color: #c77dff; }
+.run-save-role-pill.theme-dm { color: #9d8cff; }
+.run-save-role-pill.theme-se { color: #45c9a8; }
+.run-save-role-pill.theme-wm { color: #f075b4; }
 :root:not([data-theme="dark"]) .run-save-role-pill.theme-cs { color: #9c7212; }
 :root:not([data-theme="dark"]) .run-save-role-pill.theme-ns { color: #19747c; }
 :root:not([data-theme="dark"]) .run-save-role-pill.theme-pr { color: #b84214; }
 :root:not([data-theme="dark"]) .run-save-role-pill.theme-db { color: #7b2cbf; }
+:root:not([data-theme="dark"]) .run-save-role-pill.theme-dm { color: #5441b8; }
+:root:not([data-theme="dark"]) .run-save-role-pill.theme-se { color: #16755e; }
+:root:not([data-theme="dark"]) .run-save-role-pill.theme-wm { color: #ae2c6f; }
 .run-save-meta {
   display: flex;
   flex-wrap: wrap;
@@ -14593,32 +14609,54 @@ body.reduce-motion .app.is-playing .game-panel .actions button.is-exclusive-card
 
 #forgotNoteInput,
 #forgotNoteInput::placeholder,
-.login-form select,
-.login-form select option,
 .login-field-hint,
 .login-status,
 .login-error,
 .settings-pw-msg,
-.global-security-banner,
-.global-security-banner strong,
 .global-security-banner span,
-.global-security-dismiss,
-.account-security-alert,
-.account-security-alert strong,
 .account-security-alert span,
-.account-security-btn,
-.account-security-dismiss,
-.login-pw-strength,
-.login-pw-strength strong,
-.login-pw-strength small,
-.privacy-modal-body,
-.privacy-modal-body strong,
-.privacy-modal-body p {
-  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', Arial, sans-serif !important;
-  font-weight: 500 !important;
+.login-pw-copy small,
+.privacy-modal-body p,
+.skill-detail-description,
+.skill-detail-effect strong,
+.skill-detail-status,
+.skill-points-hint,
+.skill-points-focus,
+.skill-tree-header p,
+.skill-tree-footer,
+.skill-map-zoom-status,
+.skill-detail-empty p,
+.quest-item-copy p,
+.quest-shell-header p,
+.quest-shell-footer,
+.quest-streak-card small,
+.quest-hub-foot small,
+.quest-progress-wrap small,
+.world-map-header p,
+.world-map-zoom-status,
+.world-map-inspector-main span,
+.world-map-inspector-links,
+.wmp-desc,
+.wmp-footer,
+.tutorial-body,
+.achievement-card p,
+.settings-tutorials-note,
+.practice-lead,
+.prestige-wardrobe-req,
+.prestige-wardrobe-head small,
+.prestige-wardrobe-foot small,
+.crate-stash-copy p,
+.crate-boon-card p,
+.crate-draft-card small,
+.crate-modal-empty,
+.quest-cycle-bar,
+.quest-cycle-note {
+  font-family: var(--readable-mono) !important;
+  font-weight: 400 !important;
   text-transform: none !important;
   font-variant: normal !important;
   font-synthesis: weight !important;
+  letter-spacing: 0.01em;
 }
 
 /* Global Admin Security Notice Banner & Account Security Alert */
@@ -14949,4 +14987,2472 @@ body.reduce-motion .app.is-playing .game-panel .actions button.is-exclusive-card
 
 .privacy-modal-foot {
   margin-top: 16px;
+}
+
+/* ===== In-Game HUD Quests Button & Pixelated Claim Crest ===== */
+@keyframes questPixelClaimPulse {
+  0%, 100% {
+    transform: translateY(0);
+    box-shadow: inset 1px 1px 0 #fff7cc, inset -1px -1px 0 #a36210, 2px 2px 0 rgba(0, 0, 0, 0.6);
+  }
+  50% {
+    transform: translateY(-1px);
+    box-shadow: inset 1px 1px 0 #fffbe0, inset -1px -1px 0 #b87414, 0 0 8px rgba(255, 224, 122, 0.72), 2px 2px 0 rgba(0, 0, 0, 0.6);
+  }
+}
+
+.play-quest-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px !important;
+  border: 2px solid rgba(56, 217, 169, 0.8) !important;
+  border-radius: 0 !important;
+  background: linear-gradient(180deg, #173634 0%, #0e2221 100%) !important;
+  color: #e2fff6 !important;
+  font: 400 11.5px/1.15 var(--pixel) !important;
+  letter-spacing: 0.04em;
+  box-shadow: inset 0 1px 0 rgba(178, 255, 234, 0.2), 2px 2px 0 rgba(0, 0, 0, 0.48);
+  cursor: pointer;
+}
+.play-quest-badge:hover {
+  border-color: #ffe07a !important;
+  color: #ffe07a !important;
+  background: linear-gradient(180deg, #1e4643 0%, #132c2b 100%) !important;
+}
+.play-quest-badge.has-claimable {
+  border-color: #f2bb61 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 232, 160, 0.28), 0 0 12px rgba(242, 187, 97, 0.35), 2px 2px 0 rgba(0, 0, 0, 0.5);
+}
+.play-quest-badge[hidden] { display: none !important; }
+.play-quest-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 2px solid #241604;
+  border-radius: 0 !important;
+  background: linear-gradient(180deg, #ffe37e 0%, #e49c2b 100%);
+  color: #1a1103;
+  font: 400 10px/1 var(--pixel) !important;
+  box-shadow: inset 1px 1px 0 #fff7cc, inset -1px -1px 0 #a36210, 2px 2px 0 rgba(0, 0, 0, 0.6);
+}
+.play-quest-badge.has-claimable .play-quest-dot {
+  animation: questPixelClaimPulse 1.2s steps(2, end) infinite;
+}
+.play-quest-dot[hidden] { display: none !important; }
+
+/* ===== 3-Page Quest System (Themes, Hub Auto-Swipe Widget & Overlay) ===== */
+.quest-theme-adaptive {
+  --q-accent: #38d9a9;
+  --q-accent-2: #63e6be;
+  --q-bg: #121c1c;
+  --q-card: rgba(255, 255, 255, 0.035);
+  --q-border: rgba(56, 217, 169, 0.28);
+  --q-pill-bg: rgba(56, 217, 169, 0.14);
+  --q-pill-fg: #b2ffea;
+}
+.quest-theme-bounties {
+  --q-accent: #ff8c5a;
+  --q-accent-2: #f4b956;
+  --q-bg: #1d1514;
+  --q-card: rgba(255, 255, 255, 0.035);
+  --q-border: rgba(255, 140, 90, 0.28);
+  --q-pill-bg: rgba(244, 185, 86, 0.14);
+  --q-pill-fg: #ffe3a8;
+}
+.quest-theme-arena {
+  --q-accent: #8b7bff;
+  --q-accent-2: #6fc9ff;
+  --q-bg: #151424;
+  --q-card: rgba(255, 255, 255, 0.035);
+  --q-border: rgba(139, 123, 255, 0.28);
+  --q-pill-bg: rgba(92, 200, 255, 0.14);
+  --q-pill-fg: #cfe6ff;
+}
+
+:root:not([data-theme="dark"]) .quest-theme-adaptive {
+  --q-accent: #137356;
+  --q-accent-2: #0f8f6b;
+  --q-bg: #f1f7f4;
+  --q-card: #ffffff;
+  --q-border: rgba(19, 115, 86, 0.22);
+  --q-pill-bg: #dcf3ea;
+  --q-pill-fg: #0b513c;
+}
+:root:not([data-theme="dark"]) .quest-theme-bounties {
+  --q-accent: #a63d12;
+  --q-accent-2: #b8730a;
+  --q-bg: #f8f3ed;
+  --q-card: #ffffff;
+  --q-border: rgba(166, 61, 18, 0.22);
+  --q-pill-bg: #fbe9cf;
+  --q-pill-fg: #6b2908;
+}
+:root:not([data-theme="dark"]) .quest-theme-arena {
+  --q-accent: #43329c;
+  --q-accent-2: #17699e;
+  --q-bg: #f2f1fa;
+  --q-card: #ffffff;
+  --q-border: rgba(67, 50, 156, 0.22);
+  --q-pill-bg: #e5e3fc;
+  --q-pill-fg: #2b1d70;
+}
+
+@keyframes questPageSlideIn {
+  from { opacity: 0.25; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pixelFlameFlickerA {
+  0%, 100% { transform: translate(0, 0); opacity: 1; }
+  50% { transform: translate(0, -1px); opacity: 0.88; }
+}
+
+@keyframes pixelFlameFlickerB {
+  0%, 100% { transform: translate(0, 0); opacity: 0.94; }
+  50% { transform: translate(1px, -1px); opacity: 0.78; }
+}
+
+@keyframes pixelCorePulse {
+  0%, 100% { opacity: 1; transform: translateY(0); }
+  50% { opacity: 0.9; transform: translateY(-0.5px); }
+}
+
+@keyframes pixelSparkRise {
+  0% { transform: translateY(2px); opacity: 0; }
+  25% { opacity: 1; }
+  75% { opacity: 0.9; }
+  100% { transform: translateY(-5px); opacity: 0; }
+}
+
+/* Full-Bleed Anchored Quest Hub Carousel Box */
+.app.is-quest:not(.is-playing) .dashboard-grid {
+  align-items: stretch;
+}
+.app.is-quest:not(.is-playing) .preview-card,
+.app.is-quest:not(.is-playing) #dashboardAside.quest-card {
+  height: clamp(410px, calc(100dvh - 308px), 560px);
+  min-height: 410px;
+  max-height: 560px;
+}
+.app.is-quest:not(.is-playing) #dashboardAside.quest-card {
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex;
+  flex-direction: column;
+  transition: border-top-color 0.35s ease, border-color 0.35s ease;
+}
+.app.is-quest:not(.is-playing) #dashboardAside.quest-card:has(.quest-hub-carousel.quest-theme-adaptive) {
+  border-top-color: #38d9a9 !important;
+}
+.app.is-quest:not(.is-playing) #dashboardAside.quest-card:has(.quest-hub-carousel.quest-theme-bounties) {
+  border-top-color: #ff8c5a !important;
+}
+.app.is-quest:not(.is-playing) #dashboardAside.quest-card:has(.quest-hub-carousel.quest-theme-arena) {
+  border-top-color: #8b7bff !important;
+}
+:root:not([data-theme="dark"]) .app.is-quest:not(.is-playing) #dashboardAside.quest-card:has(.quest-hub-carousel.quest-theme-adaptive) {
+  border-top-color: #137356 !important;
+}
+:root:not([data-theme="dark"]) .app.is-quest:not(.is-playing) #dashboardAside.quest-card:has(.quest-hub-carousel.quest-theme-bounties) {
+  border-top-color: #a63d12 !important;
+}
+:root:not([data-theme="dark"]) .app.is-quest:not(.is-playing) #dashboardAside.quest-card:has(.quest-hub-carousel.quest-theme-arena) {
+  border-top-color: #43329c !important;
+}
+
+@media (max-width: 960px) {
+  .app.is-quest:not(.is-playing) .preview-card {
+    height: auto;
+    min-height: 280px;
+    max-height: none;
+  }
+  .app.is-quest:not(.is-playing) #dashboardAside.quest-card {
+    height: 450px;
+    min-height: 450px;
+    max-height: 450px;
+  }
+}
+
+.quest-hub-carousel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 0;
+  border-left: 4px solid var(--q-accent);
+  background: var(--q-bg);
+  color: var(--ink);
+  font-family: var(--body);
+  overflow: hidden;
+  transition: background 0.38s ease, border-color 0.38s ease, color 0.3s ease;
+}
+.quest-hub-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.quest-hub-title-wrap {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.quest-hub-title-row,
+.quest-shell-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.quest-hub-head h2 {
+  margin: 0;
+  font: 400 15px/1.25 var(--pixel);
+  color: var(--q-accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.quest-hub-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.quest-mini-btn {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--q-border);
+  background: transparent;
+  color: var(--muted);
+  font: 400 10px/1 var(--pixel);
+  cursor: pointer;
+}
+.quest-mini-btn:hover {
+  border-color: var(--q-accent);
+  color: var(--q-accent);
+}
+
+.quest-hub-carousel > [data-hub-meta],
+.quest-shell > [data-overlay-meta] {
+  flex: 0 0 auto;
+}
+.quest-meta-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--q-border);
+  background: var(--q-card);
+  transition: border-color 0.35s ease, background 0.35s ease;
+}
+.quest-streak-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.quest-streak-fire {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 26px;
+  flex: 0 0 22px;
+  overflow: visible;
+}
+.quest-pixel-fire-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+.quest-streak-fire.is-ignited .quest-pixel-fire-svg {
+  filter: drop-shadow(0 0 6px rgba(255, 150, 30, 0.55));
+}
+.quest-pixel-fire-svg.is-blazing {
+  filter: drop-shadow(0 0 8px rgba(255, 180, 40, 0.72));
+}
+.quest-pixel-fire-svg .pf-flicker-a {
+  animation: pixelFlameFlickerA 0.75s steps(2, end) infinite;
+}
+.quest-pixel-fire-svg .pf-flicker-b {
+  animation: pixelFlameFlickerB 0.65s steps(2, end) infinite;
+}
+.quest-pixel-fire-svg .pf-core {
+  animation: pixelCorePulse 0.9s steps(2, end) infinite;
+}
+.quest-pixel-fire-svg .pf-spark {
+  animation: pixelSparkRise 1.3s steps(4, end) infinite;
+}
+.quest-pixel-fire-svg .pf-s2 { animation-delay: 0.4s; }
+.quest-pixel-fire-svg .pf-s3 { animation-delay: 0.82s; }
+
+.quest-streak-copy {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+.quest-streak-card strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 400 11.5px/1.25 var(--pixel);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.quest-streak-card small {
+  display: inline-block;
+  font: 400 12px/1.25 var(--body);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.quest-wildcard-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid rgba(242, 187, 97, 0.58);
+  background: rgba(242, 187, 97, 0.1);
+  color: #f5ce74;
+  font: 400 10px/1.2 var(--pixel);
+  white-space: nowrap;
+}
+:root:not([data-theme="dark"]) .quest-wildcard-chip {
+  background: #fdf0cf;
+  border-color: rgba(145, 92, 10, 0.42);
+  color: #7c4b00;
+}
+.quest-wildcard-chip strong {
+  font: 400 11.5px/1 var(--pixel);
+}
+
+.quest-page-tabs {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  border-bottom: 1px solid var(--q-border);
+}
+.quest-page-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 6px 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font: 400 10.5px/1.2 var(--pixel);
+  cursor: pointer;
+  transition: border-color 0.22s ease, background 0.22s ease, color 0.22s ease;
+}
+.quest-page-tab:hover {
+  color: var(--ink);
+}
+.quest-page-tab.is-active {
+  border-bottom-color: var(--q-accent);
+  background: var(--q-pill-bg);
+  color: var(--q-accent-2);
+}
+.quest-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 1px solid #241604;
+  border-radius: 0 !important;
+  background: linear-gradient(180deg, #ffe37e 0%, #e49c2b 100%);
+  color: #1a1103;
+  font: 400 9px/1 var(--pixel);
+  font-style: normal;
+  box-shadow: inset 1px 1px 0 #fff7cc, 1px 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+.quest-hub-viewport,
+.quest-overlay-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+.quest-hub-track,
+.quest-overlay-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+  transition: transform 0.48s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.quest-hub-slide,
+.quest-overlay-slide {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  box-sizing: border-box;
+  opacity: 0.42;
+  transition: opacity 0.35s ease;
+  scrollbar-width: thin;
+  scrollbar-color: var(--q-accent) transparent;
+}
+.quest-hub-slide.is-active-slide,
+.quest-overlay-slide.is-active-slide {
+  opacity: 1;
+}
+.quest-hub-slide::-webkit-scrollbar,
+.quest-overlay-slide::-webkit-scrollbar {
+  width: 6px;
+}
+.quest-hub-slide::-webkit-scrollbar-track,
+.quest-overlay-slide::-webkit-scrollbar-track {
+  background: rgba(128, 128, 128, 0.14);
+}
+.quest-hub-slide::-webkit-scrollbar-thumb,
+.quest-overlay-slide::-webkit-scrollbar-thumb {
+  background: var(--q-accent);
+  border-radius: 0;
+}
+.quest-hub-slide::-webkit-scrollbar-thumb:hover,
+.quest-overlay-slide::-webkit-scrollbar-thumb:hover {
+  background: var(--q-accent-2);
+}
+
+.quest-hub-list {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 2px;
+}
+
+.quest-item-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--q-border);
+  border-left: 3px solid var(--q-accent);
+  background: var(--q-card);
+}
+.quest-item-card.is-compact { padding: 9px 11px; gap: 6px; }
+.quest-item-card.is-ready {
+  border-color: rgba(242, 187, 97, 0.72);
+}
+.quest-item-card.is-claimed { opacity: 0.66; }
+
+.quest-item-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.quest-item-copy h4 {
+  margin: 0 0 3px;
+  font: 400 12px/1.25 var(--pixel);
+  color: var(--q-accent-2);
+}
+.quest-item-copy p {
+  margin: 0;
+  font: 400 12.5px/1.4 var(--body);
+  color: var(--ink);
+}
+.quest-shell .quest-item-copy p {
+  font: 400 13px/1.4 var(--body);
+}
+.quest-reward-pill {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid var(--q-border);
+  background: transparent;
+  color: var(--q-pill-fg);
+  font: 400 9.5px/1.2 var(--pixel);
+  white-space: nowrap;
+}
+.quest-item-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.quest-progress-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.quest-progress-wrap small {
+  flex: 0 0 auto;
+  font: 400 11.5px/1.2 var(--body);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.quest-progress-bar {
+  flex: 1 1 auto;
+  min-width: 60px;
+  height: 5px;
+  background: rgba(128, 128, 128, 0.22);
+  overflow: hidden;
+}
+.quest-progress-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--q-accent);
+  transition: width 0.22s ease;
+}
+.quest-claim-btn {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border: 1px solid #8a621a;
+  background: #f2bb61;
+  color: #1f1707;
+  font: 400 10px/1.2 var(--pixel);
+  cursor: pointer;
+}
+.quest-claim-btn:hover { background: #ffd280; }
+.quest-status-chip {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid var(--q-border);
+  font: 400 9.5px/1.2 var(--pixel);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.quest-status-chip.is-claimed {
+  border-color: var(--q-accent);
+  color: var(--q-accent-2);
+}
+
+.quest-hub-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 2px;
+}
+.quest-open-modal-btn {
+  padding: 7px 12px;
+  border: 1px solid var(--q-border);
+  background: var(--q-pill-bg);
+  color: var(--q-pill-fg);
+  font: 400 10.5px/1.2 var(--pixel);
+  cursor: pointer;
+}
+.quest-open-modal-btn:hover {
+  border-color: #f2bb61;
+  color: #ffe07a;
+}
+.quest-hub-foot small {
+  font: 400 11.5px/1.3 var(--body);
+  color: var(--muted);
+}
+
+/* Full Quest Board Overlay */
+.quest-overlay[hidden] { display: none !important; }
+.quest-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 44;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(7, 11, 13, 0.82);
+}
+.quest-shell {
+  width: min(100%, 920px);
+  height: min(620px, 86dvh);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 24px;
+  border: 2px solid var(--q-accent);
+  background: var(--q-bg);
+  color: var(--ink);
+  font-family: var(--body);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.5);
+  transition: background 0.35s ease, border-color 0.35s ease;
+}
+.quest-shell-header {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.quest-shell-header > .quest-shell-title-row {
+  min-width: 0;
+  flex: 1 1 300px;
+}
+.quest-shell-header h1 {
+  margin: 0;
+  font: 400 19px/1.25 var(--pixel);
+  color: var(--q-accent);
+}
+.quest-shell-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.quest-nav-btn,
+.quest-close-btn {
+  padding: 7px 11px;
+  border: 1px solid var(--q-border);
+  background: transparent;
+  color: var(--ink);
+  font: 400 10.5px/1.2 var(--pixel);
+  cursor: pointer;
+}
+.quest-close-btn {
+  border-color: var(--q-accent);
+  background: var(--q-pill-bg);
+  color: var(--q-pill-fg);
+}
+.quest-overlay-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding-bottom: 4px;
+}
+@media (max-width: 720px) {
+  .quest-overlay-grid { grid-template-columns: 1fr; }
+}
+.quest-shell-footer {
+  flex: 0 0 auto;
+  font: 400 11.5px/1.3 var(--body);
+  color: var(--muted);
+}
+
+body.reduce-motion .quest-hub-track,
+body.reduce-motion .quest-overlay-track,
+body.reduce-motion .quest-hub-slide,
+body.reduce-motion .quest-overlay-slide,
+body.reduce-motion .quest-hub-carousel,
+body.reduce-motion .quest-shell,
+body.reduce-motion #dashboardAside.quest-card {
+  transition-duration: 0.01ms !important;
+}
+body.reduce-motion .quest-pixel-fire-svg .pf-flicker-a,
+body.reduce-motion .quest-pixel-fire-svg .pf-flicker-b,
+body.reduce-motion .quest-pixel-fire-svg .pf-core,
+body.reduce-motion .quest-pixel-fire-svg .pf-spark {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .quest-hub-track,
+  .quest-overlay-track,
+  .quest-hub-slide,
+  .quest-overlay-slide,
+  .quest-hub-carousel,
+  .quest-shell,
+  #dashboardAside.quest-card {
+    transition-duration: 0.01ms !important;
+  }
+  .quest-pixel-fire-svg .pf-flicker-a,
+  .quest-pixel-fire-svg .pf-flicker-b,
+  .quest-pixel-fire-svg .pf-core,
+  .quest-pixel-fire-svg .pf-spark {
+    animation: none !important;
+  }
+}
+
+/* ===== Multi-Device Responsive Battle Hand Fit (4 Cards + Exclusive Active Skill) ===== */
+.app.is-playing .game-panel .actions.has-exclusive button.battle-card {
+  min-height: 70px;
+  padding: 8px 10px 9px;
+}
+.app.is-playing .game-panel .actions.has-exclusive button.is-exclusive-card {
+  min-height: 56px;
+  padding: 7px 14px;
+  gap: 12px;
+}
+.app.is-playing .game-panel .actions.has-exclusive button.is-exclusive-card .active-skill-sigil {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+}
+
+@media (max-width: 900px) {
+  .app.is-playing.is-in-battle:has(.actions.has-exclusive) .play-bottom {
+    max-height: 58dvh;
+  }
+  .app.is-playing .game-panel .actions.has-exclusive {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .app.is-playing .game-panel .actions.has-exclusive button.battle-card {
+    min-height: 52px;
+    padding: 5px 7px;
+    gap: 2px;
+  }
+  .app.is-playing .game-panel .actions.has-exclusive button.battle-card strong {
+    font-size: 10px;
+    line-height: 1.2;
+  }
+  .app.is-playing .game-panel .actions.has-exclusive button.battle-card small.battle-card-desc {
+    font-size: 11.5px;
+    line-height: 1.15;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .app.is-playing .game-panel .actions.has-exclusive button.is-exclusive-card {
+    grid-column: 1 / -1;
+    min-height: 44px;
+    padding: 5px 9px;
+    gap: 8px;
+  }
+  .app.is-playing .game-panel .actions.has-exclusive button.is-exclusive-card .active-skill-sigil {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+  }
+  .app.is-playing .game-panel .actions.has-exclusive button.is-exclusive-card .active-skill-ribbon {
+    flex-wrap: wrap;
+    gap: 3px 6px;
+  }
+  .app.is-playing .game-panel .actions.has-exclusive button.is-exclusive-card small.active-skill-desc {
+    font-size: 11.5px;
+    line-height: 1.15;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 580px) and (min-width: 560px) {
+  .app.is-playing.is-in-battle:has(.actions.has-exclusive) .play-bottom {
+    max-height: 60dvh;
+  }
+  .app.is-playing.is-in-battle .game-panel .actions.has-exclusive {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .app.is-playing.is-in-battle .game-panel .actions.has-exclusive button.battle-card {
+    min-height: 44px;
+    padding: 5px 7px;
+    gap: 2px;
+  }
+  .app.is-playing.is-in-battle .game-panel .actions.has-exclusive button.battle-card small.battle-card-desc {
+    font-size: 11.5px;
+    line-height: 1.15;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .app.is-playing.is-in-battle .game-panel .actions.has-exclusive button.is-exclusive-card {
+    grid-column: 1 / -1;
+    min-height: 38px;
+    padding: 4px 10px;
+    gap: 8px;
+  }
+  .app.is-playing.is-in-battle .game-panel .actions.has-exclusive button.is-exclusive-card .active-skill-sigil {
+    display: none;
+  }
+  .app.is-playing.is-in-battle .game-panel .actions.has-exclusive button.is-exclusive-card .active-skill-name {
+    font-size: 12.5px;
+  }
+  .app.is-playing.is-in-battle .game-panel .actions.has-exclusive button.is-exclusive-card small.active-skill-desc {
+    font-size: 11.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* ===== Topbar Skill Tree Button, Compact Skill Tree Layout & Redesigned Overlay Buttons ===== */
+.topbar-sp-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 11px;
+  border: 2px solid #8a7346;
+  border-radius: 0;
+  background: rgba(31, 41, 43, 0.94);
+  color: #f4e6c2;
+  font: 400 11px/1.15 var(--pixel);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+}
+.topbar-sp-button.has-sp {
+  border-color: #ffe07a;
+  background: linear-gradient(180deg, #f2bb61 0%, #c98524 100%);
+  color: #161b18;
+  animation: spBadgePulse 1.7s ease-in-out infinite;
+}
+.topbar-sp-button:hover {
+  border-color: #ffe07a;
+  filter: brightness(1.06);
+}
+.topbar-sp-button[hidden] {
+  display: none !important;
+}
+:root:not([data-theme="dark"]) .topbar-sp-button:not(.has-sp) {
+  border-color: #8b6428;
+  background: #f7eed6;
+  color: #4f3611;
+}
+
+.app.is-playing .play-sp-badge:not(.has-sp) {
+  border: 2px solid #798c8f !important;
+  background: rgba(24, 34, 38, 0.94) !important;
+  color: #e4f0f2 !important;
+  animation: none !important;
+}
+.app.is-playing .play-sp-badge:not(.has-sp) .play-sp-diamond {
+  color: #f2bb61;
+}
+.app.is-playing .play-sp-badge:not(.has-sp):hover {
+  border-color: var(--gold) !important;
+  color: var(--gold) !important;
+}
+
+/* Interactive Wildcard SP Chip inside Quest Banners */
+button.quest-wildcard-chip {
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+button.quest-wildcard-chip:hover {
+  transform: translateY(-1px);
+  border-color: #ffe89e;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45);
+}
+
+/* Redesigned Bytebound Pixel Buttons for World Map & Skill Tree Headers */
+.world-map-actions > button,
+.world-map-enter-btn,
+.skill-tree-actions > button {
+  min-height: 38px;
+  padding: 7px 13px;
+  border-radius: 0 !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  font: 400 11px/1.15 var(--pixel) !important;
+  letter-spacing: 0.04em;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.18), 3px 3px 0 rgba(0, 0, 0, 0.42);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.world-map-actions > button:hover:not(:disabled),
+.world-map-enter-btn:hover:not(:disabled),
+.skill-tree-actions > button:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.26), 4px 4px 0 rgba(0, 0, 0, 0.52);
+}
+.world-map-actions > button:active:not(:disabled),
+.world-map-enter-btn:active:not(:disabled),
+.skill-tree-actions > button:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+.world-map-guide,
+.skill-tree-header button.skill-tree-guide-button {
+  border-color: #6ed3d8 !important;
+  background: linear-gradient(180deg, #1f5057 0%, #14353a 100%) !important;
+  color: #e6fffc !important;
+}
+.world-map-guide:hover,
+.skill-tree-header button.skill-tree-guide-button:hover {
+  border-color: #a9f4f7 !important;
+  background: linear-gradient(180deg, #27646d 0%, #19444a 100%) !important;
+  color: #ffffff !important;
+}
+
+.world-map-reset {
+  border-color: #6c8c9e !important;
+  background: linear-gradient(180deg, #2b3c48 0%, #1c2831 100%) !important;
+  color: #e6f1f6 !important;
+}
+.world-map-reset:hover {
+  border-color: #9dc2d6 !important;
+  background: linear-gradient(180deg, #364c5b 0%, #23333f 100%) !important;
+  color: #ffffff !important;
+}
+
+.world-map-close,
+#closeSkillTree {
+  border-color: #e3745f !important;
+  background: linear-gradient(180deg, #622624 0%, #3d1616 100%) !important;
+  color: #ffe8e0 !important;
+}
+.world-map-close:hover,
+#closeSkillTree:hover {
+  border-color: #ff9f8c !important;
+  background: linear-gradient(180deg, #87322e 0%, #571d1c 100%) !important;
+  color: #ffffff !important;
+}
+
+.world-map-enter-btn:not(:disabled) {
+  border-color: #ffe49c !important;
+  background: linear-gradient(180deg, #f6c66f 0%, #d2932e 100%) !important;
+  color: #1c1608 !important;
+}
+
+:root:not([data-theme="dark"]) .world-map-guide,
+:root:not([data-theme="dark"]) .skill-tree-header button.skill-tree-guide-button {
+  border-color: #276d75 !important;
+  background: linear-gradient(180deg, #dff4f0 0%, #c4e6e0 100%) !important;
+  color: #103f45 !important;
+}
+:root:not([data-theme="dark"]) .world-map-guide:hover,
+:root:not([data-theme="dark"]) .skill-tree-header button.skill-tree-guide-button:hover {
+  border-color: #19545c !important;
+  background: linear-gradient(180deg, #ccece6 0%, #add9d1 100%) !important;
+}
+:root:not([data-theme="dark"]) .world-map-reset {
+  border-color: #8d8570 !important;
+  background: linear-gradient(180deg, #f8f3e5 0%, #e7dfc8 100%) !important;
+  color: #24292c !important;
+}
+:root:not([data-theme="dark"]) .world-map-reset:hover {
+  border-color: #8b6428 !important;
+  background: linear-gradient(180deg, #efe8d4 0%, #dfd4b6 100%) !important;
+}
+:root:not([data-theme="dark"]) .world-map-close,
+:root:not([data-theme="dark"]) #closeSkillTree {
+  border-color: #b64634 !important;
+  background: linear-gradient(180deg, #fbe4de 0%, #f0cec6 100%) !important;
+  color: #631a11 !important;
+}
+:root:not([data-theme="dark"]) .world-map-close:hover,
+:root:not([data-theme="dark"]) #closeSkillTree:hover {
+  border-color: #7a271a !important;
+  background: #b64634 !important;
+  color: #fff9f5 !important;
+}
+
+/* Compact Skill Tree Layout: Focal Point = Skill Map (~78% height) */
+.skill-tree-shell {
+  height: min(92dvh, 880px);
+  max-height: 92dvh;
+}
+.skill-tree-header {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+}
+.skill-tree-header p {
+  margin: 3px 0 0;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.skill-tree-summary {
+  flex: 0 0 auto;
+  padding: 7px 14px;
+}
+.skill-points-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.skill-points-total {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 2px solid var(--gold-dark);
+  border-radius: 0;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+}
+.skill-points-total strong {
+  font: 400 15px/1 var(--pixel);
+}
+.skill-points-total span:last-child {
+  font: 400 10px/1 var(--pixel);
+}
+.skill-points-topics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.skill-point-topic {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold-dark);
+}
+.skill-point-topic.tree-networkingSecurity { border-left-color: var(--blue); }
+.skill-point-topic.tree-programming { border-left-color: var(--green); }
+.skill-point-topic.tree-database { border-left-color: var(--red); }
+.skill-point-topic.is-wildcard-topic { border-left-color: #ffe07a; }
+.skill-point-topic .spt-code {
+  color: var(--ink);
+  font: 400 10px/1 var(--pixel);
+}
+.skill-point-topic .spt-val {
+  color: var(--success-copy);
+  font: 400 13px/1 var(--pixel);
+}
+.skill-point-topic.is-locked-topic .spt-val {
+  color: var(--red);
+  font-size: 10px;
+}
+.skill-points-meta-note {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  min-width: 0;
+}
+.skill-points-focus,
+.skill-points-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--muted);
+}
+.skill-tree-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 10px 14px;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.72fr) minmax(290px, 0.78fr);
+}
+.skill-tree-footer {
+  flex: 0 0 auto;
+  padding: 6px 16px;
+  font-size: 12px;
+}
+@media (max-width: 960px) {
+  .skill-points-meta-note {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+  .skill-tree-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(280px, 1.35fr) minmax(190px, 0.9fr);
+  }
+}
+@media (max-width: 680px) {
+  .skill-tree-shell {
+    height: auto;
+    max-height: 94dvh;
+    overflow-y: auto;
+  }
+  .skill-tree-grid {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+  .skill-map-viewport {
+    height: 46dvh;
+    min-height: 260px;
+  }
+}
+@media (orientation: landscape) and (max-height: 580px) {
+  .skill-tree-shell {
+    height: 96dvh;
+    max-height: 96dvh;
+  }
+  .skill-tree-summary {
+    padding: 5px 12px;
+  }
+  .skill-points-meta-note {
+    display: none;
+  }
+  .skill-tree-grid {
+    grid-template-columns: minmax(0, 1.5fr) minmax(250px, 0.85fr);
+    grid-template-rows: 1fr;
+    padding: 8px 12px;
+  }
+}
+
+body.reduce-motion .play-quest-badge.has-claimable .play-quest-dot,
+body.reduce-motion .topbar-sp-button.has-sp,
+body.reduce-motion .prestige-title-badge::after {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .play-quest-badge.has-claimable .play-quest-dot,
+  .topbar-sp-button.has-sp,
+  .prestige-title-badge::after {
+    animation: none !important;
+  }
+}
+
+/* ===== Refresh Cycles, 4-Tab Prestige Wardrobe, Supply Crates & Weekly Leaderboards ===== */
+.quest-theme-prestige {
+  --q-accent: #f2bb61;
+  --q-accent-2: #ffe299;
+  --q-bg: #18171c;
+  --q-card: rgba(255, 255, 255, 0.035);
+  --q-border: rgba(242, 187, 97, 0.28);
+  --q-pill-bg: rgba(242, 187, 97, 0.14);
+  --q-pill-fg: #ffe9b0;
+}
+:root:not([data-theme="dark"]) .quest-theme-prestige {
+  --q-accent: #9b640e;
+  --q-accent-2: #754504;
+  --q-bg: #f6f2ea;
+  --q-card: #ffffff;
+  --q-border: rgba(155, 100, 14, 0.22);
+  --q-pill-bg: #f7ead0;
+  --q-pill-fg: #5c3702;
+}
+
+.quest-cycle-pill {
+  padding: 3px 7px;
+  border: 1px solid var(--q-border);
+  background: transparent;
+  color: var(--muted);
+  font: 400 8.5px/1.15 var(--pixel);
+  white-space: nowrap;
+}
+.quest-cycle-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--q-border);
+  background: var(--q-card);
+  font-size: 12px;
+  color: var(--muted);
+}
+.quest-cycle-note {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.quest-refresh-row {
+  display: flex;
+  justify-content: flex-end;
+}
+.quest-reroll-btn,
+.quest-weekly-refresh-btn {
+  padding: 5px 9px;
+  border: 1px solid var(--q-accent);
+  background: var(--q-pill-bg);
+  color: var(--q-pill-fg);
+  font: 400 9.5px/1.15 var(--pixel);
+  cursor: pointer;
+}
+.quest-reroll-btn:hover,
+.quest-weekly-refresh-btn:hover {
+  border-color: #ffe07a;
+  filter: brightness(1.1);
+}
+
+.quest-page-tabs.quest-overlay-tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 640px) {
+  .quest-page-tabs.quest-overlay-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.quest-banner-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Topbar Equipped Title & Supply Crate HUD Button */
+.topbar-title-slot {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.topbar-title-slot[hidden] {
+  display: none !important;
+}
+
+.play-crate-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px !important;
+  border: 2px solid #d49635 !important;
+  border-radius: 0 !important;
+  background: linear-gradient(180deg, #3c2a12 0%, #241808 100%) !important;
+  color: #ffe5a3 !important;
+  font: 400 11px/1.15 var(--pixel) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 224, 150, 0.22), 2px 2px 0 rgba(0, 0, 0, 0.48);
+  cursor: pointer;
+}
+.play-crate-badge:hover {
+  border-color: #ffe07a !important;
+  color: #ffffff !important;
+}
+.play-crate-badge[hidden] {
+  display: none !important;
+}
+
+/* Campaign Supply Crate Overlay */
+.supply-crate-overlay[hidden] {
+  display: none !important;
+}
+.supply-crate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 46;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(7, 10, 12, 0.85);
+}
+.supply-crate-shell {
+  width: min(100%, 840px);
+  max-height: 88dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 2px solid #f2bb61;
+  background: linear-gradient(160deg, #1b2022 0%, #101517 100%);
+  color: #f2ede0;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.6);
+}
+:root:not([data-theme="dark"]) .supply-crate-shell {
+  background: linear-gradient(160deg, #fbf4e4 0%, #efe5cf 100%);
+  color: #24292c;
+}
+.supply-crate-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.supply-crate-head .eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  font: 400 9.5px/1.2 var(--pixel);
+  color: #f2bb61;
+}
+:root:not([data-theme="dark"]) .supply-crate-head .eyebrow {
+  color: #8b5c10;
+}
+.supply-crate-head h2 {
+  margin: 0;
+  font: 400 18px/1.25 var(--pixel);
+}
+.crate-feedback-banner {
+  padding: 9px 12px;
+  border: 1px solid #56d49b;
+  background: rgba(56, 217, 169, 0.14);
+  color: #b5ffe4;
+  font-size: 13px;
+}
+:root:not([data-theme="dark"]) .crate-feedback-banner {
+  background: #dff8ee;
+  color: #0b513c;
+}
+.crate-boon-grid,
+.crate-draft-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 720px) {
+  .crate-boon-grid,
+  .crate-draft-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.crate-boon-card,
+.crate-draft-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 7px;
+  padding: 13px;
+  border: 2px solid var(--gold-dark);
+  background: rgba(26, 33, 36, 0.92);
+  color: #f4efe3;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.42);
+  transition: transform 0.12s ease, border-color 0.15s ease;
+}
+:root:not([data-theme="dark"]) .crate-boon-card,
+:root:not([data-theme="dark"]) .crate-draft-card {
+  background: #fffaf0;
+  color: #24292c;
+}
+.crate-boon-card:hover,
+.crate-draft-card:hover {
+  transform: translate(-1px, -1px);
+  border-color: #ffe07a;
+}
+.crate-boon-card.is-vitality { border-left: 5px solid #38d9a9; }
+.crate-boon-card.is-cache { border-left: 5px solid #5cc8ff; }
+.crate-boon-card.is-relic { border-left: 5px solid #f2bb61; }
+.crate-boon-tag,
+.crate-draft-role,
+.crate-draft-cost {
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font: 400 9px/1.2 var(--pixel);
+}
+.crate-boon-card strong,
+.crate-draft-card strong {
+  font: 400 13px/1.3 var(--pixel);
+}
+.crate-boon-card p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.crate-boon-card em {
+  margin-top: auto;
+  font-style: normal;
+  font: 400 10px/1.2 var(--pixel);
+  color: var(--gold);
+}
+:root:not([data-theme="dark"]) .crate-boon-card em {
+  color: #8b5c10;
+}
+.crate-draft-headbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.crate-draft-headbar strong {
+  font: 400 13px/1.3 var(--pixel);
+}
+.crate-draft-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 6px;
+}
+
+/* Prestige Wardrobe & Supply Stash inside Quest Overlay Tab 4 */
+.crate-stash-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--q-border);
+  border-left: 4px solid #f2bb61;
+  background: var(--q-card);
+}
+.crate-stash-copy strong {
+  display: block;
+  margin-bottom: 3px;
+  font: 400 12.5px/1.3 var(--pixel);
+  color: var(--q-accent);
+}
+.crate-stash-copy p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.38;
+  color: var(--ink);
+}
+.prestige-wardrobe-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.prestige-wardrobe-head strong {
+  font: 400 13px/1.3 var(--pixel);
+  color: var(--q-accent-2);
+}
+.prestige-wardrobe-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding-bottom: 4px;
+}
+@media (max-width: 720px) {
+  .prestige-wardrobe-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.prestige-wardrobe-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 13px;
+  border: 1px solid var(--q-border);
+  border-left: 3px solid var(--q-border);
+  background: var(--q-card);
+}
+.prestige-wardrobe-card.is-unlocked {
+  border-left-color: var(--q-accent);
+}
+.prestige-wardrobe-card.is-locked {
+  opacity: 0.65;
+}
+.prestige-wardrobe-card.is-equipped {
+  border-color: rgba(242, 187, 97, 0.72);
+  border-left-color: #f2bb61;
+}
+.prestige-wardrobe-top,
+.prestige-wardrobe-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.prestige-cat-pill {
+  padding: 2px 6px;
+  border: 1px solid var(--q-border);
+  background: var(--q-pill-bg);
+  color: var(--q-pill-fg);
+  font: 400 8.5px/1.2 var(--pixel);
+}
+.prestige-wardrobe-req {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.38;
+  color: var(--ink);
+}
+.prestige-equip-btn {
+  padding: 5px 9px;
+  border: 1px solid var(--q-accent);
+  background: var(--q-pill-bg);
+  color: var(--q-pill-fg);
+  font: 400 9.5px/1.2 var(--pixel);
+  cursor: pointer;
+}
+.prestige-equip-btn.is-equipped {
+  border-color: #8a621a;
+  background: #f2bb61;
+  color: #1f1707;
+}
+.prestige-lock-chip {
+  padding: 4px 8px;
+  border: 1px solid var(--q-border);
+  font: 400 9px/1.2 var(--pixel);
+  color: var(--muted);
+}
+
+/* ===== 13 Uniquely Designed Permanent Prestige Title Badges ===== */
+@keyframes prestigeSheen {
+  0% { transform: translateX(-130%) skewX(-22deg); }
+  45%, 100% { transform: translateX(220%) skewX(-22deg); }
+}
+
+.prestige-title-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 2px solid currentColor;
+  border-radius: 0;
+  font: 400 10px/1.15 var(--pixel) !important;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  vertical-align: middle;
+}
+.prestige-title-badge.is-compact {
+  padding: 2px 6px;
+  gap: 4px;
+  font-size: 8.5px !important;
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.45);
+}
+.prestige-title-badge .pt-ico {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  image-rendering: pixelated;
+}
+.prestige-title-badge.is-compact .pt-ico {
+  width: 10px;
+  height: 10px;
+  flex-basis: 10px;
+}
+
+/* 1. Bug Hunter — Matrix CRT Emerald */
+.prestige-title-badge.pt-bug-hunter {
+  border-color: #36e885;
+  background: repeating-linear-gradient(0deg, #071e13 0 2px, #0b2c1d 2px 4px);
+  color: #7effb5;
+  box-shadow: inset 3px 0 0 #36e885, 2px 2px 0 rgba(0, 0, 0, 0.55);
+}
+/* 2. Packet Warden — Cyber-Hex Cyan Circuit */
+.prestige-title-badge.pt-packet-warden {
+  border-color: #5ee6ff;
+  background: linear-gradient(135deg, #07222e 0%, #0f3d4d 60%, #092a38 100%);
+  color: #b5f8ff;
+  box-shadow: inset 0 0 0 1px rgba(158, 248, 255, 0.3), 2px 2px 0 rgba(0, 0, 0, 0.55);
+}
+/* 3. Zero-Miss Tactician — Titanium & Laser-Gold Prism */
+.prestige-title-badge.pt-zero-miss {
+  border-color: #c5d6e3;
+  background: linear-gradient(135deg, #212a33 0%, #3b4a59 50%, #1c242c 100%);
+  color: #f4f9ff;
+  box-shadow: inset 3px 0 0 #ffd85e, 2px 2px 0 rgba(0, 0, 0, 0.55);
+}
+/* 4. Citadel Champion — Royal Crimson Velvet & Molten Crown */
+.prestige-title-badge.pt-citadel-champion {
+  border-color: #f2b750;
+  background: linear-gradient(180deg, #69101c 0%, #3d0810 100%);
+  color: #ffe39e;
+  box-shadow: inset 0 0 0 1px #ff5268, 2px 2px 0 rgba(0, 0, 0, 0.6);
+}
+/* 5. Grand Cartographer — Celestial Navy & Compass Brass */
+.prestige-title-badge.pt-cartographer {
+  border-color: #e6b85c;
+  background: radial-gradient(circle at 20% 50%, rgba(122, 184, 255, 0.24), transparent 55%), linear-gradient(180deg, #0f2042 0%, #091329 100%);
+  color: #ffe9a8;
+  box-shadow: inset 0 -2px 0 #7ab8ff, 2px 2px 0 rgba(0, 0, 0, 0.55);
+}
+/* 6. Apex Sovereign — Imperial #1 Radiant Gold & Animated Sheen */
+.prestige-title-badge.pt-apex-sovereign {
+  border-color: #fff0a8;
+  background: linear-gradient(135deg, #754705 0%, #d49622 48%, #5e3804 100%);
+  color: #fff9db;
+  text-shadow: 1px 1px 0 #3d2200;
+  box-shadow: inset 0 0 0 1px #ffd45e, 0 0 10px rgba(255, 212, 94, 0.35), 2px 2px 0 rgba(0, 0, 0, 0.6);
+}
+.prestige-title-badge.pt-apex-sovereign::after,
+.prestige-title-badge.pt-arcane::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 36%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: prestigeSheen 3.6s ease-in-out infinite;
+  pointer-events: none;
+}
+/* 7. Codex Laureate — Illuminated Indigo & Parchment Wax */
+.prestige-title-badge.pt-codex-laureate {
+  border-color: #e3c26b;
+  background: linear-gradient(160deg, #1d2559 0%, #12173a 100%);
+  color: #fff1c2;
+  box-shadow: inset 3px 0 0 #75b8ff, 2px 2px 0 rgba(0, 0, 0, 0.55);
+}
+/* 8. Campaign Vanguard — Forged Bronze & Copper Ember */
+.prestige-title-badge.pt-vanguard {
+  border-color: #e08245;
+  background: linear-gradient(180deg, #422211 0%, #261309 100%);
+  color: #ffd9ba;
+  box-shadow: inset 0 -2px 0 #a84f20, 2px 2px 0 rgba(0, 0, 0, 0.55);
+}
+/* 9. Scholar Prime — Deep Observatory Jade */
+.prestige-title-badge.pt-scholar-prime {
+  border-color: #5ce0b4;
+  background: linear-gradient(180deg, #0d362b 0%, #072019 100%);
+  color: #d6fff0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 2px 2px 0 rgba(0, 0, 0, 0.55);
+}
+/* 10. Arena Gladiator — Electric Violet-Magenta Storm */
+.prestige-title-badge.pt-gladiator {
+  border-color: #ff6be2;
+  background: linear-gradient(135deg, #2d1147 0%, #48175e 55%, #231145 100%);
+  color: #ffd6f8;
+  box-shadow: inset 3px 0 0 #7a6bff, 2px 2px 0 rgba(0, 0, 0, 0.55);
+}
+/* 11. Arcane Architect — Cosmic Void-Amethyst Prism */
+.prestige-title-badge.pt-arcane {
+  border-color: #c280ff;
+  background: linear-gradient(135deg, #1f0e38 0%, #2d144d 50%, #0e283b 100%);
+  color: #f3dcff;
+  box-shadow: inset 0 0 0 1px #7cf7ff, 0 0 10px rgba(194, 128, 255, 0.35), 2px 2px 0 rgba(0, 0, 0, 0.6);
+}
+/* 12. Flamekeeper — Volcanic Hearth Magma */
+.prestige-title-badge.pt-flamekeeper {
+  border-color: #ff8e2b;
+  background: linear-gradient(180deg, #5c1709 0%, #300a04 100%);
+  color: #ffefb8;
+  box-shadow: inset 0 -2px 0 #ffd047, 2px 2px 0 rgba(0, 0, 0, 0.55);
+}
+/* 13. Arena Contender — Steel Cobalt Chevron */
+.prestige-title-badge.pt-contender {
+  border-color: #6db8ff;
+  background: linear-gradient(180deg, #172d4d 0%, #0f1d33 100%);
+  color: #d9eeff;
+  box-shadow: inset 3px 0 0 #ffe07a, 2px 2px 0 rgba(0, 0, 0, 0.55);
+}
+
+/* Weekly Leaderboard Controls Bar & Title Rows */
+.leaderboard-controls-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  margin-bottom: 14px;
+}
+.leaderboard-controls-bar .leaderboard-tabs {
+  margin-bottom: 0;
+}
+.leaderboard-period-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.leaderboard-period-btn {
+  padding: 7px 11px;
+  border: 2px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font: 400 10.5px/1.15 var(--pixel);
+  cursor: pointer;
+}
+.leaderboard-period-btn.is-active {
+  border-color: var(--gold);
+  background: rgba(242, 187, 97, 0.18);
+  color: var(--gold);
+}
+:root:not([data-theme="dark"]) .leaderboard-period-btn.is-active {
+  background: #fff0cf;
+  color: #7c4b00;
+}
+.leaderboard-reset-pill {
+  padding: 5px 8px;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  font: 400 11.5px/1.2 var(--readable-mono);
+}
+.podium-title-row {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 2px;
+}
+.lb-table-title {
+  display: inline-block;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* ===== 7-Discipline Themes (Discrete Math, Software Engineering, Web & Mobile) ===== */
+.skill-point-topic {
+  padding: 2px 6px;
+  min-height: 26px;
+  gap: 4px;
+}
+.skill-point-topic.tree-discreteMath { border-left-color: #9d8cff; }
+.skill-map-edge.tree-discreteMath { stroke: #9d8cff; }
+.skill-map-node.tree-discreteMath { border-left-color: #9d8cff; }
+
+.skill-point-topic.tree-softwareEng { border-left-color: #45c9a8; }
+.skill-map-edge.tree-softwareEng { stroke: #45c9a8; }
+.skill-map-node.tree-softwareEng { border-left-color: #45c9a8; }
+
+.skill-point-topic.tree-webMobile { border-left-color: #f075b4; }
+.skill-map-edge.tree-webMobile { stroke: #f075b4; }
+.skill-map-node.tree-webMobile { border-left-color: #f075b4; }
+
+:root:not([data-theme="dark"]) .skill-point-topic.tree-discreteMath,
+:root:not([data-theme="dark"]) .skill-map-edge.tree-discreteMath,
+:root:not([data-theme="dark"]) .skill-map-node.tree-discreteMath { border-left-color: #5f4bb6; stroke: #5f4bb6; }
+:root:not([data-theme="dark"]) .skill-point-topic.tree-softwareEng,
+:root:not([data-theme="dark"]) .skill-map-edge.tree-softwareEng,
+:root:not([data-theme="dark"]) .skill-map-node.tree-softwareEng { border-left-color: #1f7a68; stroke: #1f7a68; }
+:root:not([data-theme="dark"]) .skill-point-topic.tree-webMobile,
+:root:not([data-theme="dark"]) .skill-map-edge.tree-webMobile,
+:root:not([data-theme="dark"]) .skill-map-node.tree-webMobile { border-left-color: #b53876; stroke: #b53876; }
+
+:root .skill-map-node.is-exclusive-active.tree-discreteMath,
+:root .skill-map-node.is-exclusive-active.tree-discreteMath.is-learned,
+:root .skill-map-node.is-exclusive-active.tree-discreteMath:hover,
+:root .skill-map-node.is-exclusive-active.tree-discreteMath.is-selected {
+  border-color: #9d8cff;
+  background: linear-gradient(145deg, #241b4e 0%, #120f26 100%);
+  box-shadow: 0 0 22px rgba(157, 140, 255, .42);
+}
+.skill-map-node.tree-discreteMath .skill-node-tree.is-exclusive-tag { color: #d5ceff !important; }
+:root .skill-detail.is-exclusive-detail.tree-discreteMath {
+  border-top-color: #9d8cff;
+  background: linear-gradient(180deg, #1d183b 0%, #11131d 100%);
+}
+:root .skill-detail.is-exclusive-detail.tree-discreteMath .skill-detail-description { color: #d5ceff; }
+
+:root .skill-map-node.is-exclusive-active.tree-softwareEng,
+:root .skill-map-node.is-exclusive-active.tree-softwareEng.is-learned,
+:root .skill-map-node.is-exclusive-active.tree-softwareEng:hover,
+:root .skill-map-node.is-exclusive-active.tree-softwareEng.is-selected {
+  border-color: #45c9a8;
+  background: linear-gradient(145deg, #0f362e 0%, #091d19 100%);
+  box-shadow: 0 0 22px rgba(69, 201, 168, .4);
+}
+.skill-map-node.tree-softwareEng .skill-node-tree.is-exclusive-tag { color: #b6f7e4 !important; }
+:root .skill-detail.is-exclusive-detail.tree-softwareEng {
+  border-top-color: #45c9a8;
+  background: linear-gradient(180deg, #102a24 0%, #0e1817 100%);
+}
+:root .skill-detail.is-exclusive-detail.tree-softwareEng .skill-detail-description { color: #bdf3e4; }
+
+:root .skill-map-node.is-exclusive-active.tree-webMobile,
+:root .skill-map-node.is-exclusive-active.tree-webMobile.is-learned,
+:root .skill-map-node.is-exclusive-active.tree-webMobile:hover,
+:root .skill-map-node.is-exclusive-active.tree-webMobile.is-selected {
+  border-color: #f075b4;
+  background: linear-gradient(145deg, #421330 0%, #200a19 100%);
+  box-shadow: 0 0 22px rgba(240, 117, 180, .4);
+}
+.skill-map-node.tree-webMobile .skill-node-tree.is-exclusive-tag { color: #ffc7e4 !important; }
+:root .skill-detail.is-exclusive-detail.tree-webMobile {
+  border-top-color: #f075b4;
+  background: linear-gradient(180deg, #321325 0%, #191016 100%);
+}
+:root .skill-detail.is-exclusive-detail.tree-webMobile .skill-detail-description { color: #ffd1e9; }
+
+/* Proof by Contradiction (Indigo Relic) */
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-proof_contradiction {
+  border-color: #9d8cff !important;
+  background:
+    repeating-linear-gradient(90deg, rgba(157, 140, 255, 0.06) 0 8px, transparent 8px 16px),
+    linear-gradient(110deg, #271b52 0%, #191136 55%, #0f0a21 100%) !important;
+  box-shadow: inset 0 0 0 1px rgba(213, 206, 255, 0.35), 0 0 18px rgba(157, 140, 255, 0.3), 4px 4px 0 rgba(0, 0, 0, 0.55) !important;
+}
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-proof_contradiction::before,
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-proof_contradiction::after {
+  border-color: #dfd9ff;
+}
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-proof_contradiction .active-skill-sigil {
+  border-color: rgba(185, 172, 255, 0.8);
+  background: radial-gradient(circle at 50% 42%, rgba(157, 140, 255, 0.28), rgba(14, 10, 32, 0.9) 75%);
+  color: #cbbfff;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 12px rgba(157, 140, 255, 0.3);
+}
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-proof_contradiction .active-skill-tag {
+  border-color: rgba(185, 172, 255, 0.7);
+  background: rgba(157, 140, 255, 0.22);
+  color: #e2dcff;
+}
+
+/* System Refactor (Teal Blueprint Relic) */
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-system_refactor {
+  border-color: #45c9a8 !important;
+  background:
+    repeating-linear-gradient(90deg, rgba(69, 201, 168, 0.06) 0 8px, transparent 8px 16px),
+    linear-gradient(110deg, #103b32 0%, #0a2620 55%, #061613 100%) !important;
+  box-shadow: inset 0 0 0 1px rgba(164, 245, 224, 0.35), 0 0 18px rgba(69, 201, 168, 0.28), 4px 4px 0 rgba(0, 0, 0, 0.55) !important;
+}
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-system_refactor::before,
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-system_refactor::after {
+  border-color: #c2fbf0;
+}
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-system_refactor .active-skill-sigil {
+  border-color: rgba(114, 228, 198, 0.8);
+  background: radial-gradient(circle at 50% 42%, rgba(69, 201, 168, 0.26), rgba(6, 20, 17, 0.9) 75%);
+  color: #84f2d4;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 12px rgba(69, 201, 168, 0.28);
+}
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-system_refactor .active-skill-tag {
+  border-color: rgba(114, 228, 198, 0.68);
+  background: rgba(69, 201, 168, 0.2);
+  color: #ccfcef;
+}
+
+/* Async Cascade (Magenta Wave Relic) */
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-async_cascade {
+  border-color: #f075b4 !important;
+  background:
+    repeating-linear-gradient(90deg, rgba(240, 117, 180, 0.06) 0 8px, transparent 8px 16px),
+    linear-gradient(110deg, #4b1535 0%, #2d0d21 55%, #190713 100%) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 184, 222, 0.35), 0 0 18px rgba(240, 117, 180, 0.3), 4px 4px 0 rgba(0, 0, 0, 0.55) !important;
+}
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-async_cascade::before,
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-async_cascade::after {
+  border-color: #ffd0e9;
+}
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-async_cascade .active-skill-sigil {
+  border-color: rgba(250, 148, 202, 0.8);
+  background: radial-gradient(circle at 50% 42%, rgba(240, 117, 180, 0.28), rgba(24, 7, 18, 0.9) 75%);
+  color: #ffa6d5;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55), 0 0 12px rgba(240, 117, 180, 0.3);
+}
+.app.is-playing .game-panel .actions button.is-exclusive-card.card-async_cascade .active-skill-tag {
+  border-color: rgba(250, 148, 202, 0.7);
+  background: rgba(240, 117, 180, 0.2);
+  color: #ffd8ec;
+}
+
+.choices button.is-eliminated,
+.choices button.is-eliminated:hover {
+  opacity: 0.34;
+  text-decoration: line-through;
+  cursor: not-allowed;
+  transform: none;
+  border-style: dashed;
+}
+.adaptive-bonus-chip.is-proof-chip {
+  color: #d5ceff;
+  border-color: rgba(157, 140, 255, 0.65);
+  background: rgba(157, 140, 255, 0.16);
+}
+
+/* Tracker 7-Discipline Cards & Topic Drill Filter */
+.cap-discipline-card.tone-indigo { border-left-color: #9d8cff; }
+.cap-discipline-card.tone-teal { border-left-color: #45c9a8; }
+.cap-discipline-card.tone-magenta { border-left-color: #f075b4; }
+.cap-discipline-grid .cap-discipline-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.practice-cat-chips {
+  gap: 5px;
+}
+.practice-cat-chip {
+  font-size: 9.5px;
+  padding: 5px 8px;
+}
+.app:not(.is-playing) .practice-category.tone-gold { border-left: 4px solid #f2bb61 !important; }
+.app:not(.is-playing) .practice-category.tone-blue { border-left: 4px solid #69b4c6 !important; }
+.app:not(.is-playing) .practice-category.tone-green { border-left: 4px solid #8bc78e !important; }
+.app:not(.is-playing) .practice-category.tone-red { border-left: 4px solid #cf8b7b !important; }
+.app:not(.is-playing) .practice-category.tone-indigo { border-left: 4px solid #9d8cff !important; }
+.app:not(.is-playing) .practice-category.tone-teal { border-left: 4px solid #45c9a8 !important; }
+.app:not(.is-playing) .practice-category.tone-magenta { border-left: 4px solid #f075b4 !important; }
+
+/* ==========================================================================
+   Pixel Padlocks, World Map Status Pill, MP Readability, Blood-Sacrifice Hint,
+   and Year-Locked Discipline States
+   ========================================================================== */
+.pixel-lock-svg {
+  display: inline-block;
+  flex: 0 0 auto;
+  vertical-align: middle;
+  image-rendering: pixelated;
+  --lock-keyhole: #12161c;
+}
+:root:not([data-theme="dark"]) .pixel-lock-svg {
+  --lock-keyhole: #ece6d8;
+}
+.biome-node-lock-badge {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  background: rgba(12, 16, 20, .54);
+  color: #e6dfd0;
+}
+.biome-node-lock-badge .pixel-lock-svg {
+  width: 18px;
+  height: 18px;
+}
+.biome-node-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.biome-node-pill .pixel-lock-svg,
+.wmp-status-badge .pixel-lock-svg {
+  width: 9px;
+  height: 9px;
+}
+.wmp-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.world-map-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 8px 13px;
+  border: 1px solid #414f57;
+  background: #1c242a;
+  color: #d6dfe4;
+  font: 700 10.5px/1.25 var(--pixel);
+}
+.world-map-status-pill.is-current { border-color: #d9a753; background: #292317; color: #f5ce82; }
+.world-map-status-pill.is-cleared { border-color: #548c67; background: #18271e; color: #a3e2b7; }
+.world-map-status-pill.is-unlocked { border-color: #5b8294; background: #18242b; color: #b7e2f2; }
+.world-map-status-pill.is-locked { border-color: #4f4649; background: #211c1e; color: #d1b5b8; }
+:root:not([data-theme="dark"]) .world-map-status-pill { background: #e8e2d2; border-color: #b8b09c; color: #363c38; }
+:root:not([data-theme="dark"]) .world-map-status-pill.is-current { background: #fff0cc; border-color: #b98232; color: #6f4c14; }
+:root:not([data-theme="dark"]) .world-map-status-pill.is-cleared { background: #e0f0e3; border-color: #4e8058; color: #245730; }
+:root:not([data-theme="dark"]) .world-map-status-pill.is-locked { background: #ded8c7; border-color: #b4aba0; color: #5b5553; }
+
+/* Distinct HUD HP vs MP Readability */
+.hud-meter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.hud-meter-tag.is-hp { color: #ff9c90; }
+.hud-meter-tag.is-mp { color: #68cbff; }
+:root:not([data-theme="dark"]) .hud-meter-tag.is-hp { color: #b52d23; }
+:root:not([data-theme="dark"]) .hud-meter-tag.is-mp { color: #1262b5; }
+.play-meter.is-hp-meter,
+.play-meter.is-mp-meter {
+  height: 10px;
+}
+.play-meter.is-mp-meter {
+  border: 1px solid rgba(72, 168, 255, 0.42);
+  background: rgba(14, 34, 62, 0.65);
+}
+#playPlayerManaFill {
+  background: linear-gradient(90deg, #1665d8, #3ba8ff);
+  box-shadow: inset 0 2px 0 rgba(190, 236, 255, 0.55);
+}
+
+/* Blood-Sacrifice Hint UI + Rattle & Splatter Animations */
+.question-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+.is-playing .game-panel button.blood-hint-btn,
+.blood-hint-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 11px;
+  border: 1px solid #d43546;
+  border-bottom: 3px solid #7d0c19;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #3c1218, #24090d);
+  color: #ffc8ce;
+  font: 700 10px/1.2 var(--pixel);
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: transform .12s ease, background .15s ease, border-color .15s ease;
+}
+.is-playing .game-panel button.blood-hint-btn:hover:not(:disabled),
+.blood-hint-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #571720, #340b11);
+  border-color: #ff6b7a;
+  transform: translateY(-1px);
+}
+.is-playing .game-panel button.blood-hint-btn:disabled,
+.blood-hint-btn:disabled {
+  opacity: .56;
+  cursor: not-allowed;
+  border-color: #5c2a30;
+  border-bottom-color: #361419;
+}
+.pixel-blood-svg {
+  display: inline-block;
+  flex: 0 0 auto;
+  image-rendering: pixelated;
+}
+.blood-hint-clue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 6px;
+  padding: 7px 11px;
+  border: 1px solid rgba(224, 48, 68, 0.62);
+  border-left: 4px solid #e6293d;
+  border-radius: 4px;
+  background: rgba(66, 12, 20, 0.78);
+  color: #ffe3e6;
+  font: 500 15px/1.35 var(--body);
+}
+.blood-hint-clue-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: rgba(230, 41, 61, 0.24);
+  border: 1px solid rgba(255, 117, 132, 0.55);
+  color: #ff9ea8;
+  font: 700 9.5px/1.15 var(--pixel);
+  white-space: nowrap;
+}
+@keyframes bloodRattle {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  12% { transform: translate3d(-7px, -3px, 0) rotate(-0.6deg); }
+  25% { transform: translate3d(6px, 3px, 0) rotate(0.6deg); }
+  38% { transform: translate3d(-5px, 2px, 0) rotate(-0.4deg); }
+  52% { transform: translate3d(5px, -2px, 0) rotate(0.4deg); }
+  68% { transform: translate3d(-3px, 1px, 0); }
+  84% { transform: translate3d(2px, -1px, 0); }
+}
+@keyframes bloodSplatterFlash {
+  0% { box-shadow: inset 0 0 0 0 rgba(210, 18, 38, 0); }
+  18% { box-shadow: inset 0 0 64px 16px rgba(210, 18, 38, 0.72); }
+  100% { box-shadow: inset 0 0 30px rgba(0, 0, 0, .28); }
+}
+.is-playing .game-panel.is-blood-rattle {
+  animation: bloodRattle 0.44s cubic-bezier(.36,.07,.19,.97) both;
+  border-color: #e6293d;
+}
+.is-playing .preview-frame.is-blood-splatter {
+  animation: bloodSplatterFlash 0.58s ease-out both;
+}
+body.reduce-motion .is-playing .game-panel.is-blood-rattle {
+  animation: none;
+  border-color: #e6293d;
+}
+
+/* Year-Locked Discipline Indicators (Software Engineering Year 2+ / HCI Year 3+) */
+.practice-cat-chip.is-year-locked,
+.cap-discipline-card.is-year-locked,
+.skill-point-topic.is-year-locked,
+.skill-map-node.is-year-locked {
+  opacity: .66;
+}
+.cat-year-lock,
+.cap-tier-pill.is-year-locked {
+  display: inline-block;
+  padding: 2px 5px;
+  border: 1px solid rgba(200, 160, 88, 0.5);
+  background: rgba(56, 44, 24, 0.45);
+  color: #e4c486;
+  font: 700 8.5px/1.1 var(--pixel);
+}
+:root:not([data-theme="dark"]) .cat-year-lock,
+:root:not([data-theme="dark"]) .cap-tier-pill.is-year-locked {
+  background: #efe3c6;
+  border-color: #b48a3e;
+  color: #6b4c14;
+}
+
+/* Prismatic Hit-Count Shield Bar (1-5 Charges) */
+.play-shield-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border: 1px solid rgba(84, 224, 255, 0.34);
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(16, 48, 64, 0.72), rgba(10, 26, 36, 0.56));
+}
+.play-shield-row.is-enemy-shield {
+  border-color: rgba(114, 245, 255, 0.42);
+  background: linear-gradient(90deg, rgba(22, 42, 58, 0.78), rgba(18, 22, 34, 0.62));
+}
+.hud-shield-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #8ef5ff;
+  font: 700 8px/1 var(--pixel);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.pixel-shield-ico {
+  flex: 0 0 auto;
+  display: block;
+}
+.shield-pips {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.shield-pip {
+  flex: 1 1 0;
+  max-width: 34px;
+  height: 11px;
+  clip-path: polygon(12% 0%, 88% 0%, 100% 50%, 88% 100%, 12% 100%, 0% 50%);
+  position: relative;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.shield-pip.is-active {
+  background: linear-gradient(180deg, #dcffff 0%, #52e2ff 45%, #128cb3 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 0 8px rgba(82, 226, 255, 0.45);
+}
+.shield-pip.is-broken {
+  background: linear-gradient(180deg, #162833 0%, #0b141a 100%);
+  opacity: 0.48;
+  box-shadow: inset 0 0 0 1px rgba(96, 150, 172, 0.35);
+}
+.shield-count {
+  color: #c8f9ff;
+  font: 600 13px/1 var(--body);
+  white-space: nowrap;
+}
+:root:not([data-theme="dark"]) .play-shield-row {
+  background: linear-gradient(90deg, #e5f6fa, #eef8fb);
+  border-color: #62b6ca;
+}
+:root:not([data-theme="dark"]) .hud-shield-tag {
+  color: #146a82;
+}
+:root:not([data-theme="dark"]) .shield-pip.is-broken {
+  background: #cddbe0;
+  opacity: 0.65;
+}
+:root:not([data-theme="dark"]) .shield-count {
+  color: #12586c;
+}
+
+/* Dedicated Overclock Skill Tree Page + Maxed-Route Portal Button */
+.skill-tree-header button.skill-tree-back-button {
+  border-color: #4cc2df;
+  background: rgba(20, 48, 68, 0.9);
+  color: #b8f9ff;
+}
+.skill-tree-header button.skill-tree-back-button:hover {
+  background: #2bbbe0;
+  color: #06141f;
+}
+:root:not([data-theme="dark"]) .skill-tree-header button.skill-tree-back-button {
+  border-color: #207692;
+  background: #dff2f8;
+  color: #104d61;
+}
+:root:not([data-theme="dark"]) .skill-tree-header button.skill-tree-back-button:hover {
+  background: #207692;
+  color: #ffffff;
+}
+
+/* Portal Button at End of Maxed Discipline Route */
+.skill-map-edge.is-overclock-portal-edge {
+  stroke: #63ecff;
+  stroke-width: 3.5;
+  stroke-dasharray: 7 4;
+  opacity: 0.92;
+}
+:root .skill-map-node.is-overclock-portal {
+  width: 220px;
+  min-height: 84px;
+  border: 2px solid #72f5ff;
+  border-left: 4px solid #b794ff;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0b1b2b 0%, #1c1638 100%);
+  color: #e6fbff;
+  box-shadow: 0 0 22px rgba(99, 236, 255, 0.34), inset 0 0 0 1px rgba(183, 148, 255, 0.25);
+}
+:root .skill-map-node.is-overclock-portal:hover {
+  background: linear-gradient(135deg, #132d47 0%, #2b2057 100%);
+  border-color: #b4ffff;
+  box-shadow: 0 0 28px rgba(114, 245, 255, 0.52);
+  transform: translateY(-2px);
+}
+:root .skill-map-node.is-overclock-portal .is-overclock-portal-tag {
+  color: #8ef5ff;
+  letter-spacing: 0.04em;
+}
+:root .skill-map-node.is-overclock-portal .is-overclock-portal-mark {
+  border-color: #72f5ff;
+  background: #071220;
+  color: #b8f9ff;
+  box-shadow: 0 0 12px rgba(114, 245, 255, 0.4);
+}
+:root .skill-map-node.is-overclock-portal .skill-node-name {
+  color: #ffffff;
+}
+:root .skill-map-node.is-overclock-portal .skill-node-rank {
+  color: #c9b8ff;
+}
+:root:not([data-theme="dark"]) .skill-map-edge.is-overclock-portal-edge {
+  stroke: #137a99;
+}
+:root:not([data-theme="dark"]) .skill-map-node.is-overclock-portal {
+  border-color: #137a99;
+  border-left-color: #5d46b8;
+  background: linear-gradient(135deg, #e2f5fb 0%, #ebe7fb 100%);
+  color: #102a38;
+  box-shadow: 0 8px 20px rgba(19, 122, 153, 0.22);
+}
+:root:not([data-theme="dark"]) .skill-map-node.is-overclock-portal:hover {
+  background: linear-gradient(135deg, #cef0fa 0%, #ded7fb 100%);
+}
+:root:not([data-theme="dark"]) .skill-map-node.is-overclock-portal .is-overclock-portal-tag {
+  color: #105e78;
+}
+:root:not([data-theme="dark"]) .skill-map-node.is-overclock-portal .is-overclock-portal-mark {
+  border-color: #137a99;
+  background: #ffffff;
+  color: #105e78;
+}
+:root:not([data-theme="dark"]) .skill-map-node.is-overclock-portal .skill-node-name {
+  color: #0e2430;
+}
+:root:not([data-theme="dark"]) .skill-map-node.is-overclock-portal .skill-node-rank {
+  color: #4f3ba3;
+}
+
+/* Separate Overclock Skill Tree Page — Distinct Cyber-Circuit Theme (Dark & Light) */
+.skill-tree-shell.is-overclock-page {
+  border-color: #2f5c73;
+  background: #070c14;
+  color: #dff4fc;
+}
+.skill-tree-shell.is-overclock-page .skill-tree-header {
+  border-color: #214052;
+  background: linear-gradient(110deg, #060a12 0%, #0d1626 100%);
+}
+.skill-tree-shell.is-overclock-page .skill-tree-header h1 {
+  color: #72f5ff;
+}
+.skill-tree-shell.is-overclock-page .skill-tree-header p,
+.skill-tree-shell.is-overclock-page .skill-points-hint,
+.skill-tree-shell.is-overclock-page .skill-tree-footer {
+  color: #8db3c4;
+}
+.skill-tree-shell.is-overclock-page .skill-tree-summary {
+  border-color: #214052;
+  background: #09111c;
+}
+.skill-tree-shell.is-overclock-page .skill-points-total.is-overclock-total {
+  border-color: #4cc2df;
+  background: #0e2233;
+  color: #9ff8ff;
+}
+.skill-tree-shell.is-overclock-page .skill-point-topic.is-overclock-mastered,
+.skill-tree-shell.is-overclock-page .skill-point-topic.is-overclock-rank-chip {
+  border-color: #24475b;
+  border-left-color: #72f5ff;
+  background: #0d1a29;
+}
+.skill-tree-shell.is-overclock-page .skill-point-topic.is-overclock-rank-chip {
+  border-left-color: #b794ff;
+}
+.skill-tree-shell.is-overclock-page .skill-point-topic > strong {
+  color: #9ff8ff;
+}
+.skill-tree-shell.is-overclock-page .skill-map-viewport.is-overclock-viewport {
+  border-color: #24475b;
+  background-color: #050a12;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(76, 194, 223, 0.14), transparent 56%),
+    radial-gradient(circle at 18% 20%, rgba(183, 148, 255, 0.08), transparent 44%),
+    linear-gradient(to right, rgba(64, 152, 184, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(64, 152, 184, 0.1) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 28px 28px, 28px 28px;
+}
+.skill-tree-shell.is-overclock-page .skill-map-zoom-status {
+  border-color: #264a5e;
+  background: rgba(6, 12, 20, 0.92);
+  color: #9ec8d8;
+}
+.skill-tree-shell.is-overclock-page .skill-map-start.is-overclock-reactor {
+  background: radial-gradient(circle at 50% 35%, #123147, #08121f 76%);
+  color: #9ff8ff;
+  box-shadow: inset 0 0 0 6px rgba(114, 245, 255, 0.42), inset 0 0 0 11px rgba(183, 148, 255, 0.24);
+}
+.skill-tree-shell.is-overclock-page .skill-core-mark {
+  color: #8ef5ff;
+}
+.skill-tree-shell.is-overclock-page .skill-map-edge.is-overclock-edge {
+  stroke: #2c4e63;
+  stroke-width: 3;
+  opacity: 0.72;
+}
+.skill-tree-shell.is-overclock-page .skill-map-edge.is-overclock-edge.is-energized {
+  stroke: #5be2ff;
+  opacity: 0.96;
+}
+.skill-tree-shell.is-overclock-page .skill-map-edge.is-overclock-edge.tone-atk.is-energized { stroke: #f2bb61; }
+.skill-tree-shell.is-overclock-page .skill-map-edge.is-overclock-edge.tone-vit.is-energized { stroke: #7ae39b; }
+.skill-tree-shell.is-overclock-page .skill-map-edge.is-overclock-edge.tone-mana.is-energized { stroke: #5cbfff; }
+.skill-tree-shell.is-overclock-page .skill-map-edge.is-overclock-edge.tone-blood.is-energized { stroke: #ff5b6e; }
+
+.skill-tree-shell.is-overclock-page .skill-map-node.is-overclock-node {
+  width: 224px;
+  min-height: 84px;
+  border-color: #27485d;
+  background: rgba(11, 21, 34, 0.96);
+  color: #e4f7ff;
+}
+.skill-tree-shell.is-overclock-page .skill-map-node.is-overclock-node.tone-atk { border-left-color: #f2bb61; }
+.skill-tree-shell.is-overclock-page .skill-map-node.is-overclock-node.tone-vit { border-left-color: #7ae39b; }
+.skill-tree-shell.is-overclock-page .skill-map-node.is-overclock-node.tone-mana { border-left-color: #5cbfff; }
+.skill-tree-shell.is-overclock-page .skill-map-node.is-overclock-node.tone-blood { border-left-color: #ff5b6e; }
+.skill-tree-shell.is-overclock-page .skill-map-node.is-overclock-node:hover,
+.skill-tree-shell.is-overclock-page .skill-map-node.is-overclock-node.is-selected {
+  background: #142b42;
+  outline-color: #72f5ff;
+}
+.skill-tree-shell.is-overclock-page .skill-node-mark.is-overclock-mark {
+  border-color: #36647d;
+  background: #08121f;
+  color: #8ef5ff;
+}
+.skill-tree-shell.is-overclock-page .skill-detail.is-overclock-detail {
+  border-color: #24475b;
+  border-top: 3px solid #72f5ff;
+  background: #0a1420;
+  color: #dff4fc;
+}
+.skill-tree-shell.is-overclock-page .skill-detail.is-overclock-detail .skill-detail-eyebrow {
+  color: #72f5ff;
+}
+.skill-tree-shell.is-overclock-page .skill-detail.is-overclock-detail .skill-detail-effect,
+.skill-tree-shell.is-overclock-page .skill-detail.is-overclock-detail .skill-detail-rank {
+  border-color: #1e3b4d;
+}
+.skill-tree-shell.is-overclock-page .skill-detail.is-overclock-detail .skill-detail-status {
+  border-left-color: #5cbfff;
+  background: #070e18;
+  color: #9ac0cf;
+}
+.skill-tree-shell.is-overclock-page .skill-detail.is-overclock-detail .skill-detail-status.is-ready {
+  border-left-color: #72f5ff;
+  color: #b4f9ff;
+}
+.skill-tree-shell.is-overclock-page .skill-purchase-button {
+  border-color: #4cc2df;
+  background: #165e78;
+  color: #efffff;
+}
+.skill-tree-shell.is-overclock-page .skill-purchase-button.is-affordable:hover {
+  border-color: #b4ffff;
+  background: #72f5ff;
+  color: #06141f;
+}
+.skill-tree-shell.is-overclock-page .skill-tree-footer {
+  border-color: #214052;
+}
+
+/* Light-Mode Distinct Arctic Blueprint Overclock Theme */
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page {
+  border-color: #7ab1c7;
+  background: #e1eef4;
+  color: #132833;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-tree-header {
+  border-color: #a4cbd9;
+  background: linear-gradient(110deg, #f3fafd, #d8ebf3);
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-tree-header h1 {
+  color: #0f627d;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-tree-header p,
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-points-hint,
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-tree-footer {
+  color: #416270;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-tree-summary {
+  border-color: #a4cbd9;
+  background: #d5e8f1;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-points-total.is-overclock-total {
+  border-color: #177896;
+  background: #e9f8fc;
+  color: #0f566e;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-point-topic.is-overclock-mastered,
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-point-topic.is-overclock-rank-chip {
+  border-color: #9ec4d4;
+  background: #f2fafe;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-point-topic > span {
+  color: #132833;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-point-topic > strong {
+  color: #0f627d;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-map-viewport.is-overclock-viewport {
+  border-color: #9ec4d4;
+  background-color: #ecf6fa;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(23, 120, 150, 0.12), transparent 56%),
+    linear-gradient(to right, rgba(23, 120, 150, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(23, 120, 150, 0.12) 1px, transparent 1px);
+  background-size: 100% 100%, 28px 28px, 28px 28px;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-map-zoom-status {
+  border-color: #9ec4d4;
+  background: rgba(244, 251, 254, 0.94);
+  color: #365766;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-map-start.is-overclock-reactor {
+  background: radial-gradient(circle at 50% 35%, #ffffff, #d7edf5 74%);
+  color: #0f566e;
+  box-shadow: inset 0 0 0 6px rgba(23, 120, 150, 0.36), inset 0 0 0 11px rgba(93, 70, 184, 0.18);
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-core-mark {
+  color: #137a99;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-map-node.is-overclock-node {
+  border-color: #9dc2d2;
+  background: #f5fbfe;
+  color: #132833;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-map-node.is-overclock-node:hover,
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-map-node.is-overclock-node.is-selected {
+  background: #dbf0f8;
+  outline-color: #137a99;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-node-mark.is-overclock-mark {
+  border-color: #9dc2d2;
+  background: #e5f2f7;
+  color: #0f627d;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-node-name {
+  color: #132833;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-detail.is-overclock-detail {
+  border-color: #9ec4d4;
+  border-top-color: #137a99;
+  background: #f5fbfe;
+  color: #132833;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-detail.is-overclock-detail .skill-detail-eyebrow {
+  color: #0f627d;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-detail.is-overclock-detail .skill-detail-description,
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-detail.is-overclock-detail .skill-detail-effect span,
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-detail.is-overclock-detail .skill-detail-rank span {
+  color: #416270;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-detail.is-overclock-detail .skill-detail-effect,
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-detail.is-overclock-detail .skill-detail-rank {
+  border-color: #c2dce6;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-detail.is-overclock-detail .skill-detail-status {
+  border-left-color: #137a99;
+  background: #e6f3f8;
+  color: #365766;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-purchase-button {
+  border-color: #105e78;
+  background: #137a99;
+  color: #ffffff;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-purchase-button.is-affordable:hover {
+  border-color: #0e4a5e;
+  background: #0f627d;
+  color: #ffffff;
+}
+:root:not([data-theme="dark"]) .skill-tree-shell.is-overclock-page .skill-tree-footer {
+  border-color: #a4cbd9;
 }

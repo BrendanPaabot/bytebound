@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Bytebound · CITCS Quest</title>
   <script src="js/font.js?v=2"></script>
-  <link rel="stylesheet" href="css/styles.css?v=50" />
+  <link rel="stylesheet" href="css/styles.css?v=59" />
 </head>
 <body>
   <div class="global-security-banner" id="globalSecurityBanner" role="status" aria-live="polite" hidden>
@@ -117,7 +117,9 @@
         <span class="brand-subtitle">CITCS QUEST / LEARN TO FIGHT</span>
       </div>
       <div class="profile-actions">
+        <button class="topbar-sp-button" id="topbarSkillTreeButton" type="button" hidden title="Open Skill Tree (U)"><span class="play-sp-diamond" aria-hidden="true">◆</span><span id="topbarSkillTreeText">1 SP · [U]</span></button>
         <button class="topbar-tour-button" id="topbarTourButton" type="button" aria-label="Replay page tutorial" title="Replay page tutorial">? Tour</button>
+        <button type="button" class="topbar-title-slot" id="playerTitleSlot" hidden title="Manage Prestige Titles [O]"></button>
         <span class="player-badge" id="playerBadge">KNIGHT</span>
       </div>
     </header>
@@ -137,8 +139,8 @@
         <p class="side-label">Navigation</p>
         <nav class="side-nav" aria-label="Main navigation">
           <button class="nav-button" data-view="quest" aria-current="page" data-bubble-tag="HUB PAGE" data-bubble-title="Quest Hub" data-bubble-desc="Check adaptive difficulty and controls, or launch Campaign, 1v1 Multiplayer, and Practice Mode."><span class="nav-number">01</span><span class="nav-name">Quest Hub</span></button>
-          <button class="nav-button" data-view="practice" data-bubble-tag="STUDY PAGE" data-bubble-title="Topic Drill" data-bubble-desc="Non-combat study quiz across 20 IT topics, Weak Topic Spotlight, and your Missed Review Queue."><span class="nav-number">02</span><span class="nav-name">Topic Drill</span></button>
-          <button class="nav-button" data-view="tracker" data-bubble-tag="ANALYTICS PAGE" data-bubble-title="Learning Tracker" data-bubble-desc="Inspect your 4-discipline Capability Radar, Baseline vs. Post-Baseline gains, and export a CSV report."><span class="nav-number">03</span><span class="nav-name">Tracker</span></button>
+          <button class="nav-button" data-view="practice" data-bubble-tag="STUDY PAGE" data-bubble-title="Topic Drill" data-bubble-desc="Non-combat study quiz across 35 IT topics, Weak Topic Spotlight, and your Missed Review Queue."><span class="nav-number">02</span><span class="nav-name">Topic Drill</span></button>
+          <button class="nav-button" data-view="tracker" data-bubble-tag="ANALYTICS PAGE" data-bubble-title="Learning Tracker" data-bubble-desc="Inspect your 7-discipline Capability Radar, Baseline vs. Post-Baseline gains, and export a CSV report."><span class="nav-number">03</span><span class="nav-name">Tracker</span></button>
           <button class="nav-button" data-view="leaderboards" data-bubble-tag="RANKINGS PAGE" data-bubble-title="Leaderboards" data-bubble-desc="Compare Arcade Campaign efficiency runs and 1v1 Competitive Elo ratings across players."><span class="nav-number">04</span><span class="nav-name">Leaderboards</span></button>
           <button class="nav-button" data-view="rewards" data-bubble-tag="REWARDS PAGE" data-bubble-title="Achievements" data-bubble-desc="Track unlocked badges across General Campaign, 1v1 Arena duels, and Exclusive Skill Paths."><span class="nav-number">05</span><span class="nav-name">Achievements</span></button>
           <button class="nav-button" data-view="settings" data-bubble-tag="SYSTEM PAGE" data-bubble-title="Settings" data-bubble-desc="Configure Dark/Light theme, Reduced Motion, BGM/SFX volume, keybinds, and player profile or reset."><span class="nav-number">06</span><span class="nav-name">Settings</span></button>
@@ -171,7 +173,7 @@
               <span class="welcome-insight-mark" aria-hidden="true">AD</span>
             </article>
             <article class="welcome-insight controls-insight">
-              <div><span class="welcome-insight-label">CONTROLS</span><strong>A/D · W · ↑ · M · U · 1-4</strong><small>Move, jump, door, map, skills, answer</small></div>
+              <div><span class="welcome-insight-label">CONTROLS</span><strong>A/D · W · ↑ · M · U · O · 1-4</strong><small>Move, jump, door, map, skills, quests, answer</small></div>
               <span class="welcome-insight-mark" aria-hidden="true">KEY</span>
             </article>
           </div>
@@ -206,6 +208,8 @@
                 <button id="fullscreenButton" type="button" aria-label="Toggle full screen" title="Full screen (F)">Fullscreen</button>
                 <div class="play-hud-room"><span id="playRoomTag">ROOM 01</span><strong id="playRoomName">Terminal Bay</strong></div>
                 <button id="worldMapHudButton" class="play-map-badge" type="button" title="Open World Map (M)">MAP · [M]</button>
+                <button id="questsHudButton" class="play-quest-badge" type="button" title="Open Quests (O)">QUESTS · [O]<span class="play-quest-dot" id="questsHudDot" hidden></span></button>
+                <button id="cratesHudButton" class="play-crate-badge" type="button" hidden title="Open Campaign Supply Crates"><span class="play-crate-ico" aria-hidden="true">▣</span><span id="cratesHudText">CRATES · 0</span></button>
                 <button id="skillPointHudBadge" class="play-sp-badge" type="button" hidden title="Open Skill Tree (U)"><span class="play-sp-diamond" aria-hidden="true">◆</span><span id="skillPointHudText">1 SP · [U]</span></button>
                 <button id="hudTourButton" class="play-guide-badge" type="button" aria-label="Replay gameplay tutorial" title="Replay gameplay tutorial">? Guide</button>
                 <span class="play-hud-status" id="playModeStatus">READY</span>
@@ -213,14 +217,16 @@
               <div class="play-status-grid">
                 <section class="play-status-card" aria-label="Player status">
                   <div class="play-status-title"><span id="playPlayerName">KNIGHT</span></div>
-                  <div class="play-meter-label"><span>Health</span><span class="play-meter-reading"><span class="hud-delta-badge" id="playPlayerHpDelta" hidden></span><span id="playPlayerHpText">100 / 100</span></span></div>
-                  <div class="play-meter"><i id="playPlayerHpGhost" aria-hidden="true"></i><i id="playPlayerHpFill"></i></div>
-                  <div class="play-meter-label"><span>Mana</span><span class="play-meter-reading"><span class="hud-delta-badge" id="playPlayerManaDelta" hidden></span><span id="playPlayerManaText">0 / 100</span></span></div>
-                  <div class="play-meter"><i id="playPlayerManaGhost" aria-hidden="true"></i><i id="playPlayerManaFill"></i></div>
+                  <div class="play-shield-row" id="playPlayerShieldRow" hidden><span class="hud-shield-tag"><svg class="pixel-shield-ico" viewBox="0 0 10 12" width="10" height="12" shape-rendering="crispEdges" aria-hidden="true"><rect x="2" y="0" width="6" height="1" fill="#aefaff"/><rect x="1" y="1" width="8" height="2" fill="#3de0ff"/><rect x="0" y="3" width="10" height="4" fill="#21b8e6"/><rect x="1" y="7" width="8" height="2" fill="#1788b5"/><rect x="2" y="9" width="6" height="2" fill="#106288"/><rect x="4" y="11" width="2" height="1" fill="#0b4663"/><rect x="3" y="3" width="4" height="3" fill="#e8ffff"/></svg> Shield</span><div class="shield-pips" id="playPlayerShieldPips" aria-label="Aegis shield charges"></div><span class="shield-count" id="playPlayerShieldText">0 / 0</span></div>
+                  <div class="play-meter-label"><span class="hud-meter-tag is-hp"><span class="hud-meter-ico" aria-hidden="true">♥</span> Health</span><span class="play-meter-reading"><span class="hud-delta-badge" id="playPlayerHpDelta" hidden></span><span id="playPlayerHpText">100 / 100</span></span></div>
+                  <div class="play-meter is-hp-meter"><i id="playPlayerHpGhost" aria-hidden="true"></i><i id="playPlayerHpFill"></i></div>
+                  <div class="play-meter-label"><span class="hud-meter-tag is-mp"><span class="hud-meter-ico" aria-hidden="true">◆</span> Mana</span><span class="play-meter-reading"><span class="hud-delta-badge" id="playPlayerManaDelta" hidden></span><span id="playPlayerManaText">0 / 100</span></span></div>
+                  <div class="play-meter is-mp-meter"><i id="playPlayerManaGhost" aria-hidden="true"></i><i id="playPlayerManaFill"></i></div>
                   <div class="play-combat-meta" id="playPlayerMeta">ATK 12 · DEF 2</div>
                 </section>
                 <section class="play-status-card" id="playEnemyStatusCard" aria-label="Enemy status" hidden>
                   <div class="play-status-title"><span id="playEnemyName">ROOM FOES</span><span id="playEnemyHpText">2 remaining</span></div>
+                  <div class="play-shield-row is-enemy-shield" id="playEnemyShieldRow" hidden><span class="hud-shield-tag"><svg class="pixel-shield-ico" viewBox="0 0 10 12" width="10" height="12" shape-rendering="crispEdges" aria-hidden="true"><rect x="2" y="0" width="6" height="1" fill="#aefaff"/><rect x="1" y="1" width="8" height="2" fill="#3de0ff"/><rect x="0" y="3" width="10" height="4" fill="#21b8e6"/><rect x="1" y="7" width="8" height="2" fill="#1788b5"/><rect x="2" y="9" width="6" height="2" fill="#106288"/><rect x="4" y="11" width="2" height="1" fill="#0b4663"/><rect x="3" y="3" width="4" height="3" fill="#e8ffff"/></svg> Shield</span><div class="shield-pips" id="playEnemyShieldPips" aria-label="Enemy shield charges"></div><span class="shield-count" id="playEnemyShieldText">0 / 0</span></div>
                   <div class="play-meter-label"><span id="playEnemyLabel">Encounter status</span><span class="play-meter-reading"><span class="hud-delta-badge" id="playEnemyHpDelta" hidden></span><span id="playEnemyHpValue">Explore</span></span></div>
                   <div class="play-meter"><i id="playEnemyHpGhost" aria-hidden="true"></i><i id="playEnemyHpFill"></i></div>
                   <div class="play-combat-meta" id="playEnemyMeta">Find a virus to begin combat.</div>
@@ -290,16 +296,17 @@
       <header class="skill-tree-header">
         <div>
           <h1 id="skillTreeTitle">Skill Tree</h1>
-          <p>Build skills in the topics you master.</p>
+          <p id="skillTreeSubtitle">Build skills in the topics you master.</p>
         </div>
         <div class="skill-tree-actions">
+          <button type="button" class="skill-tree-back-button" id="backToMainSkillTree" data-skill-page="main" hidden>← Disciplines</button>
           <button type="button" class="skill-tree-guide-button" id="skillTreeGuideButton" aria-label="Open Skill Tree Guide" title="Open Skill Tree Guide">Guide</button>
           <button type="button" id="closeSkillTree">Close · U</button>
         </div>
       </header>
       <div class="skill-tree-summary" id="skillTreeSummary"></div>
       <div class="skill-tree-grid" id="skillTreeGrid"></div>
-      <footer class="skill-tree-footer" id="skillTreeFooter">Earn 1 point for every 5 correct answers in a topic. Points stay in that topic's skill tree.</footer>
+      <footer class="skill-tree-footer" id="skillTreeFooter">Progressive SP (5 → 8 → 10 correct) · Rank costs 1 / 2 / 3 SP · Max all 7 skills (21/21) in a discipline to unlock the Overclock Tree.</footer>
     </div>
   </section>
   <section class="world-map-overlay" id="worldMapOverlay" hidden aria-hidden="true">
@@ -307,7 +314,7 @@
       <header class="world-map-header">
         <div>
           <h1 id="worldMapTitle">Biome Route Map</h1>
-          <p id="worldMapSubtitle">Drag to pan, scroll to zoom, and click a room to inspect connections.</p>
+          <p id="worldMapSubtitle">Drag to pan, scroll to zoom, and click a room to inspect routes. Travel on foot through connecting room doors.</p>
         </div>
         <div class="world-map-actions">
           <button type="button" class="world-map-guide" id="worldMapGuideButton" aria-label="Open World Map Guide" title="Open World Map Guide">Guide</button>
@@ -331,6 +338,8 @@
       <footer class="world-map-inspector" id="worldMapInspector" aria-live="polite"></footer>
     </div>
   </section>
+  <section class="quest-overlay" id="questOverlay" hidden aria-hidden="true"></section>
+  <section class="supply-crate-overlay" id="supplyCrateOverlay" hidden aria-hidden="true"></section>
   <section class="multiplayer-overlay" id="multiplayerOverlay" hidden aria-hidden="true"></section>
   <div class="run-saves-overlay" id="runSavesOverlay" role="dialog" aria-modal="true" aria-labelledby="runSavesTitle" hidden aria-hidden="true">
     <div class="run-saves-box">
@@ -456,23 +465,24 @@
   ></script>
   <script src="js/utils.js"></script>
   <script src="js/data/collisions.js?v=40"></script>
-  <script src="js/data/questions.js?v=6"></script>
+  <script src="js/data/questions.js?v=8"></script>
   <script src="js/classes/CollisionBlock.js?v=8"></script>
   <script src="js/classes/Sprite.js?v=7"></script>
   <script src="js/classes/Player.js?v=15"></script>
-  <script src="js/classes/Enemy.js?v=15"></script>
-  <script src="js/classes/Boss.js?v=7"></script>
+  <script src="js/classes/Enemy.js?v=16"></script>
+  <script src="js/classes/Boss.js?v=8"></script>
   <script src="js/audio.js?v=15"></script>
-  <script src="js/cards.js?v=10"></script>
+  <script src="js/cards.js?v=12"></script>
   <script src="js/arena.js?v=11"></script>
-  <script src="js/combat.js?v=75"></script>
-  <script src="js/practice.js?v=12"></script>
-  <script src="js/eventListeners.js?v=22"></script>
+  <script src="js/combat.js?v=84"></script>
+  <script src="js/quests.js?v=6"></script>
+  <script src="js/practice.js?v=16"></script>
+  <script src="js/eventListeners.js?v=26"></script>
   <script src="supabase-config.js?v=1"></script>
-  <script src="js/mp-network.js?v=5"></script>
-  <script src="js/mp-matchmaking.js?v=7"></script>
-  <script src="js/mp-ui.js?v=6"></script>
-  <script src="index.js?v=180"></script>
-  <script src="js/tutorials.js?v=15"></script>
+  <script src="js/mp-network.js?v=7"></script>
+  <script src="js/mp-matchmaking.js?v=9"></script>
+  <script src="js/mp-ui.js?v=8"></script>
+  <script src="index.js?v=188"></script>
+  <script src="js/tutorials.js?v=19"></script>
 </body>
 </html>

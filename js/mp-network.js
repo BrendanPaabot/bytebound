@@ -250,6 +250,10 @@
       if (this.beforeUnloadBound) return;
       this.beforeUnloadBound = true;
       const onExit = () => {
+        const room = this.activeRoomSnapshot;
+        if (room && room.code && room.host?.clientId === this.clientId) {
+          this.deleteDbRoom(room.code, { keepalive: true });
+        }
         if (this.localServerAvailable && navigator.sendBeacon) {
           try {
             const payload = JSON.stringify({
@@ -575,6 +579,9 @@
                 payload: payload.invite,
               });
             }
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'multiplayer_rooms' }, (pgPayload) => {
+            this.handleDbRoomRealtimeEvent(pgPayload);
           });
 
         this.sbLobbyChannel = channel;
@@ -782,18 +789,20 @@
     }
 
     // Optional SQL persistence in public.multiplayer_rooms (fails gracefully if schema not yet applied)
-    async sbRestRoom(method, query = '', body = null) {
+    async sbRestRoom(method, query = '', body = null, { keepalive = false, prefer = 'resolution=merge-duplicates,return=representation' } = {}) {
       const cfg = getConfig();
       if (!cfg || !this.sbRoomsTableAvailable) return null;
       try {
+        const headers = {
+          apikey: cfg.anonKey,
+          ...(cfg.anonKey.split('.').length === 3 ? { Authorization: `Bearer ${cfg.anonKey}` } : {}),
+          'Content-Type': 'application/json',
+        };
+        if (prefer) headers.Prefer = prefer;
         const res = await fetch(`${cfg.url}/rest/v1/multiplayer_rooms${query}`, {
           method,
-          headers: {
-            apikey: cfg.anonKey,
-            ...(cfg.anonKey.split('.').length === 3 ? { Authorization: `Bearer ${cfg.anonKey}` } : {}),
-            'Content-Type': 'application/json',
-            Prefer: 'resolution=merge-duplicates,return=representation',
-          },
+          keepalive: Boolean(keepalive),
+          headers,
           body: body ? JSON.stringify(body) : undefined,
         });
         if (res.status === 404 || res.status === 400) {
@@ -810,6 +819,156 @@
       } catch {
         return null;
       }
+    }
+
+    async sbRpc(fnName, body = {}) {
+      const cfg = getConfig();
+      if (!cfg || !this.sbRoomsTableAvailable) return null;
+      try {
+        const res = await fetch(`${cfg.url}/rest/v1/rpc/${fnName}`, {
+          method: 'POST',
+          headers: {
+            apikey: cfg.anonKey,
+            ...(cfg.anonKey.split('.').length === 3 ? { Authorization: `Bearer ${cfg.anonKey}` } : {}),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) return null;
+        const text = await res.text();
+        return text ? JSON.parse(text) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    mapDbRowToPublicRoom(row) {
+      if (!row || !row.code) return null;
+      return {
+        code: String(row.code).toUpperCase(),
+        hostClientId: row.host_client_id,
+        hostName: row.host_name,
+        hostAvatar: row.host_avatar || 'gold',
+        hostTitleId: row.room_state?.host?.titleId || '',
+        arenaId: row.settings?.arenaId || 'arena',
+        arenaName: row.settings?.arenaName || 'Cyber Arena',
+        category: row.settings?.category || 'ALL',
+        yearLevel: row.settings?.yearLevel || 4,
+        status: 'waiting',
+        playerCount: 1,
+        maxPlayers: 2,
+        createdAt: Date.parse(row.created_at || '') || Date.now(),
+        source: 'db',
+      };
+    }
+
+    handleDbRoomRealtimeEvent(pgPayload) {
+      if (!pgPayload) return;
+      const evType = String(pgPayload.eventType || pgPayload.type || '').toUpperCase();
+      const rawRow = evType === 'DELETE' ? (pgPayload.old || pgPayload.record) : (pgPayload.new || pgPayload.record);
+      const code = String(rawRow?.code || pgPayload.old?.code || '').trim().toUpperCase();
+      if (!code) return;
+
+      if (evType === 'DELETE' || rawRow?.status === 'closed') {
+        this.supabasePublicRooms.delete(code);
+        if (this.activeRoomSnapshot?.code === code && this.activeRoomSnapshot.host?.clientId !== this.clientId) {
+          this.closedCodes.add(code);
+          this.emit('net_event', {
+            source: 'supabase',
+            type: 'room_closed',
+            roomCode: code,
+            payload: { code, reason: 'Room closed or ended.' },
+          });
+        }
+        this.emitMergedState();
+        return;
+      }
+
+      if (rawRow.visibility === 'public' && rawRow.status === 'waiting' && !rawRow.guest_client_id) {
+        this.closedCodes.delete(code);
+        const mapped = this.mapDbRowToPublicRoom(rawRow);
+        if (mapped) this.supabasePublicRooms.set(code, mapped);
+      } else {
+        this.supabasePublicRooms.delete(code);
+      }
+      this.emitMergedState();
+    }
+
+    async upsertDbRoom(room) {
+      if (!room || !room.code) return null;
+      const code = String(room.code).toUpperCase();
+      return await this.sbRestRoom('POST', '', {
+        code,
+        visibility: room.visibility === 'private' ? 'private' : 'public',
+        status: room.status || 'waiting',
+        host_client_id: room.host?.clientId || this.clientId,
+        host_name: room.host?.username || this.localProfile.username || 'Host',
+        host_avatar: room.host?.avatar || this.localProfile.avatar || 'gold',
+        guest_client_id: room.guest?.clientId || null,
+        guest_name: room.guest?.username || null,
+        guest_avatar: room.guest?.avatar || null,
+        settings: {
+          arenaId: room.arenaId,
+          arenaName: room.arenaName,
+          category: room.category,
+          yearLevel: room.yearLevel || 4,
+        },
+        room_state: room,
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    async patchDbRoom(room) {
+      if (!room || !room.code) return null;
+      const code = String(room.code).toUpperCase();
+      if (this.closedCodes.has(code)) return null;
+      return await this.sbRestRoom('PATCH', `?code=eq.${encodeURIComponent(code)}`, {
+        status: room.status || 'waiting',
+        guest_client_id: room.guest?.clientId || null,
+        guest_name: room.guest?.username || null,
+        guest_avatar: room.guest?.avatar || null,
+        settings: {
+          arenaId: room.arenaId,
+          arenaName: room.arenaName,
+          category: room.category,
+          yearLevel: room.yearLevel || 4,
+        },
+        room_state: room,
+        updated_at: new Date().toISOString(),
+      }, { prefer: 'return=representation' });
+    }
+
+    async deleteDbRoom(code, { keepalive = false } = {}) {
+      const normCode = String(code || '').trim().toUpperCase();
+      if (!normCode) return null;
+      this.supabasePublicRooms.delete(normCode);
+      return await this.sbRestRoom('DELETE', `?code=eq.${encodeURIComponent(normCode)}`, null, {
+        keepalive,
+        prefer: 'return=minimal',
+      });
+    }
+
+    async touchDbRoom(code) {
+      const normCode = String(code || '').trim().toUpperCase();
+      if (!normCode || this.closedCodes.has(normCode)) return null;
+      const rpcRes = await this.sbRpc('mp_heartbeat_room', {
+        p_code: normCode,
+        p_host_client_id: this.clientId,
+      });
+      if (rpcRes && typeof rpcRes === 'object') return rpcRes;
+      return await this.sbRestRoom('PATCH', `?code=eq.${encodeURIComponent(normCode)}&host_client_id=eq.${encodeURIComponent(this.clientId)}`, {
+        updated_at: new Date().toISOString(),
+      }, { prefer: 'return=minimal' });
+    }
+
+    async pruneStaleDbRooms() {
+      const rpcRes = await this.sbRpc('mp_prune_stale_rooms', { p_ttl_seconds: 60 });
+      if (rpcRes && typeof rpcRes === 'object') return rpcRes;
+      const staleIso = new Date(Date.now() - 65 * 1000).toISOString();
+      await this.sbRestRoom('DELETE', `?or=(status.eq.closed,updated_at.lt.${encodeURIComponent(staleIso)})`, null, {
+        prefer: 'return=minimal',
+      });
+      return { ok: true };
     }
 
     buildPresencePayload() {
@@ -838,6 +997,7 @@
         clientId: this.clientId,
         username: this.localProfile.username,
         avatar: this.localProfile.avatar,
+        titleId: this.localProfile.titleId || '',
         status: this.localProfile.status,
         roomCode: this.localProfile.roomCode || null,
         hostingPublicRoom: hostingPublic,
@@ -901,6 +1061,9 @@
         this.sbTickCount = (this.sbTickCount || 0) + 1;
         if (this.sbLobbyChannel && this.sbConnected && this.sbTickCount % 5 === 0) {
           try { this.sbLobbyChannel.track(payload); } catch {}
+        }
+        if (this.activeRoomSnapshot?.code && this.activeRoomSnapshot.host?.clientId === this.clientId && this.sbTickCount % 7 === 0) {
+          this.touchDbRoom(this.activeRoomSnapshot.code).catch(() => {});
         }
       }, 2200);
     }
@@ -974,33 +1137,27 @@
     }
 
     async refresh() {
-      const dbPromise = this.sbRestRoom('GET', '?visibility=eq.public&status=eq.waiting&order=created_at.desc&limit=20')
-        .then((rows) => {
-          if (Array.isArray(rows)) {
-            const cutoff = Date.now() - 30 * 60 * 1000;
-            for (const row of rows) {
-              const updated = Date.parse(row.updated_at || row.created_at || '') || 0;
-              if (updated < cutoff || row.guest_client_id) continue;
-              if (!this.supabasePublicRooms.has(row.code)) {
-                this.supabasePublicRooms.set(row.code, {
-                  code: row.code,
-                  hostClientId: row.host_client_id,
-                  hostName: row.host_name,
-                  hostAvatar: row.host_avatar || 'gold',
-                  arenaId: row.settings?.arenaId || 'arena',
-                  arenaName: row.settings?.arenaName || 'Cyber Arena',
-                  category: row.settings?.category || 'ALL',
-                  yearLevel: row.settings?.yearLevel || 4,
-                  status: 'waiting',
-                  playerCount: 1,
-                  maxPlayers: 2,
-                  createdAt: Date.parse(row.created_at || '') || Date.now(),
-                });
-              }
-            }
+      const dbPromise = (async () => {
+        await this.pruneStaleDbRooms();
+        const rows = await this.sbRestRoom('GET', '?visibility=eq.public&status=eq.waiting&order=updated_at.desc&limit=20', null, { prefer: null });
+        if (!Array.isArray(rows)) return;
+        const cutoff = Date.now() - 65 * 1000;
+        const freshCodes = new Set();
+        for (const row of rows) {
+          const code = String(row?.code || '').toUpperCase();
+          if (!code || this.closedCodes.has(code)) continue;
+          const updated = Date.parse(row.updated_at || row.created_at || '') || 0;
+          if (updated < cutoff || row.guest_client_id || row.status !== 'waiting') continue;
+          freshCodes.add(code);
+          const mapped = this.mapDbRowToPublicRoom(row);
+          if (mapped) this.supabasePublicRooms.set(code, mapped);
+        }
+        for (const [code, room] of this.supabasePublicRooms.entries()) {
+          if (room?.source === 'db' && !freshCodes.has(code)) {
+            this.supabasePublicRooms.delete(code);
           }
-        })
-        .catch(() => {});
+        }
+      })().catch(() => {});
 
       if (this.localServerAvailable) {
         try {
@@ -1033,40 +1190,31 @@
         if (res && !res.ok) return res;
       }
 
+      const dbPromise = (getConfig() && this.sbRoomsTableAvailable)
+        ? this.upsertDbRoom(room)
+        : Promise.resolve(null);
+
       if (this.sbClient) {
-        const sbSync = (async () => {
-          await this.joinSupabaseRoomChannel(room.code, true);
-          if (room.visibility === 'public') {
-            await this.sendSupabaseLobbyBroadcast('public_room_upsert', room.code, {
-              code: room.code,
-              hostClientId: room.host.clientId,
-              hostName: room.host.username,
-              hostAvatar: room.host.avatar,
-              arenaId: room.arenaId,
-              arenaName: room.arenaName,
-              category: room.category,
-              yearLevel: room.yearLevel || 4,
-              status: 'waiting',
-              playerCount: 1,
-              maxPlayers: 2,
-              createdAt: room.createdAt,
-            });
-          }
-          this.sbRestRoom('POST', '', {
+        await this.joinSupabaseRoomChannel(room.code, true);
+        if (room.visibility === 'public') {
+          await this.sendSupabaseLobbyBroadcast('public_room_upsert', room.code, {
             code: room.code,
-            visibility: room.visibility,
+            hostClientId: room.host.clientId,
+            hostName: room.host.username,
+            hostAvatar: room.host.avatar,
+            arenaId: room.arenaId,
+            arenaName: room.arenaName,
+            category: room.category,
+            yearLevel: room.yearLevel || 4,
             status: 'waiting',
-            host_client_id: room.host.clientId,
-            host_name: room.host.username,
-            host_avatar: room.host.avatar,
-            settings: { arenaId: room.arenaId, arenaName: room.arenaName, category: room.category, yearLevel: room.yearLevel || 4 },
-            room_state: room,
-            updated_at: new Date().toISOString(),
+            playerCount: 1,
+            maxPlayers: 2,
+            createdAt: room.createdAt,
           });
-        })();
-        if (!this.localServerAvailable) {
-          await sbSync;
         }
+      }
+      if (!this.localServerAvailable) {
+        await dbPromise;
       }
 
       if (this.localServerAvailable) {
@@ -1107,15 +1255,9 @@
             await this.sendSupabaseLobbyBroadcast('public_room_remove', room.code);
           }
         }
-        this.sbRestRoom('PATCH', `?code=eq.${encodeURIComponent(room.code)}`, {
-          status: room.status,
-          guest_client_id: room.guest?.clientId || null,
-          guest_name: room.guest?.username || null,
-          guest_avatar: room.guest?.avatar || null,
-          settings: { arenaId: room.arenaId, arenaName: room.arenaName, category: room.category, yearLevel: room.yearLevel || 4 },
-          room_state: room,
-          updated_at: new Date().toISOString(),
-        });
+      }
+      if (getConfig() && this.sbRoomsTableAvailable) {
+        await this.patchDbRoom(room);
       }
     }
 
@@ -1132,6 +1274,9 @@
         if (res && res.ok) {
           this.activeRoomSnapshot = res.room;
           if (this.sbClient) await this.joinSupabaseRoomChannel(code, false);
+          if (getConfig() && this.sbRoomsTableAvailable) {
+            await this.patchDbRoom(res.room);
+          }
           await this.updatePresence({ status: 'In Lobby', roomCode: code });
           return { ok: true, room: res.room };
         }
@@ -1147,12 +1292,15 @@
 
       // 2. Try Supabase Realtime room channel + BroadcastChannel handshake
       let dbRoom = null;
-      if (this.sbConnected || !localNotFound || this.sbClient) {
-        const rows = await this.sbRestRoom('GET', `?code=eq.${encodeURIComponent(code)}&limit=1`);
+      if (this.sbConnected || !localNotFound || this.sbClient || getConfig()) {
+        const rows = await this.sbRestRoom('GET', `?code=eq.${encodeURIComponent(code)}&limit=1`, null, { prefer: null });
         if (Array.isArray(rows) && rows.length > 0) {
           dbRoom = rows[0];
-          if (dbRoom.status === 'closed') {
+          const updatedMs = Date.parse(dbRoom.updated_at || dbRoom.created_at || '') || 0;
+          if (dbRoom.status === 'closed' || (updatedMs && Date.now() - updatedMs > 65 * 1000)) {
             this.closedCodes.add(code);
+            await this.deleteDbRoom(code);
+            this.emitMergedState();
             return { ok: false, code: 'ROOM_CLOSED', error: 'This room has expired or been closed by the host.' };
           }
           if (dbRoom.status === 'in_match') {
@@ -1169,6 +1317,11 @@
         this.activeRoomSnapshot = handshake.room;
         await this.updatePresence({ status: 'In Lobby', roomCode: code });
       } else {
+        if (handshake.code === 'HOST_DISCONNECTED' && dbRoom) {
+          this.closedCodes.add(code);
+          await this.deleteDbRoom(code);
+          this.emitMergedState();
+        }
         await this.leaveSupabaseRoomChannel();
       }
       return handshake;
@@ -1334,15 +1487,16 @@
     }
 
     async closeRoom(code, reason = 'Host closed the room.') {
+      const normCode = String(code || '').trim().toUpperCase();
       this.activeRoomSnapshot = null;
-      this.closedCodes.add(String(code || '').toUpperCase());
+      if (normCode) this.closedCodes.add(normCode);
       if (this.localServerAvailable) {
-        await this.postLocalEvent('leave_room', code, { reason });
+        await this.postLocalEvent('leave_room', normCode, { reason });
       }
-      this.postBroadcast('room_closed', code, { code, reason });
-      await this.sendSupabaseRoomBroadcast('room_closed', code, { code, reason });
-      await this.sendSupabaseLobbyBroadcast('room_closed', code);
-      this.sbRestRoom('DELETE', `?code=eq.${encodeURIComponent(code)}`);
+      this.postBroadcast('room_closed', normCode, { code: normCode, reason });
+      await this.sendSupabaseRoomBroadcast('room_closed', normCode, { code: normCode, reason });
+      await this.sendSupabaseLobbyBroadcast('room_closed', normCode);
+      await this.deleteDbRoom(normCode);
       await this.leaveSupabaseRoomChannel();
       await this.updatePresence({ status: 'Available', roomCode: null });
     }
@@ -1355,39 +1509,47 @@
         if (res && !res.ok) return res;
       }
       this.postBroadcast('match_start', code, { room, matchConfig });
-      const sbStart = (async () => {
+      if (this.sbClient) {
         await this.sendSupabaseRoomBroadcast('match_start', code, { room, matchConfig });
         await this.sendSupabaseLobbyBroadcast('public_room_remove', code);
+      }
+      if (this.localServerAvailable) {
+        this.updatePresence({ status: 'In Match', roomCode: code });
+      } else {
         await this.updatePresence({ status: 'In Match', roomCode: code });
-        this.sbRestRoom('PATCH', `?code=eq.${encodeURIComponent(code)}`, {
-          status: 'in_match',
-          room_state: room,
-          updated_at: new Date().toISOString(),
-        });
-      })();
-      if (!this.localServerAvailable) {
-        await sbStart;
+      }
+      if (getConfig() && this.sbRoomsTableAvailable) {
+        await this.patchDbRoom(room);
       }
       return { ok: true };
     }
 
     async sendMatchMove(code, movePayload) {
+      const normCode = String(code || '').trim().toUpperCase();
       if (this.localServerAvailable) {
-        await this.postLocalEvent('match_move', code, movePayload);
+        await this.postLocalEvent('match_move', normCode, movePayload);
       }
-      this.postBroadcast('match_move', code, movePayload);
-      await this.sendSupabaseRoomBroadcast('match_move', code, movePayload);
+      this.postBroadcast('match_move', normCode, movePayload);
+      await this.sendSupabaseRoomBroadcast('match_move', normCode, movePayload);
 
-      // Persist committed turn moves in Supabase public.multiplayer_rooms.room_state as a reliable fallback.
-      if (this.sbClient && this.sbRoomsTableAvailable && code && movePayload && !movePayload.kind && Number.isFinite(Number(movePayload.round))) {
+      // Persist committed turn moves in Supabase public.multiplayer_rooms.room_state only while the match is active.
+      const isLiveMatch = Boolean(
+        normCode &&
+        !this.closedCodes.has(normCode) &&
+        this.activeRoomSnapshot &&
+        this.activeRoomSnapshot.code === normCode &&
+        this.activeRoomSnapshot.status === 'in_match'
+      );
+      if (isLiveMatch && getConfig() && this.sbRoomsTableAvailable && movePayload && !movePayload.kind && Number.isFinite(Number(movePayload.round))) {
         try {
-          const rows = await this.sbRestRoom('GET', `?code=eq.${encodeURIComponent(code)}&select=room_state&limit=1`);
-          const baseState = (Array.isArray(rows) && rows[0]?.room_state && typeof rows[0].room_state === 'object')
-            ? rows[0].room_state
-            : (this.activeRoomSnapshot && typeof this.activeRoomSnapshot === 'object' ? { ...this.activeRoomSnapshot } : null);
-          if (baseState) {
+          const rows = await this.sbRestRoom('GET', `?code=eq.${encodeURIComponent(normCode)}&select=room_state,status&limit=1`, null, { prefer: null });
+          const row = Array.isArray(rows) ? rows[0] : null;
+          const baseState = (row?.room_state && typeof row.room_state === 'object' && row.status === 'in_match')
+            ? row.room_state
+            : { ...this.activeRoomSnapshot };
+          if (baseState && !this.closedCodes.has(normCode) && this.activeRoomSnapshot?.status === 'in_match') {
             const prevMoves = (baseState.matchMoves && typeof baseState.matchMoves === 'object') ? baseState.matchMoves : {};
-            const key = `${movePayload.matchId || code}:${movePayload.round}`;
+            const key = `${movePayload.matchId || normCode}:${movePayload.round}`;
             const nextState = {
               ...baseState,
               matchMoves: {
@@ -1395,10 +1557,10 @@
                 [key]: movePayload,
               },
             };
-            this.sbRestRoom('PATCH', `?code=eq.${encodeURIComponent(code)}`, {
+            await this.sbRestRoom('PATCH', `?code=eq.${encodeURIComponent(normCode)}&status=eq.in_match`, {
               room_state: nextState,
               updated_at: new Date().toISOString(),
-            });
+            }, { prefer: 'return=minimal' });
           }
         } catch {}
       }

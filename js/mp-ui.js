@@ -183,14 +183,17 @@
         }
       })();
       this.selectedAvatar = storedAvatar ? resolveAvatarKey(storedAvatar) : avatarKeyForName(username);
+      const equippedTitleId = global.ByteboundQuests?.getEquippedTitleId?.() || '';
       if (this.network?.localProfile) {
         this.network.localProfile.username = username || 'Knight';
         this.network.localProfile.avatar = this.selectedAvatar;
+        this.network.localProfile.titleId = equippedTitleId;
       }
       if (!autoConnect) return Promise.resolve(false);
       return this.matchmaking.initPlayer({
         username: username || 'Knight',
         avatar: this.selectedAvatar,
+        titleId: equippedTitleId,
       });
     }
 
@@ -487,7 +490,7 @@
             <div class="mp-room-host">
               ${renderPixelAvatar(r.hostAvatar, 38)}
               <div>
-                <strong>${escHtml(r.hostName)}'s Room</strong>
+                <strong>${escHtml(r.hostName)}'s Room ${global.ByteboundQuests?.renderTitleBadgeHtml?.(r.hostTitleId || global.ByteboundQuests?.getPlayerTitle?.(r.hostName), { compact: true }) || ''}</strong>
                 <small>${escHtml(r.arenaName)} · ${escHtml(r.category === 'ALL' ? 'All Disciplines' : r.category)} · ${escHtml(formatYearShort(r.yearLevel))} · Code ${escHtml(r.code)}</small>
               </div>
             </div>
@@ -514,7 +517,7 @@
                 <div class="mp-player-id">
                   ${renderPixelAvatar(p.avatar, 32)}
                   <div>
-                    <strong>${escHtml(p.username)}${p.isSelf ? ' <small>(YOU)</small>' : ''}</strong>
+                    <strong>${escHtml(p.username)} ${global.ByteboundQuests?.renderTitleBadgeHtml?.(p.titleId || global.ByteboundQuests?.getPlayerTitle?.(p.username), { compact: true }) || ''}${p.isSelf ? ' <small>(YOU)</small>' : ''}</strong>
                     <small>${p.roomCode ? `Room ${escHtml(p.roomCode)}` : 'Lobby Browser'}</small>
                   </div>
                 </div>
@@ -626,7 +629,7 @@
             <div class="mp-room-host">
               ${renderPixelAvatar(r.hostAvatar, 36)}
               <div>
-                <strong>${escHtml(r.hostName)}</strong>
+                <strong>${escHtml(r.hostName)} ${global.ByteboundQuests?.renderTitleBadgeHtml?.(r.hostTitleId || global.ByteboundQuests?.getPlayerTitle?.(r.hostName), { compact: true }) || ''}</strong>
                 <small>${escHtml(r.arenaName)} · ${escHtml(r.category === 'ALL' ? 'All' : r.category)} · ${escHtml(formatYearShort(r.yearLevel))}</small>
               </div>
             </div>
@@ -706,6 +709,7 @@
             <span class="mp-slot-role">${escHtml(slotTitle)}${isYou ? ' · YOU' : ''}</span>
             <div class="mp-slot-avatar">${renderPixelAvatar(slot.avatar, 64)}</div>
             <strong class="mp-slot-name">${escHtml(slot.username)}</strong>
+            ${global.ByteboundQuests?.renderTitleBadgeHtml?.(slot.titleId || (isYou ? global.ByteboundQuests?.getEquippedTitleId?.() : global.ByteboundQuests?.getPlayerTitle?.(slot.username)), { compact: true }) || ''}
             <small class="mp-slot-conn ${slot.connected ? 'is-up' : 'is-down'}">${slot.connected ? 'CONNECTED' : 'DISCONNECTED'}</small>
             <span class="mp-ready-pill ${slot.ready ? 'is-ready' : 'is-not-ready'}">${slot.ready ? 'READY' : 'NOT READY'}</span>
           </article>

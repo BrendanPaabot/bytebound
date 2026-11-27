@@ -1,33 +1,34 @@
 {
-  "lastUpdated": "2026-11-27 16:52:33",
+  "lastUpdated": "2026-11-28 02:06:08",
   "fileHashes": {
-    "CHANGES.md": "7c9712b7b78f08b3027b8201362bf5ccdec3ba2f0e19fb822edbbec2ca37dfae",
-    "SUPABASE_SETUP.md": "25a0aec13efce6c04dbb93941741a7321e934dae05ce0617a566ae83addbdc4b",
-    "admin.html": "969bb7e013775a164921f64046e02d8693cd2f3269906f5ee03d8972f3ae29e0",
+    "CHANGES.md": "839a6b240ecdb59f1813bc5ea9d6c238e208984df5a93f6946be5d3716a9d372",
+    "SUPABASE_SETUP.md": "2aaaa9eda6eef55eb5c1c2368c335f1792a6972bfbe799d85f148c5d25ba09dd",
+    "admin.html": "b86b6b721c8a4bd4bac4ad30f01a3de913aeccc97dee6ed9e9c72e0a545a2e5a",
     "css/admin.css": "e90af5d80a8a673fb93e520f76190bffbfd6ac6cb76e3f087c75280e886163b9",
-    "css/styles.css": "e6ccb82d3e278febff47e3e91af7d39f4c7f74ec9661d453fd86912265a63f79",
-    "data/questions.json": "82e7eb5f183ffcf4e57d61756fab7dead7fc84bb6a0d3de0b4df4ea991fec9a1",
-    "index.html": "5e1deda26acabf460d9a8aefb826c05ba202ceacae20c70e431817e3899b966b",
-    "index.js": "3145668a33dbb2bdc6a3f5a6cbc8dcc768dc785daf792242967dd3dbe4ca6d58",
-    "js/admin.js": "6794de5220ed929be1a9c76d496b6a912e3e7e08e8bde541cbc68097f5a6c9dd",
+    "css/styles.css": "44eaae52c405daecc3d4aaf05c5ade81d50eb26e35058f8265d087589e3e8e89",
+    "data/questions.json": "97c768b0cb1970c3f82f1b3dc414afac1079fe1db1e134d3b808fbeef3a03c98",
+    "index.html": "3d67cafefe85ab791701839b01128298056199288024e24a5d6f60447c08b77b",
+    "index.js": "df2566f25e72021d2afc4ba738d1e8939378a84810b30b2e608367753393b7dc",
+    "js/admin.js": "51be80c360aafa758544b8fa2f9dbde481e2368d2239b5fd52487f759ccd237b",
     "js/arena.js": "d3a6cbd16e65ab62f672be2efd2101ead7b406ebbc548be1cb5218e5c37b80ed",
     "js/audio.js": "97347de761983a5b70d5cbaededd703f0a0cd5a867cd659a9e6d1ee2367ced41",
-    "js/cards.js": "43fb4d5f1e9263e68b1b0db2866646ca30aadd43b61fce211da057b5bf785537",
-    "js/classes/Boss.js": "28fb9faf63b98b37939cb6a9bf0297885f9db05cc18013d1cb98c0a021239ac8",
+    "js/cards.js": "c0f57486732bdbf011ff28b8c583c952b2ad12f032b183b585944b1c3dcd07c7",
+    "js/classes/Boss.js": "8155282de00b691c0518637596683744962e25c3c8863af32d12d3c1ed488c4e",
     "js/classes/CollisionBlock.js": "e21d4788c4eb2dc19c271d65d9954a300cdd399642e8ad43ddbe4d707f4fae1c",
-    "js/classes/Enemy.js": "90601fb7ce11cdc55522c8c1a5a5dad161f07468a80f739fe217c4783410080c",
+    "js/classes/Enemy.js": "71b07e7faf3fbffa940d3274d46caceac0eb655428086592b9f25a42085b0896",
     "js/classes/Player.js": "e7ba19b4f81b926d43d516434147f0b561c3463ce27e21896cf0ab703b6aa03e",
     "js/classes/Sprite.js": "c69edeed222ced4fd9de897b3c94cfc5390c5bd923c962a435d9cf9ffa0ffbaf",
-    "js/combat.js": "e1b56babb0339ef6c3fdd9a2c69fb939ddb69a7a9e4c7da5e3bbd55dfdc7cde7",
+    "js/combat.js": "6b0f52d3de5a33aeda0e65dccf4bf5dcae845b8c38781240f356392bd09eba25",
     "js/data/collisions.js": "e0c402744fb54110ab639f69c8154e9d865b6f9207815e00570d59d9b454c9e5",
-    "js/data/questions.js": "0a43edb05d9f37100b981fb0d7cf0aa0008b1613d5f3dcd258001b2962b0c251",
-    "js/eventListeners.js": "d2f3505d07371bd6720f310e55da09d231192a19a3d22a4a945451982a0e1d93",
+    "js/data/questions.js": "ab7515a21ae5b9021509cd2ac22e9c20ba3572d15baba0893cd661d3188effd6",
+    "js/eventListeners.js": "6592f46bcccbd79b0be0cc26fae962dcb6b58a668b04fda7237578f2d67b52e3",
     "js/font.js": "47033d7606f99faa816ffb1ca38881aba9c179e29edab007b63728b260f3f74b",
-    "js/mp-matchmaking.js": "de48bc22c85cc7d96ea7cc9d3b9eda2e855deeb9c631d11e9168a7a4274471cf",
-    "js/mp-network.js": "866562ebf86f903ccbee63e2fbcc825861951e7a2de83e9dc7603e501d733d88",
-    "js/mp-ui.js": "5974ca046ae11ebc6418af34d2ee45274da7ac01dedb82186d8fcea6120a98a2",
-    "js/practice.js": "ab1dc14f61b68c37f3efd738ea1181e1899f9cc5274bd4d61ebaa839658017a0",
-    "js/tutorials.js": "76ef44417dc49b2da644076a2a8431a10b3c37e91958ffa9c639bd2bfb91ee46",
+    "js/mp-matchmaking.js": "8ee3c0b520d9ac9a56b1d0d62c27eacfd6f4d66b2234c6293e16a4be779c54e5",
+    "js/mp-network.js": "6a23b32be434fa94a4f030b99c6e92aafceec59976af475551912254d1b6bef8",
+    "js/mp-ui.js": "e4f7e77abef2a3a7a0ac667594730d3ac7797f3f4b2299513dc1d5b0ab1265ab",
+    "js/practice.js": "0761574c85a9449e7002543858b08d4891ee9e15298425e856f0bf5bd2fb7e5c",
+    "js/quests.js": "8303f7b1d00e252f3c4401cb49845aed9b3dffab38a1f24475b2d79f7b025dae",
+    "js/tutorials.js": "718b0214af12b1a16a1200d48f9df6abdbd9ecb8ce0e683a844a879cc460f055",
     "js/utils.js": "d3629dc694f5ae55429e4846c31b8e69624dcc021ac8e7c57421022b3d38b9b1",
     "scripts/build-questions.js": "ffc4720d7a653d2f8bc59c54b43001add6bdf04f5b47388d2d536b2f31aafbe0",
     "serve-local.cmd": "4ea3fe4f34d799613213af36c2aa59f5a4b85e606dfd864e30bfbf954c14a684",
@@ -37,6 +38,7 @@
     "supabase/migration-admin-console.sql": "f17df8c17e71408e5bc864f9ad017d2315c550b5fcc40db8c73592f06e166a30",
     "supabase/migration-cleanup-users-and-sss-pin.sql": "78d74100746595c2211958586b83b4628f3a6fd078fe5e434381a117579444e9",
     "supabase/migration-leaderboard-run-checks.sql": "628d7b88b96414f7bcf30c4143a126664ca7d401a8965762cc68d7e633f742c8",
+    "supabase/migration-multiplayer-rooms-realtime.sql": "7be14928e3739ad3ce73319df18bf1bf3eb20d4ad57294b31bdc615cbaa6cc35",
     "supabase/migration-password-auth.sql": "174e8c035a601afdb0b461bf65fc8dfb9133a58f808607f22214d884b8716701",
     "supabase/migration-profile-pin.sql": "dc035d329d089641d52402bf508525ad81440dbbb7571f117de2100671177a63",
     "supabase/migration-rate-limiting.sql": "5cae59375e1a61a031708da3e1ebdf275d6782a64c591e5fbc6b72791f4015ab",
@@ -46,304 +48,304 @@
   },
   "revisionHistory": [
     {
-      "timestamp": "2026-11-27 16:25:10",
+      "timestamp": "2026-11-28 01:39:49",
       "trigger": "manual",
       "areas": "Documentation Sync",
-      "summary": "Fixed low-MP soft-lock with smart hand draw + universal Remedial Surge, rebalanced cards/counters, and scaled combat rewards & enemies with adaptive question difficulty"
+      "summary": "Base Blood Hint cost on Max HP and require strictly more HP than cost"
     },
     {
-      "timestamp": "2026-11-27 16:24:32",
-      "trigger": "agent-edit",
-      "areas": "Documentation/Config (`CHANGES.md`)",
-      "summary": "Auto-synced after agent update to `CHANGES.md`."
-    },
-    {
-      "timestamp": "2026-11-27 16:24:26",
-      "trigger": "agent-edit",
-      "areas": "UI Shell & Styling (`css/styles.css`)",
-      "summary": "Auto-synced after agent update to `css/styles.css`."
-    },
-    {
-      "timestamp": "2026-11-27 16:24:20",
+      "timestamp": "2026-11-28 01:39:35",
       "trigger": "agent-edit",
       "areas": "Combat & Exclusive Skills (`js/combat.js`)",
       "summary": "Auto-synced after agent update to `js/combat.js`."
     },
     {
-      "timestamp": "2026-11-27 16:23:52",
+      "timestamp": "2026-11-28 01:39:17",
       "trigger": "agent-edit",
       "areas": "UI Shell & Styling (`index.html`)",
       "summary": "Auto-synced after agent update to `index.html`."
     },
     {
-      "timestamp": "2026-11-27 16:23:49",
-      "trigger": "agent-edit",
-      "areas": "Documentation Sync",
-      "summary": "Auto-synced after agent update to `css/styles.css`."
-    },
-    {
-      "timestamp": "2026-11-27 16:23:46",
-      "trigger": "agent-edit",
-      "areas": "UI Shell & Styling (`css/styles.css`)",
-      "summary": "Auto-synced after agent update to `css/styles.css`."
-    },
-    {
-      "timestamp": "2026-11-27 16:22:25",
+      "timestamp": "2026-11-28 01:39:14",
       "trigger": "agent-edit",
       "areas": "Combat & Exclusive Skills (`js/combat.js`)",
       "summary": "Auto-synced after agent update to `js/combat.js`."
     },
     {
-      "timestamp": "2026-11-27 16:21:42",
+      "timestamp": "2026-11-28 01:38:50",
       "trigger": "agent-edit",
-      "areas": "Documentation/Config (`js/eventListeners.js`)",
-      "summary": "Auto-synced after agent update to `js/eventListeners.js`."
+      "areas": "UI Shell & Styling (`index.html`)",
+      "summary": "Auto-synced after agent update to `index.html`."
     },
     {
-      "timestamp": "2026-11-27 16:21:35",
+      "timestamp": "2026-11-28 01:38:45",
+      "trigger": "agent-edit",
+      "areas": "Guided Tutorials (`js/tutorials.js`)",
+      "summary": "Auto-synced after agent update to `js/tutorials.js`."
+    },
+    {
+      "timestamp": "2026-11-28 01:38:38",
+      "trigger": "agent-edit",
+      "areas": "Combat & Exclusive Skills (`js/combat.js`)",
+      "summary": "Auto-synced after agent update to `js/combat.js`."
+    },
+    {
+      "timestamp": "2026-11-28 01:29:30",
+      "trigger": "manual",
+      "areas": "Documentation Sync",
+      "summary": "Move Overclock Mastery into dedicated Overclock Skill Tree page unlocked via maxed-route portal button"
+    },
+    {
+      "timestamp": "2026-11-28 01:29:15",
+      "trigger": "agent-edit",
+      "areas": "Documentation/Config (`CHANGES.md`)",
+      "summary": "Auto-synced after agent update to `CHANGES.md`."
+    },
+    {
+      "timestamp": "2026-11-28 01:28:14",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`css/styles.css`)",
+      "summary": "Auto-synced after agent update to `css/styles.css`."
+    },
+    {
+      "timestamp": "2026-11-28 01:25:29",
+      "trigger": "agent-edit",
+      "areas": "Core Engine & Hub (`index.js`)",
+      "summary": "Auto-synced after agent update to `index.js`."
+    },
+    {
+      "timestamp": "2026-11-28 01:25:06",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`index.html`)",
+      "summary": "Auto-synced after agent update to `index.html`."
+    },
+    {
+      "timestamp": "2026-11-28 01:12:59",
+      "trigger": "manual",
+      "areas": "Documentation Sync",
+      "summary": "Align Kernel Aegis battle card description with 1-5 Hit-Shield passive/active"
+    },
+    {
+      "timestamp": "2026-11-28 01:12:42",
       "trigger": "agent-edit",
       "areas": "Combat & Exclusive Skills (`js/cards.js`)",
       "summary": "Auto-synced after agent update to `js/cards.js`."
     },
     {
-      "timestamp": "2026-11-27 15:47:27",
+      "timestamp": "2026-11-28 01:06:54",
       "trigger": "manual",
       "areas": "Documentation Sync",
-      "summary": "Moved Shared Computer checkbox below Log In button on authentication card"
+      "summary": "Add progressive SP pacing, Overclock Mastery sink, and 1-5 Hit-Shield bar with Kernel Aegis passive"
     },
     {
-      "timestamp": "2026-11-27 15:47:10",
-      "trigger": "agent-edit",
-      "areas": "UI Shell & Styling (`index.html`)",
-      "summary": "Auto-synced after agent update to `index.html`."
-    },
-    {
-      "timestamp": "2026-11-27 15:45:56",
-      "trigger": "manual",
-      "areas": "Documentation Sync",
-      "summary": "Fixed Shared Computer checkbox alignment and matched login safety font to Bytebound UI typography"
-    },
-    {
-      "timestamp": "2026-11-27 15:45:32",
-      "trigger": "agent-edit",
-      "areas": "UI Shell & Styling (`css/styles.css`)",
-      "summary": "Auto-synced after agent update to `css/styles.css`."
-    },
-    {
-      "timestamp": "2026-11-27 15:44:20",
-      "trigger": "manual",
-      "areas": "Documentation Sync",
-      "summary": "Fixed Shared Computer checkbox alignment and matched login safety font to Bytebound UI typography"
-    },
-    {
-      "timestamp": "2026-11-27 15:43:54",
-      "trigger": "agent-edit",
-      "areas": "UI Shell & Styling (`index.html`)",
-      "summary": "Auto-synced after agent update to `index.html`."
-    },
-    {
-      "timestamp": "2026-11-27 15:43:40",
-      "trigger": "agent-edit",
-      "areas": "UI Shell & Styling (`css/styles.css`)",
-      "summary": "Auto-synced after agent update to `css/styles.css`."
-    },
-    {
-      "timestamp": "2026-11-27 14:24:44",
-      "trigger": "manual",
-      "areas": "Documentation Sync",
-      "summary": "Polished security banner button typography and finalized security safety verification"
-    },
-    {
-      "timestamp": "2026-11-27 14:23:44",
-      "trigger": "agent-edit",
-      "areas": "UI Shell & Styling (`css/styles.css`)",
-      "summary": "Auto-synced after agent update to `css/styles.css`."
-    },
-    {
-      "timestamp": "2026-11-27 14:20:51",
-      "trigger": "manual",
-      "areas": "Documentation Sync",
-      "summary": "Implemented user-facing data safety warnings, password strength meter, failed-login & temp-password alerts, shared-PC wipe, admin security notice broadcast, and HTTP security headers"
-    },
-    {
-      "timestamp": "2026-11-27 14:20:30",
+      "timestamp": "2026-11-28 01:06:28",
       "trigger": "agent-edit",
       "areas": "Documentation/Config (`CHANGES.md`)",
       "summary": "Auto-synced after agent update to `CHANGES.md`."
     },
     {
-      "timestamp": "2026-11-27 14:20:16",
-      "trigger": "agent-edit",
-      "areas": "Documentation/Config (`SUPABASE_SETUP.md`)",
-      "summary": "Auto-synced after agent update to `SUPABASE_SETUP.md`."
-    },
-    {
-      "timestamp": "2026-11-27 14:19:12",
-      "trigger": "agent-edit",
-      "areas": "Admin Console (`js/admin.js`)",
-      "summary": "Auto-synced after agent update to `js/admin.js`."
-    },
-    {
-      "timestamp": "2026-11-27 14:18:08",
+      "timestamp": "2026-11-28 00:59:19",
       "trigger": "agent-edit",
       "areas": "Core Engine & Hub (`index.js`)",
       "summary": "Auto-synced after agent update to `index.js`."
     },
     {
-      "timestamp": "2026-11-27 14:17:29",
+      "timestamp": "2026-11-28 00:59:15",
       "trigger": "agent-edit",
-      "areas": "Admin Console (`css/admin.css`)",
-      "summary": "Auto-synced after agent update to `css/admin.css`."
+      "areas": "UI Shell & Styling (`index.html`)",
+      "summary": "Auto-synced after agent update to `index.html`."
     },
     {
-      "timestamp": "2026-11-27 14:17:26",
+      "timestamp": "2026-11-28 00:58:53",
       "trigger": "agent-edit",
       "areas": "UI Shell & Styling (`css/styles.css`)",
       "summary": "Auto-synced after agent update to `css/styles.css`."
     },
     {
-      "timestamp": "2026-11-27 14:17:23",
-      "trigger": "agent-edit",
-      "areas": "UI Shell & Styling (`index.html`)",
-      "summary": "Auto-synced after agent update to `index.html`."
-    },
-    {
-      "timestamp": "2026-11-27 14:16:49",
-      "trigger": "agent-edit",
-      "areas": "Admin Console (`admin.html`)",
-      "summary": "Auto-synced after agent update to `admin.html`."
-    },
-    {
-      "timestamp": "2026-11-27 14:16:38",
-      "trigger": "agent-edit",
-      "areas": "UI Shell & Styling (`index.html`)",
-      "summary": "Auto-synced after agent update to `index.html`."
-    },
-    {
-      "timestamp": "2026-11-27 14:15:07",
-      "trigger": "agent-edit",
-      "areas": "Auth, Backend & SQL Schema (`serve-local.ps1`)",
-      "summary": "Auto-synced after agent update to `serve-local.ps1`."
-    },
-    {
-      "timestamp": "2026-11-27 14:14:58",
-      "trigger": "agent-edit",
-      "areas": "Documentation Sync",
-      "summary": "Auto-synced after agent update to `_headers`."
-    },
-    {
-      "timestamp": "2026-11-27 14:14:31",
-      "trigger": "agent-edit",
-      "areas": "Auth, Backend & SQL Schema (`supabase/migration-security-safety.sql`)",
-      "summary": "Auto-synced after agent update to `supabase/migration-security-safety.sql`."
-    },
-    {
-      "timestamp": "2026-11-27 14:13:28",
-      "trigger": "agent-edit",
-      "areas": "Documentation Sync",
-      "summary": "Auto-synced after agent update to `_headers`."
-    },
-    {
-      "timestamp": "2026-11-27 13:45:01",
-      "trigger": "manual",
-      "areas": "Documentation Sync",
-      "summary": "Defer multiplayer network connection until opening 1v1 Multiplayer so solo players generate zero lobby traffic"
-    },
-    {
-      "timestamp": "2026-11-27 13:44:49",
-      "trigger": "agent-edit",
-      "areas": "1v1 Multiplayer (`js/mp-ui.js`)",
-      "summary": "Auto-synced after agent update to `js/mp-ui.js`."
-    },
-    {
-      "timestamp": "2026-11-27 13:43:57",
-      "trigger": "manual",
-      "areas": "Documentation Sync",
-      "summary": "Implemented full client & server rate limiting, exponential backoff, lazy multiplayer sockets, and SQL rate-limit migration"
-    },
-    {
-      "timestamp": "2026-11-27 13:43:33",
-      "trigger": "agent-edit",
-      "areas": "Documentation/Config (`CHANGES.md`)",
-      "summary": "Auto-synced after agent update to `CHANGES.md`."
-    },
-    {
-      "timestamp": "2026-11-27 13:43:31",
-      "trigger": "agent-edit",
-      "areas": "Documentation/Config (`SUPABASE_SETUP.md`)",
-      "summary": "Auto-synced after agent update to `SUPABASE_SETUP.md`."
-    },
-    {
-      "timestamp": "2026-11-27 13:43:28",
-      "trigger": "agent-edit",
-      "areas": "Admin Console (`admin.html`)",
-      "summary": "Auto-synced after agent update to `admin.html`."
-    },
-    {
-      "timestamp": "2026-11-27 13:43:26",
-      "trigger": "agent-edit",
-      "areas": "UI Shell & Styling (`index.html`)",
-      "summary": "Auto-synced after agent update to `index.html`."
-    },
-    {
-      "timestamp": "2026-11-27 13:42:44",
-      "trigger": "agent-edit",
-      "areas": "Admin Console (`js/admin.js`)",
-      "summary": "Auto-synced after agent update to `js/admin.js`."
-    },
-    {
-      "timestamp": "2026-11-27 13:41:35",
+      "timestamp": "2026-11-28 00:58:50",
       "trigger": "agent-edit",
       "areas": "Core Engine & Hub (`index.js`)",
       "summary": "Auto-synced after agent update to `index.js`."
     },
     {
-      "timestamp": "2026-11-27 13:41:29",
+      "timestamp": "2026-11-28 00:58:47",
       "trigger": "agent-edit",
-      "areas": "1v1 Multiplayer (`js/mp-network.js`)",
-      "summary": "Auto-synced after agent update to `js/mp-network.js`."
+      "areas": "UI Shell & Styling (`index.html`)",
+      "summary": "Auto-synced after agent update to `index.html`."
     },
     {
-      "timestamp": "2026-11-27 13:41:13",
+      "timestamp": "2026-11-28 00:58:21",
       "trigger": "agent-edit",
       "areas": "Core Engine & Hub (`index.js`)",
       "summary": "Auto-synced after agent update to `index.js`."
     },
     {
-      "timestamp": "2026-11-27 13:41:09",
+      "timestamp": "2026-11-28 00:58:18",
       "trigger": "agent-edit",
-      "areas": "1v1 Multiplayer (`js/mp-network.js`)",
-      "summary": "Auto-synced after agent update to `js/mp-network.js`."
+      "areas": "UI Shell & Styling (`index.html`)",
+      "summary": "Auto-synced after agent update to `index.html`."
     },
     {
-      "timestamp": "2026-11-27 13:41:04",
+      "timestamp": "2026-11-28 00:57:59",
       "trigger": "agent-edit",
-      "areas": "1v1 Multiplayer (`js/mp-matchmaking.js`)",
-      "summary": "Auto-synced after agent update to `js/mp-matchmaking.js`."
+      "areas": "Core Engine & Hub (`index.js`)",
+      "summary": "Auto-synced after agent update to `index.js`."
     },
     {
-      "timestamp": "2026-11-27 13:40:40",
+      "timestamp": "2026-11-28 00:57:56",
       "trigger": "agent-edit",
-      "areas": "1v1 Multiplayer (`js/mp-ui.js`)",
-      "summary": "Auto-synced after agent update to `js/mp-ui.js`."
+      "areas": "UI Shell & Styling (`index.html`)",
+      "summary": "Auto-synced after agent update to `index.html`."
     },
     {
-      "timestamp": "2026-11-27 13:40:38",
-      "trigger": "agent-edit",
-      "areas": "1v1 Multiplayer (`js/mp-network.js`)",
-      "summary": "Auto-synced after agent update to `js/mp-network.js`."
-    },
-    {
-      "timestamp": "2026-11-27 13:40:06",
+      "timestamp": "2026-11-28 00:55:21",
       "trigger": "agent-edit",
       "areas": "Combat & Exclusive Skills (`js/combat.js`)",
       "summary": "Auto-synced after agent update to `js/combat.js`."
     },
     {
-      "timestamp": "2026-11-27 13:39:11",
+      "timestamp": "2026-11-28 00:54:57",
       "trigger": "agent-edit",
-      "areas": "Auth, Backend & SQL Schema (`serve-local.ps1`)",
-      "summary": "Auto-synced after agent update to `serve-local.ps1`."
+      "areas": "Documentation Sync",
+      "summary": "Auto-synced after agent update to `js/combat.js`."
+    },
+    {
+      "timestamp": "2026-11-28 00:52:59",
+      "trigger": "agent-edit",
+      "areas": "Combat & Exclusive Skills (`js/combat.js`)",
+      "summary": "Auto-synced after agent update to `js/combat.js`."
+    },
+    {
+      "timestamp": "2026-11-28 00:52:54",
+      "trigger": "agent-edit",
+      "areas": "Combat & Exclusive Skills (`js/cards.js`)",
+      "summary": "Auto-synced after agent update to `js/cards.js`."
+    },
+    {
+      "timestamp": "2026-11-28 00:05:38",
+      "trigger": "manual",
+      "areas": "Documentation Sync",
+      "summary": "Avoid splitting Blood Hint redaction tag on truncation"
+    },
+    {
+      "timestamp": "2026-11-28 00:05:29",
+      "trigger": "agent-edit",
+      "areas": "Combat & Exclusive Skills (`js/combat.js`)",
+      "summary": "Auto-synced after agent update to `js/combat.js`."
+    },
+    {
+      "timestamp": "2026-11-28 00:02:59",
+      "trigger": "manual",
+      "areas": "Documentation Sync",
+      "summary": "Fix PIXEL_LOCK_SVG declaration order & duplicate missedInBattle key, remove redundant MP label beside Mana, and redesign Quests UI to be minimalistic and uncramped"
+    },
+    {
+      "timestamp": "2026-11-28 00:02:08",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`css/styles.css`)",
+      "summary": "Auto-synced after agent update to `css/styles.css`."
+    },
+    {
+      "timestamp": "2026-11-28 00:01:48",
+      "trigger": "agent-edit",
+      "areas": "Documentation/Config (`js/quests.js`)",
+      "summary": "Auto-synced after agent update to `js/quests.js`."
+    },
+    {
+      "timestamp": "2026-11-28 00:01:00",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`css/styles.css`)",
+      "summary": "Auto-synced after agent update to `css/styles.css`."
+    },
+    {
+      "timestamp": "2026-11-28 00:00:49",
+      "trigger": "agent-edit",
+      "areas": "Documentation/Config (`js/quests.js`)",
+      "summary": "Auto-synced after agent update to `js/quests.js`."
+    },
+    {
+      "timestamp": "2026-11-28 00:00:46",
+      "trigger": "agent-edit",
+      "areas": "Documentation Sync",
+      "summary": "Auto-synced after agent update to `js/quests.js`."
+    },
+    {
+      "timestamp": "2026-11-28 00:00:43",
+      "trigger": "agent-edit",
+      "areas": "Documentation/Config (`js/quests.js`)",
+      "summary": "Auto-synced after agent update to `js/quests.js`."
+    },
+    {
+      "timestamp": "2026-11-27 23:59:12",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`index.html`)",
+      "summary": "Auto-synced after agent update to `index.html`."
+    },
+    {
+      "timestamp": "2026-11-27 23:59:09",
+      "trigger": "agent-edit",
+      "areas": "Combat & Exclusive Skills (`js/combat.js`)",
+      "summary": "Auto-synced after agent update to `js/combat.js`."
+    },
+    {
+      "timestamp": "2026-11-27 23:58:50",
+      "trigger": "agent-edit",
+      "areas": "Core Engine & Hub (`index.js`)",
+      "summary": "Auto-synced after agent update to `index.js`."
+    },
+    {
+      "timestamp": "2026-11-27 23:18:55",
+      "trigger": "manual",
+      "areas": "Documentation Sync",
+      "summary": "World Map calm redesign, pixel lock SVG, teleport removal, loop map reset & punishing Loop II+ enemy scaling/reinforcements, Blood-Sacrifice Hint, MP readability overhaul, HCI Year-3 / Software Eng Year-2 lock, Skill Tree Guide fix, and tutorial overhaul"
+    },
+    {
+      "timestamp": "2026-11-27 23:18:41",
+      "trigger": "agent-edit",
+      "areas": "Documentation/Config (`CHANGES.md`)",
+      "summary": "Auto-synced after agent update to `CHANGES.md`."
+    },
+    {
+      "timestamp": "2026-11-27 23:16:58",
+      "trigger": "agent-edit",
+      "areas": "Guided Tutorials (`js/tutorials.js`)",
+      "summary": "Auto-synced after agent update to `js/tutorials.js`."
+    },
+    {
+      "timestamp": "2026-11-27 23:16:32",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`css/styles.css`)",
+      "summary": "Auto-synced after agent update to `css/styles.css`."
+    },
+    {
+      "timestamp": "2026-11-27 23:14:31",
+      "trigger": "agent-edit",
+      "areas": "Core Engine & Hub (`index.js`)",
+      "summary": "Auto-synced after agent update to `index.js`."
+    },
+    {
+      "timestamp": "2026-11-27 23:14:22",
+      "trigger": "agent-edit",
+      "areas": "Combat & Exclusive Skills (`js/combat.js`)",
+      "summary": "Auto-synced after agent update to `js/combat.js`."
+    },
+    {
+      "timestamp": "2026-11-27 23:13:37",
+      "trigger": "agent-edit",
+      "areas": "Core Engine & Hub (`index.js`)",
+      "summary": "Auto-synced after agent update to `index.js`."
+    },
+    {
+      "timestamp": "2026-11-27 23:13:35",
+      "trigger": "agent-edit",
+      "areas": "Documentation Sync",
+      "summary": "Auto-synced after agent update to `js/combat.js`."
+    },
+    {
+      "timestamp": "2026-11-27 23:12:52",
+      "trigger": "agent-edit",
+      "areas": "Core Engine & Hub (`index.js`)",
+      "summary": "Auto-synced after agent update to `index.js`."
     }
   ]
 }

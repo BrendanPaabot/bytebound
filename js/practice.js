@@ -1,11 +1,21 @@
 // ===== Practice mode: study by topic without combat =====
 // Answers count toward the topic tracker, skill points, and the review queue, but never cost HP.
 const PRACTICE_DIFFICULTIES = ['adaptive', 'mixed', 'easy', 'medium', 'hard'];
+const PRACTICE_CAT_TONES = {
+  'Computer Systems': 'gold',
+  'Networking & Security': 'blue',
+  Programming: 'green',
+  Database: 'red',
+  'Discrete Mathematics': 'indigo',
+  'Software Engineering': 'teal',
+  'Web & Mobile Development': 'magenta',
+};
 const DRILL_DONE_STORAGE_KEY = 'bytebound-drill-done-v1';
 const practice = {
   mode: 'menu',          // 'menu' | 'quiz' | 'done'
   source: 'all',         // 'all' | 'review' | { category, topic }
   difficulty: 'adaptive',
+  categoryFilter: 'all',
   current: null,
   picked: null,
   queue: [],             // fixed snapshot of questions for the active session (never mutates mid-drill)
@@ -193,6 +203,17 @@ function answerPractice(index) {
   }
   if (correct && recordCorrectAnswer(q.category)) {
     practice.skillNote = `${q.category} skill point earned. Press U to spend it.`;
+    if (typeof showSkillPointEarnedBanner === 'function') showSkillPointEarnedBanner(q.category);
+    if (typeof window.syncSkillPointButtons === 'function') window.syncSkillPointButtons();
+  }
+  if (typeof window !== 'undefined' && window.ByteboundQuests && typeof window.ByteboundQuests.onQuestionAnswered === 'function') {
+    window.ByteboundQuests.onQuestionAnswered({
+      question: q,
+      correct,
+      fromReview: practice.mode === 'review',
+      difficulty: q.difficulty || QUESTION_DIFFICULTY?.get?.(q.q) || '',
+      source: practice.mode === 'review' ? 'review' : 'practice',
+    });
   }
   Sound.play(correct ? 'correct' : 'wrong');
 }
@@ -294,7 +315,43 @@ function renderPracticeMenu() {
   const eligibleReviewCount = questionsFor('review', practice.difficulty, activeYear).length;
   const isAdaptive = practice.difficulty === 'adaptive';
 
-  const categories = Object.entries(topicProgress).map(([category, topics]) => {
+  const allCatKeys = Object.keys(topicProgress);
+  if (practice.categoryFilter !== 'all' && !allCatKeys.includes(practice.categoryFilter)) {
+    practice.categoryFilter = 'all';
+  }
+  const catShortNames = {
+    'Computer Systems': 'Systems',
+    'Networking & Security': 'Network & Sec',
+    Programming: 'Programming',
+    Database: 'Database',
+    'Discrete Mathematics': 'Discrete Math',
+    'Software Engineering': 'Software Eng',
+    'Web & Mobile Development': 'Web & Mobile',
+  };
+  const catFilterChips = [
+    `<button class="practice-chip practice-cat-chip" data-practice="catfilter" data-cat="all" aria-pressed="${practice.categoryFilter === 'all'}">All (${allCatKeys.length})</button>`,
+    ...allCatKeys.map((cat) => {
+      const tone = PRACTICE_CAT_TONES[cat] || 'gold';
+      const hasEligibleForYear = Object.keys(topicProgress[cat] || {}).some((topicName) =>
+        (typeof getEligibleTopicCount === 'function' ? getEligibleTopicCount(cat, topicName, activeYear) : 1) > 0
+      );
+      const minCatYear = !hasEligibleForYear
+        ? Math.min(4, ...Object.keys(topicProgress[cat] || {}).map((t) =>
+            typeof getTopicMinYear === 'function' ? (getTopicMinYear(cat, t) || 4) : 4
+          ))
+        : null;
+      const lockBadge = !hasEligibleForYear && minCatYear
+        ? ` <span class="cat-year-lock">${esc(getAcademicYearMeta(minCatYear).shortLabel)}+</span>`
+        : '';
+      return `<button class="practice-chip practice-cat-chip tone-${esc(tone)}${!hasEligibleForYear ? ' is-year-locked' : ''}" data-practice="catfilter" data-cat="${esc(cat)}" aria-pressed="${practice.categoryFilter === cat}">${esc(catShortNames[cat] || cat)}${lockBadge}</button>`;
+    }),
+  ].join('');
+
+  const filteredEntries = practice.categoryFilter === 'all'
+    ? Object.entries(topicProgress)
+    : Object.entries(topicProgress).filter(([cat]) => cat === practice.categoryFilter);
+
+  const categories = filteredEntries.map(([category, topics]) => {
     const topicEntries = Object.entries(topics);
     const activeTier = isAdaptive ? getCategoryAdaptiveTier(category) : practice.difficulty;
     const tierUpper = activeTier.toUpperCase();
@@ -389,7 +446,8 @@ function renderPracticeMenu() {
         ? `${completedTopicsInCat} of ${availableTopicsInCat} available completed`
         : `${availableTopicsInCat} of ${topicEntries.length} topics available`;
 
-    return `<details class="practice-category" ${availableTopicsInCat > 0 ? 'open' : ''}>
+    const catTone = PRACTICE_CAT_TONES[category] || 'gold';
+    return `<details class="practice-category tone-${esc(catTone)}" ${availableTopicsInCat > 0 ? 'open' : ''}>
       <summary>
         <span class="practice-cat-title">${esc(category)} ${tierChip}</span>
         <span class="practice-cat-count">${esc(catProgress)}</span>
@@ -412,6 +470,10 @@ function renderPracticeMenu() {
       <div class="practice-controls-row">
         <span>Question Set</span>
         <div class="practice-chips">${chips}</div>
+      </div>
+      <div class="practice-controls-row">
+        <span>Discipline</span>
+        <div class="practice-chips practice-cat-chips">${catFilterChips}</div>
       </div>
       <small class="practice-filter-note">${esc(describeDifficultyFilter(practice.difficulty))}</small>
     </div>
@@ -547,6 +609,8 @@ function handlePracticeClick(event) {
   }
   if (action === 'difficulty') {
     practice.difficulty = el.dataset.diff;
+  } else if (action === 'catfilter') {
+    practice.categoryFilter = el.dataset.cat || 'all';
   } else if (action === 'start') {
     const src = el.dataset.src;
     startPractice(

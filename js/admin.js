@@ -27,6 +27,7 @@
     DELETE_ACCOUNT: 'Deleted Account',
     DELETE_USER: 'Deleted Account',
     FORCE_CLOSE_ROOM: 'Closed 1v1 Room',
+    ROOM_CLOSED: 'Closed 1v1 Room',
     PURGE_PVP_ENTRY: 'Removed 1v1 Score',
     REMOVE_SCORE: 'Removed Score',
     PURGE_LEADERBOARD: 'Removed Score',
@@ -657,6 +658,95 @@
     return activeTelemetryPromise;
   }
 
+  async function pruneAndFetchLiveMpRooms() {
+    const cfg = getSupabaseConfig();
+    if (!cfg) return [];
+    try {
+      await callSupabaseRpc('mp_prune_stale_rooms', { p_ttl_seconds: 60 }).catch(() => {});
+    } catch {}
+    const rows = await fetchSupabaseTable('multiplayer_rooms', '?select=*&order=updated_at.desc&limit=50');
+    const cutoff = Date.now() - 65 * 1000;
+    return rows.filter((r) => {
+      if (!r || !r.code || r.status === 'closed') return false;
+      const updated = Date.parse(r.updated_at || r.created_at || '') || 0;
+      return updated >= cutoff;
+    });
+  }
+
+  let admSbSdkPromise = null;
+  let admSbClient = null;
+  let admRoomsChannel = null;
+
+  function loadSupabaseSdkForAdmin() {
+    if (global.supabase && typeof global.supabase.createClient === 'function') {
+      return Promise.resolve(global.supabase);
+    }
+    if (admSbSdkPromise) return admSbSdkPromise;
+    admSbSdkPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      script.async = true;
+      const timer = global.setTimeout(() => reject(new Error('Timed out loading Supabase SDK')), 4500);
+      script.onload = () => {
+        global.clearTimeout(timer);
+        if (global.supabase && typeof global.supabase.createClient === 'function') resolve(global.supabase);
+        else reject(new Error('Supabase SDK unavailable'));
+      };
+      script.onerror = () => {
+        global.clearTimeout(timer);
+        reject(new Error('Failed to load Supabase SDK'));
+      };
+      document.head.appendChild(script);
+    });
+    return admSbSdkPromise;
+  }
+
+  function applyAdminRoomRealtimePayload(pgPayload) {
+    if (!pgPayload) return;
+    const evType = String(pgPayload.eventType || pgPayload.type || '').toUpperCase();
+    const rawRow = evType === 'DELETE' ? (pgPayload.old || pgPayload.record) : (pgPayload.new || pgPayload.record);
+    const code = String(rawRow?.code || pgPayload.old?.code || '').trim().toUpperCase();
+    if (!code) return;
+    const next = state.mpRooms.filter((r) => String(r?.code || '').toUpperCase() !== code);
+    if (evType !== 'DELETE' && rawRow.status && rawRow.status !== 'closed') {
+      next.unshift(rawRow);
+    }
+    state.mpRooms = next;
+    updateShellChrome();
+    if (state.tab === 'multiplayer' || state.tab === 'overview') {
+      renderActiveTab();
+    }
+  }
+
+  async function subscribeAdminRoomsRealtime() {
+    const cfg = getSupabaseConfig();
+    if (!cfg || state.provider !== 'supabase' || admRoomsChannel) return;
+    try {
+      const sdk = await loadSupabaseSdkForAdmin();
+      if (!admSbClient) {
+        admSbClient = sdk.createClient(cfg.url, cfg.anonKey);
+      }
+      if (!state.token || state.provider !== 'supabase' || admRoomsChannel) return;
+      const ch = admSbClient.channel('bytebound:admin:mp_rooms');
+      ch.on('postgres_changes', { event: '*', schema: 'public', table: 'multiplayer_rooms' }, (payload) => {
+        applyAdminRoomRealtimePayload(payload);
+      });
+      admRoomsChannel = ch;
+      ch.subscribe();
+    } catch {}
+  }
+
+  function unsubscribeAdminRoomsRealtime() {
+    const ch = admRoomsChannel;
+    admRoomsChannel = null;
+    if (ch) {
+      try { ch.unsubscribe(); } catch {}
+      if (admSbClient && typeof admSbClient.removeChannel === 'function') {
+        try { admSbClient.removeChannel(ch); } catch {}
+      }
+    }
+  }
+
   async function runTelemetryRefresh() {
     const started = performance.now();
     loadAndValidateQuestionBank(true);
@@ -695,7 +785,7 @@
         : { active: false, severity: 'info', title: '', message: '' };
       state.arcadeLeaderboard = await fetchSupabaseTable('leaderboard_entries', '?select=*&order=score.desc&limit=100');
       state.pvpLeaderboard = await fetchSupabaseTable('pvp_leaderboard_entries', '?select=*&order=rating.desc&limit=100');
-      state.mpRooms = await fetchSupabaseTable('multiplayer_rooms', '?select=*&order=updated_at.desc&limit=50');
+      state.mpRooms = await pruneAndFetchLiveMpRooms();
     } else {
       state.serverInfo = { provider: 'offline', activeSessions: 0, uptimeSeconds: 0 };
       primaryUsers = scanOfflineLocalStorageUsers();
@@ -1380,17 +1470,28 @@
   }
 
   function renderMultiplayer() {
+    const statusLabelMap = {
+      waiting: { cls: 'is-ok', label: 'Waiting (1/2)' },
+      full: { cls: 'is-warn', label: 'Room Full (2/2)' },
+      in_match: { cls: 'is-accent', label: 'In Battle' },
+    };
     const roomRows = state.mpRooms.map((r) => {
       const hostName = r.host?.username || r.host_name || 'Host';
       const guestName = r.guest?.username || r.guest_name || 'Waiting…';
       const yr = r.yearLevel || r.settings?.yearLevel || 4;
       const cat = r.category || r.settings?.category || 'ALL';
+      const st = String(r.status || 'waiting').toLowerCase();
+      const stMeta = statusLabelMap[st] || { cls: 'is-accent', label: st };
+      const updatedIso = r.updated_at || (r.updatedAt ? new Date(r.updatedAt).toISOString() : (r.created_at || ''));
+      const ageSec = updatedIso ? Math.max(0, Math.round((Date.now() - (Date.parse(updatedIso) || Date.now())) / 1000)) : null;
+      const ageTxt = ageSec === null ? 'Live' : `${ageSec}s ago`;
       return `<tr>
         <td class="adm-mono"><strong>${esc(r.code)}</strong></td>
         <td><span class="adm-pill ${r.visibility === 'private' ? 'is-warn' : 'is-ok'}">${esc(r.visibility === 'private' ? 'Private' : 'Public')}</span></td>
-        <td><span class="adm-pill is-accent">${esc(r.status || 'waiting')}</span></td>
+        <td><span class="adm-pill ${stMeta.cls}">${esc(stMeta.label)}</span></td>
         <td>${esc(hostName)} vs ${esc(guestName)}</td>
         <td>${esc(cat === 'ALL' ? 'All Subjects' : cat)} · ${esc(YEAR_NAMES[yr] || `Year ${yr}`)}</td>
+        <td>${esc(ageTxt)}</td>
         <td>
           <button class="adm-btn adm-btn-danger-outline adm-btn-sm" type="button" data-adm-act="close-room" data-code="${esc(r.code)}">Close Room</button>
         </td>
@@ -1409,13 +1510,13 @@
         <header class="adm-panel-head">
           <div>
             <h3>Active 1v1 Rooms (${state.mpRooms.length})</h3>
-            <small>Live match lobbies with their subject and academic year setting.</small>
+            <small>Real-time match sessions synced automatically when created, joined, in battle, or completed.</small>
           </div>
         </header>
         <div class="adm-table-wrap">
           ${roomRows
             ? `<table class="adm-table">
-                <thead><tr><th>Room Code</th><th>Privacy</th><th>Status</th><th>Players</th><th>Question Filter</th><th>Action</th></tr></thead>
+                <thead><tr><th>Room Code</th><th>Privacy</th><th>Status</th><th>Players</th><th>Question Filter</th><th>Heartbeat</th><th>Action</th></tr></thead>
                 <tbody>${roomRows}</tbody>
               </table>`
             : '<div class="adm-empty">No open 1v1 rooms right now.</div>'}
@@ -1769,13 +1870,37 @@
     }
 
     if (act === 'close-room') {
-      const code = target.dataset.code;
-      if (state.provider !== 'local') {
-        showToast('Closing live rooms is available when connected to serve-local.ps1.', 'warn');
-        return;
-      }
+      const code = String(target.dataset.code || '').trim().toUpperCase();
+      if (!code) return;
       try {
-        await postLocalAdmin('close-room', { adminToken: state.token, roomCode: code });
+        if (state.provider === 'local') {
+          await postLocalAdmin('close-room', { adminToken: state.token, roomCode: code });
+        } else if (state.provider === 'supabase') {
+          let closedViaRpc = false;
+          try {
+            await callSupabaseRpc('admin_close_multiplayer_room', { p_admin_token: state.token, p_code: code });
+            closedViaRpc = true;
+          } catch (rpcErr) {
+            if (!rpcErr.rpcMissing) throw rpcErr;
+          }
+          if (!closedViaRpc) {
+            const cfg = getSupabaseConfig();
+            if (!cfg) throw new Error('Supabase is not configured.');
+            const res = await fetchWithBackoff(`${cfg.url}/rest/v1/multiplayer_rooms?code=eq.${encodeURIComponent(code)}`, {
+              method: 'DELETE',
+              headers: {
+                apikey: cfg.anonKey,
+                ...(cfg.anonKey.split('.').length === 3 ? { Authorization: `Bearer ${cfg.anonKey}` } : {}),
+                Prefer: 'return=minimal',
+              },
+            });
+            if (!res.ok) throw new Error(`Failed to close room (${res.status}).`);
+          }
+        } else {
+          showToast('Closing live rooms requires Local Server or Cloud Database connection.', 'warn');
+          return;
+        }
+        state.mpRooms = state.mpRooms.filter((r) => String(r?.code || '').toUpperCase() !== code);
         showToast(`Closed 1v1 room ${code}.`, 'ok');
         await refreshTelemetry();
       } catch (err) {
@@ -1822,7 +1947,15 @@
         : state.questionBank.find((item) => item._id === target.dataset.qid);
       if (!q) return;
 
-      const subjects = ['Computer Systems', 'Networking & Security', 'Programming', 'Database'];
+      const subjects = [
+        'Computer Systems',
+        'Networking & Security',
+        'Programming',
+        'Database',
+        'Discrete Mathematics',
+        'Software Engineering',
+        'Web & Mobile Development',
+      ];
       openModal(
         isNew ? 'Add New Question' : `Edit Question · ${q._id}`,
         `<div class="adm-choice-grid">
@@ -1897,12 +2030,14 @@
     } catch {}
     $('adminAuthScreen').hidden = true;
     $('adminShell').hidden = false;
+    subscribeAdminRoomsRealtime();
     refreshTelemetry().catch((err) => {
       showToast(err.message || 'Could not load admin data.', 'err');
     });
   }
 
   async function signOutAdmin() {
+    unsubscribeAdminRoomsRealtime();
     if (state.provider === 'local' && state.token) {
       postLocalAdmin('logout', { adminToken: state.token }).catch(() => {});
     }

@@ -38,11 +38,15 @@ let achievementToastQueue = []
 let achievementToastTimer = 0
 let achievementToastActive = false
 const SUPERSEDED_RUNS_STORAGE_KEY = 'kings-pigs-superseded-runs-v1'
+const PIXEL_LOCK_SVG = `<svg class="pixel-lock-svg" viewBox="0 0 12 12" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><rect x="3" y="1" width="6" height="1" fill="currentColor"/><rect x="2" y="2" width="2" height="3" fill="currentColor"/><rect x="8" y="2" width="2" height="3" fill="currentColor"/><rect x="1" y="5" width="10" height="6" fill="currentColor"/><rect x="5" y="7" width="2" height="2" fill="var(--lock-keyhole, #12161c)"/><rect x="5" y="9" width="2" height="1" fill="var(--lock-keyhole, #12161c)"/></svg>`
 let leaderboardEntries = []
 let leaderboardState = 'idle'
 let leaderboardError = ''
 let leaderboardRequestId = 0
 let leaderboardTab = 'arcade'
+let leaderboardPeriod = 'weekly'
+const ARCADE_WEEKLY_STORAGE_PREFIX = 'bytebound-arcade-weekly-v1'
+const PVP_WEEKLY_STORAGE_PREFIX = 'bytebound-pvp-weekly-v1'
 let pvpLeaderboardEntries = []
 let pvpLeaderboardState = 'idle'
 let pvpLeaderboardError = ''
@@ -252,47 +256,131 @@ function scheduleLeaderboardRunSync(delayMs = LEADERBOARD_SYNC_MIN_INTERVAL_MS) 
   }, effectiveDelay)
 }
 
+function getLeaderboardWeekInfo() {
+  if (typeof window !== 'undefined' && window.ByteboundQuests?.getWeekWindow) {
+    return window.ByteboundQuests.getWeekWindow()
+  }
+  const now = new Date()
+  const day = now.getDay()
+  const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (day === 0 ? 6 : day - 1), 0, 0, 0, 0)
+  return { weekKey: 'CURRENT', weekStartMs: mon.getTime(), countdown: 'Mon 00:00' }
+}
+
+function readWeeklyLeaderboardMap(prefix, weekKey) {
+  try {
+    const raw = localStorage.getItem(`${prefix}:${weekKey}`)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeWeeklyLeaderboardMap(prefix, weekKey, map) {
+  try {
+    localStorage.setItem(`${prefix}:${weekKey}`, JSON.stringify(map))
+  } catch {}
+}
+
+function upsertWeeklyArcadeEntry(record, playerName) {
+  if (!record || !playerName) return
+  const key = String(playerName).trim().toLowerCase()
+  if (!key || (record.kills || 0) <= 0) return
+  const { weekKey } = getLeaderboardWeekInfo()
+  const map = readWeeklyLeaderboardMap(ARCADE_WEEKLY_STORAGE_PREFIX, weekKey)
+  const existing = map[key]
+  const titleId = window.ByteboundQuests?.getEquippedTitleId?.() || existing?.title_id || ''
+  if (!existing || (record.score || 0) >= (existing.score || 0)) {
+    map[key] = {
+      id: existing?.id || 0,
+      run_id: leaderboardRunId,
+      player_name: playerName,
+      title_id: titleId,
+      kills: record.kills,
+      correct_answers: record.correctAnswers,
+      total_answers: record.totalAnswers,
+      accuracy: record.accuracy,
+      score: record.score,
+      submitted_at: new Date().toISOString(),
+    }
+  } else if (titleId !== existing.title_id) {
+    existing.title_id = titleId
+  }
+  writeWeeklyLeaderboardMap(ARCADE_WEEKLY_STORAGE_PREFIX, weekKey, map)
+}
+
+function notifyLeaderboardTopRank() {
+  const activeKey = String(activePlayerName || '').trim().toLowerCase()
+  if (!activeKey) return
+  const arcadeRank = leaderboardEntries.findIndex((e) => String(e?.player_name || '').trim().toLowerCase() === activeKey) + 1
+  const pvpRank = pvpLeaderboardEntries.findIndex((e) => String(e?.player_name || '').trim().toLowerCase() === activeKey) + 1
+  window.ByteboundQuests?.onLeaderboardRankChecked?.({ arcadeRank, pvpRank })
+}
+
+function syncPlayerTitleUi() {
+  const titleId = window.ByteboundQuests?.getEquippedTitleId?.() || ''
+  const slot = document.getElementById('playerTitleSlot')
+  if (slot) {
+    if (titleId && window.ByteboundQuests?.renderTitleBadgeHtml) {
+      slot.innerHTML = window.ByteboundQuests.renderTitleBadgeHtml(titleId, { compact: true })
+      slot.hidden = false
+    } else {
+      slot.innerHTML = ''
+      slot.hidden = true
+    }
+  }
+}
+window.syncPlayerTitleUi = syncPlayerTitleUi
+
 async function loadLeaderboard(options = {}) {
-  if (!options.force && leaderboardState === 'ready' && leaderboardEntries.length && (Date.now() - lastLeaderboardFetchAt) < LEADERBOARD_CACHE_TTL_MS) {
+  const weekInfo = getLeaderboardWeekInfo()
+  if (!options.force && !options.ignorePeriodCache && leaderboardState === 'ready' && leaderboardEntries.length && (Date.now() - lastLeaderboardFetchAt) < LEADERBOARD_CACHE_TTL_MS) {
     renderDashboard()
     return
   }
   const requestId = ++leaderboardRequestId
-  if (!supabaseCredentials()) {
-    leaderboardState = 'unconfigured'
-    leaderboardError = ''
-    renderDashboard()
-    return
+  const localRecord = getRecordableGameplayStats()
+  if (localRecord && activePlayerName) {
+    upsertWeeklyArcadeEntry(localRecord, activePlayerName)
   }
+
   leaderboardState = 'loading'
   leaderboardError = ''
   renderDashboard()
   try {
-    if (!options.skipSubmit && hasRecordableGameplayRun()) {
-      await submitLeaderboardRun({ skipReload: true, force: Boolean(options.force) })
-    } else if (leaderboardSubmitPromise) {
-      await leaderboardSubmitPromise
+    let rawEntries = []
+    if (supabaseCredentials()) {
+      if (!options.skipSubmit && localRecord) {
+        await submitLeaderboardRun({ skipReload: true, force: Boolean(options.force) })
+      } else if (leaderboardSubmitPromise) {
+        await leaderboardSubmitPromise
+      }
+      const query = new URLSearchParams({
+        select: 'id,run_id,player_name,kills,correct_answers,total_answers,accuracy,score,submitted_at',
+        order: 'score.desc,correct_answers.desc,kills.desc,submitted_at.asc',
+        limit: '80',
+      })
+      const response = await Promise.race([
+        supabaseRequest(`leaderboard_entries?${query}`),
+        new Promise((_, reject) => window.setTimeout(() => reject(new Error('Supabase leaderboard timeout')), 2800)),
+      ])
+      const parsed = await response.json()
+      if (!Array.isArray(parsed)) throw new Error('Supabase returned an invalid leaderboard response.')
+      rawEntries = parsed
     }
-    const query = new URLSearchParams({
-      select: 'id,run_id,player_name,kills,correct_answers,total_answers,accuracy,score,submitted_at',
-      order: 'score.desc,correct_answers.desc,kills.desc,submitted_at.asc',
-      limit: '60',
-    })
-    const response = await supabaseRequest(`leaderboard_entries?${query}`)
-    const rawEntries = await response.json()
-    if (!Array.isArray(rawEntries)) throw new Error('Supabase returned an invalid leaderboard response.')
     if (requestId !== leaderboardRequestId) return
 
-    // Exclude 1v1-only or 0-kill records that have no Arcade virus progress, stale pre-reset rows, and deduplicate by player_name
     const bestEntryByPlayer = new Map()
-    for (const entry of rawEntries) {
-      if ((entry?.kills || 0) <= 0) continue
-      if (entry?.run_id && supersededRunIds.has(entry.run_id)) continue
+    const considerEntry = (entry) => {
+      if ((entry?.kills || 0) <= 0) return
+      if (entry?.run_id && supersededRunIds.has(entry.run_id)) return
       const key = String(entry.player_name || '').trim().toLowerCase()
-      if (!key) continue
+      if (!key) return
+      const ts = Date.parse(entry.submitted_at || 0)
+      if (leaderboardPeriod === 'weekly' && (!ts || ts < weekInfo.weekStartMs)) return
       try {
         const resetAt = Number(localStorage.getItem(`bytebound-reset-at-v1:${encodeURIComponent(key)}`) || 0)
-        if (resetAt && Date.parse(entry.submitted_at || 0) <= resetAt) continue
+        if (resetAt && ts <= resetAt) return
       } catch {}
       const existing = bestEntryByPlayer.get(key)
       if (
@@ -305,15 +393,20 @@ async function loadLeaderboard(options = {}) {
       }
     }
 
-    const localRecord = getRecordableGameplayStats()
+    for (const entry of rawEntries) considerEntry(entry)
+    for (const weeklyEntry of Object.values(readWeeklyLeaderboardMap(ARCADE_WEEKLY_STORAGE_PREFIX, weekInfo.weekKey))) {
+      considerEntry(weeklyEntry)
+    }
+
     if (localRecord && activePlayerName) {
       const activeKey = activePlayerName.trim().toLowerCase()
       const existing = bestEntryByPlayer.get(activeKey)
-      if (!existing || localRecord.score > (existing.score || 0)) {
+      if (!existing || localRecord.score >= (existing.score || 0)) {
         bestEntryByPlayer.set(activeKey, {
           id: existing?.id || 0,
           run_id: leaderboardRunId,
           player_name: activePlayerName,
+          title_id: window.ByteboundQuests?.getEquippedTitleId?.() || existing?.title_id || '',
           kills: localRecord.kills,
           correct_answers: localRecord.correctAnswers,
           total_answers: localRecord.totalAnswers,
@@ -334,15 +427,39 @@ async function loadLeaderboard(options = {}) {
 
     leaderboardEntries = filteredEntries
     lastLeaderboardFetchAt = Date.now()
-    if (leaderboardState !== 'submit-error') {
-      leaderboardState = 'ready'
-    }
+    leaderboardState = (!supabaseCredentials() && !filteredEntries.length) ? 'unconfigured' : 'ready'
+    notifyLeaderboardTopRank()
     renderDashboard()
   } catch (error) {
     if (requestId !== leaderboardRequestId) return
-    console.error('Unable to load leaderboard.', error)
-    leaderboardState = 'error'
-    leaderboardError = error.message
+    const fallbackMap = new Map()
+    for (const weeklyEntry of Object.values(readWeeklyLeaderboardMap(ARCADE_WEEKLY_STORAGE_PREFIX, weekInfo.weekKey))) {
+      const key = String(weeklyEntry?.player_name || '').trim().toLowerCase()
+      if (key && (weeklyEntry.kills || 0) > 0) fallbackMap.set(key, weeklyEntry)
+    }
+    if (localRecord && activePlayerName) {
+      fallbackMap.set(activePlayerName.trim().toLowerCase(), {
+        id: 0,
+        run_id: leaderboardRunId,
+        player_name: activePlayerName,
+        title_id: window.ByteboundQuests?.getEquippedTitleId?.() || '',
+        kills: localRecord.kills,
+        correct_answers: localRecord.correctAnswers,
+        total_answers: localRecord.totalAnswers,
+        accuracy: localRecord.accuracy,
+        score: localRecord.score,
+        submitted_at: new Date().toISOString(),
+      })
+    }
+    leaderboardEntries = [...fallbackMap.values()].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 20)
+    if (leaderboardEntries.length) {
+      leaderboardState = 'ready'
+      leaderboardError = ''
+      notifyLeaderboardTopRank()
+    } else {
+      leaderboardState = supabaseCredentials() ? 'error' : 'unconfigured'
+      leaderboardError = error.message
+    }
     renderDashboard()
   }
 }
@@ -376,45 +493,58 @@ function saveLocalPvpResult(matchData) {
     localStorage.setItem(PVP_SUBMITTED_IDS_KEY, JSON.stringify([...seenSet].slice(-120)))
   } catch {}
 
+  const titleId = (activePlayerName && key === activePlayerName.trim().toLowerCase())
+    ? (window.ByteboundQuests?.getEquippedTitleId?.() || '')
+    : (window.ByteboundQuests?.getPlayerTitle?.(playerName) || '')
+  const updatePvpBucket = (bucketMap) => {
+    const prev = bucketMap[key] || {
+      player_name: playerName,
+      rating: 1000,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      matches_played: 0,
+      damage_dealt: 0,
+      correct_answers: 0,
+      total_answers: 0,
+      accuracy: 0,
+      win_rate: 0,
+      title_id: titleId,
+    }
+    const delta = outcome === 'won' ? 25 : outcome === 'draw' ? 5 : -15
+    const wins = prev.wins + (outcome === 'won' ? 1 : 0)
+    const losses = prev.losses + (outcome === 'lost' ? 1 : 0)
+    const draws = prev.draws + (outcome === 'draw' ? 1 : 0)
+    const matches_played = wins + losses + draws
+    const correct_answers = prev.correct_answers + Math.max(0, Number(matchData.correctAnswers) || 0)
+    const total_answers = prev.total_answers + Math.max(0, Number(matchData.totalAnswers) || 0)
+    bucketMap[key] = {
+      player_name: playerName,
+      title_id: titleId || prev.title_id || '',
+      rating: Math.max(100, (prev.rating || 1000) + delta),
+      wins,
+      losses,
+      draws,
+      matches_played,
+      damage_dealt: (prev.damage_dealt || 0) + Math.max(0, Number(matchData.damageDealt) || 0),
+      correct_answers,
+      total_answers,
+      accuracy: total_answers ? Math.floor((100 * correct_answers) / total_answers) : 0,
+      win_rate: matches_played ? Math.floor((100 * wins) / matches_played) : 0,
+      updated_at: new Date().toISOString(),
+    }
+    return bucketMap[key]
+  }
+
   const map = readLocalPvpLeaderboardMap()
-  const prev = map[key] || {
-    player_name: playerName,
-    rating: 1000,
-    wins: 0,
-    losses: 0,
-    draws: 0,
-    matches_played: 0,
-    damage_dealt: 0,
-    correct_answers: 0,
-    total_answers: 0,
-    accuracy: 0,
-    win_rate: 0,
-  }
-  const delta = outcome === 'won' ? 25 : outcome === 'draw' ? 5 : -15
-  const wins = prev.wins + (outcome === 'won' ? 1 : 0)
-  const losses = prev.losses + (outcome === 'lost' ? 1 : 0)
-  const draws = prev.draws + (outcome === 'draw' ? 1 : 0)
-  const matches_played = wins + losses + draws
-  const correct_answers = prev.correct_answers + Math.max(0, Number(matchData.correctAnswers) || 0)
-  const total_answers = prev.total_answers + Math.max(0, Number(matchData.totalAnswers) || 0)
-  const entry = {
-    player_name: playerName,
-    rating: Math.max(100, (prev.rating || 1000) + delta),
-    wins,
-    losses,
-    draws,
-    matches_played,
-    damage_dealt: (prev.damage_dealt || 0) + Math.max(0, Number(matchData.damageDealt) || 0),
-    correct_answers,
-    total_answers,
-    accuracy: total_answers ? Math.floor((100 * correct_answers) / total_answers) : 0,
-    win_rate: matches_played ? Math.floor((100 * wins) / matches_played) : 0,
-    updated_at: new Date().toISOString(),
-  }
-  map[key] = entry
+  const entry = updatePvpBucket(map)
   try {
     localStorage.setItem(PVP_LEADERBOARD_STORAGE_KEY, JSON.stringify(map))
   } catch {}
+  const { weekKey } = getLeaderboardWeekInfo()
+  const weeklyMap = readWeeklyLeaderboardMap(PVP_WEEKLY_STORAGE_PREFIX, weekKey)
+  updatePvpBucket(weeklyMap)
+  writeWeeklyLeaderboardMap(PVP_WEEKLY_STORAGE_PREFIX, weekKey, weeklyMap)
   if (typeof recordAchievementProgress === 'function' && activePlayerName && key === activePlayerName.trim().toLowerCase()) {
     const dmg = Math.max(0, Number(matchData.damageDealt) || 0)
     const corr = Math.max(0, Number(matchData.correctAnswers) || 0)
@@ -468,7 +598,8 @@ async function submitPvpLeaderboardMatch(matchData) {
 }
 
 async function loadPvpLeaderboard(options = {}) {
-  if (!options.force && pvpLeaderboardState === 'ready' && (Date.now() - lastPvpLeaderboardFetchAt) < LEADERBOARD_CACHE_TTL_MS) {
+  const weekInfo = getLeaderboardWeekInfo()
+  if (!options.force && !options.ignorePeriodCache && pvpLeaderboardState === 'ready' && (Date.now() - lastPvpLeaderboardFetchAt) < LEADERBOARD_CACHE_TTL_MS) {
     renderDashboard()
     return
   }
@@ -481,9 +612,11 @@ async function loadPvpLeaderboard(options = {}) {
     const mergeRow = (entry) => {
       const key = String(entry?.player_name || '').trim().toLowerCase()
       if (!key) return
+      const ts = Date.parse(entry.updated_at || 0)
+      if (leaderboardPeriod === 'weekly' && (!ts || ts < weekInfo.weekStartMs)) return
       try {
         const resetAt = Number(localStorage.getItem(`bytebound-reset-at-v1:${encodeURIComponent(key)}`) || 0)
-        if (resetAt && Date.parse(entry.updated_at || 0) <= resetAt) return
+        if (resetAt && ts <= resetAt) return
       } catch {}
       const existing = merged.get(key)
       if (!existing || (entry.matches_played || 0) > (existing.matches_played || 0) ||
@@ -492,7 +625,10 @@ async function loadPvpLeaderboard(options = {}) {
       }
     }
 
-    for (const localEntry of Object.values(readLocalPvpLeaderboardMap())) {
+    const localSource = leaderboardPeriod === 'weekly'
+      ? Object.values(readWeeklyLeaderboardMap(PVP_WEEKLY_STORAGE_PREFIX, weekInfo.weekKey))
+      : Object.values(readLocalPvpLeaderboardMap())
+    for (const localEntry of localSource) {
       mergeRow(localEntry)
     }
 
@@ -542,6 +678,7 @@ async function loadPvpLeaderboard(options = {}) {
       .slice(0, 20)
     lastPvpLeaderboardFetchAt = Date.now()
     pvpLeaderboardState = 'ready'
+    notifyLeaderboardTopRank()
     renderDashboard()
   } catch (error) {
     if (requestId !== pvpLeaderboardRequestId) return
@@ -672,6 +809,7 @@ function buildUserProfilePayload() {
     topicProgress,
     skillProgress: {
       ...skillProgress,
+      overclock: typeof overclockProgress !== 'undefined' ? { ...overclockProgress } : {},
       specialization: { activeTree: activeSkillSpecialization, exclusiveTree: exclusiveSkillTree },
     },
     reviewStore: {
@@ -738,12 +876,25 @@ function mergeAndApplyCloudUserProfile(profileId, cloudUser) {
         skillProgress[key].transferredOut = source.transferredOut
         updatedLocal = true
       }
+      if (Number.isSafeInteger(source.overclockSpSpent) && source.overclockSpSpent > (skillProgress[key].overclockSpSpent || 0)) {
+        skillProgress[key].overclockSpSpent = source.overclockSpSpent
+        updatedLocal = true
+      }
       for (const skill of SKILL_TREES[key].skills) {
         const rank = source.ranks?.[skill.id]
         const maxR = skill.maxRank || SKILL_MAX_RANK
         if (Number.isInteger(rank) && rank >= 0 && rank <= maxR && rank > skillProgress[key].ranks[skill.id]) {
           skillProgress[key].ranks[skill.id] = rank
           if (skill.isExclusiveActive && rank > 0 && !exclusiveSkillTree) exclusiveSkillTree = key
+          updatedLocal = true
+        }
+      }
+    }
+    if (cloudSkills.overclock && typeof cloudSkills.overclock === 'object' && typeof overclockProgress !== 'undefined') {
+      for (const up of (typeof OVERCLOCK_UPGRADES !== 'undefined' ? OVERCLOCK_UPGRADES : [])) {
+        const r = cloudSkills.overclock[up.id]
+        if (Number.isSafeInteger(r) && r > (overclockProgress[up.id] || 0)) {
+          overclockProgress[up.id] = up.maxRank ? Math.min(up.maxRank, r) : r
           updatedLocal = true
         }
       }
@@ -1341,6 +1492,12 @@ const ACHIEVEMENTS = [
   { id: 'code-compiler', category: 'exclusive', theme: 'pr', name: 'Code Compiler', description: 'Invest 6 total skill ranks in Programming.', goal: 6, metric: 'prSkillRanks', icon: 'PR6' },
   { id: 'soul-binder', category: 'exclusive', theme: 'db', name: 'Soul Binder', description: 'Choose Necromancy Pact (Database Exclusive).', goal: 1, metric: 'exclusiveDb', icon: 'DB' },
   { id: 'vault-keeper', category: 'exclusive', theme: 'db', name: 'Vault Keeper', description: 'Invest 6 total skill ranks in Database.', goal: 6, metric: 'dbSkillRanks', icon: 'DB6' },
+  { id: 'logic-oracle', category: 'exclusive', theme: 'dm', name: 'Logic Oracle', description: 'Choose Proof by Contradiction (Discrete Mathematics Exclusive).', goal: 1, metric: 'exclusiveDm', icon: 'DM' },
+  { id: 'axiom-master', category: 'exclusive', theme: 'dm', name: 'Axiom Master', description: 'Invest 6 total skill ranks in Discrete Mathematics.', goal: 6, metric: 'dmSkillRanks', icon: 'DM6' },
+  { id: 'chief-architect', category: 'exclusive', theme: 'se', name: 'Chief Architect', description: 'Choose System Refactor (Software Engineering Exclusive).', goal: 1, metric: 'exclusiveSe', icon: 'SE' },
+  { id: 'sprint-lead', category: 'exclusive', theme: 'se', name: 'Sprint Lead', description: 'Invest 6 total skill ranks in Software Engineering.', goal: 6, metric: 'seSkillRanks', icon: 'SE6' },
+  { id: 'async-weaver', category: 'exclusive', theme: 'wm', name: 'Async Weaver', description: 'Choose Async Cascade (Web & Mobile Exclusive).', goal: 1, metric: 'exclusiveWm', icon: 'WM' },
+  { id: 'full-stack-ace', category: 'exclusive', theme: 'wm', name: 'Full-Stack Ace', description: 'Invest 6 total skill ranks in Web & Mobile Development.', goal: 6, metric: 'wmSkillRanks', icon: 'WM6' },
   { id: 'apex-specialist', category: 'exclusive', name: 'Apex Specialist', description: 'Upgrade any Exclusive Active Skill to Rank 3/3.', goal: 1, metric: 'exclusiveMaxed', icon: 'MAX' },
 
   // Onboarding & Tutorial Mastery Achievement
@@ -1546,11 +1703,17 @@ function getAchievementMetrics() {
     nsSkillRanks: treeRankSum('networkingSecurity'),
     prSkillRanks: treeRankSum('programming'),
     dbSkillRanks: treeRankSum('database'),
+    dmSkillRanks: treeRankSum('discreteMath'),
+    seSkillRanks: treeRankSum('softwareEng'),
+    wmSkillRanks: treeRankSum('webMobile'),
     exclusivePicked: exclusiveSkillTree ? 1 : 0,
     exclusiveCs: exclusiveSkillTree === 'computerSystems' ? 1 : 0,
     exclusiveNs: exclusiveSkillTree === 'networkingSecurity' ? 1 : 0,
     exclusivePr: exclusiveSkillTree === 'programming' ? 1 : 0,
     exclusiveDb: exclusiveSkillTree === 'database' ? 1 : 0,
+    exclusiveDm: exclusiveSkillTree === 'discreteMath' ? 1 : 0,
+    exclusiveSe: exclusiveSkillTree === 'softwareEng' ? 1 : 0,
+    exclusiveWm: exclusiveSkillTree === 'webMobile' ? 1 : 0,
     exclusiveMaxed,
     tutorialsCompleted: typeof window.ByteboundTutorial?.getCompletedTutorialCount === 'function'
       ? window.ByteboundTutorial.getCompletedTutorialCount()
@@ -1578,6 +1741,9 @@ function refreshAchievements({ silent = false } = {}) {
       }))
       if (!practiceRunActive) scheduleUserProfileSync()
     } catch {}
+  }
+  if (!practiceRunActive) {
+    window.ByteboundQuests?.onAchievementsSynced?.(unlockedAchievements, ACHIEVEMENTS)
   }
   return metrics
 }
@@ -1681,6 +1847,13 @@ function renderAchievements() {
     ${renderCardCollection(metrics)}`
 }
 
+function renderPlayerTitleTagHtml(entry, { compact = true } = {}) {
+  const titleId = entry?.title_id || window.ByteboundQuests?.getPlayerTitle?.(entry?.player_name) || ''
+  return (titleId && window.ByteboundQuests?.renderTitleBadgeHtml)
+    ? window.ByteboundQuests.renderTitleBadgeHtml(titleId, { compact })
+    : ''
+}
+
 function renderLeaderboardPodium(entries, { isPvp, activeKey }) {
   const topThree = entries.slice(0, 3)
   if (!topThree.length) return ''
@@ -1693,6 +1866,7 @@ function renderLeaderboardPodium(entries, { isPvp, activeKey }) {
     const isCurrentUser = Boolean(activeKey && String(entry.player_name || '').trim().toLowerCase() === activeKey)
     const primaryLabel = isPvp ? 'Rating' : 'Score'
     const primaryValue = isPvp ? entry.rating : entry.score
+    const titleHtml = renderPlayerTitleTagHtml(entry, { compact: true })
     const statsHtml = isPvp
       ? `<div class="podium-stat"><dt>Record</dt><dd>${entry.wins}W-${entry.losses}L${entry.draws ? `-${entry.draws}D` : ''}</dd></div>
          <div class="podium-stat"><dt>Win Rate</dt><dd>${entry.win_rate}%</dd></div>
@@ -1706,6 +1880,7 @@ function renderLeaderboardPodium(entries, { isPvp, activeKey }) {
         ${isCurrentUser ? '<span class="podium-you-tag">YOU</span>' : ''}
       </div>
       <h3 class="podium-player">${esc(entry.player_name)}</h3>
+      ${titleHtml ? `<div class="podium-title-row">${titleHtml}</div>` : ''}
       <div class="podium-score-block">
         <span class="podium-score-label">${primaryLabel}</span>
         <strong class="podium-score-val">${esc(String(primaryValue))}</strong>
@@ -1719,11 +1894,20 @@ function renderLeaderboardPodium(entries, { isPvp, activeKey }) {
 
 function renderLeaderboard() {
   const isPvp = leaderboardTab === 'pvp'
+  const isWeekly = leaderboardPeriod === 'weekly'
+  const weekInfo = getLeaderboardWeekInfo()
   const credentialsConfigured = Boolean(supabaseCredentials())
   const activeKey = String(activePlayerName || '').trim().toLowerCase()
-  const tabsHtml = `<div class="leaderboard-tabs" role="tablist" aria-label="Leaderboard modes">
-    <button type="button" class="leaderboard-tab${!isPvp ? ' is-active' : ''}" data-leaderboard-tab="arcade" role="tab" aria-selected="${!isPvp}">Arcade Ranking</button>
-    <button type="button" class="leaderboard-tab${isPvp ? ' is-active' : ''}" data-leaderboard-tab="pvp" role="tab" aria-selected="${isPvp}">1v1 Competitive</button>
+  const tabsHtml = `<div class="leaderboard-controls-bar">
+    <div class="leaderboard-tabs" role="tablist" aria-label="Leaderboard modes">
+      <button type="button" class="leaderboard-tab${!isPvp ? ' is-active' : ''}" data-leaderboard-tab="arcade" role="tab" aria-selected="${!isPvp}">Arcade Ranking</button>
+      <button type="button" class="leaderboard-tab${isPvp ? ' is-active' : ''}" data-leaderboard-tab="pvp" role="tab" aria-selected="${isPvp}">1v1 Competitive</button>
+    </div>
+    <div class="leaderboard-period-bar" role="group" aria-label="Leaderboard timeframe">
+      <button type="button" class="leaderboard-period-btn${isWeekly ? ' is-active' : ''}" data-leaderboard-period="weekly" aria-pressed="${isWeekly}">Weekly (${esc(weekInfo.weekKey)})</button>
+      <button type="button" class="leaderboard-period-btn${!isWeekly ? ' is-active' : ''}" data-leaderboard-period="alltime" aria-pressed="${!isWeekly}">All-Time</button>
+      <span class="leaderboard-reset-pill">Resets Mon 00:00 · ${esc(weekInfo.countdown)}</span>
+    </div>
   </div>`
 
   if (isPvp) {
@@ -1733,24 +1917,25 @@ function renderLeaderboard() {
     } else if (pvpLeaderboardState === 'error') {
       message = `<p class="leaderboard-message is-error">Could not load 1v1 leaderboard: ${esc(pvpLeaderboardError)}</p>`
     } else if (!pvpLeaderboardEntries.length) {
-      message = '<p class="leaderboard-message">No 1v1 competitive matches recorded yet. Win or complete a 1v1 duel to rank on this board.</p>'
+      message = `<p class="leaderboard-message">No ${isWeekly ? `weekly (${esc(weekInfo.weekKey)}) ` : ''}1v1 competitive matches recorded yet. Win or complete a 1v1 duel to rank on this board.</p>`
     }
     const podiumHtml = renderLeaderboardPodium(pvpLeaderboardEntries, { isPvp: true, activeKey })
     const rest = pvpLeaderboardEntries.slice(3)
     const rows = rest.map((entry, index) => {
       const isCurrentUser = activeKey && String(entry.player_name || '').trim().toLowerCase() === activeKey
+      const titleHtml = renderPlayerTitleTagHtml(entry, { compact: true })
       return `<tr>
         <td data-label="Rank">${index + 4}</td>
-        <th scope="row" data-label="Player">${esc(entry.player_name)}${isCurrentUser ? ' <small>(You)</small>' : ''}</th>
+        <th scope="row" data-label="Player">${esc(entry.player_name)}${isCurrentUser ? ' <small>(You)</small>' : ''}${titleHtml ? ` <span class="lb-table-title">${titleHtml}</span>` : ''}</th>
         <td data-label="Rating">${entry.rating}</td>
         <td data-label="Record">${entry.wins}W - ${entry.losses}L${entry.draws ? ` - ${entry.draws}D` : ''}</td>
         <td data-label="Win Rate">${entry.win_rate}%</td>
         <td data-label="Accuracy">${entry.accuracy}%</td>
       </tr>`
     }).join('')
-    return `<span class="eyebrow">Leaderboard / 1v1 competitive</span>
+    return `<span class="eyebrow">Leaderboard / 1v1 competitive · ${isWeekly ? `weekly (${esc(weekInfo.weekKey)})` : 'all-time'}</span>
       <div class="leaderboard-heading">
-        <div><h2>1v1 Arena Champions</h2><p>Head-to-head online duels ranked by competitive rating (separate from Arcade).</p></div>
+        <div><h2>1v1 Arena Champions</h2><p>Head-to-head online duels ranked by competitive rating (${isWeekly ? 'Weekly Ladder resets Monday 00:00' : 'All-Time Career Ladder'}).</p></div>
         <button type="button" class="leaderboard-action" data-leaderboard-refresh ${pvpLeaderboardState === 'loading' ? 'disabled' : ''}>${pvpLeaderboardState === 'loading' ? 'Loading…' : 'Refresh'}</button>
       </div>
       ${tabsHtml}
@@ -1760,12 +1945,12 @@ function renderLeaderboard() {
         <thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Rating</th><th scope="col">Record</th><th scope="col">Win Rate</th><th scope="col">Accuracy</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>` : ''}
-      <p class="leaderboard-score-note">Base Rating: 1000 (+25 Win, -15 Loss, +5 Draw). Only completed 1v1 competitive duels affect this ranking.</p>`
+      <p class="leaderboard-score-note">Base Rating: 1000 (+25 Win, -15 Loss, +5 Draw). Weekly resets every Monday 00:00; reaching #1 unlocks [Apex Sovereign].</p>`
   }
 
   let message = ''
-  if (!credentialsConfigured || leaderboardState === 'unconfigured') {
-    message = `<p class="leaderboard-message">Connect your Supabase project to load shared rankings. Follow <a href="./SUPABASE_SETUP.md">the setup guide</a>, then refresh this page.</p>`
+  if (!credentialsConfigured && leaderboardState === 'unconfigured') {
+    message = `<p class="leaderboard-message">Connect your Supabase project to load shared global rankings. Local weekly runs still appear automatically.</p>`
   } else if (leaderboardState === 'loading') {
     message = '<p class="leaderboard-message">Loading rankings…</p>'
   } else if (leaderboardState === 'error') {
@@ -1773,24 +1958,25 @@ function renderLeaderboard() {
   } else if (leaderboardState === 'submit-error') {
     message = `<p class="leaderboard-message is-error">Run submission failed: ${esc(leaderboardError)}</p>`
   } else if (!leaderboardEntries.length) {
-    message = '<p class="leaderboard-message">No Arcade runs recorded yet. Start an Arcade game and defeat viruses to appear on this leaderboard.</p>'
+    message = `<p class="leaderboard-message">No ${isWeekly ? `weekly (${esc(weekInfo.weekKey)}) ` : ''}Arcade runs recorded yet. Defeat viruses in an Arcade run to appear on this board.</p>`
   }
   const podiumHtml = renderLeaderboardPodium(leaderboardEntries, { isPvp: false, activeKey })
   const rest = leaderboardEntries.slice(3)
   const rows = rest.map((entry, index) => {
     const isCurrentUser = activeKey && String(entry.player_name || '').trim().toLowerCase() === activeKey
+    const titleHtml = renderPlayerTitleTagHtml(entry, { compact: true })
     return `<tr>
       <td data-label="Rank">${index + 4}</td>
-      <th scope="row" data-label="Player">${esc(entry.player_name)}${isCurrentUser ? ' <small>(You)</small>' : ''}</th>
+      <th scope="row" data-label="Player">${esc(entry.player_name)}${isCurrentUser ? ' <small>(You)</small>' : ''}${titleHtml ? ` <span class="lb-table-title">${titleHtml}</span>` : ''}</th>
       <td data-label="Score">${entry.score}</td>
       <td data-label="Viruses">${entry.kills}</td>
       <td data-label="Correct">${entry.correct_answers} / ${entry.total_answers}</td>
       <td data-label="Accuracy">${entry.accuracy}%</td>
     </tr>`
   }).join('')
-  return `<span class="eyebrow">Leaderboard / arcade rankings</span>
+  return `<span class="eyebrow">Leaderboard / arcade rankings · ${isWeekly ? `weekly (${esc(weekInfo.weekKey)})` : 'all-time'}</span>
     <div class="leaderboard-heading">
-      <div><h2>Top adventurers</h2><p>Arcade adventure runs ranked by score (excludes 1v1-only players).</p></div>
+      <div><h2>Top adventurers</h2><p>Arcade adventure runs ranked by score (${isWeekly ? 'Weekly Leaderboard resets Monday 00:00' : 'All-Time Hall of Fame'}).</p></div>
       <button type="button" class="leaderboard-action" data-leaderboard-refresh ${leaderboardState === 'loading' ? 'disabled' : ''}>${leaderboardState === 'loading' ? 'Loading…' : 'Refresh'}</button>
     </div>
     ${tabsHtml}
@@ -1800,7 +1986,7 @@ function renderLeaderboard() {
       <thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Score</th><th scope="col">Viruses</th><th scope="col">Correct</th><th scope="col">Accuracy</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>` : ''}
-    <p class="leaderboard-score-note">Score = 100 per virus + 10 per correct answer + accuracy. Only Arcade runs with defeated viruses appear here.</p>`
+    <p class="leaderboard-score-note">Score = 100 per virus + 10 per correct answer + accuracy. Weekly resets every Monday 00:00; reaching #1 unlocks [Apex Sovereign].</p>`
 }
 
 
@@ -2498,8 +2684,12 @@ let worldMapReturnFocus = null
 let selectedWorldMapRoom = null
 const visitedRooms = new Set()
 let skillMapPan = null
+let skillTreePage = 'main'
+let selectedOverclockId = 'overclockAtk'
+let overclockMapPan = null
+let lastPurchasedOverclock = null
 const SKILL_MAP_ZOOM_OUT_POINTS = 5
-const SKILL_MAP_MIN_ZOOM = 0.55
+const SKILL_MAP_MIN_ZOOM = 0.34
 const SKILL_MAP_MAX_ZOOM = 2.4
 const battleKing = new Sprite({
   position: { x: 0, y: 0 },
@@ -2657,6 +2847,7 @@ function levelConfig(n) {
   const korBoss = baseRoom === 5
   const isFinalRoom = baseRoom === 9 || baseRoom === 12 || baseRoom === 14 || baseRoom === 16 || (Boolean(RUN_LENGTH) && n === RUN_LENGTH)
   const boss = isFinalRoom || korBoss || grenuBoss
+  const loopExtraFoes = boss ? 0 : Math.min(2, cycle)
   return {
     ...base,
     name: boss
@@ -2666,14 +2857,14 @@ function levelConfig(n) {
           ? `Mini Boss Grenu: ${base.name}`
           : `Mini Boss Kor: ${base.name}`)
       : cycle
-        ? `${base.name} ${cycle + 1}`
+        ? `${base.name} [Loop ${cycle + 1}]`
         : base.name,
     cycle,
     boss,
     korBoss,
     grenuBoss,
     final: isFinalRoom,
-    pigs: boss ? 1 : base.pigs,
+    pigs: boss ? 1 : (base.pigs + loopExtraFoes),
   }
 }
 
@@ -2694,10 +2885,18 @@ function resumeMusic() {
   }
 }
 
-// Boss rooms get one boss; later passes through the rooms have tougher foes.
+// Boss rooms get one boss; later loops deploy exponential scaling, loop armor, faster heavies, and elite reinforcements.
 function spawnEnemies(cfg, floorRun, scaleX, scaleY) {
-  const hpScale = 1 + 0.2 * cfg.cycle
-  const attackScale = 1 + 0.1 * cfg.cycle
+  const cycle = Math.max(0, Number(cfg.cycle) || 0)
+  const hpScale = cycle > 0 ? Math.pow(2.4, cycle) : 1
+  const attackScale = cycle > 0 ? Math.pow(1.65, cycle) : 1
+  const flatMobHp = cycle * 45
+  const flatBossHp = cycle * 140
+  const flatMobAtk = cycle * 5
+  const flatBossAtk = cycle * 8
+  const mobArmor = cycle > 0 ? Math.min(24, 6 * cycle) : 0
+  const bossArmor = cycle > 0 ? Math.min(30, 10 * cycle) : 0
+  const loopDmgReduction = cycle > 0 ? Math.min(0.45, 0.2 * cycle) : 0
   if (cfg.boss) {
     const boss = new Boss(floorRun, cfg.final, { grenu: Boolean(cfg.grenuBoss) })
     const placement = cfg.bossPlacement || (cfg.enemyPlacements && cfg.enemyPlacements[0])
@@ -2713,11 +2912,35 @@ function spawnEnemies(cfg, floorRun, scaleX, scaleY) {
       if (cfg.enemyFloorY) boss.y = cfg.enemyFloorY * scaleY - boss.h
     }
     boss.scaleStats(hpScale, attackScale)
+    if (cycle > 0) {
+      boss.maxHp += flatBossHp
+      boss.hp = boss.maxHp
+      boss.attack += flatBossAtk
+      boss.loopTier = cycle
+      boss.loopArmor = bossArmor
+      boss.loopDmgReduction = loopDmgReduction
+      boss.heavyEvery = Math.max(2, (boss.heavyEvery || 3) - 1)
+      boss.name = `${boss.name} [LOOP ${cycle + 1}]`
+    }
+    const bossStartShield = typeof computeEnemyStartingShield === 'function'
+      ? computeEnemyStartingShield(boss, cycle)
+      : 0
+    boss.maxShield = bossStartShield
+    boss.shield = bossStartShield
     return [boss]
   }
+  const basePlacements = Array.isArray(cfg.enemyPlacements) ? cfg.enemyPlacements : []
   return Array.from({ length: cfg.pigs }, (_, i) => {
-    const placement = cfg.enemyPlacements && cfg.enemyPlacements[i]
-    const enemy = new Enemy(floorRun, i, { nyrmed: Boolean(placement?.nyrmed), grenu: Boolean(placement?.grenu) })
+    const placement = basePlacements[i] || null
+    const isReinforcement = !placement && basePlacements.length > 0
+    const promoteNyrmed = Boolean(placement?.nyrmed) || (cycle > 0 && isReinforcement && (cycle >= 2 || i % 2 === 1))
+    const promoteGrenu = !promoteNyrmed && (Boolean(placement?.grenu) || (cycle >= 2 && i % 2 === 0) || (cycle > 0 && isReinforcement))
+    const promoteBrute = !promoteNyrmed && !promoteGrenu && cycle > 0 && i % 2 === 0
+    const enemy = new Enemy(floorRun, i, {
+      nyrmed: promoteNyrmed,
+      grenu: promoteGrenu,
+      brute: promoteBrute,
+    })
     if (placement) {
       enemy.minX = placement.patrolLeft * scaleX
       enemy.maxX = placement.patrolRight * scaleX - enemy.w
@@ -2727,11 +2950,33 @@ function spawnEnemies(cfg, floorRun, scaleX, scaleY) {
       enemy.minX = cfg.enemySpawnBounds.left * scaleX
       enemy.maxX = cfg.enemySpawnBounds.right * scaleX - enemy.w
       enemy.x = enemy.minX + ((i + 1) / (cfg.pigs + 1)) * (enemy.maxX - enemy.minX)
+    } else if (basePlacements.length) {
+      const anchor = basePlacements[i % basePlacements.length]
+      enemy.minX = anchor.patrolLeft * scaleX
+      enemy.maxX = Math.max(enemy.minX, anchor.patrolRight * scaleX - enemy.w)
+      const shift = (i % 2 === 0 ? 1 : -1) * 64 * scaleX
+      enemy.x = Math.max(enemy.minX, Math.min(enemy.maxX, anchor.x * scaleX + shift))
+      enemy.y = anchor.floorY * scaleY - enemy.h
     } else {
       enemy.x = enemy.minX + ((i + 1) / (cfg.pigs + 1)) * (enemy.maxX - enemy.minX)
     }
     if (!placement && cfg.enemyFloorY) enemy.y = cfg.enemyFloorY * scaleY - enemy.h
     enemy.scaleStats(hpScale, attackScale)
+    if (cycle > 0) {
+      enemy.maxHp += flatMobHp
+      enemy.hp = enemy.maxHp
+      enemy.attack += flatMobAtk
+      enemy.loopTier = cycle
+      enemy.loopArmor = mobArmor
+      enemy.loopDmgReduction = loopDmgReduction
+      enemy.heavyEvery = Math.max(2, (enemy.heavyEvery || 3) - 1)
+      enemy.name = `${enemy.name} [L${cycle + 1}]`
+    }
+    const mobStartShield = typeof computeEnemyStartingShield === 'function'
+      ? computeEnemyStartingShield(enemy, cycle)
+      : 0
+    enemy.maxShield = mobStartShield
+    enemy.shield = mobStartShield
     return enemy
   })
 }
@@ -2818,6 +3063,13 @@ function loadLevel(n, options = {}) {
   if (spBanner) spBanner.hidden = true
   window.clearTimeout(spEarnedBannerTimer)
   spEarnedBannerTimer = 0
+  const prevCycle = Math.floor((Math.max(1, Number(level) || 1) - 1) / ROOM_COUNT)
+  const nextCycle = Math.floor((Math.max(1, Number(n) || 1) - 1) / ROOM_COUNT)
+  if (!options?.skipLoopReset && nextCycle > prevCycle) {
+    // Preserve lifetime clearedRooms count for quests/titles before resetting map exploration for the new loop.
+    window.ByteboundQuests?.onRoomsUpdated?.(clearedRooms)
+    visitedRooms.clear()
+  }
   const cfg = levelConfig(n)
   level = n
   visitedRooms.add(((n - 1) % ROOM_COUNT) + 1)
@@ -3663,6 +3915,27 @@ function drawPixelShield(cx, cy, pixelSize = 4, options = {}) {
   c.restore()
 }
 
+function drawHexBarrierAura(cx, cy, radius, animT = 0, { primary = '#72f5ff', activeColor = '#ffe07a' } = {}) {
+  c.save()
+  c.globalCompositeOperation = 'lighter'
+  const pulse = animT > 0 ? 0.58 + Math.sin(arenaT * 0.45) * 0.25 : 0.28 + Math.sin(arenaT * 0.14) * 0.08
+  c.globalAlpha = pulse
+  c.strokeStyle = animT > 0 ? activeColor : primary
+  c.lineWidth = animT > 0 ? 4.5 : 2.5
+  c.beginPath()
+  const r = animT > 0 ? radius + Math.min(18, animT * 0.25) : radius
+  for (let i = 0; i < 6; i++) {
+    const ang = (Math.PI / 3) * i + arenaT * 0.02
+    const px = cx + Math.cos(ang) * r
+    const py = cy + Math.sin(ang) * r
+    if (i === 0) c.moveTo(px, py)
+    else c.lineTo(px, py)
+  }
+  c.closePath()
+  c.stroke()
+  c.restore()
+}
+
 // Decorative pixel-art character-head status frame drawn above each fighter in battle.
 function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, options = {}) {
   const hasMana = mana !== undefined
@@ -3675,6 +3948,13 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
   const isHeavyIntent = Boolean(options.isHeavyIntent)
   const defBuffActive = Boolean(options.defBuffActive)
   if (st) st.defBuffActive = defBuffActive
+  const maxShield = Math.min(5, Math.max(0, Math.round(Number(options.maxShield ?? entityRef?.maxShield) || 0)))
+  const shield = Math.min(maxShield, Math.max(0, Math.round(Number(options.shield ?? entityRef?.shield) || 0)))
+  const hasShield = maxShield > 0
+  const shieldBreakT = typeof battle !== 'undefined' && battle
+    ? (isHero ? (battle.heroShieldBreakT || 0) : (battle.enemyShieldBreakT || 0))
+    : 0
+  const shieldBlockH = hasShield ? 20 : 0
   const subText = options.subText || ''
 
   c.save()
@@ -3686,25 +3966,29 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
   const nameStr = String(name || '').toUpperCase()
   const headerWidth = Math.ceil(
     c.measureText(nameStr).width +
-    c.measureText(hpLabel).width +
+    c.measureText(`HP ${hpLabel}`).width +
     (deltaText ? c.measureText(deltaText).width + 18 : 0) +
     (defBuffActive ? 44 : 0) +
-    46
+    52
   )
   c.font = window.ByteboundFont.canvas(8)
   const subWidth = subText ? Math.ceil(c.measureText(subText).width + 28) : 0
-  const w = Math.max(228, headerWidth, subWidth)
-  const h = hasMana ? (subText ? 76 : 64) : (subText ? 62 : 50)
+  const w = Math.max(hasMana ? 242 : 228, headerWidth, subWidth)
+  const h = (hasMana ? (subText ? 86 : 74) : (subText ? 62 : 50)) + shieldBlockH
   const x = Math.round(Math.max(12, Math.min(canvas.width - w - 12, cx - w / 2)))
   const y = Math.round(Math.max(10, Math.min(canvas.height - h - 10, bottom - h)))
 
   const outerBorder = '#060a0d'
-  const frameBorder = defBuffActive
-    ? '#c8d6e5'
-    : (isHero ? '#d9a44a' : (isHeavyIntent ? '#ff784f' : '#cf5978'))
-  const cornerColor = defBuffActive
-    ? '#f4f9ff'
-    : (isHero ? '#ffe082' : (isHeavyIntent ? '#ffb38a' : '#ff9eb6'))
+  const frameBorder = hasShield && shield > 0
+    ? '#5ee7ff'
+    : defBuffActive
+      ? '#c8d6e5'
+      : (isHero ? '#d9a44a' : (isHeavyIntent ? '#ff784f' : '#cf5978'))
+  const cornerColor = hasShield && shield > 0
+    ? '#ccfaff'
+    : defBuffActive
+      ? '#f4f9ff'
+      : (isHero ? '#ffe082' : (isHeavyIntent ? '#ffb38a' : '#ff9eb6'))
   const plaqueBg = isHero ? 'rgba(13, 21, 25, 0.94)' : 'rgba(22, 13, 25, 0.94)'
   const innerBevel = defBuffActive
     ? 'rgba(220, 232, 245, 0.34)'
@@ -3746,7 +4030,14 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
   c.fillStyle = '#f6f2e6'
   c.fillText(hpLabel, x + w - 10, y + 14)
 
-  let rightAccessoryX = x + w - 14 - c.measureText(hpLabel).width
+  const hpTagLabel = 'HP'
+  const hpValW = c.measureText(hpLabel).width
+  c.font = window.ByteboundFont.canvas(8)
+  c.fillStyle = '#ff8e82'
+  c.fillText(hpTagLabel, x + w - 15 - hpValW, y + 14)
+  const hpTagW = c.measureText(hpTagLabel).width + 6
+
+  let rightAccessoryX = x + w - 16 - hpValW - hpTagW
   if (defBuffActive) {
     c.font = window.ByteboundFont.canvas(7)
     const defW = 34
@@ -3781,9 +4072,97 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
     c.fillText(deltaText, dx + dw / 2, dy + 7)
   }
 
+  // 3b. Unique Prismatic Hex-Chevron Hit-Shield Bar (1-5 charges, damage-independent)
+  if (hasShield) {
+    const shRowY = y + 23
+    const iconX = x + 10
+    const iconY = shRowY + 1
+    // Pixel Aegis Crest (9x11)
+    c.fillStyle = shield > 0 ? '#a8fbff' : '#3a5b66'
+    c.fillRect(iconX + 2, iconY, 5, 1)
+    c.fillStyle = shield > 0 ? '#3ee4ff' : '#263e47'
+    c.fillRect(iconX + 1, iconY + 1, 7, 2)
+    c.fillRect(iconX, iconY + 3, 9, 4)
+    c.fillRect(iconX + 1, iconY + 7, 7, 2)
+    c.fillRect(iconX + 2, iconY + 9, 5, 1)
+    c.fillRect(iconX + 4, iconY + 10, 1, 1)
+    if (shield > 0) {
+      c.fillStyle = '#ebffff'
+      c.fillRect(iconX + 3, iconY + 3, 3, 3)
+    }
+
+    const shReadLabel = `×${shield}`
+    c.font = window.ByteboundFont.canvas(8)
+    c.textAlign = 'right'
+    c.textBaseline = 'middle'
+    c.fillStyle = shield > 0 ? '#9ef8ff' : '#58717a'
+    c.fillText(shReadLabel, x + w - 10, shRowY + 7)
+    const shReadW = Math.ceil(c.measureText(shReadLabel).width) + 6
+
+    const shStartX = x + 24
+    const shAvailW = Math.max(44, w - 34 - shReadW)
+    const shGap = 5
+    const cellW = Math.min(34, Math.floor((shAvailW - shGap * (maxShield - 1)) / maxShield))
+    const cellH = 11
+    const cellY = shRowY + 1
+    const bev = Math.min(4, Math.floor(cellW * 0.22))
+    const traceChevron = (cx0) => {
+      c.beginPath()
+      c.moveTo(cx0 + bev, cellY)
+      c.lineTo(cx0 + cellW - bev, cellY)
+      c.lineTo(cx0 + cellW, cellY + cellH / 2)
+      c.lineTo(cx0 + cellW - bev, cellY + cellH)
+      c.lineTo(cx0 + bev, cellY + cellH)
+      c.lineTo(cx0, cellY + cellH / 2)
+      c.closePath()
+    }
+    for (let s = 0; s < maxShield; s++) {
+      const cx0 = shStartX + s * (cellW + shGap)
+      const active = s < shield
+      const justCracked = s === shield && shieldBreakT > 0
+      traceChevron(cx0)
+      if (active) {
+        c.fillStyle = '#1fbde6'
+        c.fill()
+        c.save()
+        c.clip()
+        c.fillStyle = '#b4ffff'
+        c.fillRect(cx0, cellY, cellW, 3)
+        c.fillStyle = '#0d6a8a'
+        c.fillRect(cx0, cellY + cellH - 3, cellW, 3)
+        if (!isReducedMotionActive()) {
+          const gleamPhase = ((arenaT * 2.2) - s * 14) % 90
+          if (gleamPhase >= 0 && gleamPhase <= cellW + 10) {
+            c.fillStyle = 'rgba(255, 255, 255, 0.52)'
+            c.fillRect(Math.round(cx0 + gleamPhase - 6), cellY, 5, cellH)
+          }
+        }
+        c.restore()
+        traceChevron(cx0)
+        c.strokeStyle = '#dcffff'
+        c.lineWidth = 1
+        c.stroke()
+      } else {
+        c.fillStyle = justCracked
+          ? `rgba(180, 250, 255, ${Math.min(0.85, shieldBreakT / 24)})`
+          : '#09151c'
+        c.fill()
+        c.strokeStyle = justCracked ? '#ffffff' : '#264350'
+        c.lineWidth = 1
+        c.stroke()
+        // Fracture slash inside depleted socket
+        c.beginPath()
+        c.moveTo(cx0 + Math.round(cellW * 0.36), cellY + 2)
+        c.lineTo(cx0 + Math.round(cellW * 0.64), cellY + cellH - 2)
+        c.strokeStyle = justCracked ? '#72f5ff' : '#1e3946'
+        c.stroke()
+      }
+    }
+  }
+
   // 4. Health bar with Red Damage Afterimage Trail, Green Healing Trail, & Silver Defense-Buff Frame
   const barX = x + 10
-  const barY = y + 23
+  const barY = y + 23 + shieldBlockH
   const barW = w - 20
   const barH = 10
   const mainR = st ? st.mainRatio : clampUnitRatio(maxHp > 0 ? hp / maxHp : 0)
@@ -3865,32 +4244,50 @@ function drawStatTag(cx, bottom, name, hp, maxHp, nameColor, mana, maxMana, opti
     c.restore()
   }
 
-  // 5. Mana sub-bar (if unit has mana)
-  let nextRowY = barY + barH + 8
+  // 5. Mana sub-bar (unmistakably distinct azure mana bar with pixel diamond glyph)
+  let nextRowY = barY + barH + 10
   if (hasMana) {
-    c.font = window.ByteboundFont.canvas(8)
+    // 7x9 pixel mana diamond icon
+    const mx = barX
+    const my = nextRowY - 5
+    c.fillStyle = '#2986e6'
+    c.fillRect(mx + 2, my, 3, 1)
+    c.fillRect(mx + 1, my + 1, 5, 2)
+    c.fillRect(mx, my + 3, 7, 3)
+    c.fillRect(mx + 1, my + 6, 5, 2)
+    c.fillRect(mx + 2, my + 8, 3, 1)
+    c.fillStyle = '#bce8ff'
+    c.fillRect(mx + 2, my + 2, 2, 3)
+
+    c.font = window.ByteboundFont.canvas(9)
     c.textAlign = 'left'
-    c.fillStyle = '#8be0f0'
-    c.fillText('MP', barX, nextRowY)
+    c.fillStyle = '#6ecbff'
+    c.fillText('MANA', barX + 11, nextRowY)
     c.textAlign = 'right'
-    c.fillStyle = '#d9f0f7'
+    c.fillStyle = '#e6f6ff'
     c.fillText(`${mana}/${maxMana}`, barX + barW, nextRowY)
 
-    const mpY = nextRowY + 6
-    const mpH = 5
+    const mpY = nextRowY + 7
+    const mpH = 8
     const mpR = st ? st.manaRatio : clampUnitRatio(maxMana > 0 ? mana / maxMana : 0)
-    c.fillStyle = '#070b0e'
+    c.fillStyle = '#1b5eb0'
     c.fillRect(barX - 1, mpY - 1, barW + 2, mpH + 2)
-    c.fillStyle = 'rgba(255, 255, 255, 0.1)'
+    c.fillStyle = '#06111e'
     c.fillRect(barX, mpY, barW, mpH)
     const mpW = Math.round(barW * mpR)
     if (mpW > 0) {
-      c.fillStyle = '#48a4de'
+      c.fillStyle = '#1f7de6'
       c.fillRect(barX, mpY, mpW, mpH)
-      c.fillStyle = '#8ee0ff'
-      c.fillRect(barX, mpY, mpW, 1)
+      c.fillStyle = '#85dbff'
+      c.fillRect(barX, mpY, mpW, 2)
+      c.fillStyle = '#0e4994'
+      c.fillRect(barX, mpY + mpH - 2, mpW, 2)
     }
-    nextRowY = mpY + mpH + 9
+    c.fillStyle = 'rgba(6, 17, 30, 0.45)'
+    for (let t = 1; t <= 3; t++) {
+      c.fillRect(Math.round(barX + (barW * t) / 4), mpY, 1, mpH)
+    }
+    nextRowY = mpY + mpH + 10
   } else {
     nextRowY += 2
   }
@@ -4537,7 +4934,8 @@ function drawCombatants(heroX, foeX, shake) {
       hs
     )
   }
-  const heroMetaText = `ATK ${hero.attack + (hero.tempAttack || 0)} · DEF ${hero.defense + (b.tempDefense || 0)}`
+  const pierceMeta = (hero.armorPierce || 0) > 0 ? ` · PRC ${hero.armorPierce}` : ''
+  const heroMetaText = `ATK ${hero.attack + (hero.tempAttack || 0)} · DEF ${hero.defense + (b.tempDefense || 0)}${pierceMeta}`
   drawStatTag(
     hx,
     HERO_SPOT.y - heroDrawHeight - 10,
@@ -4547,29 +4945,61 @@ function drawCombatants(heroX, foeX, shake) {
     '#f2bb61',
     hero.mana,
     hero.maxMana,
-    { unitKey: 'hero', entityRef: hero, subText: heroMetaText, defBuffActive: hasHeroFullDefenseBuff() }
+    {
+      unitKey: 'hero',
+      entityRef: hero,
+      subText: heroMetaText,
+      defBuffActive: hasHeroFullDefenseBuff(),
+      shield: hero.shield,
+      maxShield: hero.maxShield,
+    }
   )
   if (charging || b.chargeMaxT > 0) {
     drawChargeMeter(hx, charging ? chargeProgress : 1)
   }
   if (b.defendEffectT > 0) drawDefendEffect(hx, hy - heroDrawHeight, { heroHeight: heroDrawHeight })
-  if ((typeof hero !== 'undefined' && hero.runInvincible) || b.aegisAnimT > 0) {
+  if ((typeof hero !== 'undefined' && (hero.shield > 0 || hero.runInvincible)) || b.aegisAnimT > 0 || b.heroShieldBreakT > 0) {
+    drawHexBarrierAura(hx, hy - heroDrawHeight * 0.5, 78, Math.max(b.aegisAnimT || 0, b.heroShieldBreakT || 0), {
+      primary: hero.shield > 0 ? '#72f5ff' : '#7bf5c8',
+      activeColor: '#ffe07a',
+    })
+  }
+  if ((b.logicReflectCharges || 0) > 0 || b.logicAnimT > 0) {
     c.save()
     c.globalCompositeOperation = 'lighter'
-    const pulse = b.aegisAnimT > 0 ? 0.55 + Math.sin(arenaT * 0.45) * 0.25 : 0.28 + Math.sin(arenaT * 0.14) * 0.1
-    c.globalAlpha = pulse
-    c.strokeStyle = b.aegisAnimT > 0 ? '#ffe07a' : '#7bf5c8'
-    c.lineWidth = b.aegisAnimT > 0 ? 5 : 3
+    c.globalAlpha = b.logicAnimT > 0 ? 0.72 : 0.36 + Math.sin(arenaT * 0.16) * 0.12
+    c.strokeStyle = '#9d8cff'
+    c.lineWidth = b.logicAnimT > 0 ? 4 : 2.5
+    const r = b.logicAnimT > 0 ? 80 + (50 - b.logicAnimT) * 0.25 : 70
+    const cy = hy - heroDrawHeight * 0.5
     c.beginPath()
-    const radius = b.aegisAnimT > 0 ? 86 + (56 - b.aegisAnimT) * 0.3 : 78
-    for (let i = 0; i < 6; i++) {
-      const ang = (Math.PI / 3) * i + arenaT * 0.02
-      const px = hx + Math.cos(ang) * radius
-      const py = hy - heroDrawHeight * 0.5 + Math.sin(ang) * radius
-      if (i === 0) c.moveTo(px, py)
-      else c.lineTo(px, py)
-    }
+    c.moveTo(hx, cy - r)
+    c.lineTo(hx + r, cy)
+    c.lineTo(hx, cy + r)
+    c.lineTo(hx - r, cy)
     c.closePath()
+    c.stroke()
+    c.restore()
+  }
+  if ((b.rollbackGuardStacks || 0) > 0 || (b.refactorDiscountTurns || 0) > 0 || b.refactorAnimT > 0) {
+    c.save()
+    c.globalCompositeOperation = 'lighter'
+    c.globalAlpha = b.refactorAnimT > 0 ? 0.68 : 0.34
+    c.strokeStyle = '#45c9a8'
+    c.lineWidth = b.refactorAnimT > 0 ? 4 : 2.5
+    const rx = hx - 66
+    const ry = hy - heroDrawHeight - 10
+    c.strokeRect(rx, ry, 132, heroDrawHeight + 16)
+    c.restore()
+  }
+  if ((b.asyncEchoCharges || 0) > 0 || b.asyncAnimT > 0) {
+    c.save()
+    c.globalCompositeOperation = 'lighter'
+    c.globalAlpha = b.asyncAnimT > 0 ? 0.7 : 0.32 + Math.sin(arenaT * 0.22) * 0.1
+    c.strokeStyle = '#f075b4'
+    c.lineWidth = b.asyncAnimT > 0 ? 4 : 2
+    c.beginPath()
+    c.arc(hx, hy - heroDrawHeight * 0.5, b.asyncAnimT > 0 ? 74 + (52 - b.asyncAnimT) * 0.25 : 64, 0, Math.PI * 2)
     c.stroke()
     c.restore()
   }
@@ -4817,25 +5247,35 @@ function drawCombatants(heroX, foeX, shake) {
       }
       const foeMetaText = foe.isMultiplayerPlayer
         ? `ATK ${foe.attack} · DEF ${foe.defense}`
-        : `${foe.attack} ATK · ${isHeavy(foe) ? '! HEAVY NEXT' : 'NORMAL NEXT'}`
+        : foe.loopTier > 0
+          ? `${foe.attack} ATK · ARM ${foe.loopArmor || 0} (-${Math.round((foe.loopDmgReduction || 0) * 100)}%) · ${isHeavy(foe) ? '! HEAVY' : 'NORMAL'}`
+          : `${foe.attack} ATK · ${isHeavy(foe) ? '! HEAVY NEXT' : 'NORMAL NEXT'}`
       const mpOppDefBuff = Boolean(
         foe.isMultiplayerPlayer &&
         typeof mpState !== 'undefined' &&
         mpState?.fighters &&
         (mpState.fighters[mpState.role === 'host' ? 'guest' : 'host']?.block || 0) >= 0.75
       )
+      if (!foe.isMultiplayerPlayer && ((foe.shield || 0) > 0 || (b.enemyShieldBreakT || 0) > 0)) {
+        drawHexBarrierAura(fx, fy - foeHeight * 0.48, foe.isBoss ? 86 : 64, b.enemyShieldBreakT || 0, {
+          primary: '#5be2ff',
+          activeColor: '#ffffff',
+        })
+      }
       drawStatTag(fx, FOE_SPOT.y - foeHeight - 10, label, foe.hp, foe.maxHp, labelColor, foe.mana, foe.maxMana, {
         unitKey: 'enemy',
         entityRef: foe,
         subText: foeMetaText,
         isHeavyIntent: !foe.isMultiplayerPlayer && isHeavy(foe),
         defBuffActive: mpOppDefBuff,
+        shield: foe.shield,
+        maxShield: foe.maxShield,
       })
       if (!foe.isMultiplayerPlayer && ((b.enemyStunTurns || 0) > 0 || (b.enemyBurnTurns || 0) > 0)) {
         const pills = []
         if ((b.enemyStunTurns || 0) > 0) pills.push({ text: `STUNNED ${b.enemyStunTurns}t`, color: '#6fe3e8', bg: '#0e2830' })
         if ((b.enemyBurnTurns || 0) > 0) pills.push({ text: `BURNING ${b.enemyBurnTurns}t`, color: '#ff9659', bg: '#2f140d' })
-        let pillY = fy - foeHeight - (foe.mana !== undefined ? 86 : 70)
+        let pillY = Math.max(18, fy - foeHeight - (foe.mana !== undefined ? 96 : 70) - ((foe.maxShield || 0) > 0 ? 22 : 0))
         c.save()
         c.font = window.ByteboundFont.canvas(9)
         c.textAlign = 'center'
@@ -4885,6 +5325,48 @@ function drawPopups() {
   c.textAlign = 'left'
 }
 
+function drawBloodSplatter(worldLayer = true) {
+  const b = battle
+  const reduced = isReducedMotionActive()
+  if (worldLayer) {
+    if (!Array.isArray(b.bloodDrops) || !b.bloodDrops.length) return
+    b.bloodDrops = b.bloodDrops.filter((d) => d.life > 0)
+    c.save()
+    for (const d of b.bloodDrops) {
+      d.x += d.vx
+      d.y += d.vy
+      d.vy += reduced ? 0.04 : 0.24
+      d.vx *= 0.96
+      d.life--
+      c.globalAlpha = Math.max(0, Math.min(1, d.life / (d.maxLife || 36)))
+      c.fillStyle = d.color || '#c9182b'
+      const sz = d.size || 6
+      c.fillRect(Math.round(d.x - sz / 2), Math.round(d.y - sz / 2), sz, sz)
+    }
+    c.restore()
+    return
+  }
+  if (!(b.bloodSplatterT > 0)) return
+  const alpha = Math.min(0.42, (b.bloodSplatterT / 46) * 0.42)
+  c.save()
+  c.globalAlpha = alpha
+  c.fillStyle = '#990d1c'
+  // Subtle crimson vignette edge & corner pixel splatter marks
+  c.fillRect(0, 0, canvas.width, 6)
+  c.fillRect(0, canvas.height - 6, canvas.width, 6)
+  c.fillRect(0, 0, 6, canvas.height)
+  c.fillRect(canvas.width - 6, 0, 6, canvas.height)
+  const spots = [
+    [22, 18, 12], [42, 28, 6], [16, 46, 8],
+    [canvas.width - 34, 20, 10], [canvas.width - 52, 34, 6],
+    [28, canvas.height - 30, 10], [48, canvas.height - 20, 6],
+  ]
+  for (const [sx, sy, ssz] of spots) {
+    c.fillRect(sx, sy, ssz, ssz)
+  }
+  c.restore()
+}
+
 function drawBattle() {
   const b = battle
   const chargeProgress = currentChargeProgress()
@@ -4922,8 +5404,11 @@ function drawBattle() {
   drawImpactRings()
   drawCardActionAnim()
   drawFx()
+  drawBloodSplatter(true)
   drawPopups()
   c.restore()
+  drawBloodSplatter(false)
+  if (b.bloodSplatterT > 0) b.bloodSplatterT--
   if (typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive && typeof mpState !== 'undefined' && b.phase !== 'mp_dying' && b.phase !== 'mp_won' && b.phase !== 'mp_lost') {
     const myTurn = typeof mpIsMyTurn === 'function' && mpIsMyTurn() && b.phase !== 'mp_waiting'
     const turnLabel = myTurn
@@ -4955,8 +5440,13 @@ function drawBattle() {
     for (let i = 0; i < b.allyAttackTs.length; i++) if (b.allyAttackTs[i] > 0) b.allyAttackTs[i]--
   }
   if (b.aegisAnimT > 0) b.aegisAnimT--
+  if (b.heroShieldBreakT > 0) b.heroShieldBreakT--
+  if (b.enemyShieldBreakT > 0) b.enemyShieldBreakT--
   if (b.stunAnimT > 0) b.stunAnimT--
   if (b.burnAnimT > 0) b.burnAnimT--
+  if (b.logicAnimT > 0) b.logicAnimT--
+  if (b.refactorAnimT > 0) b.refactorAnimT--
+  if (b.asyncAnimT > 0) b.asyncAnimT--
   if (b.cardAnim && b.cardAnim.t > 0) b.cardAnim.t--
   if (b.enemyLungeT > 0) b.enemyLungeT -= 0.04
   if (b.enemyFollower && b.enemyFollower.lungeT > 0) b.enemyFollower.lungeT = Math.max(0, b.enemyFollower.lungeT - 0.05)
@@ -5139,11 +5629,17 @@ function getRunRoleSummary(save) {
   if (ex === 'networkingSecurity') return { label: 'Packet Lockdown · Networking', theme: 'ns' }
   if (ex === 'programming') return { label: 'Overburn Execution · Programming', theme: 'pr' }
   if (ex === 'database') return { label: 'Necromancy Pact · Database', theme: 'db' }
+  if (ex === 'discreteMath') return { label: 'Proof by Contradiction · Discrete Math', theme: 'dm' }
+  if (ex === 'softwareEng') return { label: 'System Refactor · Software Eng', theme: 'se' }
+  if (ex === 'webMobile') return { label: 'Async Cascade · Web & Mobile', theme: 'wm' }
   const focus = save?.roleFocus
   if (focus === 'computerSystems') return { label: 'Focus: Computer Systems', theme: 'cs' }
   if (focus === 'networkingSecurity') return { label: 'Focus: Networking & Security', theme: 'ns' }
   if (focus === 'programming') return { label: 'Focus: Programming', theme: 'pr' }
   if (focus === 'database') return { label: 'Focus: Database', theme: 'db' }
+  if (focus === 'discreteMath') return { label: 'Focus: Discrete Mathematics', theme: 'dm' }
+  if (focus === 'softwareEng') return { label: 'Focus: Software Engineering', theme: 'se' }
+  if (focus === 'webMobile') return { label: 'Focus: Web & Mobile', theme: 'wm' }
   return { label: 'Unbound · Any Path', theme: 'none' }
 }
 
@@ -5200,6 +5696,13 @@ function serializeRunEnemies() {
     dir: e?.dir === -1 ? -1 : 1,
     hp: Number.isFinite(e?.hp) ? Math.max(0, Math.round(e.hp)) : 0,
     maxHp: Number.isFinite(e?.maxHp) ? Math.max(1, Math.round(e.maxHp)) : 1,
+    shield: Number.isFinite(e?.shield) ? Math.max(0, Math.min(5, Math.round(e.shield))) : 0,
+    maxShield: Number.isFinite(e?.maxShield) ? Math.max(0, Math.min(5, Math.round(e.maxShield))) : 0,
+    attack: Number.isFinite(e?.attack) ? Math.max(1, Math.round(e.attack)) : null,
+    heavyEvery: Number.isInteger(e?.heavyEvery) && e.heavyEvery >= 1 ? e.heavyEvery : null,
+    loopTier: Number.isInteger(e?.loopTier) && e.loopTier >= 0 ? e.loopTier : 0,
+    loopArmor: Number.isFinite(e?.loopArmor) ? Math.max(0, Math.round(e.loopArmor)) : 0,
+    loopDmgReduction: Number.isFinite(e?.loopDmgReduction) ? Math.max(0, Number(e.loopDmgReduction)) : 0,
     turns: Number.isInteger(e?.turns) && e.turns >= 0 ? e.turns : 0,
   }))
 }
@@ -5223,8 +5726,13 @@ function serializeBattleState() {
     name: String(battle.enemy.name || 'Virus'),
     hp: Math.max(0, Math.round(Number(battle.enemy.hp) || 0)),
     maxHp: Math.max(1, Math.round(Number(battle.enemy.maxHp) || 1)),
+    shield: Math.max(0, Math.min(5, Math.round(Number(battle.enemy.shield) || 0))),
+    maxShield: Math.max(0, Math.min(5, Math.round(Number(battle.enemy.maxShield) || 0))),
     attack: Math.max(1, Math.round(Number(battle.enemy.attack) || 10)),
     heavyEvery: Math.max(1, Math.round(Number(battle.enemy.heavyEvery) || 3)),
+    loopTier: Math.max(0, Math.round(Number(battle.enemy.loopTier) || 0)),
+    loopArmor: Math.max(0, Math.round(Number(battle.enemy.loopArmor) || 0)),
+    loopDmgReduction: Number.isFinite(battle.enemy.loopDmgReduction) ? Math.max(0, Number(battle.enemy.loopDmgReduction)) : 0,
     turns: Math.max(0, Math.round(Number(battle.enemy.turns) || 0)),
     alive: Boolean(battle.enemy.alive),
     isBoss: Boolean(battle.enemy.isBoss),
@@ -5286,6 +5794,17 @@ function serializeBattleState() {
     enemyStunTurns: Math.max(0, Math.round(Number(battle.enemyStunTurns) || 0)),
     enemyBurnTurns: Math.max(0, Math.round(Number(battle.enemyBurnTurns) || 0)),
     enemyBurnDamage: Math.max(0, Math.round(Number(battle.enemyBurnDamage) || 0)),
+    logicReflectCharges: Math.max(0, Math.round(Number(battle.logicReflectCharges) || 0)),
+    logicReflectMult: Number.isFinite(battle.logicReflectMult) ? battle.logicReflectMult : 1.5,
+    logicEliminateCharges: Math.max(0, Math.round(Number(battle.logicEliminateCharges) || 0)),
+    logicCritArmed: Boolean(battle.logicCritArmed),
+    eliminatedChoices: Array.isArray(battle.eliminatedChoices) ? battle.eliminatedChoices.map((n) => Number(n)) : [],
+    hintUsedThisQuestion: Boolean(battle.hintUsedThisQuestion),
+    bloodHintClue: typeof battle.bloodHintClue === 'string' ? battle.bloodHintClue : '',
+    refactorDiscountTurns: Math.max(0, Math.round(Number(battle.refactorDiscountTurns) || 0)),
+    rollbackGuardStacks: Math.max(0, Math.round(Number(battle.rollbackGuardStacks) || 0)),
+    asyncEchoCharges: Math.max(0, Math.round(Number(battle.asyncEchoCharges) || 0)),
+    enemyRateLimitTurns: Math.max(0, Math.round(Number(battle.enemyRateLimitTurns) || 0)),
     enemyAttackedThisTurn: Boolean(battle.enemyAttackedThisTurn),
     lastAnswerCorrect: battle.lastAnswerCorrect !== false,
     log: typeof battle.log === 'string' ? battle.log : '',
@@ -5308,6 +5827,8 @@ function serializeHeroSnapshot() {
   const allies = Array.isArray(hero.necroAllies)
     ? hero.necroAllies.filter((a) => a && typeof a === 'object').map((a) => clonePracticeData(a))
     : (hero.necroAlly && typeof hero.necroAlly === 'object' ? [clonePracticeData(hero.necroAlly)] : [])
+  const maxShield = Math.max(0, Math.min(5, Math.round(Number(hero.maxShield) || 0)))
+  const shield = Math.max(0, Math.min(maxShield, Math.round(Number(hero.shield) || 0)))
   return {
     hp: Math.max(0, Math.round(Number(hero.hp) || 0)),
     maxHp: Math.max(1, Math.round(Number(hero.maxHp) || 100)),
@@ -5318,11 +5839,24 @@ function serializeHeroSnapshot() {
     empowerCost: Math.max(0, Math.round(Number(hero.empowerCost) || 20)),
     bonusHeal: Math.max(0, Math.round(Number(hero.bonusHeal) || 0)),
     bonusMana: Math.max(0, Math.round(Number(hero.bonusMana) || 0)),
+    armorPierce: Math.max(0, Math.round(Number(hero.armorPierce) || 0)),
+    bloodHintDiscountPct: Math.max(0, Math.min(15, Math.round(Number(hero.bloodHintDiscountPct) || 0))),
+    shield,
+    maxShield,
     runInvincible: Boolean(hero.runInvincible),
     tempAttack: Math.max(0, Math.round(Number(hero.tempAttack) || 0)),
     ultCharge: Math.max(0, Math.min(5, Math.round(Number(hero.ultCharge) || 0))),
+    focusRelicCharges: Math.max(0, Math.round(Number(hero.focusRelicCharges) || 0)),
     necroAllies: allies,
     necroAlly: allies[0] || null,
+  }
+}
+
+function serializeSkillProgressSnapshot() {
+  return {
+    ...clonePracticeData(skillProgress),
+    wildcardSp: typeof getWildcardSkillPoints === 'function' ? getWildcardSkillPoints() : 0,
+    overclock: typeof overclockProgress !== 'undefined' ? clonePracticeData(overclockProgress) : {},
   }
 }
 
@@ -5363,7 +5897,7 @@ function snapshotCurrentRunSave() {
       focusCategory: typeof adaptive.focusCategory === 'string' ? adaptive.focusCategory : null,
       categoryState: clonePracticeData(adaptive.categoryState),
     },
-    skillProgress: clonePracticeData(skillProgress),
+    skillProgress: serializeSkillProgressSnapshot(),
     activeSkillSpecialization,
     exclusiveSkillTree,
     leaderboardRunId,
@@ -5379,7 +5913,7 @@ function saveCurrentRunSlot() {
     const store = loadRunSaves(profileId)
     const idx = store.saves.findIndex((s) => s && s.id === activeRunSaveId)
     if (idx >= 0) {
-      store.saves[idx].skillProgress = clonePracticeData(skillProgress)
+      store.saves[idx].skillProgress = serializeSkillProgressSnapshot()
       store.saves[idx].activeSkillSpecialization = activeSkillSpecialization
       store.saves[idx].exclusiveSkillTree = exclusiveSkillTree
       store.saves[idx].updatedAt = new Date().toISOString()
@@ -5484,6 +6018,13 @@ function validateAndNormalizeRunSave(rawSave) {
       : (rawHero.necroAlly && typeof rawHero.necroAlly === 'object' && typeof rawHero.necroAlly.name === 'string'
         ? [clonePracticeData(rawHero.necroAlly)]
         : [])
+    const legacyInvincible = Boolean(rawHero.runInvincible)
+    const rawMaxShield = Number.isFinite(Number(rawHero.maxShield))
+      ? Math.max(0, Math.min(5, Math.round(Number(rawHero.maxShield))))
+      : (legacyInvincible ? 3 : 0)
+    const rawShield = Number.isFinite(Number(rawHero.shield))
+      ? Math.max(0, Math.min(rawMaxShield, Math.round(Number(rawHero.shield))))
+      : rawMaxShield
     safeHero = {
       hp: Math.max(0, Math.min(maxHp, hpRaw)),
       maxHp,
@@ -5494,9 +6035,16 @@ function validateAndNormalizeRunSave(rawSave) {
       empowerCost: Number.isFinite(Number(rawHero.empowerCost)) && Number(rawHero.empowerCost) >= 0 ? Math.round(Number(rawHero.empowerCost)) : 20,
       bonusHeal: Number.isFinite(Number(rawHero.bonusHeal)) && Number(rawHero.bonusHeal) >= 0 ? Math.round(Number(rawHero.bonusHeal)) : 0,
       bonusMana: Number.isFinite(Number(rawHero.bonusMana)) && Number(rawHero.bonusMana) >= 0 ? Math.round(Number(rawHero.bonusMana)) : 0,
-      runInvincible: Boolean(rawHero.runInvincible),
+      armorPierce: Number.isFinite(Number(rawHero.armorPierce)) && Number(rawHero.armorPierce) >= 0 ? Math.round(Number(rawHero.armorPierce)) : 0,
+      bloodHintDiscountPct: Number.isFinite(Number(rawHero.bloodHintDiscountPct)) && Number(rawHero.bloodHintDiscountPct) >= 0
+        ? Math.min(15, Math.round(Number(rawHero.bloodHintDiscountPct)))
+        : 0,
+      shield: rawShield,
+      maxShield: rawMaxShield,
+      runInvincible: false,
       tempAttack: Number.isFinite(Number(rawHero.tempAttack)) && Number(rawHero.tempAttack) >= 0 ? Math.round(Number(rawHero.tempAttack)) : 0,
       ultCharge: Number.isFinite(Number(rawHero.ultCharge)) ? Math.max(0, Math.min(5, Math.round(Number(rawHero.ultCharge)))) : 0,
+      focusRelicCharges: Number.isFinite(Number(rawHero.focusRelicCharges)) ? Math.max(0, Math.round(Number(rawHero.focusRelicCharges))) : 0,
       necroAllies: allies,
       necroAlly: allies[0] || null,
     }
@@ -5543,6 +6091,13 @@ function validateAndNormalizeRunSave(rawSave) {
           dir: e.dir === -1 ? -1 : 1,
           hp: Number.isFinite(Number(e.hp)) ? Math.max(0, Math.round(Number(e.hp))) : null,
           maxHp: Number.isFinite(Number(e.maxHp)) ? Math.max(1, Math.round(Number(e.maxHp))) : null,
+          shield: Number.isFinite(Number(e.shield)) ? Math.max(0, Math.min(5, Math.round(Number(e.shield)))) : null,
+          maxShield: Number.isFinite(Number(e.maxShield)) ? Math.max(0, Math.min(5, Math.round(Number(e.maxShield)))) : null,
+          attack: Number.isFinite(Number(e.attack)) ? Math.max(1, Math.round(Number(e.attack))) : null,
+          heavyEvery: Number.isInteger(Number(e.heavyEvery)) && Number(e.heavyEvery) >= 1 ? Number(e.heavyEvery) : null,
+          loopTier: Number.isInteger(Number(e.loopTier)) && Number(e.loopTier) >= 0 ? Number(e.loopTier) : 0,
+          loopArmor: Number.isFinite(Number(e.loopArmor)) ? Math.max(0, Math.round(Number(e.loopArmor))) : 0,
+          loopDmgReduction: Number.isFinite(Number(e.loopDmgReduction)) ? Math.max(0, Number(e.loopDmgReduction)) : 0,
           turns: Number.isInteger(e.turns) && e.turns >= 0 ? e.turns : 0,
         }
       : null))
@@ -5767,8 +6322,29 @@ function restoreSavedBattleState(savedBattle, notices) {
     if (Number.isFinite(Number(enemySnap.hp))) {
       foe.hp = Math.max(0, Math.min(foe.maxHp, Math.round(Number(enemySnap.hp))))
     }
+    if (Number.isFinite(Number(enemySnap.maxShield)) && Number(enemySnap.maxShield) >= 0) {
+      foe.maxShield = Math.max(0, Math.min(5, Math.round(Number(enemySnap.maxShield))))
+    }
+    if (Number.isFinite(Number(enemySnap.shield)) && Number(enemySnap.shield) >= 0) {
+      foe.shield = Math.max(0, Math.min(foe.maxShield || 5, Math.round(Number(enemySnap.shield))))
+    }
     if (Number.isInteger(enemySnap.turns) && enemySnap.turns >= 0) {
       foe.turns = enemySnap.turns
+    }
+    if (Number.isFinite(Number(enemySnap.attack)) && Number(enemySnap.attack) >= 1) {
+      foe.attack = Math.round(Number(enemySnap.attack))
+    }
+    if (Number.isInteger(enemySnap.heavyEvery) && enemySnap.heavyEvery >= 1) {
+      foe.heavyEvery = enemySnap.heavyEvery
+    }
+    if (Number.isInteger(enemySnap.loopTier) && enemySnap.loopTier >= 0) {
+      foe.loopTier = enemySnap.loopTier
+    }
+    if (Number.isFinite(Number(enemySnap.loopArmor)) && Number(enemySnap.loopArmor) >= 0) {
+      foe.loopArmor = Math.round(Number(enemySnap.loopArmor))
+    }
+    if (Number.isFinite(Number(enemySnap.loopDmgReduction)) && Number(enemySnap.loopDmgReduction) >= 0) {
+      foe.loopDmgReduction = Number(enemySnap.loopDmgReduction)
     }
     foe.alive = Boolean(enemySnap.alive)
   }
@@ -5857,6 +6433,17 @@ function restoreSavedBattleState(savedBattle, notices) {
     enemyStunTurns: Math.max(0, Math.round(Number(savedBattle.enemyStunTurns) || 0)),
     enemyBurnTurns: Math.max(0, Math.round(Number(savedBattle.enemyBurnTurns) || 0)),
     enemyBurnDamage: Math.max(0, Math.round(Number(savedBattle.enemyBurnDamage) || 0)),
+    logicReflectCharges: Math.max(0, Math.round(Number(savedBattle.logicReflectCharges) || 0)),
+    logicReflectMult: Number.isFinite(Number(savedBattle.logicReflectMult)) ? Number(savedBattle.logicReflectMult) : 1.5,
+    logicEliminateCharges: Math.max(0, Math.round(Number(savedBattle.logicEliminateCharges) || 0)),
+    logicCritArmed: Boolean(savedBattle.logicCritArmed),
+    eliminatedChoices: Array.isArray(savedBattle.eliminatedChoices) ? savedBattle.eliminatedChoices.map((n) => Number(n)) : [],
+    hintUsedThisQuestion: Boolean(savedBattle.hintUsedThisQuestion),
+    bloodHintClue: typeof savedBattle.bloodHintClue === 'string' ? savedBattle.bloodHintClue : '',
+    refactorDiscountTurns: Math.max(0, Math.round(Number(savedBattle.refactorDiscountTurns) || 0)),
+    rollbackGuardStacks: Math.max(0, Math.round(Number(savedBattle.rollbackGuardStacks) || 0)),
+    asyncEchoCharges: Math.max(0, Math.round(Number(savedBattle.asyncEchoCharges) || 0)),
+    enemyRateLimitTurns: Math.max(0, Math.round(Number(savedBattle.enemyRateLimitTurns) || 0)),
     enemyAttackedThisTurn: Boolean(savedBattle.enemyAttackedThisTurn),
     lastAnswerCorrect: savedBattle.lastAnswerCorrect !== false,
     log: typeof savedBattle.log === 'string' ? savedBattle.log : `${foe.name} blocks the way!`,
@@ -5880,7 +6467,9 @@ function restoreSavedBattleState(savedBattle, notices) {
     if (!battle.question || !battle.card) {
       // Refund card cost if we lost the question snapshot and drop safely to card selection
       if (battle.card && CARD_LIBRARY[battle.card]) {
-        const refund = cardCost(CARD_LIBRARY[battle.card], hero)
+        const refund = typeof effectiveCardCost === 'function'
+          ? effectiveCardCost(CARD_LIBRARY[battle.card], hero)
+          : cardCost(CARD_LIBRARY[battle.card], hero)
         hero.mana = Math.min(hero.maxMana, hero.mana + refund)
       }
       battle.card = null
@@ -6043,14 +6632,15 @@ function continueSavedRun(runId) {
     visitedRooms.clear()
     for (const r of save.clearedRooms) clearedRooms.add(r)
     for (const r of save.visitedRooms) visitedRooms.add(r)
+    window.ByteboundQuests?.onRoomsUpdated?.(clearedRooms)
 
     leaderboardRunId = save.leaderboardRunId
     leaderboardRunSubmitted = false
     leaderboardLastSubmittedSnapshot = ''
     playViewActive = true
 
-    // Load the saved room without auto-saving stale/unhydrated state!
-    loadLevel(save.level, { skipAutoSave: true })
+    // Load the saved room without auto-saving stale state or resetting current-loop map progress!
+    loadLevel(save.level, { skipAutoSave: true, skipLoopReset: true })
 
     // Hydrate hero from clean baseline
     if (save.hero) {
@@ -6103,6 +6693,13 @@ function continueSavedRun(runId) {
         enemy.alive = clearedRooms.has(save.level) ? false : Boolean(snap.alive)
         if (snap.maxHp !== null) enemy.maxHp = snap.maxHp
         if (snap.hp !== null) enemy.hp = enemy.alive ? Math.max(1, Math.min(enemy.maxHp, snap.hp)) : 0
+        if (snap.maxShield !== null) enemy.maxShield = snap.maxShield
+        if (snap.shield !== null) enemy.shield = enemy.alive ? Math.max(0, Math.min(enemy.maxShield || 5, snap.shield)) : 0
+        if (snap.attack !== null) enemy.attack = snap.attack
+        if (snap.heavyEvery !== null) enemy.heavyEvery = snap.heavyEvery
+        if (snap.loopTier) enemy.loopTier = snap.loopTier
+        if (snap.loopArmor) enemy.loopArmor = snap.loopArmor
+        if (snap.loopDmgReduction) enemy.loopDmgReduction = snap.loopDmgReduction
         enemy.turns = snap.turns || 0
         if (snap.x !== null && Number.isFinite(snap.x)) {
           enemy.x = Math.max(enemy.minX ?? 0, Math.min(enemy.maxX ?? exploreCamera.worldWidth, snap.x))
@@ -6598,7 +7195,7 @@ function skillTreeDetailMarkup() {
   let detail = `<section class="skill-detail skill-detail-empty" id="skillTreeDetail" aria-live="polite">
     <span class="skill-detail-eyebrow">KNIGHT'S SKILL PATH</span>
     <h2>Begin your journey</h2>
-    <p class="skill-detail-description">Start at the center of the map. Your four disciplines branch outward, revealing new skills as you learn their prerequisites.</p>
+    <p class="skill-detail-description">Start at the center of the map. Your seven disciplines branch outward, revealing new skills as you learn their prerequisites.</p>
     <p class="skill-detail-status">Choose START to reveal the first skills. Scroll to zoom and drag to explore; zoom-out below 100% unlocks after spending ${SKILL_MAP_ZOOM_OUT_POINTS} points.</p>
   </section>`
   if (selectedSkillNode) {
@@ -6607,23 +7204,32 @@ function skillTreeDetailMarkup() {
     const selectedProgress = skillProgress[selectedSkillNode.treeKey]
     const selectedRank = selectedProgress.ranks[selectedSkill.id]
     const selectedMaxRank = selectedSkill.maxRank || SKILL_MAX_RANK
+    const upgradeCost = typeof getSkillUpgradeCost === 'function' ? getSkillUpgradeCost(selectedRank) : 1
+    const treeAvail = skillPointsAvailable(selectedSkillNode.treeKey)
+    const wildcardAvail = typeof getWildcardSkillPoints === 'function' ? getWildcardSkillPoints() : 0
+    const totalUsable = treeAvail + wildcardAvail
     const selectedBranchLocked = isSkillTreeLockedOut(selectedSkillNode.treeKey)
+    const selectedYearLocked = typeof isSkillTreeYearLocked === 'function' && isSkillTreeYearLocked(selectedSkillNode.treeKey)
     const canPurchase = canUpgradeSkill(selectedSkillNode.treeKey, selectedSkill)
     let availability = ''
     if (selectedRank >= selectedMaxRank) availability = 'This skill is unlocked / at maximum rank.'
-    else if (selectedBranchLocked) {
+    else if (selectedYearLocked) {
+      availability = 'Locked until 2nd Year — Software Engineering begins in the 2nd Year curriculum (HCI unlocks in 3rd Year).'
+    } else if (selectedBranchLocked) {
       const locker = exclusiveSkillTree || activeSkillSpecialization
       availability = `Locked because you committed to ${SKILL_TREES[locker].name}. Locked topics cannot spend or earn skill points.`
-    } else if (skillPointsAvailable(selectedSkillNode.treeKey) === 0) {
-      const remainder = selectedProgress.correct % SKILL_POINT_INTERVAL
-      availability = `No ${selectedTree.name} point available. ${SKILL_POINT_INTERVAL - remainder} more correct ${SKILL_POINT_INTERVAL - remainder === 1 ? 'answer' : 'answers'} earns one.`
+    } else if (totalUsable < upgradeCost) {
+      const spInfo = typeof getNextSpThresholdInfo === 'function'
+        ? getNextSpThresholdInfo(selectedProgress.correct)
+        : { remaining: SKILL_POINT_INTERVAL - (selectedProgress.correct % SKILL_POINT_INTERVAL) }
+      availability = `Need ${upgradeCost} SP for Rank ${selectedRank + 1} (${totalUsable} available). ${spInfo.remaining} more correct ${spInfo.remaining === 1 ? 'answer' : 'answers'} earns +1 SP.`
     } else if (selectedSkill.isExclusiveActive) {
       const transferTotal = SKILL_TREE_KEYS
         .filter((k) => k !== selectedSkillNode.treeKey)
         .reduce((sum, k) => sum + skillPointsAvailable(k), 0)
-      availability = `Ready! Unlocking locks the other 3 topics and transfers ${transferTotal} unspent SP here.`
+      availability = `Ready (${upgradeCost} SP)! Unlocking locks the other ${Math.max(1, SKILL_TREE_KEYS.length - 1)} topics and transfers ${transferTotal} unspent SP here.`
     } else {
-      availability = selectedRank === 0 ? 'Ready to learn with 1 point.' : 'Ready to upgrade with 1 point.'
+      availability = selectedRank === 0 ? `Ready to learn with ${upgradeCost} SP.` : `Ready to upgrade to Rank ${selectedRank + 1} with ${upgradeCost} SP.`
     }
     const actionLabel = selectedSkill.isExclusiveActive ? 'COMMIT & UNLOCK' : (selectedRank === 0 ? 'GET SKILL' : 'UPGRADE SKILL')
     detail = `<section class="skill-detail${selectedSkill.isExclusiveActive ? ` is-exclusive-detail tree-${esc(selectedSkillNode.treeKey)}` : ''}" id="skillTreeDetail" aria-live="polite" aria-labelledby="selectedSkillTitle">
@@ -6633,103 +7239,493 @@ function skillTreeDetailMarkup() {
       <div class="skill-detail-effect"><span>${selectedSkill.isExclusiveActive ? 'Active power' : 'Effect per rank'}</span><strong>${esc(selectedSkill.effect)}</strong></div>
       <div class="skill-detail-rank"><span>Current rank</span><strong>${selectedRank} / ${selectedMaxRank}</strong></div>
       <p class="skill-detail-status ${canPurchase ? 'is-ready' : ''}">${esc(availability)}</p>
-      <button class="skill-purchase-button ${canPurchase ? 'is-affordable' : 'is-unavailable'}" type="button" data-skill-purchase="${esc(selectedSkill.id)}" data-skill-tree="${esc(selectedSkillNode.treeKey)}" ${canPurchase ? '' : 'disabled'}>${selectedRank >= selectedMaxRank ? (selectedSkill.isExclusiveActive ? 'UNLOCKED' : 'MAX RANK') : `${actionLabel} · 1 POINT`}</button>
+      <button class="skill-purchase-button ${canPurchase ? 'is-affordable' : 'is-unavailable'}" type="button" data-skill-purchase="${esc(selectedSkill.id)}" data-skill-tree="${esc(selectedSkillNode.treeKey)}" ${canPurchase ? '' : 'disabled'}>${selectedRank >= selectedMaxRank ? (selectedSkill.isExclusiveActive ? 'UNLOCKED' : 'MAX RANK') : `${actionLabel} · ${upgradeCost} SP`}</button>
     </section>`
   }
   return detail
 }
 
-function orthogonalBranchPath(px, py, tx, ty, key) {
-  const isVertical = key === 'computerSystems' || key === 'programming'
-  if (isVertical) {
-    if (Math.abs(px - tx) < 1) return `M ${px} ${py} L ${tx} ${ty}`
-    const midY = Math.round((py + ty) / 2)
-    return `M ${px} ${py} L ${px} ${midY} L ${tx} ${midY} L ${tx} ${ty}`
+function radialBranchPath(px, py, tx, ty, elbowPt = null) {
+  if (elbowPt) {
+    return `M ${Math.round(px)} ${Math.round(py)} L ${Math.round(elbowPt.x)} ${Math.round(elbowPt.y)} L ${Math.round(tx)} ${Math.round(ty)}`
   }
-  if (Math.abs(py - ty) < 1) return `M ${px} ${py} L ${tx} ${ty}`
-  const midX = Math.round((px + tx) / 2)
-  return `M ${px} ${py} L ${midX} ${py} L ${midX} ${ty} L ${tx} ${ty}`
+  return `M ${Math.round(px)} ${Math.round(py)} L ${Math.round(tx)} ${Math.round(ty)}`
+}
+
+function syncSkillTreeShellHeader({ isOverclock = false } = {}) {
+  const shell = document.querySelector('#skillTreeOverlay .skill-tree-shell')
+  if (shell) shell.classList.toggle('is-overclock-page', Boolean(isOverclock))
+  const titleEl = document.getElementById('skillTreeTitle')
+  const subEl = document.getElementById('skillTreeSubtitle')
+  const backBtn = document.getElementById('backToMainSkillTree')
+  const guideBtn = document.getElementById('skillTreeGuideButton')
+  if (isOverclock) {
+    if (titleEl) titleEl.textContent = 'Overclock Skill Tree'
+    if (subEl) subEl.textContent = 'Ascended circuit — spend surplus SP on repeatable endgame power.'
+    if (backBtn) backBtn.hidden = false
+    if (guideBtn) guideBtn.hidden = true
+  } else {
+    if (titleEl) titleEl.textContent = 'Skill Tree'
+    if (subEl) subEl.textContent = 'Build skills in the topics you master.'
+    if (backBtn) backBtn.hidden = true
+    if (guideBtn) guideBtn.hidden = false
+  }
+}
+
+function getOverclockTotalBonusText(up, rank) {
+  const r = Math.max(0, Number(rank) || 0)
+  if (!up) return ''
+  if (up.id === 'overclockAtk') return r > 0 ? `+${r * 2} ATK · +${r * 2} Armor Pierce` : '0 bonus yet'
+  if (up.id === 'kernelVitality') return r > 0 ? `+${r * 10} Max HP · +${r} DEF` : '0 bonus yet'
+  if (up.id === 'manaConduit') return r > 0 ? `+${r * 10} Max Mana · +${r * 2} Mana/ans` : '0 bonus yet'
+  if (up.id === 'bloodEfficiency') return `Blood Hint HP Cost: ${Math.max(35, 50 - r * 5)}%`
+  return ''
+}
+
+function overclockDetailMarkup() {
+  const upgrades = typeof OVERCLOCK_UPGRADES !== 'undefined' ? OVERCLOCK_UPGRADES : []
+  const up = upgrades.find((entry) => entry.id === selectedOverclockId) || upgrades[0]
+  if (!up) return '<section class="skill-detail skill-detail-empty" id="skillTreeDetail"></section>'
+  selectedOverclockId = up.id
+  const rank = typeof overclockProgress !== 'undefined' ? (overclockProgress[up.id] || 0) : 0
+  const isMaxed = up.maxRank != null && rank >= up.maxRank
+  const cost = typeof getOverclockUpgradeCost === 'function' ? getOverclockUpgradeCost(up.id) : (2 + rank)
+  const availSp = typeof getOverclockAvailableSp === 'function' ? getOverclockAvailableSp() : 0
+  const canBuy = typeof canPurchaseOverclockUpgrade === 'function' && canPurchaseOverclockUpgrade(up.id)
+  const rankText = up.maxRank != null ? `${rank} / ${up.maxRank}` : `Rank ${rank} (Unlimited)`
+  const totalBonus = getOverclockTotalBonusText(up, rank)
+  let availability = ''
+  if (isMaxed) {
+    availability = 'Maximum Overclock limit reached (35% HP sacrifice cap active).'
+  } else if (canBuy) {
+    availability = `Ready! Overclocking to Rank ${rank + 1} costs ${cost} SP (${availSp} available).`
+  } else {
+    availability = `Need ${cost} SP to reach Rank ${rank + 1} (${availSp} available). Earn surplus SP or Wildcard SP from quests.`
+  }
+  return `<section class="skill-detail is-overclock-detail tone-${esc(up.tone || 'atk')}" id="skillTreeDetail" aria-live="polite" aria-labelledby="selectedSkillTitle">
+    <span class="skill-detail-eyebrow">OVERCLOCK CIRCUIT · ${up.maxRank ? `CAP ${up.maxRank} RANKS` : 'REPEATABLE'}</span>
+    <h2 id="selectedSkillTitle">${esc(up.name)}</h2>
+    <p class="skill-detail-description">${esc(up.description)}</p>
+    <div class="skill-detail-effect"><span>Effect per rank</span><strong>${esc(up.effect)}</strong></div>
+    <div class="skill-detail-effect"><span>Current bonus</span><strong>${esc(totalBonus)}</strong></div>
+    <div class="skill-detail-rank"><span>Current rank</span><strong>${esc(rankText)}</strong></div>
+    <div class="skill-detail-rank"><span>Next Overclock cost</span><strong>${isMaxed ? 'MAXED' : `${cost} SP`}</strong></div>
+    <p class="skill-detail-status ${canBuy ? 'is-ready' : ''}">${esc(availability)}</p>
+    <button class="skill-purchase-button ${canBuy ? 'is-affordable' : 'is-unavailable'}" type="button" data-overclock-purchase="${esc(up.id)}" ${canBuy ? '' : 'disabled'}>${isMaxed ? 'MAXED (35% CAP)' : `OVERCLOCK · ${cost} SP`}</button>
+  </section>`
+}
+
+function renderOverclockSkillTree() {
+  if (typeof isOverclockUnlocked === 'function' && !isOverclockUnlocked()) {
+    skillTreePage = 'main'
+    renderSkillTree()
+    return
+  }
+  syncSkillTreeShellHeader({ isOverclock: true })
+  const grid = document.getElementById('skillTreeGrid')
+  const upgrades = typeof OVERCLOCK_UPGRADES !== 'undefined' ? OVERCLOCK_UPGRADES : []
+  const availSp = typeof getOverclockAvailableSp === 'function' ? getOverclockAvailableSp() : 0
+  const wildcardTotal = typeof getWildcardSkillPoints === 'function' ? getWildcardSkillPoints() : 0
+  const maxedKey = typeof getMaxedSkillTreeKey === 'function' ? getMaxedSkillTreeKey() : null
+  const maxedName = maxedKey && SKILL_TREES[maxedKey] ? SKILL_TREES[maxedKey].name : 'Mastered Discipline'
+  const treeAvailSp = maxedKey ? skillPointsAvailable(maxedKey) : 0
+  const totalOcRanks = upgrades.reduce((sum, up) => sum + ((typeof overclockProgress !== 'undefined' ? overclockProgress[up.id] : 0) || 0), 0)
+  const totalOcSpSpent = SKILL_TREE_KEYS.reduce((sum, key) => sum + (Number(skillProgress[key]?.overclockSpSpent) || 0), 0)
+
+  const wildcardPill = wildcardTotal > 0
+    ? `<div class="skill-point-topic is-wildcard-topic" title="Wildcard SP usable on Overclock upgrades">
+        <span class="spt-code">★ WILD</span>
+        <strong class="spt-val">${wildcardTotal}</strong>
+      </div>`
+    : ''
+  document.getElementById('skillTreeSummary').innerHTML = `
+    <div class="skill-points-strip is-overclock-strip">
+      <div class="skill-points-total is-overclock-total" aria-label="${availSp} SP available for Overclock">
+        <span class="play-sp-diamond" aria-hidden="true">◆</span>
+        <strong>${availSp}</strong>
+        <span>SP</span>
+      </div>
+      <div class="skill-points-topics">
+        <div class="skill-point-topic is-overclock-mastered" title="${esc(maxedName)} maxed at 21/21 ranks">
+          <span class="spt-code">${esc(maxedName)}</span>
+          <strong class="spt-val">${treeAvailSp} SP</strong>
+        </div>
+        ${wildcardPill}
+        <div class="skill-point-topic is-overclock-rank-chip" title="Total Overclock ranks activated">
+          <span class="spt-code">OC RANKS</span>
+          <strong class="spt-val">${totalOcRanks}</strong>
+        </div>
+      </div>
+      <div class="skill-points-meta-note">
+        <span class="skill-points-focus">Ascended Overclock Circuit</span>
+        <span class="skill-points-hint">Costs escalate 2 → 3 → 4 → 5+ SP per rank · Blood Efficiency caps at 35% HP.</span>
+      </div>
+    </div>`
+
+  const mapWidth = 1360
+  const mapHeight = 960
+  const centerX = 680
+  const centerY = 480
+  const nodeWidth = 224
+  const nodeHeight = 84
+  const layout = {
+    overclockAtk: { dx: -255, dy: -155 },
+    kernelVitality: { dx: 255, dy: -155 },
+    manaConduit: { dx: -255, dy: 155 },
+    bloodEfficiency: { dx: 255, dy: 155 },
+  }
+  const bloodIcon = typeof PIXEL_BLOOD_DROP_SVG === 'string' ? PIXEL_BLOOD_DROP_SVG : '🩸'
+  const glyphs = {
+    overclockAtk: '⚔',
+    kernelVitality: '♥',
+    manaConduit: '◆',
+    bloodEfficiency: bloodIcon,
+  }
+  if (!upgrades.some((u) => u.id === selectedOverclockId) && upgrades[0]) {
+    selectedOverclockId = upgrades[0].id
+  }
+
+  const edges = []
+  const nodes = upgrades.map((up) => {
+    const off = layout[up.id] || { dx: 0, dy: -180 }
+    const cxNode = centerX + off.dx
+    const cyNode = centerY + off.dy
+    const elbow = { x: centerX + Math.round(off.dx * 0.42), y: cyNode }
+    const rank = typeof overclockProgress !== 'undefined' ? (overclockProgress[up.id] || 0) : 0
+    const isMaxed = up.maxRank != null && rank >= up.maxRank
+    const cost = typeof getOverclockUpgradeCost === 'function' ? getOverclockUpgradeCost(up.id) : (2 + rank)
+    const canBuy = typeof canPurchaseOverclockUpgrade === 'function' && canPurchaseOverclockUpgrade(up.id)
+    const selected = selectedOverclockId === up.id
+    const justUp = lastPurchasedOverclock === up.id
+    const edgeD = radialBranchPath(centerX, centerY, cxNode, cyNode, elbow)
+    edges.push(`<path class="skill-map-edge is-overclock-edge tone-${esc(up.tone || 'atk')}${rank > 0 ? ' is-energized' : ''}" d="${edgeD}"/>`)
+    const nodeClass = [
+      'skill-map-node',
+      'is-overclock-node',
+      `tone-${up.tone || 'atk'}`,
+      selected ? 'is-selected' : '',
+      rank > 0 ? 'is-learned' : '',
+      canBuy ? 'is-can-upgrade' : '',
+      justUp ? 'is-just-upgraded' : '',
+      !isMaxed && !canBuy ? 'is-unaffordable' : '',
+    ].filter(Boolean).join(' ')
+    const statusLabel = isMaxed ? '3/3 MAX' : `R${rank} · ${cost} SP`
+    return `<button type="button" class="${nodeClass}" style="left:${Math.round(cxNode - nodeWidth / 2)}px;top:${Math.round(cyNode - nodeHeight / 2)}px" data-overclock-select="${esc(up.id)}" aria-pressed="${selected}" aria-label="${esc(`Overclock ${up.name}, rank ${rank}`)}">
+      <span class="skill-node-tree is-overclock-tag">OVERCLOCK CIRCUIT</span>
+      <span class="skill-node-mark is-overclock-mark" aria-hidden="true">${glyphs[up.id] || '✦'}</span>
+      <span class="skill-node-name">${esc(up.name)}</span>
+      <span class="skill-node-rank">${esc(statusLabel)}</span>
+    </button>`
+  }).join('')
+
+  grid.innerHTML = `<div class="skill-map-viewport is-overclock-viewport" id="skillMapViewport" aria-label="Overclock skill circuit map. Drag to pan and scroll to zoom.">
+      <canvas class="skill-map-particles" id="skillMapParticles" aria-hidden="true"></canvas>
+      <div class="skill-map-zoom-status" id="skillMapZoomStatus"></div>
+      <div class="skill-map-world" id="skillMapWorld" style="width:${mapWidth}px;height:${mapHeight}px">
+        <svg class="skill-map-links" width="${mapWidth}" height="${mapHeight}" viewBox="0 0 ${mapWidth} ${mapHeight}" aria-hidden="true">${edges.join('')}</svg>
+        <div class="skill-map-center is-started is-overclock-core" style="left:${centerX - 78}px;top:${centerY - 78}px">
+          <span class="skill-center-port is-north" aria-hidden="true"></span>
+          <span class="skill-center-port is-east" aria-hidden="true"></span>
+          <span class="skill-center-port is-south" aria-hidden="true"></span>
+          <span class="skill-center-port is-west" aria-hidden="true"></span>
+          <button type="button" class="skill-map-start is-overclock-reactor" disabled aria-label="Apex Overclock Core">
+            <span class="skill-center-corner is-tl" aria-hidden="true"></span>
+            <span class="skill-center-corner is-tr" aria-hidden="true"></span>
+            <span class="skill-center-corner is-bl" aria-hidden="true"></span>
+            <span class="skill-center-corner is-br" aria-hidden="true"></span>
+            <svg class="skill-core-mark" viewBox="0 0 44 44" aria-hidden="true">
+              <polygon class="skill-core-outer" points="22,3 39,13 39,31 22,41 5,31 5,13" />
+              <polygon class="skill-core-inner" points="22,10 33,16 33,28 22,34 11,28 11,16" />
+              <path class="skill-core-conduits" d="M22 3V14M22 30V41M5 13L15 19M29 25L39 31M39 13L29 19M15 25L5 31" />
+              <polygon class="skill-core-gem" points="22,15 28,22 22,29 16,22" />
+              <rect class="skill-core-spark" x="20" y="20" width="4" height="4" />
+            </svg>
+            <strong>APEX CORE</strong>
+            <small>OC LVL ${totalOcRanks}</small>
+          </button>
+        </div>
+        ${nodes}
+      </div>
+    </div>${overclockDetailMarkup()}`
+
+  document.getElementById('skillTreeFooter').textContent = practiceRunActive
+    ? 'Practice Mode: Overclock purchases are temporary and discarded when you exit.'
+    : 'Surplus SP from maxed disciplines & Wildcard SP fuel repeatable Overclock circuits. Press ← Disciplines to return.'
+
+  const viewport = document.getElementById('skillMapViewport')
+  const world = document.getElementById('skillMapWorld')
+  overclockMapPan = bindSkillMapViewport(viewport, world, overclockMapPan, {
+    mapWidth,
+    mapHeight,
+    centerX,
+    centerY,
+    minimumZoom: 0.72,
+    zoomOutUnlocked: true,
+    spentPointsTotal: totalOcSpSpent,
+    onPanUpdate: (nextPan) => { overclockMapPan = nextPan },
+  })
+  startSkillTreeParticles(viewport, { isOverclock: true })
+}
+
+function bindSkillMapViewport(viewport, world, existingPan, {
+  mapWidth,
+  mapHeight,
+  centerX,
+  centerY,
+  minimumZoom = 1,
+  zoomOutUnlocked = false,
+  spentPointsTotal = 0,
+  onPanUpdate = () => {},
+} = {}) {
+  if (!viewport || !world) return existingPan
+  let pan = existingPan
+  if (!pan || !viewport.clientWidth || !viewport.clientHeight) {
+    pan = {
+      x: viewport.clientWidth / 2 - centerX,
+      y: viewport.clientHeight / 2 - centerY,
+      scale: 1,
+    }
+  }
+  if (!Number.isFinite(pan.scale)) pan.scale = 1
+  pan.scale = Math.max(minimumZoom, Math.min(SKILL_MAP_MAX_ZOOM, pan.scale))
+  const zoomStatus = document.getElementById('skillMapZoomStatus')
+  const updateZoomStatus = () => {
+    if (!zoomStatus) return
+    const zoomLabel = `Zoom ${Math.round(pan.scale * 100)}%`
+    zoomStatus.textContent = zoomOutUnlocked
+      ? `${zoomLabel} · Scroll to zoom, drag to pan`
+      : `${zoomLabel} · Zoom-out unlocks at ${SKILL_MAP_ZOOM_OUT_POINTS} points (${spentPointsTotal}/${SKILL_MAP_ZOOM_OUT_POINTS} spent)`
+  }
+  const clampPan = () => {
+    const scaledWidth = mapWidth * pan.scale
+    const scaledHeight = mapHeight * pan.scale
+    pan.x = scaledWidth <= viewport.clientWidth
+      ? (viewport.clientWidth - scaledWidth) / 2
+      : Math.min(0, Math.max(viewport.clientWidth - scaledWidth, pan.x))
+    pan.y = scaledHeight <= viewport.clientHeight
+      ? (viewport.clientHeight - scaledHeight) / 2
+      : Math.min(0, Math.max(viewport.clientHeight - scaledHeight, pan.y))
+    world.style.transform = `translate(${pan.x}px, ${pan.y}px) scale(${pan.scale})`
+    onPanUpdate(pan)
+  }
+  clampPan()
+  updateZoomStatus()
+  viewport.addEventListener('wheel', (event) => {
+    if (event.deltaY === 0) return
+    event.preventDefault()
+    const rect = viewport.getBoundingClientRect()
+    const anchorX = event.clientX - rect.left
+    const anchorY = event.clientY - rect.top
+    const nextScale = Math.max(
+      minimumZoom,
+      Math.min(SKILL_MAP_MAX_ZOOM, pan.scale * Math.exp(-event.deltaY * 0.001))
+    )
+    if (nextScale === pan.scale) return
+    const mapX = (anchorX - pan.x) / pan.scale
+    const mapY = (anchorY - pan.y) / pan.scale
+    pan.scale = nextScale
+    pan.x = anchorX - mapX * nextScale
+    pan.y = anchorY - mapY * nextScale
+    clampPan()
+    updateZoomStatus()
+  }, { passive: false })
+  const activeMapPointers = new Map()
+  let drag = null
+  let pinch = null
+  viewport.addEventListener('pointerdown', (event) => {
+    if ((event.pointerType === 'mouse' && event.button !== 0) || event.target.closest('button')) return
+    activeMapPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    try { viewport.setPointerCapture(event.pointerId) } catch (_) {}
+    if (activeMapPointers.size === 2) {
+      drag = null
+      const pts = [...activeMapPointers.values()]
+      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1
+      const rect = viewport.getBoundingClientRect()
+      const midX = (pts[0].x + pts[1].x) / 2 - rect.left
+      const midY = (pts[0].y + pts[1].y) / 2 - rect.top
+      pinch = {
+        dist,
+        scale: pan.scale,
+        mapX: (midX - pan.x) / pan.scale,
+        mapY: (midY - pan.y) / pan.scale,
+      }
+      viewport.classList.add('is-panning')
+    } else if (activeMapPointers.size === 1) {
+      drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y }
+    }
+  })
+  viewport.addEventListener('pointermove', (event) => {
+    if (!activeMapPointers.has(event.pointerId)) return
+    activeMapPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    if (pinch && activeMapPointers.size === 2) {
+      const pts = [...activeMapPointers.values()]
+      const nextDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1
+      const rect = viewport.getBoundingClientRect()
+      const midX = (pts[0].x + pts[1].x) / 2 - rect.left
+      const midY = (pts[0].y + pts[1].y) / 2 - rect.top
+      const nextScale = Math.max(minimumZoom, Math.min(SKILL_MAP_MAX_ZOOM, pinch.scale * (nextDist / pinch.dist)))
+      pan.scale = nextScale
+      pan.x = midX - pinch.mapX * nextScale
+      pan.y = midY - pinch.mapY * nextScale
+      clampPan()
+      updateZoomStatus()
+      return
+    }
+    if (!drag || drag.pointerId !== event.pointerId) return
+    pan.x = drag.panX + event.clientX - drag.x
+    pan.y = drag.panY + event.clientY - drag.y
+    viewport.classList.add('is-panning')
+    clampPan()
+  })
+  const finishDrag = (event) => {
+    activeMapPointers.delete(event.pointerId)
+    if (activeMapPointers.size < 2) pinch = null
+    if (activeMapPointers.size === 1) {
+      const [[remId, remPt]] = [...activeMapPointers.entries()]
+      drag = { pointerId: remId, x: remPt.x, y: remPt.y, panX: pan.x, panY: pan.y }
+    } else {
+      drag = null
+      viewport.classList.remove('is-panning')
+    }
+  }
+  viewport.addEventListener('pointerup', finishDrag)
+  viewport.addEventListener('pointercancel', finishDrag)
+  return pan
 }
 
 function renderSkillTree() {
   if (typeof reconcileExclusiveSkillPoints === 'function' && reconcileExclusiveSkillPoints()) {
     saveSkillProgress()
   }
+  if (skillTreePage === 'overclock' && typeof isOverclockUnlocked === 'function' && isOverclockUnlocked()) {
+    renderOverclockSkillTree()
+    return
+  }
+  skillTreePage = 'main'
+  syncSkillTreeShellHeader({ isOverclock: false })
+
   const grid = document.getElementById('skillTreeGrid')
-  const availableTotal = SKILL_TREE_KEYS.reduce((total, key) => total + skillPointsAvailable(key), 0)
+  const availableTotal = typeof getTotalUnspentSkillPoints === 'function'
+    ? getTotalUnspentSkillPoints()
+    : SKILL_TREE_KEYS.reduce((total, key) => total + skillPointsAvailable(key), 0)
+  const wildcardTotal = typeof getWildcardSkillPoints === 'function' ? getWildcardSkillPoints() : 0
   const spentPointsTotal = SKILL_TREE_KEYS.reduce((total, key) =>
-    total + Object.values(skillProgress[key].ranks).reduce((spent, rank) => spent + rank, 0), 0
-  )
+    total +
+    Object.values(skillProgress[key].ranks).reduce((spent, rank) => spent + (typeof getSkillRankSpentSp === 'function' ? getSkillRankSpentSp(rank) : rank), 0) +
+    (Number(skillProgress[key].overclockSpSpent) || 0),
+  0)
   const zoomOutUnlocked = spentPointsTotal >= SKILL_MAP_ZOOM_OUT_POINTS
   const minimumZoom = zoomOutUnlocked ? SKILL_MAP_MIN_ZOOM : 1
   const acquiredAnySkill = SKILL_TREE_KEYS.some((key) => countSpecializedSkills(key) > 0)
   skillTreeStarted ||= acquiredAnySkill
   const specialization = activeSkillSpecialization
     ? SKILL_TREES[activeSkillSpecialization].name
-    : 'Choose a specialization by getting a skill.'
-  const pointsByTree = SKILL_TREE_KEYS.map((key) => {
-    const earned = Math.floor(skillProgress[key].correct / SKILL_POINT_INTERVAL)
-    const spent = Object.values(skillProgress[key].ranks).reduce((total, rank) => total + rank, 0)
-    const locked = isSkillTreeLockedOut(key)
-    return `<div class="skill-point-topic tree-${esc(key)}${locked ? ' is-locked-topic' : ''}">
-      <span>${esc(SKILL_TREES[key].name)}</span>
-      <strong>${locked ? 'LOCKED' : skillPointsAvailable(key)}</strong>
-      <small>${locked ? 'locked by exclusive pact' : `available · ${earned} earned · ${spent} spent`}</small>
+    : 'Choose any branch to specialize.'
+  const shortCodes = {
+    computerSystems: 'CS',
+    networkingSecurity: 'NET',
+    discreteMath: 'DISC',
+    programming: 'PROG',
+    softwareEng: 'SWE',
+    webMobile: 'WEB',
+    database: 'DB',
+  }
+  const wildcardCard = wildcardTotal > 0
+    ? `<div class="skill-point-topic is-wildcard-topic" title="Wildcard SP — usable on any unlocked skill tree">
+      <span class="spt-code">★ WILD</span>
+      <strong class="spt-val">${wildcardTotal}</strong>
     </div>`
-  }).join('')
+    : ''
+  const pointsByTree = SKILL_TREE_KEYS.map((key) => {
+    const earned = typeof getSpFromCorrectCount === 'function'
+      ? getSpFromCorrectCount(skillProgress[key].correct)
+      : Math.floor(skillProgress[key].correct / SKILL_POINT_INTERVAL)
+    const spent = Object.values(skillProgress[key].ranks).reduce((total, rank) => total + (typeof getSkillRankSpentSp === 'function' ? getSkillRankSpentSp(rank) : rank), 0)
+    const yearLocked = typeof isSkillTreeYearLocked === 'function' && isSkillTreeYearLocked(key)
+    const locked = isSkillTreeLockedOut(key)
+    const avail = skillPointsAvailable(key)
+    const lockTag = yearLocked
+      ? `${PIXEL_LOCK_SVG} 2ND YR+`
+      : locked
+        ? `${PIXEL_LOCK_SVG} LOCK`
+        : avail
+    const tipText = yearLocked
+      ? `${SKILL_TREES[key].name} — Unlocks in 2nd Year (HCI in 3rd Year)`
+      : locked
+        ? `${SKILL_TREES[key].name} — Locked by exclusive pact`
+        : `${SKILL_TREES[key].name} — ${avail} available (${earned} earned, ${spent} spent)`
+    return `<div class="skill-point-topic tree-${esc(key)}${locked ? ' is-locked-topic' : ''}${yearLocked ? ' is-year-locked' : ''}" title="${esc(tipText)}">
+      <span class="spt-code">${esc(shortCodes[key] || SKILL_TREES[key].name)}</span>
+      <strong class="spt-val">${lockTag}</strong>
+    </div>`
+  }).join('') + wildcardCard
   document.getElementById('skillTreeSummary').innerHTML = `
-    <div class="skill-points-overview">
+    <div class="skill-points-strip">
       <div class="skill-points-total" aria-label="${availableTotal} unspent skill points">
+        <span class="play-sp-diamond" aria-hidden="true">◆</span>
         <strong>${availableTotal}</strong>
-        <span>UNSPENT<br>SKILL POINTS</span>
+        <span>SP</span>
       </div>
       <div class="skill-points-topics">${pointsByTree}</div>
-    </div>
-    <p class="skill-points-hint">Earn 1 SP per 5 correct answers per topic. Choosing any midpoint Exclusive Active Skill locks the other 3 topics and transfers all unspent SP to your chosen tree. · Focus: ${esc(specialization)}</p>`
+      <div class="skill-points-meta-note">
+        <span class="skill-points-focus">Focus: ${esc(specialization)}</span>
+        <span class="skill-points-hint">5→8→10 correct = +1 SP · Rank costs 1/2/3 SP · Max a discipline (21/21) to unlock the Overclock Tree.</span>
+      </div>
+    </div>`
 
-  const mapWidth = 1880
-  const mapHeight = 1440
+  const mapWidth = 3100
+  const mapHeight = 3000
   const nodeWidth = 184
   const nodeHeight = 74
-  const center = { x: 940, y: 685 }
-  const positions = {
-    computerSystems: {
-      foundation: { x: 848, y: 495 },
-      operatingSystem: { x: 848, y: 392 },
-      kernelAegis: { x: 848, y: 286 },
-      recovery: { x: 706, y: 172 },
-      virtualization: { x: 990, y: 172 },
-      thermalControl: { x: 706, y: 58 },
-      firmwareOverclock: { x: 990, y: 58 },
-    },
-    networkingSecurity: {
-      foundation: { x: 1074, y: 648 },
-      threatAnalysis: { x: 1280, y: 648 },
-      packetLockdown: { x: 1486, y: 648 },
-      secureChannel: { x: 1682, y: 510 },
-      intrusionDetection: { x: 1682, y: 786 },
-      packetRouting: { x: 1682, y: 392 },
-      zeroTrust: { x: 1682, y: 904 },
-    },
-    programming: {
-      foundation: { x: 848, y: 800 },
-      errorHandling: { x: 848, y: 904 },
-      overburnExecution: { x: 848, y: 1010 },
-      codeReuse: { x: 706, y: 1124 },
-      concurrency: { x: 990, y: 1124 },
-      runtimeOptimization: { x: 706, y: 1238 },
-      compilerMastery: { x: 990, y: 1238 },
-    },
-    database: {
-      foundation: { x: 622, y: 648 },
-      transactions: { x: 416, y: 648 },
-      necromancy: { x: 210, y: 648 },
-      queryCache: { x: 14, y: 510 },
-      replication: { x: 14, y: 786 },
-      queryOptimizer: { x: 14, y: 392 },
-      acidGuarantee: { x: 14, y: 904 },
-    },
-  }
+  const center = { x: 1550, y: 1500 }
+  const preferredOrder = [
+    'computerSystems',
+    'networkingSecurity',
+    'discreteMath',
+    'programming',
+    'softwareEng',
+    'webMobile',
+    'database',
+  ]
+  const branchOrder = [
+    ...preferredOrder.filter((k) => SKILL_TREE_KEYS.includes(k)),
+    ...SKILL_TREE_KEYS.filter((k) => !preferredOrder.includes(k)),
+  ]
+  const positions = {}
+  const armVectors = {}
+  const slotLayout = [
+    { r: 280, t: 0 },
+    { r: 490, t: 0 },
+    { r: 700, t: 0 },
+    { r: 915, t: -135 },
+    { r: 915, t: 135 },
+    { r: 1125, t: -135 },
+    { r: 1125, t: 135 },
+  ]
+  branchOrder.forEach((key, armIdx) => {
+    const ang = -Math.PI / 2 + (2 * Math.PI * armIdx) / Math.max(1, branchOrder.length)
+    const ux = Math.cos(ang)
+    const uy = Math.sin(ang)
+    const tx = -uy
+    const ty = ux
+    armVectors[key] = {
+      ux,
+      uy,
+      forkElbow: { x: center.x + ux * 808, y: center.y + uy * 808 },
+    }
+    const mapForKey = {}
+    const treeSkills = SKILL_TREES[key]?.skills || []
+    treeSkills.forEach((skill, idx) => {
+      const slot = slotLayout[idx] || { r: 280 + idx * 145, t: 0 }
+      const cxNode = center.x + ux * slot.r + tx * slot.t
+      const cyNode = center.y + uy * slot.r + ty * slot.t
+      mapForKey[skill.id] = {
+        x: Math.round(cxNode - nodeWidth / 2),
+        y: Math.round(cyNode - nodeHeight / 2),
+      }
+    })
+    positions[key] = mapForKey
+  })
   const visibleSkills = []
   if (skillTreeStarted) {
     for (const key of SKILL_TREE_KEYS) {
@@ -6765,7 +7761,9 @@ function renderSkillTree() {
       const parent = parentId ? positions[key][parentId] : center
       const parentX = parent.x + (parent === center ? 0 : nodeWidth / 2)
       const parentY = parent.y + (parent === center ? 0 : nodeHeight / 2)
-      const d = orthogonalBranchPath(parentX, parentY, targetX, targetY, key)
+      const parentSkill = parentId ? SKILL_TREES[key].skills.find((s) => s.id === parentId) : null
+      const elbow = parentSkill?.isExclusiveActive ? armVectors[key]?.forkElbow : null
+      const d = radialBranchPath(parentX, parentY, targetX, targetY, elbow)
       edges.push(`<path class="skill-map-edge tree-${esc(key)}${skill.isExclusiveActive ? ' is-exclusive-edge' : ''}" d="${d}"/>`)
     }
   }
@@ -6776,7 +7774,8 @@ function renderSkillTree() {
     const rank = progress.ranks[skill.id]
     const maxRank = skill.maxRank || SKILL_MAX_RANK
     const available = skillPointsAvailable(key)
-    const branchLocked = isSkillTreeLockedOut(key)
+    const yearLocked = typeof isSkillTreeYearLocked === 'function' && isSkillTreeYearLocked(key)
+    const branchLocked = isSkillTreeLockedOut(key) || yearLocked
     const selected = selectedSkillNode?.treeKey === key && selectedSkillNode.skillId === skill.id
     const canUp = canUpgradeSkill(key, skill)
     const justUp = lastPurchasedSkill && lastPurchasedSkill.treeKey === key && lastPurchasedSkill.skillId === skill.id
@@ -6790,17 +7789,20 @@ function renderSkillTree() {
       canUp ? 'is-can-upgrade' : '',
       justUp ? 'is-just-upgraded' : '',
       branchLocked ? 'is-locked' : '',
+      yearLocked ? 'is-year-locked' : '',
       !branchLocked && available === 0 && rank < maxRank ? 'is-unaffordable' : '',
     ].filter(Boolean).join(' ')
     const nodeStatus = rank >= maxRank
       ? (skill.isExclusiveActive ? 'ACTIVE' : 'MAX')
       : rank > 0
         ? `${rank}/${maxRank}`
-        : branchLocked
-          ? 'LOCKED'
-          : available > 0
-            ? (skill.isExclusiveActive ? 'CHOOSE' : 'READY')
-            : 'NEED PT'
+        : yearLocked
+          ? '2ND YR+'
+          : branchLocked
+            ? 'LOCKED'
+            : available > 0
+              ? (skill.isExclusiveActive ? 'CHOOSE' : 'READY')
+              : 'NEED PT'
     const position = positions[key][skill.id]
     const topLabel = skill.isExclusiveActive
       ? '<span class="skill-node-tree is-exclusive-tag">★ EXCLUSIVE ACTIVE</span>'
@@ -6812,6 +7814,40 @@ function renderSkillTree() {
       <span class="skill-node-rank">${nodeStatus}</span>
     </button>`
   }).join('')
+
+  // Unique Overclock Portal button at the end of the maxed discipline route
+  let overclockPortalHtml = ''
+  const maxedKey = typeof getMaxedSkillTreeKey === 'function' ? getMaxedSkillTreeKey() : null
+  if (skillTreeStarted && maxedKey && armVectors[maxedKey]) {
+    const vec = armVectors[maxedKey]
+    const portalW = 220
+    const portalH = 84
+    const portalCx = center.x + vec.ux * 1330
+    const portalCy = center.y + vec.uy * 1330
+    const portalMerge = { x: center.x + vec.ux * 1215, y: center.y + vec.uy * 1215 }
+    const maxedSkills = SKILL_TREES[maxedKey]?.skills || []
+    for (const termIdx of [maxedSkills.length - 2, maxedSkills.length - 1]) {
+      const termSkill = maxedSkills[termIdx]
+      const termPos = termSkill && positions[maxedKey]?.[termSkill.id]
+      if (termPos) {
+        const dPortal = radialBranchPath(
+          termPos.x + nodeWidth / 2,
+          termPos.y + nodeHeight / 2,
+          portalCx,
+          portalCy,
+          portalMerge
+        )
+        edges.push(`<path class="skill-map-edge is-overclock-portal-edge" d="${dPortal}"/>`)
+      }
+    }
+    const ocAvailSp = typeof getOverclockAvailableSp === 'function' ? getOverclockAvailableSp() : 0
+    overclockPortalHtml = `<button type="button" class="skill-map-node is-overclock-portal" style="left:${Math.round(portalCx - portalW / 2)}px;top:${Math.round(portalCy - portalH / 2)}px" data-open-overclock-tree="true" aria-label="Open separate Overclock Skill Tree">
+      <span class="skill-node-tree is-overclock-portal-tag">★ ${esc(SKILL_TREES[maxedKey].name.toUpperCase())} MAXED</span>
+      <span class="skill-node-mark is-overclock-portal-mark" aria-hidden="true">❖</span>
+      <span class="skill-node-name">OVERCLOCK TREE</span>
+      <span class="skill-node-rank">${ocAvailSp > 0 ? `${ocAvailSp} SP READY ▸` : 'ASCEND ▸'}</span>
+    </button>`
+  }
 
   grid.innerHTML = `<div class="skill-map-viewport" id="skillMapViewport" aria-label="Skill tree map. Drag to pan and scroll to zoom. Zoom-out below 100 percent unlocks after spending ${SKILL_MAP_ZOOM_OUT_POINTS} points.">
       <canvas class="skill-map-particles" id="skillMapParticles" aria-hidden="true"></canvas>
@@ -6843,7 +7879,7 @@ function renderSkillTree() {
             <small>${skillTreeStarted ? 'Select a revealed node' : 'Awaken the nexus'}</small>
           </button>
         </div>
-        ${nodes}
+        ${nodes}${overclockPortalHtml}
       </div>
     </div>${skillTreeDetailMarkup()}`
 
@@ -6851,120 +7887,22 @@ function renderSkillTree() {
   const world = document.getElementById('skillMapWorld')
   document.getElementById('skillTreeFooter').textContent = practiceRunActive
     ? 'Practice Mode: purchases and learning progress are temporary and will be discarded when you exit.'
-    : "Earn 1 point for every 5 correct answers in a topic. Points stay in that topic's skill tree."
-  if (!skillMapPan || !viewport.clientWidth || !viewport.clientHeight) {
-    skillMapPan = {
-      x: viewport.clientWidth / 2 - centerX,
-      y: viewport.clientHeight / 2 - centerY,
-      scale: 1,
-    }
-  }
-  if (!Number.isFinite(skillMapPan.scale)) skillMapPan.scale = 1
-  skillMapPan.scale = Math.max(minimumZoom, Math.min(SKILL_MAP_MAX_ZOOM, skillMapPan.scale))
-  const zoomStatus = document.getElementById('skillMapZoomStatus')
-  const updateZoomStatus = () => {
-    const zoomLabel = `Zoom ${Math.round(skillMapPan.scale * 100)}%`
-    zoomStatus.textContent = zoomOutUnlocked
-      ? `${zoomLabel} · Scroll to zoom, drag to pan`
-      : `${zoomLabel} · Zoom-out unlocks at ${SKILL_MAP_ZOOM_OUT_POINTS} points (${spentPointsTotal}/${SKILL_MAP_ZOOM_OUT_POINTS} spent)`
-  }
-  const clampPan = () => {
-    const scaledWidth = mapWidth * skillMapPan.scale
-    const scaledHeight = mapHeight * skillMapPan.scale
-    skillMapPan.x = scaledWidth <= viewport.clientWidth
-      ? (viewport.clientWidth - scaledWidth) / 2
-      : Math.min(0, Math.max(viewport.clientWidth - scaledWidth, skillMapPan.x))
-    skillMapPan.y = scaledHeight <= viewport.clientHeight
-      ? (viewport.clientHeight - scaledHeight) / 2
-      : Math.min(0, Math.max(viewport.clientHeight - scaledHeight, skillMapPan.y))
-    world.style.transform = `translate(${skillMapPan.x}px, ${skillMapPan.y}px) scale(${skillMapPan.scale})`
-  }
-  clampPan()
-  updateZoomStatus()
-  viewport.addEventListener('wheel', (event) => {
-    if (event.deltaY === 0) return
-    event.preventDefault()
-    const rect = viewport.getBoundingClientRect()
-    const anchorX = event.clientX - rect.left
-    const anchorY = event.clientY - rect.top
-    const nextScale = Math.max(
-      minimumZoom,
-      Math.min(SKILL_MAP_MAX_ZOOM, skillMapPan.scale * Math.exp(-event.deltaY * 0.001))
-    )
-    if (nextScale === skillMapPan.scale) return
-    const mapX = (anchorX - skillMapPan.x) / skillMapPan.scale
-    const mapY = (anchorY - skillMapPan.y) / skillMapPan.scale
-    skillMapPan.scale = nextScale
-    skillMapPan.x = anchorX - mapX * nextScale
-    skillMapPan.y = anchorY - mapY * nextScale
-    clampPan()
-    updateZoomStatus()
-  }, { passive: false })
-  const activeMapPointers = new Map()
-  let drag = null
-  let pinch = null
-  viewport.addEventListener('pointerdown', (event) => {
-    if ((event.pointerType === 'mouse' && event.button !== 0) || event.target.closest('button')) return
-    activeMapPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
-    try { viewport.setPointerCapture(event.pointerId) } catch (_) {}
-    if (activeMapPointers.size === 2) {
-      drag = null
-      const pts = [...activeMapPointers.values()]
-      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1
-      const rect = viewport.getBoundingClientRect()
-      const midX = (pts[0].x + pts[1].x) / 2 - rect.left
-      const midY = (pts[0].y + pts[1].y) / 2 - rect.top
-      pinch = {
-        dist,
-        scale: skillMapPan.scale,
-        mapX: (midX - skillMapPan.x) / skillMapPan.scale,
-        mapY: (midY - skillMapPan.y) / skillMapPan.scale,
-      }
-      viewport.classList.add('is-panning')
-    } else if (activeMapPointers.size === 1) {
-      drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, panX: skillMapPan.x, panY: skillMapPan.y }
-    }
+    : 'SP intervals scale (5 → 8 → 10 correct) & skill ranks cost 1 / 2 / 3 SP. Max a discipline (21/21) to unlock the Overclock Tree.'
+  skillMapPan = bindSkillMapViewport(viewport, world, skillMapPan, {
+    mapWidth,
+    mapHeight,
+    centerX,
+    centerY,
+    minimumZoom,
+    zoomOutUnlocked,
+    spentPointsTotal,
+    onPanUpdate: (nextPan) => { skillMapPan = nextPan },
   })
-  viewport.addEventListener('pointermove', (event) => {
-    if (!activeMapPointers.has(event.pointerId)) return
-    activeMapPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
-    if (pinch && activeMapPointers.size === 2) {
-      const pts = [...activeMapPointers.values()]
-      const nextDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1
-      const rect = viewport.getBoundingClientRect()
-      const midX = (pts[0].x + pts[1].x) / 2 - rect.left
-      const midY = (pts[0].y + pts[1].y) / 2 - rect.top
-      const nextScale = Math.max(minimumZoom, Math.min(SKILL_MAP_MAX_ZOOM, pinch.scale * (nextDist / pinch.dist)))
-      skillMapPan.scale = nextScale
-      skillMapPan.x = midX - pinch.mapX * nextScale
-      skillMapPan.y = midY - pinch.mapY * nextScale
-      clampPan()
-      updateZoomStatus()
-      return
-    }
-    if (!drag || drag.pointerId !== event.pointerId) return
-    skillMapPan.x = drag.panX + event.clientX - drag.x
-    skillMapPan.y = drag.panY + event.clientY - drag.y
-    viewport.classList.add('is-panning')
-    clampPan()
-  })
-  const finishDrag = (event) => {
-    activeMapPointers.delete(event.pointerId)
-    if (activeMapPointers.size < 2) pinch = null
-    if (activeMapPointers.size === 1) {
-      const [[remId, remPt]] = [...activeMapPointers.entries()]
-      drag = { pointerId: remId, x: remPt.x, y: remPt.y, panX: skillMapPan.x, panY: skillMapPan.y }
-    } else {
-      drag = null
-      viewport.classList.remove('is-panning')
-    }
-  }
-  viewport.addEventListener('pointerup', finishDrag)
-  viewport.addEventListener('pointercancel', finishDrag)
-  startSkillTreeParticles(viewport)
+  startSkillTreeParticles(viewport, { isOverclock: false })
 }
 
 let skillTreeParticleRaf = 0
+let skillTreeParticleTheme = null
 let skillTreeAmbientParticles = []
 let skillTreeBurstParticles = []
 let lastPurchasedSkill = null
@@ -6977,9 +7915,10 @@ function stopSkillTreeParticles() {
   }
 }
 
-function burstSkillTreeParticles(treeKey, skillId) {
+function burstSkillTreeParticles(treeKey, skillId, { selector = null, color = null } = {}) {
   const viewport = document.getElementById('skillMapViewport')
-  const node = document.querySelector(`[data-skill-select="${CSS.escape(skillId)}"][data-skill-tree="${CSS.escape(treeKey)}"]`)
+  const targetSelector = selector || `[data-skill-select="${CSS.escape(skillId)}"][data-skill-tree="${CSS.escape(treeKey)}"]`
+  const node = document.querySelector(targetSelector)
   if (!viewport || !node) return
   const vr = viewport.getBoundingClientRect()
   const nr = node.getBoundingClientRect()
@@ -6988,10 +7927,14 @@ function burstSkillTreeParticles(treeKey, skillId) {
   const palette = {
     computerSystems: '#f2bb61',
     networkingSecurity: '#6fe3e8',
+    discreteMath: '#9d8cff',
     programming: '#8bc78e',
+    softwareEng: '#45c9a8',
+    webMobile: '#f075b4',
     database: '#cf8b7b',
+    overclock: '#72f5ff',
   }
-  const color = palette[treeKey] || '#ffe07a'
+  const burstColor = color || palette[treeKey] || '#ffe07a'
   for (let i = 0; i < 24; i++) {
     const angle = (Math.PI * 2 * i) / 24 + Math.random() * 0.35
     const speed = 1.4 + Math.random() * 3.4
@@ -7002,12 +7945,12 @@ function burstSkillTreeParticles(treeKey, skillId) {
       vy: Math.sin(angle) * speed,
       size: 3 + Math.floor(Math.random() * 4),
       life: 1,
-      color: i % 3 === 0 ? '#fff6dc' : color,
+      color: i % 3 === 0 ? '#fff6dc' : burstColor,
     })
   }
 }
 
-function startSkillTreeParticles(viewport) {
+function startSkillTreeParticles(viewport, { isOverclock = false } = {}) {
   stopSkillTreeParticles()
   const canvasEl = document.getElementById('skillMapParticles')
   if (!canvasEl || !viewport) return
@@ -7017,15 +7960,19 @@ function startSkillTreeParticles(viewport) {
   const h = Math.max(240, viewport.clientHeight || 480)
   canvasEl.width = w
   canvasEl.height = h
-  const colors = ['#f2bb61', '#6fe3e8', '#8bc78e', '#cf8b7b']
-  if (!skillTreeAmbientParticles.length) {
+  const themeKey = isOverclock ? 'overclock' : 'main'
+  const colors = isOverclock
+    ? ['#72f5ff', '#3fd6ff', '#b794ff', '#d6faff', '#5aaeff']
+    : ['#f2bb61', '#6fe3e8', '#9d8cff', '#8bc78e', '#45c9a8', '#f075b4', '#cf8b7b']
+  if (!skillTreeAmbientParticles.length || skillTreeParticleTheme !== themeKey) {
+    skillTreeParticleTheme = themeKey
     skillTreeAmbientParticles = Array.from({ length: 34 }, (_, idx) => ({
       x: Math.random() * w,
       y: Math.random() * h,
       vx: (Math.random() - 0.5) * 0.28,
       vy: -0.15 - Math.random() * 0.32,
       size: 2 + (idx % 3),
-      alpha: 0.25 + Math.random() * 0.45,
+      alpha: isOverclock ? 0.32 + Math.random() * 0.45 : 0.25 + Math.random() * 0.45,
       color: colors[idx % colors.length],
     }))
   }
@@ -7072,19 +8019,43 @@ function startSkillTreeParticles(viewport) {
   skillTreeParticleRaf = requestAnimationFrame(step)
 }
 
+function syncSkillPointButtons() {
+  const isMp = typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive
+  const spTotal = isMp
+    ? 0
+    : (typeof getTotalUnspentSkillPoints === 'function'
+      ? getTotalUnspentSkillPoints()
+      : SKILL_TREE_KEYS.reduce((total, key) => total + skillPointsAvailable(key), 0))
+  const hasLearned = SKILL_TREE_KEYS.some((key) =>
+    Object.values(skillProgress[key]?.ranks || {}).some((rank) => rank > 0)
+  )
+  const visible = Boolean(!isMp && (spTotal > 0 || hasLearned))
+  const labelText = spTotal > 0 ? `${spTotal} SP · [U]` : 'SKILLS · [U]'
+
+  const spBadge = document.getElementById('skillPointHudBadge')
+  const spText = document.getElementById('skillPointHudText')
+  if (spBadge && spText) {
+    spBadge.hidden = !visible
+    spBadge.classList.toggle('has-sp', spTotal > 0)
+    if (visible) spText.textContent = labelText
+  }
+
+  const topbarBtn = document.getElementById('topbarSkillTreeButton')
+  const topbarText = document.getElementById('topbarSkillTreeText')
+  if (topbarBtn && topbarText) {
+    topbarBtn.hidden = !visible
+    topbarBtn.classList.toggle('has-sp', spTotal > 0)
+    if (visible) topbarText.textContent = labelText
+  }
+  return spTotal
+}
+window.syncSkillPointButtons = syncSkillPointButtons
+
 function showSkillPointEarnedBanner(category, options = {}) {
   const banner = document.getElementById('spEarnedBanner')
   const titleEl = document.getElementById('spEarnedTitle')
   const noteEl = document.getElementById('spEarnedNote')
-  const availableTotal = SKILL_TREE_KEYS.reduce((total, key) => total + skillPointsAvailable(key), 0)
-  const spBadge = document.getElementById('skillPointHudBadge')
-  const spText = document.getElementById('skillPointHudText')
-  if (spBadge && spText && !(typeof multiplayerMatchActive !== 'undefined' && multiplayerMatchActive)) {
-    spBadge.hidden = availableTotal <= 0
-    if (availableTotal > 0) {
-      spText.textContent = `${availableTotal} SP · [U]`
-    }
-  }
+  const availableTotal = syncSkillPointButtons()
   if (!banner) return
   if (titleEl) titleEl.textContent = `SKILL POINT EARNED (${availableTotal} SP AVAILABLE)`
   if (noteEl) noteEl.textContent = `${category || 'Discipline'} unlocked +1 SP — Press [U] or click to upgrade`
@@ -7105,6 +8076,10 @@ function showSkillPointEarnedBanner(category, options = {}) {
 function openSkillTree() {
   if (skillTreeOpen || document.getElementById('app').hidden) return
   if (typeof hideUiHoverBubble === 'function') hideUiHoverBubble()
+  if (window.ByteboundQuests?.isOpen?.()) window.ByteboundQuests.closeOverlay()
+  if (typeof worldMapOpen !== 'undefined' && worldMapOpen && typeof closeWorldMap === 'function') {
+    closeWorldMap()
+  }
   skillTreeOpen = true
   skillTreeReturnFocus = document.activeElement
   const tree = document.getElementById('skillTreeOverlay')
@@ -7120,6 +8095,8 @@ function openSkillTree() {
 function closeSkillTree() {
   if (!skillTreeOpen) return
   skillTreeOpen = false
+  skillTreePage = 'main'
+  lastPurchasedOverclock = null
   stopSkillTreeParticles()
   const tree = document.getElementById('skillTreeOverlay')
   tree.hidden = true
@@ -7131,9 +8108,10 @@ function closeSkillTree() {
     skillTreeReturnFocus.getClientRects().length
   const focusTarget = canRestoreFocus
     ? skillTreeReturnFocus
-    : document.querySelector('canvas')
-  if (focusTarget?.isConnected) focusTarget.focus()
+    : (playViewActive ? document.querySelector('canvas') : document.body)
+  if (focusTarget?.isConnected && typeof focusTarget.focus === 'function') focusTarget.focus()
   skillTreeReturnFocus = null
+  syncSkillPointButtons()
   updateNavigation()
   syncAnimationLoop()
   window.ByteboundTutorial?.onSkillTreeState?.(false)
@@ -7144,11 +8122,56 @@ document.getElementById('skillTreeOverlay').addEventListener('click', (event) =>
     closeSkillTree()
     return
   }
+  if (event.target.closest('[data-skill-page="main"]')) {
+    skillTreePage = 'main'
+    lastPurchasedOverclock = null
+    Sound.play('click')
+    renderSkillTree()
+    return
+  }
+  if (event.target.closest('[data-open-overclock-tree]')) {
+    if (typeof isOverclockUnlocked === 'function' && isOverclockUnlocked()) {
+      skillTreePage = 'overclock'
+      overclockMapPan = null
+      Sound.play('unlock')
+      renderSkillTree()
+    }
+    return
+  }
   if (event.target.closest('#startSkillTree') && !skillTreeStarted) {
     skillTreeStarted = true
     renderSkillTree()
     document.querySelector('[data-skill-select="foundation"][data-skill-tree="computerSystems"]')?.focus()
     window.ByteboundTutorial?.onSkillTreeAction?.('start')
+    return
+  }
+  const ocNode = event.target.closest('[data-overclock-select]')
+  if (ocNode) {
+    selectedOverclockId = ocNode.dataset.overclockSelect
+    document.querySelectorAll('.skill-map-node.is-overclock-node').forEach((n) => {
+      const selected = n === ocNode
+      n.classList.toggle('is-selected', selected)
+      n.setAttribute('aria-pressed', String(selected))
+    })
+    document.getElementById('skillTreeDetail').outerHTML = overclockDetailMarkup()
+    return
+  }
+  const ocBtn = event.target.closest('[data-overclock-purchase]')
+  if (ocBtn) {
+    const ocId = ocBtn.dataset.overclockPurchase
+    if (typeof purchaseOverclockUpgrade === 'function' && purchaseOverclockUpgrade(ocId)) {
+      lastPurchasedOverclock = ocId
+      Sound.play('heal')
+      renderSkillTree()
+      burstSkillTreeParticles('overclock', ocId, {
+        selector: `[data-overclock-select="${CSS.escape(ocId)}"]`,
+        color: '#72f5ff',
+      })
+      window.setTimeout(() => {
+        if (lastPurchasedOverclock === ocId) lastPurchasedOverclock = null
+      }, 750)
+      renderHud()
+    }
     return
   }
   const node = event.target.closest('[data-skill-select]')
@@ -7300,19 +8323,18 @@ function startWorldMapParticles(viewport) {
   const h = Math.max(240, viewport.clientHeight || 420)
   canvasEl.width = w
   canvasEl.height = h
-  const colors = ['#f2bb61', '#9e7ee6', '#d9954c', '#5fc29a', '#7fb8cc']
+  const isDarkMap = document.documentElement.dataset.theme === 'dark'
+  const dustColor = isDarkMap ? '#c4ced4' : '#6e6a61'
   if (!worldMapAmbientParticles.length) {
-    worldMapAmbientParticles = Array.from({ length: 42 }, (_, idx) => ({
+    worldMapAmbientParticles = Array.from({ length: 12 }, (_, idx) => ({
       x: Math.random() * w,
       y: Math.random() * h,
-      vx: (Math.random() - 0.5) * 0.34,
-      vy: -0.14 - Math.random() * 0.32,
-      size: 2 + (idx % 3),
-      alpha: 0.22 + Math.random() * 0.45,
-      color: colors[idx % colors.length],
+      vx: (Math.random() - 0.5) * 0.14,
+      vy: -0.06 - Math.random() * 0.12,
+      size: idx % 3 === 0 ? 2 : 1,
+      alpha: 0.1 + Math.random() * 0.1,
     }))
   }
-  let pathPhase = 0
   const step = () => {
     if (!worldMapOpen || !canvasEl.isConnected) {
       worldMapParticleRaf = 0
@@ -7332,7 +8354,7 @@ function startWorldMapParticles(viewport) {
       if (p.x < -6) p.x = cw + 6
       if (p.x > cw + 6) p.x = -6
       ctx.globalAlpha = p.alpha
-      ctx.fillStyle = p.color
+      ctx.fillStyle = dustColor
       ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size)
     }
     ctx.globalAlpha = 1
@@ -7341,19 +8363,6 @@ function startWorldMapParticles(viewport) {
     const fxCtx = fxCanvas?.getContext('2d')
     if (fxCtx && fxCanvas) {
       fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height)
-      pathPhase = (pathPhase + 0.0085) % 1
-      for (let i = 0; i < worldMapActiveEdgePolylines.length; i++) {
-        const edge = worldMapActiveEdgePolylines[i]
-        const sparkColor = edge.completed ? '#7ef0a2' : edge.branch ? '#ffd27a' : '#96dcf2'
-        for (let copy = 0; copy < 2; copy++) {
-          const t = (pathPhase + copy * 0.5 + i * 0.13) % 1
-          const pt = pointAlongPolyline(edge.pts, t)
-          fxCtx.fillStyle = sparkColor
-          fxCtx.globalAlpha = 0.85
-          fxCtx.fillRect(Math.round(pt.x - 2), Math.round(pt.y - 2), 4, 4)
-        }
-      }
-      fxCtx.globalAlpha = 1
     }
     worldMapParticleRaf = requestAnimationFrame(step)
   }
@@ -7362,7 +8371,7 @@ function startWorldMapParticles(viewport) {
 
 function isMapNodeCleared(nodeId) {
   const cycleOffset = Math.floor((level - 1) / ROOM_COUNT) * ROOM_COUNT
-  if (clearedRooms.has(nodeId) || clearedRooms.has(cycleOffset + nodeId)) return true
+  if (clearedRooms.has(cycleOffset + nodeId)) return true
   const currentBase = ((level - 1) % ROOM_COUNT) + 1
   return currentBase === nodeId && enemies.length > 0 && enemies.every((e) => !e.alive)
 }
@@ -7428,12 +8437,13 @@ function getWorldMapNodeDetails(nodeId) {
   } else {
     const placements = Array.isArray(base.enemyPlacements) ? base.enemyPlacements : []
     const specials = []
-    if (placements.some((p) => p.nyrmed)) specials.push('Nyrmed')
-    if (placements.some((p) => p.grenu)) specials.push('Grenu')
-    const baseCount = base.pigs || placements.length || 0
+    if (placements.some((p) => p.nyrmed) || (cfg.cycle >= 1)) specials.push('Nyrmed')
+    if (placements.some((p) => p.grenu) || (cfg.cycle >= 1)) specials.push('Grenu')
+    const baseCount = cfg.pigs || placements.length || 0
+    const loopSuffix = cfg.cycle >= 1 ? ` · Loop ${cfg.cycle + 1} Armor` : ''
     enemySummary = specials.length
-      ? `${baseCount} Viruses (${specials.join(' + ')})`
-      : `${baseCount} Viruses`
+      ? `${baseCount} Viruses (${specials.join(' + ')}${loopSuffix})`
+      : `${baseCount} Viruses${loopSuffix}`
   }
 
   return {
@@ -7480,13 +8490,14 @@ function showWorldMapHoverPreview(nodeId, cardEl) {
   })
 
   const footerLine = d.isUnlocked
-    ? (d.isCurrent ? 'Current room · Click card to inspect or resume' : 'Click to select · Double-click or click Enter Map')
+    ? (d.isCurrent ? 'Current room · Walk through connecting doors on foot' : 'Unlocked · Walk through connecting doors to reach')
     : `Locked · ${d.unlockReq}`
 
+  const statusBadgeText = !d.isUnlocked ? `${PIXEL_LOCK_SVG} ${d.statusLabel}` : d.statusLabel
   preview.innerHTML = `
     <div class="wmp-thumb-wrap">
       ${d.thumbnail ? `<img class="wmp-thumb" src="${esc(d.thumbnail)}" alt="${esc(d.name)} preview" />` : ''}
-      <span class="wmp-status-badge is-${d.statusKey}">${d.statusLabel}</span>
+      <span class="wmp-status-badge is-${d.statusKey}">${statusBadgeText}</span>
     </div>
     <div class="wmp-head">
       <strong>${esc(d.name)}</strong>
@@ -7523,22 +8534,9 @@ function showWorldMapHoverPreview(nodeId, cardEl) {
   preview.classList.add('is-visible')
 }
 
-function travelToWorldMapRoom(roomId) {
-  const id = Number(roomId)
-  const d = getWorldMapNodeDetails(id)
-  if (!d.isUnlocked) {
-    selectedWorldMapRoom = id
-    updateWorldMapInspector(WORLD_MAP_NODE_BY_ID, ((level - 1) % ROOM_COUNT) + 1)
-    return false
-  }
-  const cycleOffset = Math.floor((level - 1) / ROOM_COUNT) * ROOM_COUNT
-  const destLevel = cycleOffset + id
-  closeWorldMap()
-  if (destLevel !== level) {
-    loadLevel(destLevel)
-  }
-  gsap.to(overlay, { opacity: 0, duration: 0.25 })
-  return true
+function formatCycleRoman(num) {
+  const map = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
+  return map[num - 1] || String(num)
 }
 
 function updateWorldMapInspector(nodeMap, currentBase) {
@@ -7546,9 +8544,13 @@ function updateWorldMapInspector(nodeMap, currentBase) {
   if (!inspector) return
   const selNode = nodeMap[selectedWorldMapRoom] || nodeMap[currentBase]
   const d = getWorldMapNodeDetails(selNode.id)
-  const actionBtn = d.isUnlocked
-    ? `<button type="button" class="world-map-enter-btn" id="worldMapEnterButton" data-map-enter="${selNode.id}">${d.isCurrent ? 'Resume Current Map' : d.isCleared ? 'Replay Map →' : 'Enter Map →'}</button>`
-    : `<button type="button" class="world-map-enter-btn is-locked" id="worldMapEnterButton" data-map-enter="${selNode.id}" disabled>🔒 ${esc(d.unlockReq)}</button>`
+  const statusPill = d.isCurrent
+    ? `<div class="world-map-status-pill is-current" id="worldMapStatusPill">CURRENT ROOM · EXPLORE ON FOOT</div>`
+    : d.isCleared
+      ? `<div class="world-map-status-pill is-cleared" id="worldMapStatusPill">CLEARED · WALK DOORS TO REVISIT</div>`
+      : d.isUnlocked
+        ? `<div class="world-map-status-pill is-unlocked" id="worldMapStatusPill">UNLOCKED · ADVANCE THROUGH DOORS</div>`
+        : `<div class="world-map-status-pill is-locked" id="worldMapStatusPill">${PIXEL_LOCK_SVG} <span>${esc(d.unlockReq)}</span></div>`
   inspector.innerHTML = `
     <div class="world-map-inspector-main">
       <strong>ROOM ${String(selNode.id).padStart(2, '0')} · ${esc(d.name)} (${d.statusLabel}) · ${esc(d.enemySummary)}</strong>
@@ -7556,7 +8558,7 @@ function updateWorldMapInspector(nodeMap, currentBase) {
     </div>
     <div class="world-map-inspector-side">
       <div class="world-map-inspector-links">${esc(selNode.exits)}</div>
-      ${actionBtn}
+      ${statusPill}
     </div>
   `
 }
@@ -7672,6 +8674,13 @@ function renderWorldMap() {
   if (!stage || !viewport) return
 
   const currentBase = ((level - 1) % ROOM_COUNT) + 1
+  const currentCycle = Math.floor((Math.max(1, Number(level) || 1) - 1) / ROOM_COUNT)
+  const mapSub = document.getElementById('worldMapSubtitle')
+  if (mapSub) {
+    mapSub.textContent = currentCycle > 0
+      ? `Loop ${formatCycleRoman(currentCycle + 1)} (Escalated) · Map reset for this cycle — enemies carry Loop Armor & reinforcements. Travel on foot through room doors.`
+      : 'Loop I · Inspect your citadel route — travel on foot through connecting room doors. Completing a full loop resets the map.'
+  }
   if (!selectedWorldMapRoom) selectedWorldMapRoom = currentBase
   const nodeMap = WORLD_MAP_NODE_BY_ID
   const NODE_W = 136
@@ -7739,14 +8748,14 @@ function renderWorldMap() {
         ? 'COMPLETED'
         : d.isUnlocked
           ? 'UNLOCKED'
-          : 'LOCKED'
+          : `${PIXEL_LOCK_SVG} LOCKED`
     const foesText = d.isCurrent
       ? `${enemies.filter((e) => e.alive).length}/${enemies.length} FOES`
       : d.isFinalBoss
         ? 'KING CROLUE'
         : d.isBossNode
           ? 'MINI BOSS'
-          : `${d.base?.pigs || 0} FOES`
+          : `${d.cfg?.pigs || d.base?.pigs || 0} FOES`
     const bossClasses = [
       d.isBossNode ? 'is-boss-node' : '',
       d.isFinalBoss ? 'is-final-boss' : '',
@@ -7754,8 +8763,11 @@ function renderWorldMap() {
     const thumbTag = d.isBossNode
       ? `<span class="biome-node-boss-tag">${d.isFinalBoss ? '★ BOSS' : '◆ ELITE'}</span>`
       : ''
+    const thumbLock = !d.isUnlocked
+      ? `<span class="biome-node-lock-badge" aria-hidden="true">${PIXEL_LOCK_SVG}</span>`
+      : ''
     return `<button type="button" class="biome-node zone-${node.zone} ${stateCls} ${bossClasses}${isSelected ? ' is-selected' : ''}" style="left:${node.x}px;top:${node.y}px;animation-delay:${idx * 18}ms" data-map-room="${node.id}" aria-pressed="${isSelected}">
-      <div class="biome-node-thumb" style="background-image:url('${esc(d.thumbnail)}')">${thumbTag}</div>
+      <div class="biome-node-thumb" style="background-image:url('${esc(d.thumbnail)}')">${thumbTag}${thumbLock}</div>
       <div class="biome-node-top">
         <span>${node.zoneLabel}</span>
         <span>#${String(node.id).padStart(2, '0')}</span>
@@ -7828,11 +8840,6 @@ document.getElementById('worldMapOverlay')?.addEventListener('click', (event) =>
     renderWorldMap()
     return
   }
-  const enterBtn = event.target.closest('[data-map-enter]')
-  if (enterBtn) {
-    travelToWorldMapRoom(Number(enterBtn.dataset.mapEnter))
-    return
-  }
   const card = event.target.closest('[data-map-room]')
   if (card) {
     worldMapWasDragging = false
@@ -7850,19 +8857,6 @@ document.getElementById('worldMapOverlay')?.addEventListener('click', (event) =>
       card.classList.add('is-locked-shake')
     }
   }
-})
-
-document.getElementById('worldMapOverlay')?.addEventListener('dblclick', (event) => {
-  const card = event.target.closest('[data-map-room]')
-  if (!card) return
-  const roomId = Number(card.dataset.mapRoom)
-  if (!isMapNodeUnlocked(roomId)) {
-    card.classList.remove('is-locked-shake')
-    void card.offsetWidth
-    card.classList.add('is-locked-shake')
-    return
-  }
-  travelToWorldMapRoom(roomId)
 })
 
 let lastPlayerHpPercent = null
@@ -8030,8 +9024,8 @@ function renderDashboard() {
   $('playHint').textContent = isMp
     ? '1v1 Arena: Press 1-4 to pick card & answer · Enter next round · Esc exit'
     : ({
-      explore: 'A / D move  ·  W jump / door  ·  Space jump  ·  Up door  ·  M map  ·  U skills  ·  Esc menu',
-      battle: 'Press 1-4 to choose  ·  Enter to continue  ·  U skills  ·  Esc menu',
+      explore: 'A / D move  ·  W jump / door  ·  Space jump  ·  Up door  ·  M map  ·  U skills  ·  O quests  ·  Esc menu',
+      battle: '1-4 pick card/answer  ·  H blood hint  ·  Enter continue  ·  U skills  ·  O quests  ·  Esc menu',
       end: 'Esc for the menu',
     }[mode] || '')
   document.querySelector('canvas').setAttribute(
@@ -8053,15 +9047,10 @@ function renderDashboard() {
   $('playRoomTag').textContent = isMp ? '1V1 DUEL' : `ROOM ${String(level).padStart(2, '0')}`
   $('playRoomName').textContent = isMp ? `${mpState.arenaName || 'Cyber Arena'} (${mpState.roomCode || 'LIVE'})` : room.name
   $('playModeStatus').textContent = isMp ? 'ONLINE DUEL' : status
-  const spBadge = document.getElementById('skillPointHudBadge')
-  const spText = document.getElementById('skillPointHudText')
-  if (spBadge && spText) {
-    const spTotal = isMp ? 0 : SKILL_TREE_KEYS.reduce((total, key) => total + skillPointsAvailable(key), 0)
-    spBadge.hidden = spTotal <= 0
-    if (spTotal > 0) {
-      spText.textContent = `${spTotal} SP · [U]`
-    }
-  }
+  syncSkillPointButtons()
+  syncPlayerTitleUi()
+  window.ByteboundQuests?.syncHudBadgeDot?.()
+  window.ByteboundQuests?.syncCrateHudButton?.()
   const activeEnemy = (mode === 'battle' || mode === 'intro') ? battle.enemy : null
   const inCombatNow = Boolean(playViewActive && activeEnemy && (mode === 'battle' || mode === 'intro'))
   const enemyChanged = activeEnemy !== lastHudEnemyRef || !inCombatNow !== !lastHudInCombat
@@ -8114,17 +9103,46 @@ function renderDashboard() {
     lastHudInCombat = true
   }
 
+  const renderHudShieldRow = (rowEl, pipsEl, textEl, shieldVal, maxShieldVal) => {
+    if (!rowEl) return
+    const cap = Math.min(5, Math.max(0, Math.round(Number(maxShieldVal) || 0)))
+    const cur = Math.min(cap, Math.max(0, Math.round(Number(shieldVal) || 0)))
+    rowEl.hidden = cap <= 0
+    if (cap <= 0) {
+      if (pipsEl) pipsEl.innerHTML = ''
+      if (textEl) textEl.textContent = '0 / 0'
+      return
+    }
+    if (pipsEl) {
+      let pipsHtml = ''
+      for (let i = 0; i < cap; i++) {
+        pipsHtml += `<span class="shield-pip ${i < cur ? 'is-active' : 'is-broken'}" aria-hidden="true"></span>`
+      }
+      pipsEl.innerHTML = pipsHtml
+    }
+    if (textEl) textEl.textContent = `${cur} / ${cap}`
+  }
+
+  renderHudShieldRow(
+    $('playPlayerShieldRow'),
+    $('playPlayerShieldPips'),
+    $('playPlayerShieldText'),
+    hero.shield || 0,
+    hero.maxShield || 0
+  )
   $('playPlayerHpText').textContent = `${hero.hp} / ${hero.maxHp}`
   updatePlayerHpMeter(Math.max(0, Math.min(100, (100 * hero.hp) / (hero.maxHp || 100))), { instant: !inCombatNow })
   $('playPlayerHpFill')?.parentElement?.classList.toggle('is-def-buffed', hasHeroFullDefenseBuff())
   $('playPlayerManaText').textContent = `${hero.mana} / ${hero.maxMana}`
   updatePlayerManaMeter(Math.max(0, Math.min(100, (100 * hero.mana) / (hero.maxMana || 100))), { instant: !inCombatNow })
-  $('playPlayerMeta').textContent = `ATK ${hero.attack} · DEF ${hero.defense}`
+  const hudPierceMeta = (hero.armorPierce || 0) > 0 ? ` · PIERCE ${hero.armorPierce}` : ''
+  $('playPlayerMeta').textContent = `ATK ${hero.attack} · DEF ${hero.defense}${hudPierceMeta}`
   const enemyStatusCard = $('playEnemyStatusCard')
   if (enemyStatusCard) {
     enemyStatusCard.hidden = !inCombatNow
   }
   if (inCombatNow && activeEnemy && activeEnemy.isMultiplayerPlayer) {
+    renderHudShieldRow($('playEnemyShieldRow'), $('playEnemyShieldPips'), $('playEnemyShieldText'), 0, 0)
     const oppMana = activeEnemy.mana ?? 100
     $('playEnemyName').textContent = activeEnemy.name.toUpperCase()
     $('playEnemyHpText').textContent = `ROUND ${(typeof mpState !== 'undefined' ? mpState.round : 0) + 1}`
@@ -8133,13 +9151,24 @@ function renderDashboard() {
     updateEnemyHpMeter(Math.max(0, Math.min(100, (100 * activeEnemy.hp) / (activeEnemy.maxHp || 100))), { instant: enemyChanged })
     $('playEnemyMeta').textContent = `${oppMana} MP · ATK ${activeEnemy.attack} · DEF ${activeEnemy.defense}`
   } else if (inCombatNow && activeEnemy) {
+    renderHudShieldRow(
+      $('playEnemyShieldRow'),
+      $('playEnemyShieldPips'),
+      $('playEnemyShieldText'),
+      activeEnemy.shield || 0,
+      activeEnemy.maxShield || 0
+    )
     $('playEnemyName').textContent = activeEnemy.name.toUpperCase()
     $('playEnemyHpText').textContent = `${activeEnemy.turns} TURNS`
     $('playEnemyLabel').textContent = 'Enemy health'
     $('playEnemyHpValue').textContent = `${activeEnemy.hp} / ${activeEnemy.maxHp}`
     updateEnemyHpMeter(Math.max(0, Math.min(100, (100 * activeEnemy.hp) / (activeEnemy.maxHp || 100))), { instant: enemyChanged })
-    $('playEnemyMeta').textContent = `${activeEnemy.attack} ATK · ${isHeavy(activeEnemy) ? 'HEAVY NEXT' : 'NORMAL NEXT'}`
+    const loopArmorMeta = activeEnemy.loopTier > 0
+      ? ` · ARM ${activeEnemy.loopArmor || 0} (-${Math.round((activeEnemy.loopDmgReduction || 0) * 100)}%)`
+      : ''
+    $('playEnemyMeta').textContent = `${activeEnemy.attack} ATK${loopArmorMeta} · ${isHeavy(activeEnemy) ? 'HEAVY NEXT' : 'NORMAL NEXT'}`
   } else {
+    renderHudShieldRow($('playEnemyShieldRow'), $('playEnemyShieldPips'), $('playEnemyShieldText'), 0, 0)
     clearHudDeltaBadge('playEnemyHpDelta')
     $('playEnemyName').textContent = ''
     $('playEnemyHpText').textContent = ''
@@ -8149,7 +9178,16 @@ function renderDashboard() {
     updateEnemyHpMeter(0, { instant: true })
     lastEnemyHpPercent = null
   }
-  $('dashboardAside').innerHTML = renderDashboardView(dashboardView, room, totalPigs, defeated, remaining)
+  if (dashboardView === 'quest' && !playViewActive && document.getElementById('questHubCarousel') && window.ByteboundQuests) {
+    window.ByteboundQuests.syncHubWidgetDom()
+  } else {
+    $('dashboardAside').innerHTML = renderDashboardView(dashboardView, room, totalPigs, defeated, remaining)
+  }
+  if (dashboardView === 'quest' && !playViewActive && !$('app').hidden) {
+    window.ByteboundQuests?.startHubAutoSwipe?.()
+  } else {
+    window.ByteboundQuests?.stopHubAutoSwipe?.()
+  }
   syncAnimationLoop()
   window.ByteboundTutorial?.onDashboardRendered?.(dashboardView, playViewActive, mode)
 }
@@ -8317,10 +9355,12 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
           <div class="settings-content">
             <div class="settings-profile-box">
               <div class="settings-profile-row"><span>Active player</span><strong>${esc(activePlayerName || 'Knight')}</strong></div>
+              <div class="settings-profile-row"><span>Prestige title</span><strong>${window.ByteboundQuests?.getEquippedTitleId?.() ? window.ByteboundQuests.renderTitleBadgeHtml(window.ByteboundQuests.getEquippedTitleId(), { compact: true }) : 'None equipped'}</strong></div>
               <div class="settings-profile-row"><span>Identification</span><strong>Password-Protected Account</strong></div>
               <div class="settings-profile-row"><span>Sync status</span><strong>${syncText}</strong></div>
             </div>
             <div class="settings-actions-row">
+              <button class="leaderboard-action" type="button" data-open-prestige-titles>Manage Titles [O]</button>
               <button class="leaderboard-action settings-profile-switch" id="switchProfileButton" type="button">Log Out</button>
               <button class="leaderboard-action settings-reset" id="resetProfileDataButton" type="button">Reset Progress</button>
             </div>
@@ -8356,7 +9396,7 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
         </section>
       </div>`
   }
-  return renderWorldBeacon()
+  return window.ByteboundQuests ? window.ByteboundQuests.renderHubWidget() : renderWorldBeacon()
 }
 
 function openResetConfirmModal() {
@@ -8394,11 +9434,13 @@ async function executeCurrentProfileReset() {
     `${ACHIEVEMENT_STORAGE_KEY}:${profileKey}`,
     `${RUN_SAVES_STORAGE_KEY}:${profileKey}`,
     `bytebound-drill-done-v1:${profileKey}`,
+    `bytebound-quests-v1:${profileKey}`,
     `bytebound-avatar:${profileId}`,
   ]
   activeRunSaveId = null
   activeRunName = ''
   activeRunRoleFocus = ''
+  window.ByteboundQuests?.resetProfileData?.()
 
   try {
     window.clearTimeout(userSyncTimer)
@@ -8506,14 +9548,23 @@ function getTopicBankCounts() {
 }
 
 function buildCapabilityRadarSvg(disciplineMetrics) {
-  const width = 380
-  const height = 286
+  const count = Math.max(3, Array.isArray(disciplineMetrics) ? disciplineMetrics.length : 4)
+  const width = 440
+  const height = 330
   const cx = width / 2
-  const cy = height / 2
-  const maxR = 72
-  // 4 axes: Top (0), Right (1), Bottom (2), Left (3)
-  const angles = [-Math.PI / 2, 0, Math.PI / 2, Math.PI]
-  const shortLabels = ['COMP SYS', 'NET & SEC', 'PROGRAMMING', 'DATABASE']
+  const cy = height / 2 + 2
+  const maxR = 84
+  const labelMap = {
+    'Computer Systems': 'COMP SYS',
+    'Networking & Security': 'NET & SEC',
+    Programming: 'PROGRAMMING',
+    Database: 'DATABASE',
+    'Discrete Mathematics': 'DISCRETE',
+    'Software Engineering': 'SOFTWARE ENG',
+    'Web & Mobile Development': 'WEB & MOBILE',
+  }
+  const angles = Array.from({ length: count }, (_, idx) => -Math.PI / 2 + (2 * Math.PI * idx) / count)
+  const indices = Array.from({ length: count }, (_, idx) => idx)
 
   const pointAt = (axisIndex, ratio) => {
     const r = Math.max(0.08, Math.min(1, ratio)) * maxR
@@ -8522,43 +9573,44 @@ function buildCapabilityRadarSvg(disciplineMetrics) {
   }
 
   const rings = [0.25, 0.5, 0.75, 1].map((step) => {
-    const pts = [0, 1, 2, 3].map((idx) => pointAt(idx, step)).join(' ')
+    const pts = indices.map((idx) => pointAt(idx, step)).join(' ')
     return `<polygon class="cap-radar-grid" points="${pts}" />`
   }).join('')
 
-  const axes = [0, 1, 2, 3].map((idx) => {
-    const end = pointAt(idx, 1)
-    const [ex, ey] = end.split(',')
+  const axes = indices.map((idx) => {
+    const [ex, ey] = pointAt(idx, 1).split(',')
     return `<line class="cap-radar-axis" x1="${cx}" y1="${cy}" x2="${ex}" y2="${ey}" />`
   }).join('')
 
-  const currentPoints = [0, 1, 2, 3].map((idx) => {
+  const currentPoints = indices.map((idx) => {
     const metric = disciplineMetrics[idx]
     const ratio = metric ? (metric.accuracyPct / 100) : 0.08
     return pointAt(idx, ratio)
   }).join(' ')
 
-  const dots = [0, 1, 2, 3].map((idx) => {
+  const dots = indices.map((idx) => {
     const metric = disciplineMetrics[idx]
     const ratio = metric ? (metric.accuracyPct / 100) : 0.08
     const [px, py] = pointAt(idx, ratio).split(',')
     return `<rect class="cap-radar-vertex" x="${(Number(px) - 4).toFixed(1)}" y="${(Number(py) - 4).toFixed(1)}" width="8" height="8" />`
   }).join('')
 
-  const labelCoords = [
-    { x: cx, y: 26, anchor: 'middle' },
-    { x: cx + maxR + 14, y: cy - 4, anchor: 'start' },
-    { x: cx, y: height - 28, anchor: 'middle' },
-    { x: cx - maxR - 14, y: cy - 4, anchor: 'end' },
-  ]
-  const labels = [0, 1, 2, 3].map((idx) => {
+  const labelR = maxR + 24
+  const labels = indices.map((idx) => {
     const metric = disciplineMetrics[idx]
-    const coord = labelCoords[idx]
+    const a = angles[idx]
+    const cos = Math.cos(a)
+    const sin = Math.sin(a)
+    const lx = (cx + cos * labelR).toFixed(1)
+    const lyOffset = sin < -0.78 ? -8 : sin > 0.78 ? 10 : -2
+    const ly = (cy + sin * labelR + lyOffset).toFixed(1)
+    const anchor = cos > 0.2 ? 'start' : cos < -0.2 ? 'end' : 'middle'
+    const shortName = labelMap[metric?.category] || String(metric?.category || '').toUpperCase().slice(0, 12)
     const score = metric && metric.attempted > 0 ? `${metric.accuracyPct}%` : '—'
-    return `<text class="cap-radar-label" x="${coord.x}" y="${coord.y}" text-anchor="${coord.anchor}"><tspan x="${coord.x}" dy="0">${esc(shortLabels[idx])}</tspan><tspan class="cap-radar-score" x="${coord.x}" dy="16">${score}</tspan></text>`
+    return `<text class="cap-radar-label" x="${lx}" y="${ly}" text-anchor="${anchor}"><tspan x="${lx}" dy="0">${esc(shortName)}</tspan><tspan class="cap-radar-score" x="${lx}" dy="15">${score}</tspan></text>`
   }).join('')
 
-  return `<svg class="cap-radar-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Four-discipline capability radar chart">
+  return `<svg class="cap-radar-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${count}-discipline capability radar chart">
     ${rings}
     ${axes}
     <polygon class="cap-radar-area" points="${currentPoints}" />
@@ -8759,6 +9811,9 @@ function renderTopicTracker() {
     'Networking & Security': 'blue',
     Programming: 'green',
     Database: 'red',
+    'Discrete Mathematics': 'indigo',
+    'Software Engineering': 'teal',
+    'Web & Mobile Development': 'magenta',
   }
 
   const disciplineMetrics = categories.map(({ category, topics }) => {
@@ -8788,18 +9843,30 @@ function renderTopicTracker() {
     }
   })
 
+  const activeYear = typeof getActiveAcademicYear === 'function' ? getActiveAcademicYear() : 4
   const disciplineCardsHtml = disciplineMetrics.map((d) => {
+    const hasEligible = d.topics.some(([tName]) =>
+      (typeof getEligibleTopicCount === 'function' ? getEligibleTopicCount(d.category, tName, activeYear) : 1) > 0
+    )
+    const minDiscYear = !hasEligible
+      ? Math.min(4, ...d.topics.map(([tName]) => (typeof getTopicMinYear === 'function' ? (getTopicMinYear(d.category, tName) || 4) : 4)))
+      : null
     const hasData = d.attempted > 0
-    const subTxt = hasData
-      ? `${d.mastered}/${d.topics.length} mastered · ${d.correct}/${d.attempted}${d.diag.hasPost ? ` · ${d.diag.deltaLabel} growth` : ''}`
-      : `Not practiced yet · 0/${d.topics.length} mastered`
-    return `<article class="cap-discipline-card tone-${esc(d.color)}${hasData ? '' : ' is-empty'}">
+    const subTxt = !hasEligible && minDiscYear
+      ? `Unlocks ${getAcademicYearLabel(minDiscYear)} · Curriculum Year ${minDiscYear}+`
+      : hasData
+        ? `${d.mastered}/${d.topics.length} mastered · ${d.correct}/${d.attempted}${d.diag.hasPost ? ` · ${d.diag.deltaLabel} growth` : ''}`
+        : `Not practiced yet · 0/${d.topics.length} mastered`
+    const tierBadge = !hasEligible && minDiscYear
+      ? `<span class="cap-tier-pill is-year-locked">${esc(getAcademicYearMeta(minDiscYear).shortLabel.toUpperCase())}+</span>`
+      : `<span class="cap-tier-pill tier-${esc(d.adaptiveTier.toLowerCase())}">${esc(d.adaptiveTier)}</span>`
+    return `<article class="cap-discipline-card tone-${esc(d.color)}${hasData ? '' : ' is-empty'}${!hasEligible ? ' is-year-locked' : ''}">
       <div class="cap-discipline-top">
         <div>
           <span class="cap-discipline-name">${esc(d.category)}</span>
           <small class="cap-discipline-sub">${esc(subTxt)}</small>
         </div>
-        <span class="cap-tier-pill tier-${esc(d.adaptiveTier.toLowerCase())}">${esc(d.adaptiveTier)}</span>
+        ${tierBadge}
       </div>
       <div class="cap-meter-row">
         <div class="cap-score-bar" role="progressbar" aria-label="${esc(`${d.category} accuracy`)}" aria-valuenow="${hasData ? d.accuracyPct : 0}" aria-valuemin="0" aria-valuemax="100">
@@ -8887,7 +9954,7 @@ function renderTopicTracker() {
 
   return `<span class="eyebrow">Learning Tracker</span>
     <h2>Your Topic Progress</h2>
-    <p class="achievement-summary">Monitor accuracy, mastery, and improvement across all four computing disciplines.</p>
+    <p class="achievement-summary">Monitor accuracy, mastery, and improvement across all ${categories.length} computing disciplines.</p>
     <div class="tracker-summary" aria-label="Overall learning metrics">
       <article class="tracker-stat">
         <span>Overall Accuracy</span>
@@ -9087,8 +10154,16 @@ document.getElementById('practiceModeButton').addEventListener('click', startPra
 document.getElementById('exitPlayButton').addEventListener('click', () => showDashboard())
 const spHudBadgeEl = document.getElementById('skillPointHudBadge')
 if (spHudBadgeEl) spHudBadgeEl.addEventListener('click', () => openSkillTree())
+const topbarSpBtnEl = document.getElementById('topbarSkillTreeButton')
+if (topbarSpBtnEl) topbarSpBtnEl.addEventListener('click', () => openSkillTree())
 const worldMapHudBtnEl = document.getElementById('worldMapHudButton')
 if (worldMapHudBtnEl) worldMapHudBtnEl.addEventListener('click', () => openWorldMap())
+const questsHudBtnEl = document.getElementById('questsHudButton')
+if (questsHudBtnEl) questsHudBtnEl.addEventListener('click', () => window.ByteboundQuests?.openOverlay?.())
+const cratesHudBtnEl = document.getElementById('cratesHudButton')
+if (cratesHudBtnEl) cratesHudBtnEl.addEventListener('click', () => window.ByteboundQuests?.openSupplyCrateModal?.())
+const playerTitleSlotEl = document.getElementById('playerTitleSlot')
+if (playerTitleSlotEl) playerTitleSlotEl.addEventListener('click', () => window.ByteboundQuests?.openOverlay?.(3))
 const spEarnedBannerEl = document.getElementById('spEarnedBanner')
 if (spEarnedBannerEl) spEarnedBannerEl.addEventListener('click', () => {
   spEarnedBannerEl.hidden = true
@@ -9133,8 +10208,15 @@ document.getElementById('dashboardAside').addEventListener('click', (event) => {
   } else if (event.target.closest('[data-leaderboard-tab]')) {
     const nextTab = event.target.closest('[data-leaderboard-tab]').dataset.leaderboardTab
     leaderboardTab = nextTab === 'pvp' ? 'pvp' : 'arcade'
-    if (leaderboardTab === 'pvp') loadPvpLeaderboard()
-    else loadLeaderboard()
+    if (leaderboardTab === 'pvp') loadPvpLeaderboard({ ignorePeriodCache: true })
+    else loadLeaderboard({ ignorePeriodCache: true })
+  } else if (event.target.closest('[data-leaderboard-period]')) {
+    const nextPeriod = event.target.closest('[data-leaderboard-period]').dataset.leaderboardPeriod
+    leaderboardPeriod = nextPeriod === 'alltime' ? 'alltime' : 'weekly'
+    if (leaderboardTab === 'pvp') loadPvpLeaderboard({ force: true })
+    else loadLeaderboard({ force: true })
+  } else if (event.target.closest('[data-open-prestige-titles]')) {
+    window.ByteboundQuests?.openOverlay?.(3)
   } else if (event.target.closest('[data-leaderboard-refresh]')) {
     const nowMs = Date.now()
     if (nowMs - lastManualLeaderboardRefreshAt < 5000) return
@@ -9611,6 +10693,7 @@ function clearPlayerLocalCache(profileKey) {
       `${ACHIEVEMENT_STORAGE_KEY}:${profileKey}`,
       `bytebound-run-saves-v1:${profileKey}`,
       `bytebound-academic-year-v1:${profileKey}`,
+      `bytebound-quests-v1:${profileKey}`,
       `bytebound-avatar:${profileKey}`,
       `bytebound-reset-at-v1:${encodeURIComponent(profileKey)}`
     )
@@ -9980,6 +11063,7 @@ function enterAuthenticatedSession(user, sessionToken, provider, sessionOptions 
   if (typeof selectAcademicYearProfile === 'function') {
     selectAcademicYearProfile(profileId)
   }
+  window.ByteboundQuests?.selectProfile?.(profileId)
   const hasServerYear = Number.isInteger(Number(user?.review_store?.academicYear)) &&
     Number(user.review_store.academicYear) >= 1 && Number(user.review_store.academicYear) <= 4
   if (hasServerYear && typeof setActiveAcademicYear === 'function') {
@@ -10237,6 +11321,8 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
 
 function switchPlayerProfile() {
   window.ByteboundTutorial?.onProfileSwitch?.()
+  window.ByteboundQuests?.stopHubAutoSwipe?.()
+  window.ByteboundQuests?.closeOverlay?.()
   if (typeof hideUiHoverBubble === 'function') hideUiHoverBubble()
   setNavMenuOpen(false)
   if (!practiceRunActive && hasRecordableGameplayRun() && activeAuthProvider === 'supabase') {

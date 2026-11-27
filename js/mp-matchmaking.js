@@ -253,6 +253,7 @@
           this.currentRoom = null;
           this.role = null;
           this.network.closedCodes.add(closedCode);
+          this.network.deleteDbRoom(closedCode);
           this.network.leaveSupabaseRoomChannel();
           this.network.updatePresence({ status: 'Available', roomCode: null });
           this.setNotification('error', `${hostName} disconnected. The room has been closed.`);
@@ -472,6 +473,7 @@
           clientId: this.network.clientId,
           username: this.network.localProfile.username,
           avatar: this.network.localProfile.avatar,
+          titleId: this.network.localProfile.titleId || '',
           ready: false,
           connected: true,
         },
@@ -516,6 +518,7 @@
         const res = await this.network.joinRoom(code, {
           username: this.network.localProfile.username,
           avatar: this.network.localProfile.avatar,
+          titleId: this.network.localProfile.titleId || '',
         });
         if (!res.ok) {
           return res;
@@ -740,9 +743,23 @@
       });
     }
 
+    async onMatchCompleted() {
+      if (!this.currentRoom) return;
+      const room = this.currentRoom;
+      const code = String(room.code || '').toUpperCase();
+      if (code) this.network.closedCodes.add(code);
+      if (this.role === 'host' && code) {
+        await this.network.deleteDbRoom(code);
+      }
+      await this.network.updatePresence({ status: 'Post-Match', roomCode: code || null });
+      this.notifyChange();
+    }
+
     async returnRoomToLobby() {
       if (!this.currentRoom) return;
       const room = this.currentRoom;
+      const code = String(room.code || '').toUpperCase();
+      if (code) this.network.closedCodes.delete(code);
       room.host.ready = false;
       if (room.guest) {
         room.guest.ready = false;
@@ -754,6 +771,7 @@
       this.network.setPollingMode?.('lobby');
       await this.network.sendReturnToLobby(room.code);
       if (this.role === 'host') {
+        await this.network.upsertDbRoom(room);
         await this.network.syncRoomSnapshot(room);
       }
       this.notifyChange();

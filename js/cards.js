@@ -17,13 +17,24 @@ const CARD_LIBRARY = {
   heavy: { id: 'heavy', name: 'Heavy Blow', cost: 25, kind: 'hit', power: 2.4, unlock: { metric: 'kills', goal: 5, text: 'Defeat 5 viruses' }, text: 'Costs 25 mana for a crushing hit.' },
   fortify: { id: 'fortify', name: 'Fortify', cost: 0, kind: 'buff', defense: 3, manaOnCorrect: 4, unlock: { metric: 'kills', goal: 10, text: 'Defeat 10 viruses' }, text: '+3 defense for the battle and +4 mana when correct.' },
   overclock: { id: 'overclock', name: 'Overclock', cost: 10, kind: 'hit', power: 1, correctMult: 2, unlock: { metric: 'bosses', goal: 1, text: 'Defeat a mini boss' }, text: 'Costs 10 mana. Double damage when correct.' },
-  kernel_aegis: { id: 'kernel_aegis', name: 'Kernel Aegis', cost: 10, kind: 'aegis', exclusiveActive: true, chargeMin: 3, chargeMax: 5, text: 'Charges via 3–5 answer streak (up to 1.5x). Blocks hits + full heal + 40–60 MP + surge; wrong answers drain/pierce.' },
+  kernel_aegis: { id: 'kernel_aegis', name: 'Kernel Aegis', cost: 10, kind: 'aegis', exclusiveActive: true, chargeMin: 3, chargeMax: 5, text: 'Passive: Start battles with 1–3 Hit-Shields. Active: Refills Aegis Shield (3–5 hits), full heal, 40–60 MP & surge.' },
   packet_lockdown: { id: 'packet_lockdown', name: 'Packet Lockdown', cost: 10, kind: 'stun', stunTurns: 8, exclusiveActive: true, chargeMin: 3, chargeMax: 5, text: 'Charges via 3–5 answer streak (up to 1.5x). 8–12t stun, breach DMG, +50% hit DMG while stunned & MP.' },
   plasma_compile: { id: 'plasma_compile', name: 'Overburn Execution', cost: 15, kind: 'burn_hit', baseDamage: 100, burnDamage: 20, burnTurns: 5, exclusiveActive: true, chargeMin: 3, chargeMax: 5, text: 'Charges via 3–5 answer streak (up to 1.5x). Heavy DMG (Execute <40% HP) + Inferno Burn (5t).' },
+  proof_contradiction: { id: 'proof_contradiction', name: 'Proof by Contradiction', cost: 10, kind: 'logic_proof', exclusiveActive: true, chargeMin: 3, chargeMax: 5, text: 'Charges via 3–5 answer streak (up to 1.5x). Reflects next enemy hit, eliminates 2 wrong choices on next questions & arms 2x Logical Crit.' },
+  system_refactor: { id: 'system_refactor', name: 'System Refactor', cost: 12, kind: 'refactor', exclusiveActive: true, chargeMin: 3, chargeMax: 5, text: 'Charges via 3–5 answer streak (up to 1.5x). Architecture DMG, halves card MP costs (2–4t), resets Defend CD & grants Rollback Guard.' },
+  async_cascade: { id: 'async_cascade', name: 'Async Cascade', cost: 12, kind: 'async_burst', exclusiveActive: true, chargeMin: 3, chargeMax: 5, text: 'Charges via 3–5 answer streak (up to 1.5x). 3-hit Async Burst, echoes your next card (+75%) & Rate-Limits enemy (-40% DMG).' },
 };
 
 function cardCost(card, hero) {
   return card.cost === 'empower' ? hero.empowerCost : card.cost;
+}
+
+function effectiveCardCost(card, heroObj = typeof hero !== 'undefined' ? hero : {}) {
+  const base = cardCost(card, heroObj);
+  if (typeof battle !== 'undefined' && (typeof multiplayerMatchActive === 'undefined' || !multiplayerMatchActive) && (battle.refactorDiscountTurns || 0) > 0) {
+    return Math.floor(base * 0.5);
+  }
+  return base;
 }
 
 function cardCostLabel(card, hero) {
@@ -57,7 +68,8 @@ function describeCard(card, hero) {
     }
     case 'aegis': {
       const rank = typeof skillProgress !== 'undefined' ? Math.max(1, skillProgress.computerSystems?.ranks?.kernelAegis || 1) : 1;
-      return `Shields normal hits + Full HP + 40–60 MP + ${35 * rank}–${Math.round(35 * rank * 1.5)} DMG (wrong drains MP & pierces). 3–5 Streak.`;
+      const shieldCap = Math.min(5, rank + 2);
+      return `Refills Aegis Shield to ${shieldCap}/5 hits + Full HP + 40–60 MP + ${35 * rank}–${Math.round(35 * rank * 1.5)} DMG & Surge (Passive: ${rank} Battle Shield).`;
     }
     case 'stun': {
       const rank = typeof skillProgress !== 'undefined' ? Math.max(1, skillProgress.networkingSecurity?.ranks?.packetLockdown || 1) : 1;
@@ -69,6 +81,28 @@ function describeCard(card, hero) {
       const bonus = (Math.max(0, (hero.attack || 12) - 12) + (hero.tempAttack || 0)) * 2;
       const total = 100 + (rank - 1) * 50 + bonus;
       return `${total}–${Math.round(total * 1.5)} DMG (1.5x Execute <40%) + ${20 * rank}–${Math.round(20 * rank * 1.5)}/t burn (5t). 3–5 Streak.`;
+    }
+    case 'logic_proof': {
+      const rank = typeof skillProgress !== 'undefined' ? Math.max(1, skillProgress.discreteMath?.ranks?.proofContradiction || 1) : 1;
+      const baseDmg = 35 * rank;
+      const reflectN = rank >= 2 ? 2 : 1;
+      return `${baseDmg}–${Math.round(baseDmg * 1.5)} DMG + Reflect ${reflectN} hit(s) (1.5–2.25x) + ${rank}+ 50/50 hints + 2x Crit. 3–5 Streak.`;
+    }
+    case 'refactor': {
+      const rank = typeof skillProgress !== 'undefined' ? Math.max(1, skillProgress.softwareEng?.ranks?.systemRefactor || 1) : 1;
+      const deckLen = typeof runDeck !== 'undefined' && Array.isArray(runDeck) ? runDeck.length : 5;
+      const baseDmg = 45 * rank + deckLen * 4;
+      const discTurns = rank >= 2 ? 3 : 2;
+      const guardStacks = rank >= 3 ? 2 : 1;
+      return `${baseDmg}–${Math.round(baseDmg * 1.5)} DMG + 50% MP cost (${discTurns}–${discTurns + 1}t) + Reset Defend CD + Rollback Guard x${guardStacks}.`;
+    }
+    case 'async_burst': {
+      const rank = typeof skillProgress !== 'undefined' ? Math.max(1, skillProgress.webMobile?.ranks?.asyncCascade || 1) : 1;
+      const atkBonus = Math.round((hero.attack + (hero.tempAttack || 0)) * 0.55);
+      const perHit = 22 * rank + atkBonus;
+      const total = perHit * 3;
+      const echoN = rank >= 3 ? 2 : 1;
+      return `3x ${perHit} (${total}–${Math.round(total * 1.5)}) DMG + Echo next card x${echoN} (+75%) + Rate-Limit (-40% foe DMG).`;
     }
     default:
       return card.text;
@@ -96,6 +130,9 @@ const ACTIVE_SKILL_SIGILS = {
   kernel_aegis: '<svg class="active-sigil-svg" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" opacity="0.22" d="M4 3h16v2h2v8h-2v4h-2v2h-3v2h-6v-2H6v-2H4v-4H2V5h2V3z"/><path fill="currentColor" d="M5 2h14v2h2v9h-2v3h-2v2h-2v2h-2v2h-2v-2H9v-2H7v-2H5v-3H3V4h2V2zm2 4v6h2v3h2v2h2v-2h2v-3h2V6H7zm3 2h4v2h2v2h-2v2h-4v-2H8v-2h2V8z"/></svg>',
   packet_lockdown: '<svg class="active-sigil-svg" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" opacity="0.22" d="M7 2h10v3h3v14h-3v3H7v-3H4V5h3V2z"/><path fill="currentColor" d="M8 3h8v2h2v4h2v10h-2v2H6v-2H4V9h2V5h2V3zm2 2v4h4V5h-4zm-4 6v8h12v-8H6zm5 2h2v2h1v2h-4v-2h1v-2z"/><path fill="currentColor" d="M1 11h2v2H1v-2zm20 0h2v2h-2v-2z"/></svg>',
   plasma_compile: '<svg class="active-sigil-svg" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" opacity="0.22" d="M10 2h6v4h4v6h-3v5h-4v5H8v-5H5v-6h3V6h2V2z"/><path fill="currentColor" d="M13 1h4v2h-1v3h-1v3h5v2h-2v2h-2v2h-2v2h-2v3h-2v3H8v-3h1v-3h1v-3H5v-2h2V9h2V7h2V4h2V1zm-3 11h4v2h-2v3h2v-2h2v-3h-6v0z"/></svg>',
+  proof_contradiction: '<svg class="active-sigil-svg" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" opacity="0.22" d="M11 2h2v2h4v3h3v6h-3v4h-4v4h-2v-4H7v-4H4V7h3V4h4V2z"/><path fill="currentColor" d="M11 1h2v3h4v2h3v2h2v6h-2v2h-3v2h-4v3h-2v-3H7v-2H4v-2H2V8h2V6h3V4h4V1zm-1 5v2H8v2H6v4h2v2h2v2h4v-2h2v-2h2v-4h-2V8h-2V6h-4zm1 3h2v4h-2V9zm0 5h2v2h-2v-2z"/></svg>',
+  system_refactor: '<svg class="active-sigil-svg" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" opacity="0.22" d="M8 2h8v3h3v3h3v8h-3v3h-3v3H8v-3H5v-3H2V8h3V5h3V2z"/><path fill="currentColor" d="M9 2h6v3h3v2h2v2h2v6h-2v2h-2v2h-3v3H9v-3H6v-2H4v-2H2V9h2V7h2V5h3V2zm1 4v2H8v2H6v4h2v2h2v2h4v-2h2v-2h2v-4h-2V8h-2V6h-4zm1 3h2v2h2v2h-2v2h-2v-2H9v-2h2V9z"/></svg>',
+  async_cascade: '<svg class="active-sigil-svg" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" opacity="0.22" d="M4 4h16v4h2v8h-2v4H4v-4H2V8h2V4z"/><path fill="currentColor" d="M2 7h7v2H5v2h5v2H4v2h6v2H2v-2h1v-2H1V9h2V7zm11-4h4v2h2v4h-3v2h4v2h-3v4h-3v4h-3v-5h2v-3h-2v-2h3V7h-2V5h1V3zm6 3h3v2h-3V6zm1 10h3v2h-3v-2z"/></svg>',
 };
 
 function getCardRoleMeta(card) {
@@ -124,6 +161,27 @@ function getCardRoleMeta(card) {
         label: 'ACTIVE SKILL',
         discipline: 'CODE',
         sigilSvg: ACTIVE_SKILL_SIGILS.plasma_compile,
+      },
+      proof_contradiction: {
+        tone: 'exclusive',
+        category: 'exclusive',
+        label: 'ACTIVE SKILL',
+        discipline: 'DISCRETE',
+        sigilSvg: ACTIVE_SKILL_SIGILS.proof_contradiction,
+      },
+      system_refactor: {
+        tone: 'exclusive',
+        category: 'exclusive',
+        label: 'ACTIVE SKILL',
+        discipline: 'SWE',
+        sigilSvg: ACTIVE_SKILL_SIGILS.system_refactor,
+      },
+      async_cascade: {
+        tone: 'exclusive',
+        category: 'exclusive',
+        label: 'ACTIVE SKILL',
+        discipline: 'WEB',
+        sigilSvg: ACTIVE_SKILL_SIGILS.async_cascade,
       },
     };
     return map[card.id] || {
