@@ -295,6 +295,7 @@
             this.currentRoom.status = 'in_match';
           }
           await this.network.updatePresence({ status: 'In Match', roomCode });
+          this.network.setPollingMode?.('match');
           this.notifyChange();
           for (const fn of this.matchListeners) fn(payload.matchConfig);
           return;
@@ -750,6 +751,7 @@
         room.status = 'waiting';
       }
       await this.network.updatePresence({ status: 'In Lobby', roomCode: room.code });
+      this.network.setPollingMode?.('lobby');
       await this.network.sendReturnToLobby(room.code);
       if (this.role === 'host') {
         await this.network.syncRoomSnapshot(room);

@@ -381,15 +381,74 @@ function Get-NowMs {
   return [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 }
 
-function Send-JsonResponse($response, [int]$statusCode, $data) {
+$script:rateLimitBuckets = @{}
+
+function Get-ClientIpKey($request) {
+  try {
+    if ($null -ne $request -and $null -ne $request.RemoteEndPoint -and $null -ne $request.RemoteEndPoint.Address) {
+      return [string]$request.RemoteEndPoint.Address.ToString()
+    }
+  } catch {}
+  return 'unknown'
+}
+
+function Test-RateLimit([string]$bucketKey, [int]$maxHits, [int]$windowSeconds, [bool]$consume = $true) {
+  $nowSec = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+  $cutoff = $nowSec - $windowSeconds
+  $fresh = [System.Collections.Generic.List[int64]]::new()
+  if ($script:rateLimitBuckets.ContainsKey($bucketKey)) {
+    foreach ($ts in $script:rateLimitBuckets[$bucketKey]) {
+      if ($ts -gt $cutoff) { [void]$fresh.Add([int64]$ts) }
+    }
+  }
+  if ($fresh.Count -ge $maxHits) {
+    $script:rateLimitBuckets[$bucketKey] = $fresh
+    $oldest = [int64]$fresh[0]
+    $retryAfter = [Math]::Max(1, [int](($oldest + $windowSeconds) - $nowSec))
+    return @{ allowed = $false; retryAfter = $retryAfter; remaining = 0 }
+  }
+  if ($consume) {
+    [void]$fresh.Add($nowSec)
+  }
+  $script:rateLimitBuckets[$bucketKey] = $fresh
+  return @{ allowed = $true; retryAfter = 0; remaining = [Math]::Max(0, $maxHits - $fresh.Count) }
+}
+
+function Clear-RateLimit([string]$bucketKey) {
+  if ($script:rateLimitBuckets.ContainsKey($bucketKey)) {
+    [void]$script:rateLimitBuckets.Remove($bucketKey)
+  }
+}
+
+function Send-JsonResponse($response, [int]$statusCode, $data, [hashtable]$extraHeaders = $null) {
   $json = $data | ConvertTo-Json -Depth 12 -Compress
   $bytes = [Text.Encoding]::UTF8.GetBytes($json)
   $response.StatusCode = $statusCode
   $response.ContentType = 'application/json; charset=utf-8'
   $response.Headers['Cache-Control'] = 'no-store'
+  if ($null -ne $extraHeaders) {
+    foreach ($kv in $extraHeaders.GetEnumerator()) {
+      $response.Headers[[string]$kv.Key] = [string]$kv.Value
+    }
+  }
   $response.ContentLength64 = $bytes.Length
   $response.OutputStream.Write($bytes, 0, $bytes.Length)
   $response.Close()
+}
+
+function Send-RateLimitResponse($response, [int]$retryAfter, [string]$message = '') {
+  $safeRetry = [Math]::Max(1, $retryAfter)
+  $msg = if ([string]::IsNullOrWhiteSpace($message)) {
+    "Too many attempts. Please wait $safeRetry seconds and try again."
+  } else {
+    $message
+  }
+  Send-JsonResponse $response 429 @{
+    ok = $false
+    code = 'RATE_LIMITED'
+    retry_after = $safeRetry
+    error = $msg
+  } @{ 'Retry-After' = [string]$safeRetry }
 }
 
 function Add-MpEvent([string]$type, [string]$roomCode, $targetClientId, $payload) {
@@ -514,11 +573,12 @@ try {
       $relativePath = [Uri]::UnescapeDataString($context.Request.Url.AbsolutePath.TrimStart('/'))
 
       if ($relativePath -eq 'api/auth/health' -and $context.Request.HttpMethod -eq 'GET') {
-        Send-JsonResponse $context.Response 200 @{ ok = $true; provider = 'local' }
+        Send-JsonResponse $context.Response 200 @{ ok = $true; provider = 'local'; rateLimiting = $true }
         continue
       }
 
       if ($relativePath -like 'api/auth/*' -and $context.Request.HttpMethod -eq 'POST') {
+        $clientIp = Get-ClientIpKey $context.Request
         $reader = New-Object IO.StreamReader($context.Request.InputStream, [Text.Encoding]::UTF8)
         $rawBody = $reader.ReadToEnd()
         $reader.Close()
@@ -534,6 +594,11 @@ try {
         $nowIso = [DateTimeOffset]::UtcNow.ToString('o')
 
         if ($relativePath -eq 'api/auth/signup') {
+          $rlSignup = Test-RateLimit "signup:${clientIp}" 10 600 $true
+          if (-not $rlSignup.allowed) {
+            Send-RateLimitResponse $context.Response $rlSignup.retryAfter "Too many account signups from this connection. Please wait $($rlSignup.retryAfter) seconds and try again."
+            continue
+          }
           $displayName = Normalize-AuthUsername ([string]$body.username)
           $usernameKey = $displayName.ToLowerInvariant()
           $password = if ($null -ne $body.password) { [string]$body.password } else { '' }
@@ -592,12 +657,19 @@ try {
         if ($relativePath -eq 'api/auth/login') {
           $displayName = Normalize-AuthUsername ([string]$body.username)
           $usernameKey = $displayName.ToLowerInvariant()
+          $loginBucket = "login:${clientIp}:$(if ($usernameKey) { $usernameKey } else { 'blank' })"
+          $rlLogin = Test-RateLimit $loginBucket 5 900 $false
+          if (-not $rlLogin.allowed) {
+            Send-RateLimitResponse $context.Response $rlLogin.retryAfter "Too many failed login attempts for `"$displayName`". Please wait $($rlLogin.retryAfter) seconds and try again."
+            continue
+          }
           $password = if ($null -ne $body.password) { [string]$body.password } else { '' }
           $userObj = if ($usernameKey -and $script:authStore.users.ContainsKey($usernameKey)) { $script:authStore.users[$usernameKey] } else { $null }
           $storedHash = if ($null -ne $userObj -and $userObj.ContainsKey('password_hash')) { [string]$userObj.password_hash } else { '' }
           $validPw = ($displayName.Length -ge 1 -and $displayName.Length -le 24 -and $password.Length -ge 1 -and $password.Length -le 72)
           $verified = if ($validPw) { Test-PasswordHash $password $storedHash } else { $false }
           if ($null -eq $userObj -or -not $verified) {
+            [void](Test-RateLimit $loginBucket 5 900 $true)
             Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'INVALID_CREDENTIALS'; error = 'Invalid username or password.' }
             continue
           }
@@ -605,6 +677,7 @@ try {
             Send-JsonResponse $context.Response 403 @{ ok = $false; code = 'ACCOUNT_SUSPENDED'; error = 'This account has been locked by an administrator.' }
             continue
           }
+          Clear-RateLimit $loginBucket
           $userObj.last_login_at = $nowIso
           $sess = New-AuthSessionForUser $usernameKey
           Save-AuthStore
@@ -699,6 +772,11 @@ try {
         }
 
         if ($relativePath -eq 'api/auth/forgot-password') {
+          $rlForgotIp = Test-RateLimit "forgot-ip:${clientIp}" 10 600 $true
+          if (-not $rlForgotIp.allowed) {
+            Send-RateLimitResponse $context.Response $rlForgotIp.retryAfter "Too many password reset requests from this connection. Please wait $($rlForgotIp.retryAfter) seconds and try again."
+            continue
+          }
           $displayName = Normalize-AuthUsername ([string]$body.username)
           $usernameKey = $displayName.ToLowerInvariant()
           $note = if ($null -ne $body.note) { ([string]$body.note).Trim() } else { '' }
@@ -709,6 +787,11 @@ try {
           }
           if (-not $script:authStore.users.ContainsKey($usernameKey)) {
             Send-JsonResponse $context.Response 404 @{ ok = $false; code = 'ACCOUNT_NOT_FOUND'; error = "No account found with username `"$displayName`". Please check the spelling or sign up first." }
+            continue
+          }
+          $rlForgotUser = Test-RateLimit "forgot:${usernameKey}" 3 600 $true
+          if (-not $rlForgotUser.allowed) {
+            Send-RateLimitResponse $context.Response $rlForgotUser.retryAfter "Too many password reset requests for `"$displayName`". Please wait $($rlForgotUser.retryAfter) seconds and try again."
             continue
           }
           $resolvedDisplay = [string]$script:authStore.users[$usernameKey].display_name
@@ -753,6 +836,11 @@ try {
           $userObj = Resolve-AuthSession $token
           if ($null -eq $userObj) {
             Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'SESSION_INVALID'; error = 'Your session has expired. Please log in again.' }
+            continue
+          }
+          $rlChPw = Test-RateLimit "chpw:$($userObj.username_key)" 5 600 $true
+          if (-not $rlChPw.allowed) {
+            Send-RateLimitResponse $context.Response $rlChPw.retryAfter "Too many password change attempts. Please wait $($rlChPw.retryAfter) seconds and try again."
             continue
           }
           $curPw = if ($null -ne $body.currentPassword) { [string]$body.currentPassword } else { '' }
@@ -841,6 +929,11 @@ try {
           $reason = if ($null -ne $body.reason) { ([string]$body.reason).Trim() } else { '' }
           if ($reason.Length -gt 180) { $reason = $reason.Substring(0, 180) }
           $uk = [string]$userObj.username_key
+          $rlYrChg = Test-RateLimit "yearchg:${uk}" 3 600 $true
+          if (-not $rlYrChg.allowed) {
+            Send-RateLimitResponse $context.Response $rlYrChg.retryAfter "Too many year change requests. Please wait $($rlYrChg.retryAfter) seconds and try again."
+            continue
+          }
           $existingYrReq = $null
           foreach ($item in $script:authStore.yearRequests) {
             if ($item -and $item.username_key -eq $uk -and $item.status -eq 'pending') {
@@ -982,13 +1075,21 @@ try {
         $nowIso = [DateTime]::UtcNow.ToString('o')
 
         if ($relativePath -eq 'api/admin/login') {
+          $clientIp = Get-ClientIpKey $context.Request
+          $rlAdmin = Test-RateLimit "admin-login:${clientIp}" 5 900 $false
+          if (-not $rlAdmin.allowed) {
+            Send-RateLimitResponse $context.Response $rlAdmin.retryAfter "Too many failed admin login attempts. Please wait $($rlAdmin.retryAfter) seconds and try again."
+            continue
+          }
           $u = if ($null -ne $body.username) { ([string]$body.username).Trim() } else { '' }
           $p = if ($null -ne $body.password) { [string]$body.password } else { '' }
           if ($u.ToLowerInvariant() -ne $script:adminUsername.ToLowerInvariant() -or $p -ne $script:adminPassword) {
+            [void](Test-RateLimit "admin-login:${clientIp}" 5 900 $true)
             Add-AdminAuditLog $u 'ADMIN_LOGIN_FAILED' 'system' 'Invalid credentials' | Out-Null
             Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'INVALID_ADMIN_CREDENTIALS'; error = 'Invalid administrator credentials.' }
             continue
           }
+          Clear-RateLimit "admin-login:${clientIp}"
           $tok = New-RandomHex 32
           $tokHash = Get-Sha256Hex $tok
           $exp = [DateTime]::UtcNow.AddHours(12)
@@ -1068,6 +1169,7 @@ try {
             ok = $true
             server = @{
               provider = 'local'
+              rateLimiting = $true
               uptimeSeconds = $uptimeSec
               startedAt = $script:serverStartedAt.ToString('o')
               authStoreFile = $script:authStoreFile

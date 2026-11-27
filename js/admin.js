@@ -329,13 +329,26 @@
     return { url, anonKey };
   }
 
+  async function fetchWithBackoff(url, options = {}, { retries = 2, skipRetry = false } = {}) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const res = await fetch(url, options);
+      if ((res.status === 429 || res.status === 503) && !skipRetry && attempt < retries) {
+        const ra = Number(res.headers.get('Retry-After'));
+        const baseMs = Number.isFinite(ra) && ra > 0 ? Math.min(12000, Math.max(500, ra * 1000)) : (700 * Math.pow(2, attempt));
+        await new Promise((r) => global.setTimeout(r, baseMs + Math.floor(Math.random() * 400)));
+        continue;
+      }
+      return res;
+    }
+  }
+
   async function postLocalAdmin(endpoint, body = {}) {
-    const res = await fetch(`/api/admin/${endpoint}`, {
+    const res = await fetchWithBackoff(`/api/admin/${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
       body: JSON.stringify(body),
-    });
+    }, { skipRetry: endpoint === 'login' });
     const ct = res.headers.get('content-type') || '';
     if (!ct.includes('application/json')) {
       const err = new Error('Local server unavailable');
@@ -345,7 +358,7 @@
     const data = await res.json();
     if (!res.ok || data?.ok === false) {
       const err = new Error(data?.error || `Request failed (${res.status})`);
-      err.code = data?.code || 'ADMIN_ERROR';
+      err.code = res.status === 429 ? (data?.code || 'RATE_LIMITED') : (data?.code || 'ADMIN_ERROR');
       throw err;
     }
     return data;
@@ -360,7 +373,7 @@
     }
     let res;
     try {
-      res = await fetch(`${cfg.url}/rest/v1/rpc/${fnName}`, {
+      res = await fetchWithBackoff(`${cfg.url}/rest/v1/rpc/${fnName}`, {
         method: 'POST',
         headers: {
           apikey: cfg.anonKey,
@@ -368,7 +381,7 @@
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
-      });
+      }, { skipRetry: fnName === 'admin_log_in' });
     } catch {
       const err = new Error('Unable to reach cloud database');
       err.unavailable = true;
@@ -383,6 +396,12 @@
       const err = new Error(rawMsg.replace(/^[A-Z0-9_]+:\s*/i, ''));
       err.unavailable = missingRpc;
       err.rpcMissing = missingRpc;
+      if (res.status === 429) err.code = 'RATE_LIMITED';
+      throw err;
+    }
+    if (json && typeof json === 'object' && json.ok === false && json.code) {
+      const err = new Error(json.error || 'Admin request failed.');
+      err.code = json.code;
       throw err;
     }
     return json;
@@ -392,7 +411,7 @@
     const cfg = getSupabaseConfig();
     if (!cfg) return [];
     try {
-      const res = await fetch(`${cfg.url}/rest/v1/${table}${query}`, {
+      const res = await fetchWithBackoff(`${cfg.url}/rest/v1/${table}${query}`, {
         headers: {
           apikey: cfg.anonKey,
           ...(cfg.anonKey.split('.').length === 3 ? { Authorization: `Bearer ${cfg.anonKey}` } : {}),
@@ -575,6 +594,7 @@
         const data = await callSupabaseRpc('admin_log_in', { p_username: username, p_password: password });
         return { provider: 'supabase', token: data.admin_token, admin: data.admin };
       } catch (err) {
+        if (err.code === 'RATE_LIMITED') throw err;
         if (err.rpcMissing) {
           state.supabaseNeedsMigration = true;
         } else if (!err.unavailable) {
@@ -603,7 +623,32 @@
     throw supabaseCredErr || new Error('Wrong admin username or password.');
   }
 
-  async function refreshTelemetry() {
+  let activeTelemetryPromise = null;
+  let lastManualAdminRefreshAt = 0;
+
+  async function refreshTelemetry(options = {}) {
+    if (options.manual) {
+      const now = Date.now();
+      if (now - lastManualAdminRefreshAt < 3000) {
+        showToast('Please wait a moment before refreshing again.', 'warn');
+        return activeTelemetryPromise;
+      }
+      lastManualAdminRefreshAt = now;
+    }
+    if (activeTelemetryPromise && !options.force) {
+      return activeTelemetryPromise;
+    }
+    activeTelemetryPromise = (async () => {
+      try {
+        return await runTelemetryRefresh();
+      } finally {
+        activeTelemetryPromise = null;
+      }
+    })();
+    return activeTelemetryPromise;
+  }
+
+  async function runTelemetryRefresh() {
     const started = performance.now();
     loadAndValidateQuestionBank(true);
 
@@ -1834,7 +1879,7 @@
     });
 
     $('adminLogoutBtn').addEventListener('click', signOutAdmin);
-    $('adminRefreshBtn').addEventListener('click', () => refreshTelemetry());
+    $('adminRefreshBtn').addEventListener('click', () => refreshTelemetry({ manual: true }));
     $('adminMobileMenuBtn').addEventListener('click', () => {
       $('adminSidebar').classList.toggle('is-open');
     });

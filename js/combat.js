@@ -1840,7 +1840,7 @@ function answerQuestion(index) {
   renderFeedback(correct, notes);
   if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
   if (typeof scheduleLeaderboardRunSync === 'function') {
-    scheduleLeaderboardRunSync(400);
+    scheduleLeaderboardRunSync(15000);
   }
 }
 
@@ -2025,7 +2025,7 @@ function answerRemedialQuestion(index) {
   renderFeedback(correct, notes);
   if (typeof saveCurrentRunSlot === 'function') saveCurrentRunSlot();
   if (typeof scheduleLeaderboardRunSync === 'function') {
-    scheduleLeaderboardRunSync(400);
+    scheduleLeaderboardRunSync(15000);
   }
 }
 

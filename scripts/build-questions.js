@@ -95,3 +95,14 @@ const header = [
 ].join('\n');
 fs.writeFileSync(path.join(root, 'js', 'data', 'questions.js'), `${header}const QUESTION_BANK = ${JSON.stringify(output, null, 2)};\n`);
 console.log('\nWrote js/data/questions.js');
+
+try {
+  const { syncDocumentation } = require('./update-capstone-docs.js');
+  syncDocumentation({
+    trigger: 'build-questions',
+    note: `Rebuilt question bank (${yearCounts[1] + yearCounts[2] + yearCounts[3] + yearCounts[4]} questions: Y1:${yearCounts[1]} Y2:${yearCounts[2]} Y3:${yearCounts[3]} Y4:${yearCounts[4]}).`,
+    silent: false,
+  });
+} catch (err) {
+  console.warn('Warning: unable to auto-sync CAPSTONE_DOCUMENTATION.md:', err.message);
+}

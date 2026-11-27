@@ -174,7 +174,7 @@
       this.bindDomEvents();
     }
 
-    initIdentity(username) {
+    initIdentity(username, { autoConnect = false } = {}) {
       const storedAvatar = (() => {
         try {
           return localStorage.getItem(`bytebound-avatar:${String(username || '').toLowerCase()}`);
@@ -183,6 +183,11 @@
         }
       })();
       this.selectedAvatar = storedAvatar ? resolveAvatarKey(storedAvatar) : avatarKeyForName(username);
+      if (this.network?.localProfile) {
+        this.network.localProfile.username = username || 'Knight';
+        this.network.localProfile.avatar = this.selectedAvatar;
+      }
+      if (!autoConnect) return Promise.resolve(false);
       return this.matchmaking.initPlayer({
         username: username || 'Knight',
         avatar: this.selectedAvatar,
@@ -202,7 +207,8 @@
       this.render();
 
       const playerName = global.activePlayerName || 'Knight';
-      await this.initIdentity(playerName);
+      this.matchmaking.network?.setPollingMode?.(this.snapshot.currentRoom?.status === 'in_match' ? 'match' : 'lobby');
+      await this.initIdentity(playerName, { autoConnect: true });
       await this.matchmaking.refresh();
     }
 
@@ -222,6 +228,7 @@
       if (this.snapshot.currentRoom) {
         await this.matchmaking.leaveCurrentRoom();
       }
+      await this.matchmaking.network?.disconnect?.();
     }
 
     bindDomEvents() {

@@ -57,6 +57,7 @@
       this.localServerAvailable = false;
       this.localSeq = 0;
       this.localPollTimer = 0;
+      this.pollMode = 'idle'; // 'idle' | 'lobby' | 'match'
 
       this.bc = null;
       this.bcPeers = new Map();
@@ -186,6 +187,7 @@
       await this.probeLocalServer();
       if (this.localServerAvailable) {
         await this.postLocalEvent('presence', null, this.localProfile);
+        if (this.pollMode === 'idle') this.pollMode = 'lobby';
         this.startLocalPolling();
       }
 
@@ -198,6 +200,50 @@
       this.updateConnectionState();
       this.emitMergedState();
       return this.connected;
+    }
+
+    setPollingMode(mode) {
+      const next = (mode === 'match' || mode === 'lobby') ? mode : 'idle';
+      if (this.pollMode === next && (next === 'idle' || this.localPollTimer)) return;
+      this.pollMode = next;
+      if (next === 'idle') {
+        this.stopLocalPolling();
+      } else if (this.localServerAvailable) {
+        this.stopLocalPolling();
+        this.startLocalPolling();
+      }
+    }
+
+    stopLocalPolling() {
+      if (this.localPollTimer) {
+        global.clearTimeout(this.localPollTimer);
+        this.localPollTimer = 0;
+      }
+    }
+
+    stopHeartbeat() {
+      if (this.heartbeatTimer) {
+        global.clearInterval(this.heartbeatTimer);
+        this.heartbeatTimer = 0;
+      }
+    }
+
+    async disconnect() {
+      this.pollMode = 'idle';
+      this.stopLocalPolling();
+      this.stopHeartbeat();
+      await this.leaveSupabaseRoomChannel();
+      const lobbyCh = this.sbLobbyChannel;
+      this.sbLobbyChannel = null;
+      this.sbConnected = false;
+      if (lobbyCh) {
+        try { await lobbyCh.untrack(); } catch {}
+        try { await lobbyCh.unsubscribe(); } catch {}
+        if (this.sbClient && typeof this.sbClient.removeChannel === 'function') {
+          try { this.sbClient.removeChannel(lobbyCh); } catch {}
+        }
+      }
+      this.updateConnectionState();
     }
 
     bindUnload() {
@@ -296,20 +342,35 @@
     }
 
     startLocalPolling() {
-      if (this.localPollTimer) return;
+      if (this.localPollTimer || this.pollMode === 'idle' || !this.localServerAvailable) return;
+      const scheduleNext = (delayMs) => {
+        if (this.pollMode === 'idle' || !this.localServerAvailable) {
+          this.localPollTimer = 0;
+          return;
+        }
+        this.localPollTimer = global.setTimeout(poll, delayMs);
+      };
       const poll = async () => {
-        if (!this.localServerAvailable) return;
+        this.localPollTimer = 0;
+        if (!this.localServerAvailable || this.pollMode === 'idle') return;
+        let nextDelay = this.pollMode === 'match' ? 450 : 1500;
         try {
           const res = await fetch(`/api/mp/state?since=${this.localSeq}`, { cache: 'no-store' });
-          if (res.ok) {
+          if (res.status === 429 || res.status === 503) {
+            const retrySec = Number(res.headers.get('Retry-After')) || 3;
+            nextDelay = Math.min(10000, Math.max(2500, retrySec * 1000));
+          } else if (res.ok) {
             const data = await res.json();
             if (data && data.ok) {
               this.applyLocalStateSnapshot(data, { emitEvents: true });
             }
           }
-        } catch {}
+        } catch {
+          nextDelay = Math.min(5000, nextDelay * 2);
+        }
+        scheduleNext(nextDelay);
       };
-      this.localPollTimer = global.setInterval(poll, 350);
+      scheduleNext(this.pollMode === 'match' ? 450 : 1500);
     }
 
     applyLocalStateSnapshot(data, { emitEvents = true } = {}) {
@@ -812,6 +873,7 @@
     startHeartbeat() {
       if (this.heartbeatTimer) return;
       this.heartbeatTimer = global.setInterval(() => {
+        if (this.pollMode === 'idle') return;
         const now = Date.now();
         // Prune stale BroadcastChannel peers (> 45s without heartbeat; tolerates background tab throttling)
         let bcChanged = false;
@@ -1287,6 +1349,7 @@
 
     async sendMatchStart(code, room, matchConfig) {
       this.activeRoomSnapshot = room;
+      this.setPollingMode('match');
       if (this.localServerAvailable) {
         const res = await this.postLocalEvent('start_match', code, { matchConfig });
         if (res && !res.ok) return res;
@@ -1362,6 +1425,7 @@
     }
 
     async sendReturnToLobby(code) {
+      this.setPollingMode('lobby');
       if (this.localServerAvailable) {
         await this.postLocalEvent('return_to_lobby', code, {});
       }

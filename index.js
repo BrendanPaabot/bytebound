@@ -56,11 +56,41 @@ let leaderboardLastSubmittedSnapshot = ''
 let leaderboardSubmitPromise = null
 let leaderboardSubmitQueued = false
 let leaderboardSyncTimer = 0
+let leaderboardUpsertVerified = false
+let lastLeaderboardFetchAt = 0
+let lastPvpLeaderboardFetchAt = 0
+let lastManualLeaderboardRefreshAt = 0
+let lastLeaderboardSyncAt = 0
+let lastUserSyncAt = 0
+const LEADERBOARD_CACHE_TTL_MS = 45000
+const LEADERBOARD_SYNC_MIN_INTERVAL_MS = 15000
+const USER_SYNC_MIN_INTERVAL_MS = 20000
+const PENDING_CLOUD_SYNC_KEY = 'bytebound-pending-cloud-sync-v1'
 let supersededRunIds = loadSupersededRunIds()
 let userSyncState = 'idle'
 let userSyncError = ''
 let userSyncTimer = 0
 let practiceReturnState = null
+
+function readPendingCloudSync() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PENDING_CLOUD_SYNC_KEY) || '{}')
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function setPendingCloudSync(patch = {}) {
+  try {
+    const cur = readPendingCloudSync()
+    const next = { ...cur, ...patch }
+    if (!next.profile) delete next.profile
+    if (!next.leaderboard) delete next.leaderboard
+    if (Object.keys(next).length === 0) localStorage.removeItem(PENDING_CLOUD_SYNC_KEY)
+    else localStorage.setItem(PENDING_CLOUD_SYNC_KEY, JSON.stringify(next))
+  } catch {}
+}
 
 function loadSupersededRunIds() {
   try {
@@ -138,22 +168,43 @@ function supabaseCredentials() {
 async function supabaseRequest(path, options = {}) {
   const credentials = supabaseCredentials()
   if (!credentials) throw new Error('Supabase is not configured. Add the project URL and publishable/anon key to supabase-config.js.')
-  const response = await fetch(`${credentials.url}/rest/v1/${path}`, {
-    ...options,
-    headers: {
-      apikey: credentials.anonKey,
-      ...(credentials.anonKey.split('.').length === 3
-        ? { Authorization: `Bearer ${credentials.anonKey}` }
-        : {}),
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  })
-  if (!response.ok) {
+  const maxRetries = options.noRetry ? 0 : (Number.isInteger(options.maxRetries) ? options.maxRetries : 3)
+  const fetchOpts = { ...options }
+  delete fetchOpts.noRetry
+  delete fetchOpts.maxRetries
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await fetch(`${credentials.url}/rest/v1/${path}`, {
+      ...fetchOpts,
+      headers: {
+        apikey: credentials.anonKey,
+        ...(credentials.anonKey.split('.').length === 3
+          ? { Authorization: `Bearer ${credentials.anonKey}` }
+          : {}),
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+    })
+    if (response.ok) return response
+
+    const isRetryable = response.status === 429 || response.status === 503
+    if (isRetryable && attempt < maxRetries && !options.signal?.aborted) {
+      const retryHeader = Number(response.headers.get('Retry-After'))
+      const baseMs = Number.isFinite(retryHeader) && retryHeader > 0
+        ? Math.min(15000, Math.max(500, retryHeader * 1000))
+        : (800 * Math.pow(2, attempt))
+      const jitterMs = Math.floor(Math.random() * 500)
+      await new Promise((resolve) => window.setTimeout(resolve, baseMs + jitterMs))
+      continue
+    }
+
     const body = await response.text()
-    throw new Error(`Supabase request failed (${response.status}): ${body || response.statusText}`)
+    const err = new Error(`Supabase request failed (${response.status}): ${body || response.statusText}`)
+    err.status = response.status
+    const retryAfterSec = Number(response.headers.get('Retry-After'))
+    if (Number.isFinite(retryAfterSec) && retryAfterSec > 0) err.retryAfterSec = retryAfterSec
+    throw err
   }
-  return response
 }
 
 function getRecordableGameplayStats() {
@@ -189,16 +240,23 @@ function hasRecordableGameplayRun() {
   return Boolean(getRecordableGameplayStats())
 }
 
-function scheduleLeaderboardRunSync(delayMs = 500) {
+function scheduleLeaderboardRunSync(delayMs = LEADERBOARD_SYNC_MIN_INTERVAL_MS) {
   if (practiceRunActive || !activePlayerName || !supabaseCredentials()) return
+  setPendingCloudSync({ leaderboard: true })
+  const elapsed = Date.now() - lastLeaderboardSyncAt
+  const effectiveDelay = Math.max(delayMs, Math.max(0, LEADERBOARD_SYNC_MIN_INTERVAL_MS - elapsed))
   window.clearTimeout(leaderboardSyncTimer)
   leaderboardSyncTimer = window.setTimeout(() => {
     leaderboardSyncTimer = 0
     submitLeaderboardRun()
-  }, delayMs)
+  }, effectiveDelay)
 }
 
 async function loadLeaderboard(options = {}) {
+  if (!options.force && leaderboardState === 'ready' && leaderboardEntries.length && (Date.now() - lastLeaderboardFetchAt) < LEADERBOARD_CACHE_TTL_MS) {
+    renderDashboard()
+    return
+  }
   const requestId = ++leaderboardRequestId
   if (!supabaseCredentials()) {
     leaderboardState = 'unconfigured'
@@ -211,7 +269,7 @@ async function loadLeaderboard(options = {}) {
   renderDashboard()
   try {
     if (!options.skipSubmit && hasRecordableGameplayRun()) {
-      await submitLeaderboardRun({ skipReload: true })
+      await submitLeaderboardRun({ skipReload: true, force: Boolean(options.force) })
     } else if (leaderboardSubmitPromise) {
       await leaderboardSubmitPromise
     }
@@ -275,6 +333,7 @@ async function loadLeaderboard(options = {}) {
       .slice(0, 20)
 
     leaderboardEntries = filteredEntries
+    lastLeaderboardFetchAt = Date.now()
     if (leaderboardState !== 'submit-error') {
       leaderboardState = 'ready'
     }
@@ -408,7 +467,11 @@ async function submitPvpLeaderboardMatch(matchData) {
   }
 }
 
-async function loadPvpLeaderboard() {
+async function loadPvpLeaderboard(options = {}) {
+  if (!options.force && pvpLeaderboardState === 'ready' && (Date.now() - lastPvpLeaderboardFetchAt) < LEADERBOARD_CACHE_TTL_MS) {
+    renderDashboard()
+    return
+  }
   const requestId = ++pvpLeaderboardRequestId
   pvpLeaderboardState = 'loading'
   pvpLeaderboardError = ''
@@ -477,6 +540,7 @@ async function loadPvpLeaderboard() {
         (b.accuracy || 0) - (a.accuracy || 0)
       )
       .slice(0, 20)
+    lastPvpLeaderboardFetchAt = Date.now()
     pvpLeaderboardState = 'ready'
     renderDashboard()
   } catch (error) {
@@ -528,7 +592,8 @@ async function performLeaderboardRunSubmit(options = {}) {
   // Verify whether the database updated the row in-place.
   // If the Supabase project still has the old ON CONFLICT (run_id) DO NOTHING function,
   // an existing row for submittedRunId will still have older/lower numbers; rotate run_id so the new stats are saved.
-  if (wasSubmittedBefore) {
+  if (wasSubmittedBefore && !leaderboardUpsertVerified) {
+    leaderboardUpsertVerified = true
     try {
       const verifyQuery = new URLSearchParams({
         select: 'kills,correct_answers,total_answers',
@@ -551,6 +616,8 @@ async function performLeaderboardRunSubmit(options = {}) {
     }
   }
 
+  lastLeaderboardSyncAt = Date.now()
+  setPendingCloudSync({ leaderboard: false })
   leaderboardLastSubmittedSnapshot = `${leaderboardRunId}:${activePlayerName}:${kills}:${correctAnswers}:${totalAnswers}`
   leaderboardRunSubmitted = true
   leaderboardState = 'ready'
@@ -582,6 +649,7 @@ async function submitLeaderboardRun(options = {}) {
       } while (leaderboardSubmitQueued && !practiceRunActive && activePlayerName)
     } catch (error) {
       console.error('Unable to submit gameplay run to leaderboard.', error)
+      setPendingCloudSync({ leaderboard: true })
       leaderboardState = 'submit-error'
       leaderboardError = error.message
       succeeded = false
@@ -782,6 +850,11 @@ function createAuthError(code, message, extra = {}) {
 
 function parseSupabaseAuthError(error) {
   const raw = String(error?.message || '')
+  if (error?.code === 'RATE_LIMITED' || error?.status === 429 || /AUTH_RATE_LIMITED|RATE_LIMITED/i.test(raw)) {
+    const clean = raw.replace(/^.*?(?:AUTH_RATE_LIMITED|RATE_LIMITED):\s*/i, '').trim()
+    const waitHint = Number.isFinite(error?.retryAfterSec) ? ` Please wait ${error.retryAfterSec} seconds and try again.` : ' Please wait a moment and try again.'
+    return createAuthError('RATE_LIMITED', clean || `Too many requests.${waitHint}`, { retryAfterSec: error?.retryAfterSec })
+  }
   if (/AUTH_USERNAME_TAKEN/i.test(raw) || /duplicate key|unique_violation|23505/i.test(raw)) {
     return createAuthError('USERNAME_TAKEN', 'That username is already taken. Please choose another name.')
   }
@@ -827,14 +900,21 @@ async function supabaseAuthRpc(fnName, body, timeoutMs = 6000) {
   const controller = typeof AbortController === 'function' ? new AbortController() : null
   const timer = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : 0
   try {
+    const noRetry = fnName === 'auth_log_in' || fnName === 'auth_sign_up' || fnName === 'auth_request_password_reset' || fnName === 'auth_request_year_change'
     const response = await supabaseRequest(`rpc/${fnName}`, {
       method: 'POST',
       body: JSON.stringify(body),
+      noRetry,
       ...(controller ? { signal: controller.signal } : {}),
     })
     const text = await response.text()
-    return text ? JSON.parse(text) : null
+    const parsed = text ? JSON.parse(text) : null
+    if (parsed && typeof parsed === 'object' && parsed.ok === false && parsed.code) {
+      throw createAuthError(parsed.code, parsed.error || 'Authentication failed.', { retryAfterSec: parsed.retry_after })
+    }
+    return parsed
   } catch (error) {
+    if (error?.code && !error?.unavailable && error.code !== 'AUTH_ERROR') throw error
     throw parseSupabaseAuthError(error)
   } finally {
     if (timer) window.clearTimeout(timer)
@@ -857,9 +937,11 @@ async function callLocalAuthEndpoint(endpoint, body, timeoutMs = 6000) {
     }
     const json = await response.json()
     if (!response.ok || json?.ok === false) {
+      const retryAfterSec = Number(json?.retry_after || response.headers.get('Retry-After')) || undefined
       throw createAuthError(
-        json?.code || 'AUTH_ERROR',
-        json?.error || 'Authentication failed. Please try again.'
+        response.status === 429 ? (json?.code || 'RATE_LIMITED') : (json?.code || 'AUTH_ERROR'),
+        json?.error || (response.status === 429 ? 'Too many requests. Please wait a moment and try again.' : 'Authentication failed. Please try again.'),
+        retryAfterSec ? { retryAfterSec } : {}
       )
     }
     return json
@@ -1071,10 +1153,19 @@ function mirrorAccountToLocalAdmin(user, academicYear, sourceProvider) {
   } catch {}
 }
 
-async function pushUserProfileToSupabase() {
+async function pushUserProfileToSupabase(options = {}) {
   window.clearTimeout(userSyncTimer)
   userSyncTimer = 0
   if (practiceRunActive || !activePlayerName || !activeSessionToken || !activeAuthProvider) return false
+  const elapsed = Date.now() - lastUserSyncAt
+  if (!options.force && lastUserSyncAt > 0 && elapsed < USER_SYNC_MIN_INTERVAL_MS) {
+    setPendingCloudSync({ profile: true })
+    userSyncTimer = window.setTimeout(() => {
+      userSyncTimer = 0
+      pushUserProfileToSupabase({ force: true })
+    }, USER_SYNC_MIN_INTERVAL_MS - elapsed)
+    return false
+  }
   const payload = buildUserProfilePayload()
   try {
     const res = await callTrustedAuthService('profile', {
@@ -1085,6 +1176,8 @@ async function pushUserProfileToSupabase() {
       reviewStore: payload.reviewStore,
       achievements: payload.achievements,
     })
+    lastUserSyncAt = Date.now()
+    setPendingCloudSync({ profile: false })
     if (res?.data?.user) {
       mirrorAccountToLocalAdmin(res.data.user, typeof getActiveAcademicYear === 'function' ? getActiveAcademicYear() : 4, res.provider)
     } else if (activeAuthProvider === 'supabase') {
@@ -1112,6 +1205,7 @@ async function pushUserProfileToSupabase() {
     return true
   } catch (error) {
     console.warn('Unable to sync authenticated user profile.', error)
+    setPendingCloudSync({ profile: true })
     userSyncState = 'error'
     userSyncError = error.message
     if (dashboardView === 'settings' && !playViewActive) renderDashboard()
@@ -1119,13 +1213,16 @@ async function pushUserProfileToSupabase() {
   }
 }
 
-function scheduleUserProfileSync(delayMs = 1000) {
+function scheduleUserProfileSync(delayMs = USER_SYNC_MIN_INTERVAL_MS) {
   if (practiceRunActive || !activePlayerName || !activeSessionToken || !activeAuthProvider) return
+  setPendingCloudSync({ profile: true })
+  const elapsed = Date.now() - lastUserSyncAt
+  const effectiveDelay = Math.max(delayMs, Math.max(0, USER_SYNC_MIN_INTERVAL_MS - elapsed))
   window.clearTimeout(userSyncTimer)
   userSyncTimer = window.setTimeout(() => {
     userSyncTimer = 0
     pushUserProfileToSupabase()
-  }, delayMs)
+  }, effectiveDelay)
 }
 
 async function syncUserOnLogin(displayName, profileId, prefetchedCloudUser = null) {
@@ -9039,8 +9136,11 @@ document.getElementById('dashboardAside').addEventListener('click', (event) => {
     if (leaderboardTab === 'pvp') loadPvpLeaderboard()
     else loadLeaderboard()
   } else if (event.target.closest('[data-leaderboard-refresh]')) {
-    if (leaderboardTab === 'pvp') loadPvpLeaderboard()
-    else loadLeaderboard()
+    const nowMs = Date.now()
+    if (nowMs - lastManualLeaderboardRefreshAt < 5000) return
+    lastManualLeaderboardRefreshAt = nowMs
+    if (leaderboardTab === 'pvp') loadPvpLeaderboard({ force: true })
+    else loadLeaderboard({ force: true })
   } else if (event.target.closest('#resetProfileDataButton')) {
     resetCurrentProfileData()
   } else if (event.target.closest('#replayFullTourButton')) {
@@ -9278,8 +9378,11 @@ document.querySelectorAll('[data-view]').forEach((button) => {
 })
 const flushRunSaveOnExit = () => {
   saveCurrentRunSlot()
-  if (!practiceRunActive && hasRecordableGameplayRun()) {
-    submitLeaderboardRun({ skipReload: true })
+  if (!practiceRunActive && (hasRecordableGameplayRun() || readPendingCloudSync().leaderboard)) {
+    submitLeaderboardRun({ skipReload: true, force: true })
+  }
+  if (!practiceRunActive && readPendingCloudSync().profile) {
+    pushUserProfileToSupabase({ force: true })
   }
 }
 window.addEventListener('pagehide', flushRunSaveOnExit)
@@ -9288,7 +9391,14 @@ window.addEventListener('beforeunload', () => {
 })
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
-    saveCurrentRunSlot()
+    flushRunSaveOnExit()
+  }
+})
+window.addEventListener('online', () => {
+  if (!activePlayerName || practiceRunActive) return
+  if (readPendingCloudSync().profile) pushUserProfileToSupabase({ force: true })
+  if (readPendingCloudSync().leaderboard && hasRecordableGameplayRun()) {
+    submitLeaderboardRun({ skipReload: true, force: true })
   }
 })
 document.getElementById('closeRunSavesButton')?.addEventListener('click', closeRunSavesModal)
@@ -9909,6 +10019,7 @@ function switchPlayerProfile() {
   if (window.mpUI) {
     window.mpUI.closeOverlayOnly()
     window.mpUI.matchmaking?.leaveCurrentRoom()
+    window.mpUI.matchmaking?.network?.disconnect?.()
   }
   if (typeof endMultiplayerMatchState === 'function') endMultiplayerMatchState()
   mode = 'menu'

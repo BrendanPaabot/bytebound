@@ -1,0 +1,16 @@
+{
+  "capstone-doc-sync": {
+    "PostToolUse": [
+      {
+        "matcher": "edit_file|write_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ../scripts/update-capstone-docs.js --from-hook",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

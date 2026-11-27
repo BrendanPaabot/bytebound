@@ -14558,3 +14558,33 @@ body.reduce-motion .app.is-playing .game-panel .actions button.is-exclusive-card
   font-weight: 400 !important;
   font-synthesis: none !important;
 }
+
+/* Case-Sensitive Credential & Auth Form Input Typography Override */
+.login-form input,
+.login-form input::placeholder,
+.settings-pw-grid input,
+.settings-pw-grid input::placeholder {
+  font-family: 'Cascadia Mono', 'Consolas', 'SFMono-Regular', 'Menlo', 'Liberation Mono', 'Courier New', monospace !important;
+  font-weight: 500 !important;
+  font-size: 15.5px;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  text-transform: none !important;
+  font-variant: normal !important;
+  font-synthesis: weight !important;
+}
+
+#forgotNoteInput,
+#forgotNoteInput::placeholder,
+.login-form select,
+.login-form select option,
+.login-field-hint,
+.login-status,
+.login-error,
+.settings-pw-msg {
+  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', Arial, sans-serif !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  font-variant: normal !important;
+  font-synthesis: weight !important;
+}

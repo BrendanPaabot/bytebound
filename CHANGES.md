@@ -1,7 +1,9 @@
 # CITCS Quest (Bytebound): Documentation & Changelog
 
+> For the complete, live auto-synchronized capstone reference and revision log, see [`CAPSTONE_DOCUMENTATION.md`](./CAPSTONE_DOCUMENTATION.md).
+
 ## System Overview & Core Mechanics
-- **Question Bank (240 Questions):** `4` IT/CS disciplines (`Computer Systems`, `Networking & Security`, `Programming`, `Database`) × `5` topics each × `3` difficulty tiers (`easy`, `medium`, `hard`) × `4` questions per tier (`80` easy, `80` medium, `80` hard = `240` total in `data/questions.json` → compiled to `js/data/questions.js`).
+- **Question Bank (240 Questions):** `4` IT/CS disciplines (`Computer Systems`, `Networking & Security`, `Programming`, `Database`) × `5` topics each × `3` difficulty tiers (`easy`, `medium`, `hard`) × `4` questions per tier (`80` easy, `80` medium, `80` hard = `240` total in `data/questions.json` → compiled to `js/data/questions.js`), each tagged with Academic Year (`year`: `1`–`4`).
 - **Diagnostic Baseline vs. Post-Baseline Tracking:** The first `3` attempts per topic capture the student's **Diagnostic Baseline Accuracy** (`baselineCorrect` / `baselineAttempted`). Subsequent answers measure **Post-Baseline Accuracy** and learning gain (`+Delta%`), surfaced on the **Tracker** view at overall, discipline, and per-topic granularity.
 - **Adaptive Difficulty Engine (`AdaptiveDifficulty` in `js/combat.js`):**
   - Tracks per-discipline difficulty levels (`0` Easy → `1` Medium → `2` Hard) calibrated from `topicProgress` (`calibrateFromProgress()`).
@@ -13,8 +15,8 @@
   - **Practice Mode (`Practice Mode` button on Quest Hub):** Full sandbox combat run without saving run progress, leaderboard submissions, or profile mutations.
 - **Learning Tracker & CSV Export (`03 · Tracker`):**
   - Displays overall/discipline/subtopic **Baseline vs. Post-Baseline Accuracy** (`+Delta%`), 4-axis SVG Capability Radar, adaptive tiers, and a 1-click **Export CSV** button (`bytebound-learning-report-<player>.csv`) for research/instructor evaluation.
-- **World Biomes & Interactive RPG Skill-Tree Campaign Map (`M`):**
-  - `16` authored levels across `7` districts (`Data Center`, `BB Corp`, `BB Corp Street`, `Left Street` → `Net Cafe` / `Corp Supply`, `Right Street` → `Hospital` / `Bank`), including Rooms `01–05` (`Terminal Bay`, `Server Shaft`, `Control Deck`, `Office Wing`, `Executive Floor`), expandable tracking cameras inside multi-floor buildings, bidirectional doors, and diagonal conveyor collision ramps.
+- **World Biomes, Room Collisions & Interactive Campaign Map (`M`):**
+  - `16` authored levels across `7` districts (`Data Center`, `BB Corp`, `BB Corp Street`, `Left Street` → `Net Cafe` / `Corp Supply`, `Right Street` → `Hospital` / `Bank`), including Rooms `01–05` (`Terminal Bay`, `Server Shaft`, `Control Deck`, `Office Wing`, `Executive Floor`), watertight boundary/platform geometry in `Room 02` (`js/data/collisions.js` + `js/classes/Player.js`), expandable cameras inside multi-floor buildings, bidirectional doors, and diagonal conveyor collision ramps.
   - Press **`M`** (or click `MAP · [M]`) in-game to open the draggable, zoomable RPG skill-tree Campaign Map with ambient particles, directional connection highlights, and hover preview tooltips showing each room's thumbnail, enemies, exits, and unlock/clear state.
 - **Boss Progression & Final Boss:**
   - **Mini Boss Kor** guards the mid-loop executive checkpoint (`baseRoom === 5`, `Executive Floor`: Levels `5` and `21`).
@@ -22,25 +24,34 @@
   - **Final Boss King Crolue** (`img/boss/kingcrolue-idle.png` & `img/boss/kingcrolue-attack.png`) guards all four branch finales (`baseRoom === 9` `Net Cafe Staff Room`, `baseRoom === 12` `Hospital Upper Floors`, `baseRoom === 14` `Bank Upper Floors`, `baseRoom === 16` `Corp Supply Management`, plus `n === RUN_LENGTH`). `RUN_LENGTH` defaults to `32` (`2` loops of `16` rooms).
 - **Remedial Surge Recovery (`0 MP` Action):**
   - Answer `2–5` remedial questions at `0 MP`: answering all correctly grants **Perfect Remedial Surge** (full MP, `35%` HP, `+8 ATK`, `+4 DEF`); answering at least one correctly (`score > 0`, even if the last question is missed) grants proportional **Remedial Recovery**; `0` correct answers fizzles (`0 HP, 0 MP, no buffs`).
-- **Card Battles, Exclusive Skills & Kernel Aegis Accountability:**
+- **Card Battles, Streak-Charged Exclusive Active Skills & Kernel Aegis Accountability:**
+  - Battle `.actions` cards span full panel width (`repeat(4, minmax(0, 1fr))` on desktop) across all turns.
   - All 4 exclusive capstone skills unlock via discipline Skill Trees (`U`): **`Kernel Aegis`** (Computer Systems), **`Packet Lockdown`** (Networking & Security), **`Overburn Execution`** (Programming), and **`Necromancy`** (Database, spending Mana scaled by enemy strength to raise up to `3` sequential undead allies that attack only when you answer correctly).
+  - The 3 active Exclusive Skills (`Kernel Aegis`, `Packet Lockdown`, `Overburn Execution`) remain visible in solo combat with a **5-pip consecutive answer streak gauge**: charging at **`3/5` (`1.0×`)**, **Overcharged at `4/5` (`1.25×`)**, and **Max Overdrive at `5/5` (`1.5×`)**. Any wrong answer resets the charge to `0`; casting consumes the stored charge back to `0`.
   - `Kernel Aegis` blocks normal enemy hits for the run, **but careless wrong answers still impose consequences**: draining `-10 MP`, resetting streak/accuracy bonuses, shocking the hero (`-4 HP` Aegis overload), and piercing `Kernel Aegis` for `50%` breach damage during Boss battles.
-- **Unique Username Identification, Data Minimization & Persistence Scope:**
-  - Designed as a classroom-ready prototype with **local storage** (`localStorage`) + optional **Supabase cloud sync** (`users`, `leaderboard_entries`, `pvp_leaderboard_entries`, `multiplayer_rooms`).
-  - Passwords and PINs have been removed to maximize classroom accessibility and eliminate password/credential storage. Players can enter any desired username (`1–24` characters): the first player claims the base name (e.g., `Knight`), while any subsequent player choosing the same name automatically receives a unique Xbox-style numeric discriminator suffix (e.g., `Knight#0001`, `Knight#0002`), stored case-insensitively under `username_key` with a PostgreSQL `UNIQUE` constraint and atomic `register_user_profile` allocation. Returning players sign in directly using their exact assigned handle.
+- **Adaptive Procedural Web Audio (`js/audio.js`):**
+  - Synthesizes soothing ambient felt bells and warm pads for menus/exploration (`dashboard`/`explore`), a chiptune-rock mix for regular battles (`battle`), and a high-energy complextro/breakcore-classical boss theme (`boss`) filtered cleanly to eliminate harsh chiptune highs.
+- **Password Authentication, Academic Year Restrictions, Rate Limiting & Admin Console:**
+  - Player accounts enforce unique case-insensitive usernames paired with salted PBKDF2-SHA256 (`serve-local.ps1`) or PostgreSQL `pgcrypto` bcrypt (`supabase/migration-password-auth.sql`) passwords, server-validated forgot-password requests (rejecting unknown usernames), and persistent user sessions.
+  - Full-stack concurrency & rate-limit protections: sliding-window limits on auth/admin/request endpoints (`serve-local.ps1` HTTP `429` + `Retry-After` and `supabase/migration-rate-limiting.sql`), client `429`/`503` exponential backoff with jitter, milestone-throttled profile/leaderboard syncing with offline recovery queues, `45s` leaderboard TTL caching, and lazy 1v1 Multiplayer Realtime/polling (`idle` when closed, `1500ms` lobby, `450ms` active match).
+  - Academic Year selection (`Year 1`–`Year 4`) strictly gates eligible curriculum questions and locks arbitrary year switching on the player side behind **Admin-approved Year Change Requests**.
+  - Standalone Admin Management Console ([`admin.html`](./admin.html), [`js/admin.js`](./js/admin.js)) manages player accounts, forgot-password and year-change queues, persistent Activity Logs, paginated (`1…N`) Question Bank inspection, Arcade/1v1 Leaderboards, and active multiplayer rooms with `Auto (Cloud DB → Local Server)` backend fallback.
   - Clicking **Exit** cleanly logs out of the active account back to the login screen without closing the browser tab.
 
-## Editing Questions
-1. Edit `data/questions.json` (each question requires `category`, `topic`, `q`, `choices`, `answer`, `explain`).
-2. Run `node scripts/build-questions.js` to validate schema/counts and regenerate `js/data/questions.js`.
+## Editing Questions & Auto-Updating Docs
+1. Edit `data/questions.json` (each question requires `category`, `topic`, `year`, `q`, `choices`, `answer`, `explain`).
+2. Run `node scripts/build-questions.js` to validate schema/counts, regenerate `js/data/questions.js`, and automatically sync [`CAPSTONE_DOCUMENTATION.md`](./CAPSTONE_DOCUMENTATION.md).
+3. To keep documentation synced automatically during manual file edits, run `scripts/watch-capstone-docs.cmd` (`node scripts/update-capstone-docs.js --watch`).
 
 ## Supabase Database Setup (Migrations)
 Run these scripts in order in the Supabase SQL Editor:
 1. `supabase/schema.sql` (full base schema + RLS + `users`, Arcade leaderboard, 1v1 leaderboard, `multiplayer_rooms`, RPCs)
 2. `supabase/migration-leaderboard-run-checks.sql` (leaderboard submission validation)
 3. `supabase/migration-1v1-leaderboard.sql` (1v1 competitive leaderboard table + kill-gated Arcade submission)
-4. `supabase/migration-unique-username-no-password.sql` (removes legacy `pin_hash` column and enables passwordless unique handles with automatic `#0001`–`#9999` numeric discriminator tags on duplicate names via `register_user_profile`)
+4. `supabase/migration-password-auth.sql` (`pgcrypto` bcrypt password auth, `user_credentials`, `user_sessions`, `auth_sign_up`, `auth_log_in`, `auth_get_session`, `auth_logout`, `auth_save_profile`, `auth_reset_profile`)
+5. `supabase/migration-admin-console.sql` (`admin_accounts`, `admin_sessions`, `admin_audit_logs`, `password_reset_requests`, `year_change_requests`, year-lock enforcement, and Admin RPCs)
+6. `supabase/migration-rate-limiting.sql` (`api_rate_limits` sliding-window guards for player/admin login, password reset, year change, and throttled leaderboard submissions)
 
 ## Local Launch & Tunables
-- **Local launch:** Run `serve-local.cmd` (`serve-local.ps1`) to serve on `localhost` with reliable Web Audio / BGM playback and local multiplayer APIs.
-- **Tunables:** `RUN_LENGTH` (`32`) and `ROOM_COUNT` (`16`) in `index.js`; `REVIEW_CHANCE` / `BOSS_REVIEW_CHANCE` / `REVIEW_DELAY` in `js/combat.js`; card definitions in `js/cards.js`; boss config in `js/classes/Boss.js`.
+- **Local launch:** Run `serve-local.cmd` (`serve-local.ps1`) to serve on `localhost` with reliable Web Audio / BGM playback, local Auth/Admin APIs, and local multiplayer APIs.
+- **Tunables:** `RUN_LENGTH` (`32`) and `ROOM_COUNT` (`16`) in `index.js`; `REVIEW_CHANCE` / `BOSS_REVIEW_CHANCE` / `REVIEW_DELAY` / `EXCLUSIVE_MIN_STREAK` / `EXCLUSIVE_MAX_STREAK` in `js/combat.js`; card definitions in `js/cards.js`; boss config in `js/classes/Boss.js`.
