@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Bytebound Admin Panel</title>
-  <link rel="stylesheet" href="css/admin.css?v=5" />
+  <link rel="stylesheet" href="css/admin.css?v=6" />
 </head>
 <body>
   <!-- Admin Sign-In Gate -->
@@ -41,7 +41,7 @@
         <button class="adm-btn adm-btn-primary adm-btn-full" id="adminLoginSubmit" type="submit">Log In to Admin Panel</button>
       </form>
       <div class="adm-auth-foot">
-        <span class="adm-mono-hint">Default local admin: <code>sysadmin</code> / <code>bytebound-admin</code></span>
+        <span class="adm-mono-hint" id="adminDefaultCredHint">Default local admin: <code>sysadmin</code> / <code>bytebound-admin</code></span>
         <a class="adm-link" href="index.html">← Return to Player Game</a>
       </div>
     </div>
@@ -140,6 +140,6 @@
 
   <script src="supabase-config.js?v=1"></script>
   <script src="js/data/questions.js?v=6"></script>
-  <script src="js/admin.js?v=7"></script>
+  <script src="js/admin.js?v=8"></script>
 </body>
 </html>

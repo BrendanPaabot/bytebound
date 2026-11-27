@@ -8,6 +8,7 @@
    4. [`supabase/migration-password-auth.sql`](./supabase/migration-password-auth.sql) — restores password-based accounts with `pgcrypto` bcrypt salted password hashes in private `public.user_credentials`, opaque session tokens in `public.user_sessions`, and authoritative case/whitespace-insensitive username uniqueness (rejecting duplicates with no `#0001` auto-tagging) via `auth_sign_up`, `auth_log_in`, `auth_get_session`, `auth_logout`, `auth_save_profile`, and `auth_reset_profile`.
    5. [`supabase/migration-admin-console.sql`](./supabase/migration-admin-console.sql) — adds standalone administrator accounts, sessions, audit logs, forgot-password reset queue, academic year change requests, and Admin RPCs.
    6. [`supabase/migration-rate-limiting.sql`](./supabase/migration-rate-limiting.sql) — adds private sliding-window rate limiting (`public.api_rate_limits`) across login, admin login, forgot-password, year-change requests, and throttled leaderboard writes.
+   7. [`supabase/migration-security-safety.sql`](./supabase/migration-security-safety.sql) — adds failed-login alerting, temporary-password change enforcement, global security banner broadcasts (`system_security_notices`), and tightened `multiplayer_rooms` RLS policies.
 3. Verify the project URL and publishable key (or legacy anon key) in `supabase-config.js`:
 
    ```js

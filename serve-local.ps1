@@ -223,6 +223,14 @@ function Load-AuthStore {
     resetRequests = [System.Collections.ArrayList]::new()
     yearRequests = [System.Collections.ArrayList]::new()
     auditLogs = [System.Collections.ArrayList]::new()
+    securityNotice = @{
+      active = $false
+      severity = 'info'
+      title = ''
+      message = ''
+      updated_at = $null
+      updated_by = ''
+    }
   }
   if (-not (Test-Path -LiteralPath $script:authStoreFile -PathType Leaf)) {
     return $defaultStore
@@ -258,6 +266,9 @@ function Load-AuthStore {
       }
     }
     $parsed.auditLogs = $aLogs
+    if (-not $parsed.ContainsKey('securityNotice') -or -not ($parsed.securityNotice -is [System.Collections.IDictionary])) {
+      $parsed.securityNotice = @{ active = $false; severity = 'info'; title = ''; message = ''; updated_at = $null; updated_by = '' }
+    }
     return $parsed
   } catch {
     Write-Warning "Failed to load local auth store: $($_.Exception.Message)"
@@ -325,6 +336,9 @@ function Serialize-AuthUser($u) {
     review_store = if ($null -ne $u.review_store) { $u.review_store } else { @{} }
     achievements = if ($null -ne $u.achievements) { $u.achievements } else { @{} }
     is_suspended = [bool]($u.ContainsKey('is_suspended') -and $u.is_suspended)
+    must_change_password = [bool]($u.ContainsKey('must_change_password') -and $u.must_change_password)
+    failed_login_count = if ($u.ContainsKey('failed_login_count') -and $null -ne $u.failed_login_count) { [int]$u.failed_login_count } else { 0 }
+    last_failed_login_at = if ($u.ContainsKey('last_failed_login_at')) { $u.last_failed_login_at } else { $null }
     pending_year_request = (Get-PendingYearRequestForUser $uKey)
     source = if ($u.ContainsKey('source') -and -not [string]::IsNullOrWhiteSpace([string]$u.source)) { [string]$u.source } else { 'local' }
     created_at = [string]$u.created_at
@@ -420,12 +434,21 @@ function Clear-RateLimit([string]$bucketKey) {
   }
 }
 
+function Add-SecurityHeaders($response) {
+  if ($null -eq $response) { return }
+  $response.Headers['X-Content-Type-Options'] = 'nosniff'
+  $response.Headers['X-Frame-Options'] = 'DENY'
+  $response.Headers['Referrer-Policy'] = 'no-referrer'
+  $response.Headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+}
+
 function Send-JsonResponse($response, [int]$statusCode, $data, [hashtable]$extraHeaders = $null) {
   $json = $data | ConvertTo-Json -Depth 12 -Compress
   $bytes = [Text.Encoding]::UTF8.GetBytes($json)
   $response.StatusCode = $statusCode
   $response.ContentType = 'application/json; charset=utf-8'
   $response.Headers['Cache-Control'] = 'no-store'
+  Add-SecurityHeaders $response
   if ($null -ne $extraHeaders) {
     foreach ($kv in $extraHeaders.GetEnumerator()) {
       $response.Headers[[string]$kv.Key] = [string]$kv.Value
@@ -577,6 +600,11 @@ try {
         continue
       }
 
+      if ($relativePath -eq 'api/security/notice' -and $context.Request.HttpMethod -eq 'GET') {
+        Send-JsonResponse $context.Response 200 @{ ok = $true; notice = $script:authStore.securityNotice }
+        continue
+      }
+
       if ($relativePath -like 'api/auth/*' -and $context.Request.HttpMethod -eq 'POST') {
         $clientIp = Get-ClientIpKey $context.Request
         $reader = New-Object IO.StreamReader($context.Request.InputStream, [Text.Encoding]::UTF8)
@@ -670,6 +698,12 @@ try {
           $verified = if ($validPw) { Test-PasswordHash $password $storedHash } else { $false }
           if ($null -eq $userObj -or -not $verified) {
             [void](Test-RateLimit $loginBucket 5 900 $true)
+            if ($null -ne $userObj) {
+              $prevFailCount = if ($userObj.ContainsKey('failed_login_count') -and $null -ne $userObj.failed_login_count) { [int]$userObj.failed_login_count } else { 0 }
+              $userObj.failed_login_count = $prevFailCount + 1
+              $userObj.last_failed_login_at = $nowIso
+              Save-AuthStore
+            }
             Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'INVALID_CREDENTIALS'; error = 'Invalid username or password.' }
             continue
           }
@@ -678,6 +712,11 @@ try {
             continue
           }
           Clear-RateLimit $loginBucket
+          $recentFailedCount = if ($userObj.ContainsKey('failed_login_count') -and $null -ne $userObj.failed_login_count) { [int]$userObj.failed_login_count } else { 0 }
+          $lastFailedAt = if ($userObj.ContainsKey('last_failed_login_at')) { $userObj.last_failed_login_at } else { $null }
+          $mustChangePw = [bool]($userObj.ContainsKey('must_change_password') -and $userObj.must_change_password)
+          $userObj.failed_login_count = 0
+          $userObj.last_failed_login_at = $null
           $userObj.last_login_at = $nowIso
           $sess = New-AuthSessionForUser $usernameKey
           Save-AuthStore
@@ -685,6 +724,9 @@ try {
             ok = $true
             session_token = $sess.session_token
             expires_at = $sess.expires_at
+            recent_failed_logins = $recentFailedCount
+            last_failed_login_at = $lastFailedAt
+            must_change_password = $mustChangePw
             user = (Serialize-AuthUser $userObj)
           }
           continue
@@ -855,6 +897,7 @@ try {
             continue
           }
           $userObj.password_hash = New-PasswordHash $newPw
+          $userObj.must_change_password = $false
           $userObj.updated_at = $nowIso
           $curTokHash = Get-Sha256Hex $token
           $uk = [string]$userObj.username_key
@@ -1183,7 +1226,36 @@ try {
             mpPlayers = $playersList
             mpRooms = $roomsList
             auditLogs = @($script:authStore.auditLogs)
+            securityNotice = $script:authStore.securityNotice
           }
+          continue
+        }
+
+        if ($relativePath -eq 'api/admin/set-security-notice') {
+          $isActive = [bool]$body.active
+          $rawSev = if ($null -ne $body.severity) { ([string]$body.severity).Trim().ToLowerInvariant() } else { 'info' }
+          $sev = if ($rawSev -in @('info', 'warning', 'critical')) { $rawSev } else { 'info' }
+          $noticeTitle = if ($null -ne $body.title) { ([string]$body.title).Trim() } else { '' }
+          if ($noticeTitle.Length -gt 120) { $noticeTitle = $noticeTitle.Substring(0, 120) }
+          $noticeMsg = if ($null -ne $body.message) { ([string]$body.message).Trim() } else { '' }
+          if ($noticeMsg.Length -gt 400) { $noticeMsg = $noticeMsg.Substring(0, 400) }
+          $effectiveActive = $isActive -and (-not [string]::IsNullOrWhiteSpace($noticeTitle) -or -not [string]::IsNullOrWhiteSpace($noticeMsg))
+          $script:authStore.securityNotice = @{
+            active = $effectiveActive
+            severity = $sev
+            title = $noticeTitle
+            message = $noticeMsg
+            updated_at = $nowIso
+            updated_by = $adminSess.username
+          }
+          Save-AuthStore
+          $detailTxt = if ($effectiveActive) {
+            "Published $($sev.ToUpperInvariant()) notice: $(if ($noticeTitle) { $noticeTitle } else { $noticeMsg })"
+          } else {
+            'Cleared active security notice'
+          }
+          Add-AdminAuditLog $adminSess.username 'SECURITY_NOTICE_UPDATED' 'System Banner' $detailTxt | Out-Null
+          Send-JsonResponse $context.Response 200 @{ ok = $true; notice = $script:authStore.securityNotice }
           continue
         }
 
@@ -1262,6 +1334,7 @@ try {
           }
           $uObj = $script:authStore.users[$uk]
           $uObj.password_hash = New-PasswordHash $newPass
+          $uObj.must_change_password = $true
           $uObj.updated_at = $nowIso
           $revoked = 0
           foreach ($sKey in @($script:authStore.sessions.Keys)) {
@@ -1903,6 +1976,7 @@ try {
         $context.Response.ContentType = 'application/octet-stream'
       }
       $context.Response.Headers['Accept-Ranges'] = 'bytes'
+      Add-SecurityHeaders $context.Response
 
       $bytes = [IO.File]::ReadAllBytes($filePath)
       $range = $context.Request.Headers['Range']

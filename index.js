@@ -9298,7 +9298,11 @@ document.getElementById('dashboardAside').addEventListener('submit', async (even
     if (curInput) curInput.value = ''
     if (newInput) newInput.value = ''
     if (confirmInput) confirmInput.value = ''
-    setMsg('Password updated! Other active logins were signed out.', 'ok')
+    activeAccountMustChangePw = false
+    if (typeof renderAccountSecurityAlert === 'function') renderAccountSecurityAlert()
+    const pwTip = evaluatePasswordStrength(newPw, activePlayerName)
+    const tipSuffix = pwTip.level === 'weak' ? ` (Tip: ${pwTip.tip})` : ''
+    setMsg(`Password updated! Other active logins were signed out.${tipSuffix}`, 'ok')
   } catch (err) {
     setMsg(err?.message || 'Could not update password.', 'err')
   } finally {
@@ -9556,6 +9560,234 @@ const loginError = document.getElementById('loginError')
 const loginSubmitButton = document.getElementById('loginSubmitButton')
 const authModeRegisterTab = document.getElementById('authModeRegisterTab')
 const authModeLoginTab = document.getElementById('authModeLoginTab')
+const passwordStrengthWrap = document.getElementById('passwordStrengthWrap')
+const passwordStrengthLabel = document.getElementById('passwordStrengthLabel')
+const passwordStrengthTip = document.getElementById('passwordStrengthTip')
+const sharedPcCheckbox = document.getElementById('sharedPcCheckbox')
+const globalSecurityBanner = document.getElementById('globalSecurityBanner')
+const globalSecurityTitle = document.getElementById('globalSecurityTitle')
+const globalSecurityMessage = document.getElementById('globalSecurityMessage')
+const dismissGlobalSecurityBtn = document.getElementById('dismissGlobalSecurityBtn')
+const accountSecurityAlert = document.getElementById('accountSecurityAlert')
+const accountSecurityTitle = document.getElementById('accountSecurityTitle')
+const accountSecurityBody = document.getElementById('accountSecurityBody')
+const accountSecurityGoPwBtn = document.getElementById('accountSecurityGoPwBtn')
+const accountSecurityDismissBtn = document.getElementById('accountSecurityDismissBtn')
+const privacySafetyModal = document.getElementById('privacySafetyModal')
+const openPrivacyModalBtn = document.getElementById('openPrivacyModalBtn')
+const closePrivacyModalBtn = document.getElementById('closePrivacyModalBtn')
+const ackPrivacyModalBtn = document.getElementById('ackPrivacyModalBtn')
+
+const SHARED_PC_STORAGE_KEY = 'bytebound-shared-pc-v1'
+const COMMON_WEAK_PASSWORDS = new Set([
+  '123456', '12345678', '123456789', 'password', 'password123', 'qwerty', 'qwerty123',
+  'admin123', 'bytebound', 'citcs123', 'letmein', 'welcome', 'iloveyou', 'abc12345', '111111',
+])
+
+let activeAccountMustChangePw = false
+let activeRecentFailedLogins = 0
+let activeLastFailedLoginAt = null
+let activeGlobalSecurityNotice = null
+
+function isSharedPcModeEnabled() {
+  try {
+    return Boolean(sharedPcCheckbox?.checked || sessionStorage.getItem(SHARED_PC_STORAGE_KEY) === '1')
+  } catch {
+    return Boolean(sharedPcCheckbox?.checked)
+  }
+}
+
+function clearPlayerLocalCache(profileKey) {
+  const keys = [
+    PENDING_CLOUD_SYNC_KEY,
+    'bytebound-pending-resets-v1',
+    'bytebound-pending-year-requests-v1',
+  ]
+  if (profileKey) {
+    keys.push(
+      `kings-pigs-topic-tracker-v1:${profileKey}`,
+      `kings-pigs-skill-tree-v1:${profileKey}`,
+      `kings-pigs-review-v1:${profileKey}`,
+      `${ACHIEVEMENT_STORAGE_KEY}:${profileKey}`,
+      `bytebound-run-saves-v1:${profileKey}`,
+      `bytebound-academic-year-v1:${profileKey}`,
+      `bytebound-avatar:${profileKey}`,
+      `bytebound-reset-at-v1:${encodeURIComponent(profileKey)}`
+    )
+  }
+  for (const k of keys) {
+    try { localStorage.removeItem(k) } catch {}
+  }
+}
+
+function evaluatePasswordStrength(pw, username = '') {
+  const val = String(pw || '')
+  const low = val.trim().toLowerCase()
+  const uLow = normalizeUsername(username).toLowerCase()
+  if (!val) {
+    return { level: '', label: 'Password strength', tip: 'Use 8+ chars with upper/lowercase letters, numbers, and symbols.' }
+  }
+  if (val.length < 6) {
+    return { level: 'weak', label: 'Too short (min 6 chars)', tip: 'Add more characters before signing up.' }
+  }
+  if (COMMON_WEAK_PASSWORDS.has(low) || (uLow && low.includes(uLow))) {
+    return { level: 'weak', label: 'Weak — commonly leaked or matches username', tip: 'Avoid common words or your username to prevent account takeover.' }
+  }
+  let score = 0
+  if (val.length >= 8) score++
+  if (val.length >= 12) score++
+  if (/[a-z]/.test(val) && /[A-Z]/.test(val)) score++
+  if (/\d/.test(val)) score++
+  if (/[^A-Za-z0-9]/.test(val)) score++
+  if (score <= 2) {
+    return { level: 'weak', label: 'Weak password', tip: 'Mix uppercase, lowercase, numbers, and symbols. Never reuse personal passwords.' }
+  }
+  if (score === 3) {
+    return { level: 'fair', label: 'Fair password', tip: 'Add a symbol or extra length (10–12+ chars) for stronger protection.' }
+  }
+  return { level: 'strong', label: 'Strong unique password', tip: 'Looks good — keep this password unique to Bytebound.' }
+}
+
+function updateRegisterPasswordStrength() {
+  if (!passwordStrengthWrap || !passwordStrengthLabel || !passwordStrengthTip) return
+  if (authMode !== 'register' || !passwordInput?.value) {
+    passwordStrengthWrap.hidden = true
+    passwordStrengthWrap.className = 'login-pw-strength'
+    return
+  }
+  const res = evaluatePasswordStrength(passwordInput.value, usernameInput?.value || '')
+  passwordStrengthWrap.hidden = false
+  passwordStrengthWrap.className = 'login-pw-strength' + (res.level ? ` is-${res.level}` : '')
+  passwordStrengthLabel.textContent = res.label
+  passwordStrengthTip.textContent = res.tip
+}
+
+function openPrivacySafetyModal() {
+  if (!privacySafetyModal) return
+  privacySafetyModal.hidden = false
+  privacySafetyModal.setAttribute('aria-hidden', 'false')
+  closePrivacyModalBtn?.focus()
+}
+
+function closePrivacySafetyModal() {
+  if (!privacySafetyModal) return
+  privacySafetyModal.hidden = true
+  privacySafetyModal.setAttribute('aria-hidden', 'true')
+}
+
+openPrivacyModalBtn?.addEventListener('click', openPrivacySafetyModal)
+closePrivacyModalBtn?.addEventListener('click', closePrivacySafetyModal)
+ackPrivacyModalBtn?.addEventListener('click', closePrivacySafetyModal)
+privacySafetyModal?.addEventListener('click', (e) => {
+  if (e.target === privacySafetyModal) closePrivacySafetyModal()
+})
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && privacySafetyModal && !privacySafetyModal.hidden) {
+    closePrivacySafetyModal()
+  }
+})
+
+if (sharedPcCheckbox) {
+  try {
+    sharedPcCheckbox.checked = sessionStorage.getItem(SHARED_PC_STORAGE_KEY) === '1'
+  } catch {}
+  sharedPcCheckbox.addEventListener('change', () => {
+    try {
+      if (sharedPcCheckbox.checked) sessionStorage.setItem(SHARED_PC_STORAGE_KEY, '1')
+      else sessionStorage.removeItem(SHARED_PC_STORAGE_KEY)
+    } catch {}
+  })
+}
+
+function renderGlobalSecurityBanner(notice) {
+  activeGlobalSecurityNotice = notice && typeof notice === 'object' ? notice : null
+  if (!globalSecurityBanner || !globalSecurityTitle || !globalSecurityMessage) return
+  if (!activeGlobalSecurityNotice || !activeGlobalSecurityNotice.active) {
+    globalSecurityBanner.hidden = true
+    return
+  }
+  const sev = ['info', 'warning', 'critical'].includes(activeGlobalSecurityNotice.severity)
+    ? activeGlobalSecurityNotice.severity
+    : 'info'
+  globalSecurityBanner.className = `global-security-banner is-${sev}`
+  globalSecurityTitle.textContent = activeGlobalSecurityNotice.title || 'Security Notice:'
+  globalSecurityMessage.textContent = activeGlobalSecurityNotice.message || ''
+  globalSecurityBanner.hidden = false
+}
+
+dismissGlobalSecurityBtn?.addEventListener('click', () => {
+  if (globalSecurityBanner) globalSecurityBanner.hidden = true
+})
+
+async function loadGlobalSecurityNotice() {
+  let notice = null
+  const cfg = supabaseCredentials()
+  if (cfg) {
+    try {
+      const res = await supabaseRequest('system_security_notices?id=eq.1&select=active,severity,title,message,updated_at', { noRetry: true })
+      const rows = await res.json()
+      if (Array.isArray(rows) && rows[0]) notice = rows[0]
+    } catch {}
+  }
+  if ((!notice || !notice.active) && /^https?:$/i.test(window.location?.protocol || '')) {
+    try {
+      const res = await fetch('/api/security/notice', { cache: 'no-store' })
+      if (res.ok) {
+        const json = await res.json()
+        if (json?.notice) notice = json.notice
+      }
+    } catch {}
+  }
+  if (!notice || !notice.active) {
+    try {
+      const stored = JSON.parse(localStorage.getItem('bytebound-security-notice-v1') || 'null')
+      if (stored && stored.active) notice = stored
+    } catch {}
+  }
+  renderGlobalSecurityBanner(notice)
+}
+window.loadGlobalSecurityNotice = loadGlobalSecurityNotice
+loadGlobalSecurityNotice()
+
+function renderAccountSecurityAlert() {
+  if (!accountSecurityAlert || !accountSecurityTitle || !accountSecurityBody) return
+  if (!activePlayerName || (!activeAccountMustChangePw && activeRecentFailedLogins <= 0)) {
+    accountSecurityAlert.hidden = true
+    return
+  }
+  const isCritical = activeAccountMustChangePw || activeRecentFailedLogins >= 3
+  accountSecurityAlert.className = `account-security-alert${isCritical ? ' is-critical' : ' is-warning'}`
+  if (activeAccountMustChangePw) {
+    accountSecurityTitle.textContent = 'Temporary Password Active — Change Your Password'
+    accountSecurityBody.textContent = activeRecentFailedLogins > 0
+      ? `An administrator set a temporary password, and ${activeRecentFailedLogins} failed login attempt(s) were recorded. Set a private password in Settings right away.`
+      : 'Your account is using an admin-issued temporary password. Please set your own private password in Settings now.'
+  } else {
+    const whenTxt = activeLastFailedLoginAt ? ` (last attempt ${new Date(activeLastFailedLoginAt).toLocaleString()})` : ''
+    accountSecurityTitle.textContent = `Security Alert: ${activeRecentFailedLogins} Failed Login Attempt${activeRecentFailedLogins === 1 ? '' : 's'} Detected`
+    accountSecurityBody.textContent = `Someone entered a wrong password for your account${whenTxt}. If this wasn't you, change your password immediately.`
+  }
+  accountSecurityAlert.hidden = false
+}
+
+accountSecurityDismissBtn?.addEventListener('click', () => {
+  activeRecentFailedLogins = 0
+  if (accountSecurityAlert) accountSecurityAlert.hidden = true
+})
+
+accountSecurityGoPwBtn?.addEventListener('click', () => {
+  if (playViewActive) {
+    playViewActive = false
+    app.classList.remove('is-playing', 'is-in-battle')
+  }
+  dashboardView = 'settings'
+  renderDashboard()
+  window.requestAnimationFrame(() => {
+    const pwForm = document.getElementById('settingsChangePasswordForm')
+    pwForm?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    document.getElementById('curPasswordSettingInput')?.focus()
+  })
+})
 
 function readLocalProfiles() {
   const savedProfiles = localStorage.getItem(PROFILE_STORAGE_KEY)
@@ -9687,8 +9919,11 @@ function setAuthMode(nextMode, options = {}) {
   }
   if (loginNote) {
     loginNote.textContent = isForgot
-      ? 'An administrator will set a temporary password for your account.'
-      : 'Usernames are unique and case-insensitive. Passwords are protected server-side.'
+      ? 'An administrator will set a temporary password for your account (you will be asked to change it on sign-in).'
+      : 'Never reuse passwords from email, social media, or school portals. Always click Log Out on shared lab PCs.'
+  }
+  if (passwordStrengthWrap) {
+    passwordStrengthWrap.hidden = !isRegister || !passwordInput?.value
   }
   if (loginSubmitButton && !loginSubmitting) {
     loginSubmitButton.textContent = isForgot ? 'Send Reset Request' : (isRegister ? 'Sign Up' : 'Log In')
@@ -9697,6 +9932,7 @@ function setAuthMode(nextMode, options = {}) {
   if (forgotNoteInput && !isForgot) forgotNoteInput.value = ''
   if (!options.keepError && loginError) loginError.textContent = ''
   if (!options.keepStatus) setLoginStatus('')
+  updateRegisterPasswordStrength()
 }
 
 let activePendingYearRequest = null
@@ -9711,6 +9947,9 @@ function enterAuthenticatedSession(user, sessionToken, provider, sessionOptions 
   activeSessionToken = sessionToken
   activeAuthProvider = provider
   activePendingYearRequest = user?.pending_year_request || null
+  activeAccountMustChangePw = Boolean(sessionOptions?.mustChangePassword ?? user?.must_change_password)
+  activeRecentFailedLogins = Number(sessionOptions?.recentFailedLogins ?? user?.failed_login_count ?? 0) || 0
+  activeLastFailedLoginAt = sessionOptions?.lastFailedLoginAt || user?.last_failed_login_at || null
   saveAuthSessionStorage(sessionToken, provider, canonicalName, profileId)
 
   let profiles = []
@@ -9784,6 +10023,8 @@ function enterAuthenticatedSession(user, sessionToken, provider, sessionOptions 
   setLoginStatus('')
   loginScreen.hidden = true
   app.hidden = false
+  renderAccountSecurityAlert()
+  loadGlobalSecurityNotice()
   renderDashboard()
   Sound.music('dashboard')
   syncUserOnLogin(canonicalName, profileId, user)
@@ -9814,6 +10055,7 @@ authModeRegisterTab?.addEventListener('click', () => {
 const clearFormFeedbackOnInput = () => {
   if (loginError) loginError.textContent = ''
   setLoginStatus('')
+  updateRegisterPasswordStrength()
 }
 usernameInput?.addEventListener('input', clearFormFeedbackOnInput)
 passwordInput?.addEventListener('input', clearFormFeedbackOnInput)
@@ -9960,7 +10202,11 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
       username: name,
       password,
     })
-    enterAuthenticatedSession(data.user, data.session_token, provider)
+    enterAuthenticatedSession(data.user, data.session_token, provider, {
+      mustChangePassword: Boolean(data?.must_change_password ?? data?.user?.must_change_password),
+      recentFailedLogins: Number(data?.recent_failed_logins || 0),
+      lastFailedLoginAt: data?.last_failed_login_at || null,
+    })
   } catch (error) {
     if (authMode === 'login' && error?.code === 'INVALID_CREDENTIALS') {
       loginError.textContent = 'Invalid username or password.'
@@ -10007,10 +10253,18 @@ function switchPlayerProfile() {
       }).catch(() => {})
     })
   }
+  const wipingProfileKey = isSharedPcModeEnabled() ? getUsernameKey(activePlayerName) : ''
   activeSessionToken = ''
   activeAuthProvider = ''
   activePendingYearRequest = null
+  activeAccountMustChangePw = false
+  activeRecentFailedLogins = 0
+  activeLastFailedLoginAt = null
+  if (accountSecurityAlert) accountSecurityAlert.hidden = true
   clearAuthSessionStorage()
+  if (wipingProfileKey) {
+    clearPlayerLocalCache(wipingProfileKey)
+  }
   activePlayerName = ''
   window.activePlayerName = ''
   if (skillTreeOpen) closeSkillTree()

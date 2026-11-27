@@ -5,9 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Bytebound · CITCS Quest</title>
   <script src="js/font.js?v=2"></script>
-  <link rel="stylesheet" href="css/styles.css?v=47" />
+  <link rel="stylesheet" href="css/styles.css?v=48" />
 </head>
 <body>
+  <div class="global-security-banner" id="globalSecurityBanner" role="status" aria-live="polite" hidden>
+    <div class="global-security-inner">
+      <strong id="globalSecurityTitle"></strong>
+      <span id="globalSecurityMessage"></span>
+    </div>
+    <button type="button" class="global-security-dismiss" id="dismissGlobalSecurityBtn" aria-label="Dismiss notice">✕</button>
+  </div>
   <section class="login-screen" id="loginScreen" aria-labelledby="loginTitle">
     <div class="login-particles" aria-hidden="true">
       <span></span><span></span><span></span><span></span><span></span><span></span>
@@ -47,6 +54,13 @@
               <input id="passwordInput" name="password" type="password" minlength="6" maxlength="72" autocomplete="current-password" placeholder="Enter your password" required />
               <button type="button" class="login-password-toggle" id="passwordToggleBtn" aria-label="Show password" aria-pressed="false">Show</button>
             </div>
+            <div class="login-pw-strength" id="passwordStrengthWrap" hidden aria-live="polite">
+              <div class="login-pw-bars" aria-hidden="true"><span></span><span></span><span></span></div>
+              <div class="login-pw-copy">
+                <strong id="passwordStrengthLabel">Password strength</strong>
+                <small id="passwordStrengthTip"></small>
+              </div>
+            </div>
             <div class="login-forgot-row" id="forgotPasswordRow">
               <button type="button" class="login-forgot-link" id="forgotPasswordBtn">Forgot password?</button>
             </div>
@@ -73,12 +87,19 @@
             </select>
             <small class="login-field-hint">Your Year Level locks after Sign Up to keep quizzes and rankings fair. You can request a year change from an admin later in Settings.</small>
           </div>
+          <label class="login-shared-pc" id="sharedPcWrap">
+            <input type="checkbox" id="sharedPcCheckbox" />
+            <span>Shared computer: clear local study cache when I log out</span>
+          </label>
           <p class="login-status" id="loginStatus" aria-live="polite"></p>
           <p class="login-error" id="loginError" role="alert" aria-live="polite"></p>
           <button class="login-submit" id="loginSubmitButton" type="submit">Log In</button>
           <button type="button" class="login-back-link" id="backToLoginBtn" hidden>← Back to Log In</button>
         </form>
-        <p class="login-note" id="loginNote">Usernames are unique and case-insensitive. Passwords are protected server-side.</p>
+        <div class="login-safety-footer">
+          <p class="login-note" id="loginNote">Never reuse passwords from email, social media, or school portals. Always click Log Out on shared lab PCs.</p>
+          <button type="button" class="login-privacy-link" id="openPrivacyModalBtn">Privacy &amp; Data Safety</button>
+        </div>
       </section>
     </div>
   </section>
@@ -100,6 +121,16 @@
         <span class="player-badge" id="playerBadge">KNIGHT</span>
       </div>
     </header>
+    <div class="account-security-alert" id="accountSecurityAlert" role="alert" aria-live="polite" hidden>
+      <div class="account-security-copy">
+        <strong id="accountSecurityTitle"></strong>
+        <span id="accountSecurityBody"></span>
+      </div>
+      <div class="account-security-actions">
+        <button type="button" class="account-security-btn" id="accountSecurityGoPwBtn">Change Password Now →</button>
+        <button type="button" class="account-security-dismiss" id="accountSecurityDismissBtn">Dismiss</button>
+      </div>
+    </div>
     <div class="shell">
       <div class="nav-backdrop" id="navBackdrop" aria-hidden="true"></div>
       <aside class="sidebar" id="mainSidebar">
@@ -384,6 +415,39 @@
     <div class="sr-only" id="tutorialLiveAnnouncer" aria-live="polite" aria-atomic="true"></div>
   </div>
 
+  <div class="privacy-modal-backdrop" id="privacySafetyModal" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle">
+    <section class="privacy-modal-card">
+      <header class="privacy-modal-head">
+        <div>
+          <span class="eyebrow">DATA PRIVACY &amp; SAFETY (RA 10173)</span>
+          <h2 id="privacyModalTitle">How Bytebound Protects Your Account</h2>
+        </div>
+        <button type="button" class="privacy-modal-close" id="closePrivacyModalBtn" aria-label="Close privacy notice">✕</button>
+      </header>
+      <div class="privacy-modal-body">
+        <div class="privacy-point">
+          <strong>1. Strict Data Minimization</strong>
+          <p>Bytebound never collects emails, real full names, phone numbers, or student IDs. Only your nickname, Academic Year (1–4), quiz accuracy, and saved progress are stored.</p>
+        </div>
+        <div class="privacy-point">
+          <strong>2. Salted Hashing &amp; Encrypted Sessions</strong>
+          <p>Passwords are never stored or readable in plain text—accounts use per-user salted bcrypt / PBKDF2-SHA256 hashes, and active session tokens clear automatically when your tab closes.</p>
+        </div>
+        <div class="privacy-point">
+          <strong>3. Leak Prevention &amp; Breach Alerts</strong>
+          <p>Always choose a unique password you do not reuse anywhere else. If failed logins happen on your account, Bytebound warns you upon sign-in, and Admins can publish an urgent security banner or force a password change.</p>
+        </div>
+        <div class="privacy-point">
+          <strong>4. Shared Computer Safety</strong>
+          <p>Enable <em>&ldquo;Shared computer: clear local study cache when I log out&rdquo;</em> on computer-lab PCs so the next student cannot inspect your offline cache.</p>
+        </div>
+      </div>
+      <footer class="privacy-modal-foot">
+        <button type="button" class="login-submit" id="ackPrivacyModalBtn">Got It — Stay Safe</button>
+      </footer>
+    </section>
+  </div>
+
   <script
     src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.1/gsap.min.js"
     integrity="sha512-Mf/xUqfWvDIr+1B6zfnIDIiG7XHzyP/guXUWgV6PgaQoIFeXkJQR5XWh9fqAiCiRCpemabt3naV4jhDWVnuYDQ=="
@@ -408,7 +472,7 @@
   <script src="js/mp-network.js?v=5"></script>
   <script src="js/mp-matchmaking.js?v=7"></script>
   <script src="js/mp-ui.js?v=6"></script>
-  <script src="index.js?v=179"></script>
+  <script src="index.js?v=180"></script>
   <script src="js/tutorials.js?v=15"></script>
 </body>
 </html>

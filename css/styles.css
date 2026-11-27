@@ -14581,10 +14581,339 @@ body.reduce-motion .app.is-playing .game-panel .actions button.is-exclusive-card
 .login-field-hint,
 .login-status,
 .login-error,
-.settings-pw-msg {
+.settings-pw-msg,
+.global-security-banner,
+.global-security-banner strong,
+.global-security-banner span,
+.global-security-dismiss,
+.account-security-alert,
+.account-security-alert strong,
+.account-security-alert span,
+.account-security-btn,
+.account-security-dismiss,
+.login-pw-strength,
+.login-pw-strength strong,
+.login-pw-strength small,
+.login-shared-pc,
+.login-shared-pc span,
+.login-safety-footer,
+.login-privacy-link,
+.privacy-modal-body,
+.privacy-modal-body strong,
+.privacy-modal-body p {
   font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', Arial, sans-serif !important;
   font-weight: 500 !important;
   text-transform: none !important;
   font-variant: normal !important;
   font-synthesis: weight !important;
+}
+
+/* Global Admin Security Notice Banner & Account Security Alert */
+.global-security-banner {
+  position: relative;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px;
+  border-bottom: 2px solid #59a8e8;
+  background: #102a3d;
+  color: #e6f4ff;
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.global-security-banner.is-warning {
+  border-bottom-color: #f2bb61;
+  background: #3a2a0e;
+  color: #fff3d6;
+}
+
+.global-security-banner.is-critical {
+  border-bottom-color: #ff6b6b;
+  background: #4b1218;
+  color: #ffe8e8;
+}
+
+.global-security-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+}
+
+.global-security-inner strong {
+  font-weight: 700 !important;
+}
+
+.global-security-dismiss,
+.account-security-dismiss {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.global-security-dismiss:hover,
+.account-security-dismiss:hover {
+  opacity: 1;
+}
+
+.account-security-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  margin: 0 18px 8px;
+  padding: 10px 14px;
+  border: 2px solid #f2bb61;
+  background: rgba(58, 42, 14, 0.92);
+  color: #fff3d6;
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.account-security-alert.is-critical {
+  border-color: #ff6b6b;
+  background: rgba(75, 18, 24, 0.94);
+  color: #ffe8e8;
+}
+
+:root:not([data-theme="dark"]) .account-security-alert {
+  background: #fff4dc;
+  color: #4f3100;
+  border-color: #c9851a;
+}
+
+:root:not([data-theme="dark"]) .account-security-alert.is-critical {
+  background: #fde8e8;
+  color: #7c181d;
+  border-color: #d93b42;
+}
+
+.account-security-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.account-security-copy strong {
+  font-weight: 700 !important;
+  font-size: 14px;
+}
+
+.account-security-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-security-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--gold-dark);
+  background: var(--gold);
+  color: var(--gold-text);
+  font-size: 12.5px;
+  font-weight: 700 !important;
+  cursor: pointer;
+}
+
+/* Password Strength Meter, Shared-PC Option & Privacy Modal */
+.login-pw-strength {
+  margin-top: 7px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 22, 23, 0.72);
+}
+
+:root:not([data-theme="dark"]) .login-pw-strength {
+  border-color: #c7bfa8;
+  background: #f5efe0;
+}
+
+.login-pw-bars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin-bottom: 5px;
+}
+
+.login-pw-bars span {
+  height: 5px;
+  background: rgba(150, 160, 165, 0.28);
+  transition: background-color 0.15s ease;
+}
+
+.login-pw-strength.is-weak .login-pw-bars span:nth-child(1) { background: #ef6767; }
+.login-pw-strength.is-fair .login-pw-bars span:nth-child(-n+2) { background: #f2bb61; }
+.login-pw-strength.is-strong .login-pw-bars span { background: #4be39b; }
+
+.login-pw-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+.login-pw-strength.is-weak .login-pw-copy strong { color: #ff8e88; font-weight: 700 !important; }
+.login-pw-strength.is-fair .login-pw-copy strong { color: #ffd480; font-weight: 700 !important; }
+.login-pw-strength.is-strong .login-pw-copy strong { color: #7ef0a2; font-weight: 700 !important; }
+
+:root:not([data-theme="dark"]) .login-pw-strength.is-weak .login-pw-copy strong { color: #a82222; }
+:root:not([data-theme="dark"]) .login-pw-strength.is-fair .login-pw-copy strong { color: #9a5b00; }
+:root:not([data-theme="dark"]) .login-pw-strength.is-strong .login-pw-copy strong { color: #146c3a; }
+
+.login-pw-copy small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.login-shared-pc {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 10px 0 4px;
+  font-size: 13px;
+  color: #cfd7ce;
+  cursor: pointer;
+}
+
+:root:not([data-theme="dark"]) .login-shared-pc {
+  color: #36413b;
+}
+
+.login-shared-pc input[type="checkbox"] {
+  width: 16px !important;
+  min-height: 16px !important;
+  height: 16px !important;
+  flex: 0 0 16px;
+  margin: 0;
+  accent-color: var(--gold);
+}
+
+.login-safety-footer {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.login-safety-footer .login-note {
+  margin: 0;
+  font-size: 13px !important;
+  line-height: 1.4;
+}
+
+.login-privacy-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #7ee8ff;
+  text-decoration: underline;
+  font-size: 13px;
+  font-weight: 600 !important;
+  cursor: pointer;
+}
+
+:root:not([data-theme="dark"]) .login-privacy-link {
+  color: #165e70;
+}
+
+.privacy-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(8, 12, 14, 0.78);
+}
+
+.privacy-modal-backdrop[hidden],
+.global-security-banner[hidden],
+.account-security-alert[hidden],
+.login-pw-strength[hidden] {
+  display: none !important;
+}
+
+.privacy-modal-card {
+  width: min(100%, 560px);
+  max-height: 88dvh;
+  overflow-y: auto;
+  padding: 20px 22px;
+  border: 2px solid var(--gold);
+  background: #1a2325;
+  color: #f2eee2;
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.55);
+}
+
+:root:not([data-theme="dark"]) .privacy-modal-card {
+  background: #faf5e8;
+  color: #1e2822;
+}
+
+.privacy-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.privacy-modal-head h2 {
+  margin: 4px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.privacy-modal-close {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.privacy-modal-body {
+  display: grid;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.privacy-point {
+  padding: 10px 12px;
+  border-left: 3px solid var(--gold);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+:root:not([data-theme="dark"]) .privacy-point {
+  background: #efe8d5;
+}
+
+.privacy-point strong {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 700 !important;
+  color: var(--gold);
+}
+
+:root:not([data-theme="dark"]) .privacy-point strong {
+  color: #825300;
+}
+
+.privacy-point p {
+  margin: 0;
+}
+
+.privacy-modal-foot {
+  margin-top: 16px;
 }

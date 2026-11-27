@@ -1,15 +1,15 @@
 {
-  "lastUpdated": "2026-11-27 13:56:39",
+  "lastUpdated": "2026-11-27 15:37:21",
   "fileHashes": {
-    "CHANGES.md": "c41cbb12b774eb2bcdd371d5e9e957d8260b12e1b2ff5725ba5f518803c2c8b6",
-    "SUPABASE_SETUP.md": "7492231da5cb9392925e2d86936988aadc875ae10334410da4774eee36ecae38",
-    "admin.html": "ac9abaa4043214e1e9b6e7f2d2310cc1e2e7aba7a1915ef2098cccc82f0562cb",
-    "css/admin.css": "0adf731a4c12f8aadf51aef644342eea46ecaa1e720f5b04309b5cf8672f0c2e",
-    "css/styles.css": "344d5cf007619a8e02a1cef10610dc45ab66bcce32fe175f7cdc003303c8f8ea",
+    "CHANGES.md": "9d655e9fe375aae04760565e24086b849c26961191f76c7438cf1ff03f948ffe",
+    "SUPABASE_SETUP.md": "25a0aec13efce6c04dbb93941741a7321e934dae05ce0617a566ae83addbdc4b",
+    "admin.html": "969bb7e013775a164921f64046e02d8693cd2f3269906f5ee03d8972f3ae29e0",
+    "css/admin.css": "e90af5d80a8a673fb93e520f76190bffbfd6ac6cb76e3f087c75280e886163b9",
+    "css/styles.css": "3e6bea0b618b2b4c8c77a0182e84db2cfe498c8b1583b2675e4016164679a5d2",
     "data/questions.json": "82e7eb5f183ffcf4e57d61756fab7dead7fc84bb6a0d3de0b4df4ea991fec9a1",
-    "index.html": "c2b5a2052a328509689755dd63939e94efc9a4a8f41f2e6e644e429d0532e4aa",
-    "index.js": "5c820377a678cf45b945ca3f31bcd7b5000b871d8a6d891c488ef2812c28bb6d",
-    "js/admin.js": "2e5c62447a3c3e40f47a106f1f87d28eb0943b887275bc734cbbbb444c4d90ba",
+    "index.html": "253e34cacf75e2949bc5fea4705112a5e0bb974c5217b27f62d1d135aa21b2aa",
+    "index.js": "3145668a33dbb2bdc6a3f5a6cbc8dcc768dc785daf792242967dd3dbe4ca6d58",
+    "js/admin.js": "6794de5220ed929be1a9c76d496b6a912e3e7e08e8bde541cbc68097f5a6c9dd",
     "js/arena.js": "d3a6cbd16e65ab62f672be2efd2101ead7b406ebbc548be1cb5218e5c37b80ed",
     "js/audio.js": "97347de761983a5b70d5cbaededd703f0a0cd5a867cd659a9e6d1ee2367ced41",
     "js/cards.js": "1304a8ea68286c0fffe5f30a529472cf0ad96c77ca4b93e9c32b6d7925e60e32",
@@ -31,7 +31,7 @@
     "js/utils.js": "d3629dc694f5ae55429e4846c31b8e69624dcc021ac8e7c57421022b3d38b9b1",
     "scripts/build-questions.js": "ffc4720d7a653d2f8bc59c54b43001add6bdf04f5b47388d2d536b2f31aafbe0",
     "serve-local.cmd": "4ea3fe4f34d799613213af36c2aa59f5a4b85e606dfd864e30bfbf954c14a684",
-    "serve-local.ps1": "7ed7f1dd6146de61e80a82b441648c8cc758c59319786f44540025621f8f63f0",
+    "serve-local.ps1": "29639f6f783128693aded6615e959a028fa1c2cf9c4cf2bb98407bd148781589",
     "supabase-config.js": "fbe12e6600681b8973c166c672574ab3c9c3b0d60b971f341091064ff0793046",
     "supabase/migration-1v1-leaderboard.sql": "f0f6e038ddaefd93209177694107d3eb9db9b6b1f60497eeb90c347abba7103b",
     "supabase/migration-admin-console.sql": "f17df8c17e71408e5bc864f9ad017d2315c550b5fcc40db8c73592f06e166a30",
@@ -40,10 +40,107 @@
     "supabase/migration-password-auth.sql": "174e8c035a601afdb0b461bf65fc8dfb9133a58f808607f22214d884b8716701",
     "supabase/migration-profile-pin.sql": "dc035d329d089641d52402bf508525ad81440dbbb7571f117de2100671177a63",
     "supabase/migration-rate-limiting.sql": "5cae59375e1a61a031708da3e1ebdf275d6782a64c591e5fbc6b72791f4015ab",
+    "supabase/migration-security-safety.sql": "25e127346522c299d065a19c431016683e9c842a61b04948c02d19e6588f777c",
     "supabase/migration-unique-username-no-password.sql": "94b999546c09935d8f0b304b9b9e62f73cd0167a90f3b8e1022abebdf86b399d",
     "supabase/schema.sql": "4e569da949e958e77440b2128d9948af420471a015719ccbfc8864f58a0c423a"
   },
   "revisionHistory": [
+    {
+      "timestamp": "2026-11-27 14:24:44",
+      "trigger": "manual",
+      "areas": "Documentation Sync",
+      "summary": "Polished security banner button typography and finalized security safety verification"
+    },
+    {
+      "timestamp": "2026-11-27 14:23:44",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`css/styles.css`)",
+      "summary": "Auto-synced after agent update to `css/styles.css`."
+    },
+    {
+      "timestamp": "2026-11-27 14:20:51",
+      "trigger": "manual",
+      "areas": "Documentation Sync",
+      "summary": "Implemented user-facing data safety warnings, password strength meter, failed-login & temp-password alerts, shared-PC wipe, admin security notice broadcast, and HTTP security headers"
+    },
+    {
+      "timestamp": "2026-11-27 14:20:30",
+      "trigger": "agent-edit",
+      "areas": "Documentation/Config (`CHANGES.md`)",
+      "summary": "Auto-synced after agent update to `CHANGES.md`."
+    },
+    {
+      "timestamp": "2026-11-27 14:20:16",
+      "trigger": "agent-edit",
+      "areas": "Documentation/Config (`SUPABASE_SETUP.md`)",
+      "summary": "Auto-synced after agent update to `SUPABASE_SETUP.md`."
+    },
+    {
+      "timestamp": "2026-11-27 14:19:12",
+      "trigger": "agent-edit",
+      "areas": "Admin Console (`js/admin.js`)",
+      "summary": "Auto-synced after agent update to `js/admin.js`."
+    },
+    {
+      "timestamp": "2026-11-27 14:18:08",
+      "trigger": "agent-edit",
+      "areas": "Core Engine & Hub (`index.js`)",
+      "summary": "Auto-synced after agent update to `index.js`."
+    },
+    {
+      "timestamp": "2026-11-27 14:17:29",
+      "trigger": "agent-edit",
+      "areas": "Admin Console (`css/admin.css`)",
+      "summary": "Auto-synced after agent update to `css/admin.css`."
+    },
+    {
+      "timestamp": "2026-11-27 14:17:26",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`css/styles.css`)",
+      "summary": "Auto-synced after agent update to `css/styles.css`."
+    },
+    {
+      "timestamp": "2026-11-27 14:17:23",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`index.html`)",
+      "summary": "Auto-synced after agent update to `index.html`."
+    },
+    {
+      "timestamp": "2026-11-27 14:16:49",
+      "trigger": "agent-edit",
+      "areas": "Admin Console (`admin.html`)",
+      "summary": "Auto-synced after agent update to `admin.html`."
+    },
+    {
+      "timestamp": "2026-11-27 14:16:38",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`index.html`)",
+      "summary": "Auto-synced after agent update to `index.html`."
+    },
+    {
+      "timestamp": "2026-11-27 14:15:07",
+      "trigger": "agent-edit",
+      "areas": "Auth, Backend & SQL Schema (`serve-local.ps1`)",
+      "summary": "Auto-synced after agent update to `serve-local.ps1`."
+    },
+    {
+      "timestamp": "2026-11-27 14:14:58",
+      "trigger": "agent-edit",
+      "areas": "Documentation Sync",
+      "summary": "Auto-synced after agent update to `_headers`."
+    },
+    {
+      "timestamp": "2026-11-27 14:14:31",
+      "trigger": "agent-edit",
+      "areas": "Auth, Backend & SQL Schema (`supabase/migration-security-safety.sql`)",
+      "summary": "Auto-synced after agent update to `supabase/migration-security-safety.sql`."
+    },
+    {
+      "timestamp": "2026-11-27 14:13:28",
+      "trigger": "agent-edit",
+      "areas": "Documentation Sync",
+      "summary": "Auto-synced after agent update to `_headers`."
+    },
     {
       "timestamp": "2026-11-27 13:45:01",
       "trigger": "manual",

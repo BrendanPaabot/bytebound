@@ -1134,3 +1134,31 @@ a:focus-visible {
   padding: 0 8px;
   font-size: 12px;
 }
+
+.adm-security-card {
+  margin-top: 18px;
+}
+
+.adm-security-form {
+  display: grid;
+  gap: 12px;
+}
+
+.adm-security-row {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .adm-security-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.adm-security-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}

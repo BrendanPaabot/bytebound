@@ -7,13 +7,13 @@
 <!-- AUTO:START:snapshot -->
 | Metric | Live Value |
 | :--- | :--- |
-| **Last Auto-Synced** | `2026-11-27 13:56:39` |
-| **Git Branch / HEAD** | `main` @ `89faa30` |
-| **Tracked Source Modules** | `41` files (`54,443` lines, `1962.5 KB`) |
+| **Last Auto-Synced** | `2026-11-27 15:37:21` |
+| **Git Branch / HEAD** | `main` @ `7d816c3` |
+| **Tracked Source Modules** | `42` files (`55,719` lines, `2012.1 KB`) |
 | **Question Bank Coverage** | `240` questions across `4` disciplines & `20` topics |
 | **Campaign Structure** | `16` authored rooms · `RUN_LENGTH = 32` (2 campaign loops) |
 | **Achievements** | `48` tracked milestones |
-| **Active Asset Cache Versions** | `styles.css?v=47`, `js/audio.js?v=15`, `js/cards.js?v=9`, `js/combat.js?v=74`, `js/practice.js?v=12`, `index.js?v=179`, `js/tutorials.js?v=15`, `admin.css?v=5`, `admin.js?v=7` |
+| **Active Asset Cache Versions** | `styles.css?v=48`, `js/audio.js?v=15`, `js/cards.js?v=9`, `js/combat.js?v=74`, `js/practice.js?v=12`, `index.js?v=180`, `js/tutorials.js?v=15`, `admin.css?v=6`, `admin.js?v=8` |
 <!-- AUTO:END:snapshot -->
 
 ---
@@ -234,6 +234,10 @@ flowchart TD
 - **High-Concurrency Rate Limiting & Traffic Throttling:**
   - **Server & Database Guards:** Both `serve-local.ps1` (HTTP `429` + `Retry-After` sliding window) and `supabase/migration-rate-limiting.sql` (`public.api_rate_limits`) limit failed login/admin attempts (`5 / 15 min`), forgot-password & year-change requests (`3 / 10 min`), signups (`10 / 10 min`), and rapid leaderboard writes (`1 / 5s`).
   - **Client Backoff, Caching & Lazy Sockets:** `supabaseRequest()` retries `429`/`503` responses with exponential backoff + jitter; profile/leaderboard syncs coalesce over `15–20s` milestones with offline recovery queues and `45s` leaderboard TTL caching; and 1v1 Multiplayer Realtime/LAN polling connects lazily (`1500ms` lobby, `450ms` active match, `idle` with `0` traffic when closed).
+- **Data-Safety Warnings, Breach Alerts & Production Hardening:**
+  - **User Safety Notices & Password Hygiene (`index.html`, `index.js`):** Sign-Up includes a real-time password strength meter that blocks weak/commonly leaked passwords (`123456`, `password`, username matches), warns users not to reuse personal passwords, provides an accessible **Privacy & Data Safety (RA 10173)** modal explaining collected data, and offers a **Shared computer** checkbox that wipes player-scoped `localStorage` keys on logout.
+  - **Failed-Login & Temporary-Password Alerts (`serve-local.ps1`, `supabase/migration-security-safety.sql`):** Incorrect passwords increment `failed_login_count` + `last_failed_login_at`; Admin password resets set `must_change_password = true`. Upon login, an `#accountSecurityAlert` banner warns the player and auto-clears once the password is changed in Settings.
+  - **System-Wide Security Broadcast & HTTP Headers (`_headers`, `serve-local.ps1`, `admin.js`):** Admins can publish/clear emergency security banners (`#globalSecurityBanner` via `system_security_notices` / `/api/security/notice`); both static hosting (`_headers`) and `serve-local.ps1` send `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Permissions-Policy`, and `Content-Security-Policy`; non-local origins hide the default admin credential hint and disable offline fallback admin authentication; and `multiplayer_rooms` RLS policies restrict mutations to `OPEN` or active match rooms.
 
 ### 8.2 Admin Management Console (`admin.html` & `js/admin.js`)
 Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → Local Server`)** connection fallback:
@@ -245,12 +249,12 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 - **Activity Log (`audit`):** Persistent timestamped audit trail recording account signups, password/year requests, and administrative actions across sessions.
 
 <!-- AUTO:START:backend -->
-### Local Server HTTP Endpoints (`serve-local.ps1` — `32` Routes)
+### Local Server HTTP Endpoints (`serve-local.ps1` — `34` Routes)
 - **Player Auth & Requests (`11`):** `/api/auth/change-password`, `/api/auth/forgot-password`, `/api/auth/health`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/mirror-account`, `/api/auth/profile`, `/api/auth/request-year-change`, `/api/auth/reset`, `/api/auth/session`, `/api/auth/signup`
-- **Admin Console API (`16`):** `/api/admin/approve-year-request`, `/api/admin/close-room`, `/api/admin/create-user`, `/api/admin/delete-pvp-entry`, `/api/admin/delete-user`, `/api/admin/dismiss-reset-request`, `/api/admin/dismiss-year-request`, `/api/admin/log-activity`, `/api/admin/login`, `/api/admin/logout`, `/api/admin/overview`, `/api/admin/reset-password`, `/api/admin/reset-progress`, `/api/admin/revoke-sessions`, `/api/admin/set-user-year`, `/api/admin/toggle-suspend`
+- **Admin Console API (`17`):** `/api/admin/approve-year-request`, `/api/admin/close-room`, `/api/admin/create-user`, `/api/admin/delete-pvp-entry`, `/api/admin/delete-user`, `/api/admin/dismiss-reset-request`, `/api/admin/dismiss-year-request`, `/api/admin/log-activity`, `/api/admin/login`, `/api/admin/logout`, `/api/admin/overview`, `/api/admin/reset-password`, `/api/admin/reset-progress`, `/api/admin/revoke-sessions`, `/api/admin/set-security-notice`, `/api/admin/set-user-year`, `/api/admin/toggle-suspend`
 - **Multiplayer & PvP API (`5`):** `/api/mp/event`, `/api/mp/pvp-leaderboard`, `/api/mp/pvp-reset`, `/api/mp/pvp-result`, `/api/mp/state`
 
-### Supabase PostgreSQL Migrations (`12` Tables · `32` RPC Functions across `9` Files)
+### Supabase PostgreSQL Migrations (`13` Tables · `33` RPC Functions across `10` Files)
 | Migration Script | Tables Created / Referenced | RPC Functions Defined |
 | :--- | :--- | :--- |
 | `supabase/migration-1v1-leaderboard.sql` | `pvp_leaderboard_entries` | `submit_leaderboard_run()`, `submit_pvp_match_result()`, `reset_user_profile()` |
@@ -260,6 +264,7 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 | `supabase/migration-password-auth.sql` | `user_credentials`, `user_sessions` | `_serialize_auth_user()`, `_resolve_session_user_id()`, `auth_sign_up()`, `auth_log_in()`, `auth_get_session()`, `auth_logout()`, `auth_save_profile()`, `auth_reset_profile()`, `submit_leaderboard_run()`, `submit_pvp_match_result()` |
 | `supabase/migration-profile-pin.sql` | — | `upsert_user_profile()`, `reset_user_profile()` |
 | `supabase/migration-rate-limiting.sql` | `api_rate_limits` | `_check_rate_limit()`, `_clear_rate_limit()`, `auth_log_in()`, `auth_request_password_reset()`, `auth_request_year_change()`, `admin_log_in()`, `submit_leaderboard_run()` |
+| `supabase/migration-security-safety.sql` | `system_security_notices` | `_serialize_auth_user()`, `auth_log_in()`, `admin_reset_user_password()`, `auth_change_password()`, `admin_set_security_notice()`, `admin_get_overview()` |
 | `supabase/migration-unique-username-no-password.sql` | — | `register_user_profile()`, `upsert_user_profile()`, `reset_user_profile()` |
 | `supabase/schema.sql` | `users`, `leaderboard_entries`, `multiplayer_rooms`, `pvp_leaderboard_entries` | `submit_leaderboard_run()`, `submit_pvp_match_result()` |
 <!-- AUTO:END:backend -->
@@ -271,15 +276,15 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 <!-- AUTO:START:inventory -->
 | File Path | Lines | Size (KB) | Functional Role |
 | :--- | :---: | :---: | :--- |
-| [`CHANGES.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/CHANGES.md) | 58 | 9.4 | Concise changelog and migration overview aligned with live system revisions |
-| [`SUPABASE_SETUP.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/SUPABASE_SETUP.md) | 23 | 2.9 | Cloud PostgreSQL and Realtime setup instructions |
+| [`CHANGES.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/CHANGES.md) | 60 | 10.2 | Concise changelog and migration overview aligned with live system revisions |
+| [`SUPABASE_SETUP.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/SUPABASE_SETUP.md) | 24 | 3.2 | Cloud PostgreSQL and Realtime setup instructions |
 | [`admin.html`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/admin.html) | 146 | 6.4 | Standalone Administrator Management Console shell and layout containers |
-| [`css/admin.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/admin.css) | 1,137 | 21.3 | Styling and responsive grid layouts for the standalone Admin Management Console |
-| [`css/styles.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/styles.css) | 14,591 | 393.9 | Complete responsive design system (Dark/Light themes, battle cards, skill tree, portrait/landscape media queries) |
+| [`css/admin.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/admin.css) | 1,165 | 21.6 | Styling and responsive grid layouts for the standalone Admin Management Console |
+| [`css/styles.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/styles.css) | 14,920 | 400.6 | Complete responsive design system (Dark/Light themes, battle cards, skill tree, portrait/landscape media queries) |
 | [`data/questions.json`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/data/questions.json) | 3,369 | 125.9 | Authoritative 240-question curriculum bank tagged by category, topic, year (1–4), and difficulty |
-| [`index.html`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.html) | 415 | 27.3 | Main player SPA shell (Auth, Quest Hub, Practice, Battle Canvas, Tracker, Maps, Skill Tree, Settings) |
-| [`index.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.js) | 10,133 | 402.5 | Game loop, 16-room engine, sprite/animation rendering, physics, save profiles, auth flows, achievements, Hub UI |
-| [`js/admin.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/admin.js) | 2,130 | 93.2 | Admin Console client controller (Supabase RPC + local server fallback, pagination, requests, logs, CRUD) |
+| [`index.html`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.html) | 479 | 31.1 | Main player SPA shell (Auth, Quest Hub, Practice, Battle Canvas, Tracker, Maps, Skill Tree, Settings) |
+| [`index.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.js) | 10,387 | 413.5 | Game loop, 16-room engine, sprite/animation rendering, physics, save profiles, auth flows, achievements, Hub UI |
+| [`js/admin.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/admin.js) | 2,231 | 99.4 | Admin Console client controller (Supabase RPC + local server fallback, pagination, requests, logs, CRUD) |
 | [`js/arena.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/arena.js) | 101 | 3.3 | Battle arena biome canvas backdrop rendering themes |
 | [`js/audio.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/audio.js) | 974 | 33.2 | Procedural Web Audio synthesizer: SFX + adaptive BGM (ambient explore, chiptune-rock battle, complextro-classical boss) |
 | [`js/cards.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/cards.js) | 157 | 9.5 | CARD_LIBRARY definitions, mana costs, dynamic damage/buff descriptions, and card role metadata |
@@ -301,7 +306,7 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 | [`js/utils.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/utils.js) | 30 | 0.6 | Shared collision polygon, array, and canvas helper utilities |
 | [`scripts/build-questions.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/scripts/build-questions.js) | 109 | 4.3 | Validates data/questions.json schema/coverage, compiles js/data/questions.js, and triggers doc sync |
 | [`serve-local.cmd`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/serve-local.cmd) | 5 | 0.1 | Windows one-click launcher for serve-local.ps1 |
-| [`serve-local.ps1`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/serve-local.ps1) | 1,948 | 87.9 | Zero-dependency PowerShell HTTP server with PBKDF2-SHA256 Auth API, Admin API, and LAN 1v1 Multiplayer API |
+| [`serve-local.ps1`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/serve-local.ps1) | 2,022 | 92.1 | Zero-dependency PowerShell HTTP server with PBKDF2-SHA256 Auth API, Admin API, and LAN 1v1 Multiplayer API |
 | [`supabase-config.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase-config.js) | 5 | 0.1 | Supabase project URL and publishable/anon key configuration |
 | [`supabase/migration-1v1-leaderboard.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-1v1-leaderboard.sql) | 235 | 10.4 | Supabase SQL schema / migration script |
 | [`supabase/migration-admin-console.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-admin-console.sql) | 849 | 35.0 | Supabase SQL schema / migration script |
@@ -310,6 +315,7 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 | [`supabase/migration-password-auth.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-password-auth.sql) | 634 | 21.3 | Supabase SQL schema / migration script |
 | [`supabase/migration-profile-pin.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-profile-pin.sql) | 164 | 5.0 | Supabase SQL schema / migration script |
 | [`supabase/migration-rate-limiting.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-rate-limiting.sql) | 490 | 17.2 | Supabase SQL schema / migration script |
+| [`supabase/migration-security-safety.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-security-safety.sql) | 423 | 16.4 | Supabase SQL schema / migration script |
 | [`supabase/migration-unique-username-no-password.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-unique-username-no-password.sql) | 243 | 7.2 | Supabase SQL schema / migration script |
 | [`supabase/schema.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/schema.sql) | 493 | 18.0 | Supabase SQL schema / migration script |
 <!-- AUTO:END:inventory -->
@@ -340,6 +346,22 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 <!-- AUTO:START:revisions -->
 | Timestamp | Trigger | Changed Areas / Files | Revision Summary |
 | :--- | :--- | :--- | :--- |
+| `2026-11-27 14:24:44` | `manual` | Documentation Sync | Polished security banner button typography and finalized security safety verification |
+| `2026-11-27 14:23:44` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
+| `2026-11-27 14:20:51` | `manual` | Documentation Sync | Implemented user-facing data safety warnings, password strength meter, failed-login & temp-password alerts, shared-PC wipe, admin security notice broadcast, and HTTP security headers |
+| `2026-11-27 14:20:30` | `agent-edit` | Documentation/Config (`CHANGES.md`) | Auto-synced after agent update to `CHANGES.md`. |
+| `2026-11-27 14:20:16` | `agent-edit` | Documentation/Config (`SUPABASE_SETUP.md`) | Auto-synced after agent update to `SUPABASE_SETUP.md`. |
+| `2026-11-27 14:19:12` | `agent-edit` | Admin Console (`js/admin.js`) | Auto-synced after agent update to `js/admin.js`. |
+| `2026-11-27 14:18:08` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-27 14:17:29` | `agent-edit` | Admin Console (`css/admin.css`) | Auto-synced after agent update to `css/admin.css`. |
+| `2026-11-27 14:17:26` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
+| `2026-11-27 14:17:23` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-27 14:16:49` | `agent-edit` | Admin Console (`admin.html`) | Auto-synced after agent update to `admin.html`. |
+| `2026-11-27 14:16:38` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-27 14:15:07` | `agent-edit` | Auth, Backend & SQL Schema (`serve-local.ps1`) | Auto-synced after agent update to `serve-local.ps1`. |
+| `2026-11-27 14:14:58` | `agent-edit` | Documentation Sync | Auto-synced after agent update to `_headers`. |
+| `2026-11-27 14:14:31` | `agent-edit` | Auth, Backend & SQL Schema (`supabase/migration-security-safety.sql`) | Auto-synced after agent update to `supabase/migration-security-safety.sql`. |
+| `2026-11-27 14:13:28` | `agent-edit` | Documentation Sync | Auto-synced after agent update to `_headers`. |
 | `2026-11-27 13:45:01` | `manual` | Documentation Sync | Defer multiplayer network connection until opening 1v1 Multiplayer so solo players generate zero lobby traffic |
 | `2026-11-27 13:44:49` | `agent-edit` | 1v1 Multiplayer (`js/mp-ui.js`) | Auto-synced after agent update to `js/mp-ui.js`. |
 | `2026-11-27 13:43:57` | `manual` | Documentation Sync | Implemented full client & server rate limiting, exponential backoff, lazy multiplayer sockets, and SQL rate-limit migration |
@@ -364,8 +386,4 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 | `2026-11-27 13:28:28` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
 | `2026-11-27 13:11:54` | `build-questions` | Documentation Sync | Rebuilt question bank (240 questions: Y1:45 Y2:86 Y3:89 Y4:20). |
 | `2026-11-27 13:11:53` | `manual` | Documentation Sync | Initial generation of live auto-updating Capstone Study Documentation |
-| `2026-11-27 13:11:53` | `baseline-sync` | Exclusive Active Skills, Battle Panel Layout | Removed standalone Ultimate move; moved 3–5 consecutive correct streak scaling (1.0× / 1.25× / 1.5×) directly onto Exclusive Active Skills and fixed battle `.actions` full-width grid alignment. |
-| `2026-11-26 (Prior Milestone)` | `milestone` | Admin Console, Question Bank Pagination, Activity Log | Added comprehensive standalone Admin Console (`admin.html`, `js/admin.js`, `migration-admin-console.sql`), non-existent forgot-password rejection, persistent Activity Log, and Question Bank page 1..N pagination. |
-| `2026-11-25 (Prior Milestone)` | `milestone` | Adaptive BGM Audio & Room 02 Collisions | Added adaptive Web Audio BGM (ambient menu/explore, chiptune-rock battle, complextro-breakcore-classical boss themes) and fixed Room 02 platform/wall watertight collisions. |
-| `2026-11-24 (Prior Milestone)` | `milestone` | Academic Year Restrictions & Password Auth | Restored bcrypt/PBKDF2 password authentication (`migration-password-auth.sql`) and enforced Academic Year 1–4 progression filtering with Admin-approved year change requests. |
 <!-- AUTO:END:revisions -->

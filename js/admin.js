@@ -35,6 +35,7 @@
     EXPORT_QUESTIONS: 'Downloaded Questions',
     EXPORT_ACCOUNTS: 'Downloaded Accounts CSV',
     EXPORT_BACKUP: 'Downloaded Full Backup',
+    SECURITY_NOTICE_UPDATED: 'Security Notice',
   };
 
   const TAB_META = {
@@ -87,6 +88,7 @@
     auditLogs: [],
     questionBank: [],
     questionIssues: [],
+    securityNotice: { active: false, severity: 'info', title: '', message: '' },
     // Filters
     userSearch: '',
     userYearFilter: 'ALL',
@@ -562,10 +564,17 @@
     });
   }
 
+  function isLocalRuntimeHost() {
+    const proto = String(global.location?.protocol || '').toLowerCase();
+    const host = String(global.location?.hostname || '').toLowerCase();
+    return proto === 'file:' || host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+  }
+
   async function authenticateAdmin(username, password, mode = 'auto') {
     state.supabaseNeedsMigration = false;
     state.supabaseAuthRejected = false;
     let supabaseCredErr = null;
+    const allowLocalDevFallback = isLocalRuntimeHost();
 
     if (mode === 'local') {
       try {
@@ -573,7 +582,7 @@
         return { provider: 'local', token: data.admin_token, admin: data.admin };
       } catch (err) {
         if (!err.unavailable) throw err;
-        if (username.trim().toLowerCase() === 'sysadmin' && password === 'bytebound-admin') {
+        if (allowLocalDevFallback && username.trim().toLowerCase() === 'sysadmin' && password === 'bytebound-admin') {
           return { provider: 'offline', token: 'offline-dev-session', admin: { username: 'sysadmin', role: 'admin' } };
         }
         throw new Error('Local server is not running. Start serve-local.cmd first.');
@@ -612,8 +621,8 @@
       if (!err.unavailable) throw err;
     }
 
-    // 3. Static browser fallback when Local Server isn't running (e.g. file://)
-    if (username.trim().toLowerCase() === 'sysadmin' && password === 'bytebound-admin') {
+    // 3. Static browser fallback only on localhost/file:// when Local Server isn't running
+    if (allowLocalDevFallback && username.trim().toLowerCase() === 'sysadmin' && password === 'bytebound-admin') {
       return {
         provider: 'offline',
         token: 'offline-dev-session',
@@ -667,6 +676,9 @@
       state.mpPlayers = Array.isArray(data.mpPlayers) ? data.mpPlayers : [];
       state.mpRooms = Array.isArray(data.mpRooms) ? data.mpRooms : [];
       serverAudits = Array.isArray(data.auditLogs) ? data.auditLogs : [];
+      state.securityNotice = data.securityNotice && typeof data.securityNotice === 'object'
+        ? data.securityNotice
+        : { active: false, severity: 'info', title: '', message: '' };
       state.arcadeLeaderboard = await fetchSupabaseTable('leaderboard_entries', '?select=*&order=score.desc&limit=100');
       if (!state.pvpLeaderboard.length) {
         state.pvpLeaderboard = await fetchSupabaseTable('pvp_leaderboard_entries', '?select=*&order=rating.desc&limit=100');
@@ -678,6 +690,9 @@
       primaryResets = Array.isArray(data.resetRequests) ? data.resetRequests : [];
       primaryYearReqs = Array.isArray(data.yearRequests) ? data.yearRequests : [];
       serverAudits = Array.isArray(data.auditLogs) ? data.auditLogs : [];
+      state.securityNotice = data.securityNotice && typeof data.securityNotice === 'object'
+        ? data.securityNotice
+        : { active: false, severity: 'info', title: '', message: '' };
       state.arcadeLeaderboard = await fetchSupabaseTable('leaderboard_entries', '?select=*&order=score.desc&limit=100');
       state.pvpLeaderboard = await fetchSupabaseTable('pvp_leaderboard_entries', '?select=*&order=rating.desc&limit=100');
       state.mpRooms = await fetchSupabaseTable('multiplayer_rooms', '?select=*&order=updated_at.desc&limit=50');
@@ -686,6 +701,12 @@
       primaryUsers = scanOfflineLocalStorageUsers();
       primaryResets = readLocalPendingList('bytebound-pending-resets-v1');
       primaryYearReqs = readLocalPendingList('bytebound-pending-year-requests-v1');
+      try {
+        const storedNotice = JSON.parse(localStorage.getItem('bytebound-security-notice-v1') || 'null');
+        state.securityNotice = storedNotice && typeof storedNotice === 'object'
+          ? storedNotice
+          : { active: false, severity: 'info', title: '', message: '' };
+      } catch {}
       state.arcadeLeaderboard = await fetchSupabaseTable('leaderboard_entries', '?select=*&order=score.desc&limit=100');
       state.pvpLeaderboard = await fetchSupabaseTable('pvp_leaderboard_entries', '?select=*&order=rating.desc&limit=100');
     }
@@ -940,6 +961,45 @@
           </div>
         </section>
       </div>
+
+      <section class="adm-panel adm-security-card">
+        <header class="adm-panel-head">
+          <div>
+            <h3>System Security &amp; Data-Safety Notice Broadcast</h3>
+            <small>Notify all students across Login &amp; Game screens immediately if an account leak or maintenance alert occurs</small>
+          </div>
+          <span class="adm-pill ${state.securityNotice?.active ? (state.securityNotice.severity === 'critical' ? 'is-danger' : 'is-warn') : 'is-ok'}">
+            ${state.securityNotice?.active ? `LIVE (${esc(String(state.securityNotice.severity || 'info').toUpperCase())})` : 'NO ACTIVE ALERT'}
+          </span>
+        </header>
+        <div class="adm-panel-body">
+          <div class="adm-security-form">
+            <div class="adm-security-row">
+              <label class="adm-field">
+                <span>Severity</span>
+                <select class="adm-select" id="admSecuritySeverity">
+                  <option value="info" ${state.securityNotice?.severity === 'info' ? 'selected' : ''}>Info</option>
+                  <option value="warning" ${state.securityNotice?.severity === 'warning' ? 'selected' : ''}>Warning</option>
+                  <option value="critical" ${state.securityNotice?.severity === 'critical' ? 'selected' : ''}>Critical Incident</option>
+                </select>
+              </label>
+              <label class="adm-field">
+                <span>Banner Title</span>
+                <input class="adm-input" id="admSecurityTitle" type="text" maxlength="120" value="${esc(state.securityNotice?.title || '')}" placeholder="e.g. Security Notice: Change Your Password Immediately" />
+              </label>
+            </div>
+            <label class="adm-field">
+              <span>User Instructions</span>
+              <textarea class="adm-textarea" id="admSecurityMessage" rows="2" maxlength="400" placeholder="Explain clearly what happened and what students should do...">${esc(state.securityNotice?.message || '')}</textarea>
+            </label>
+            <div class="adm-security-actions">
+              <button class="adm-btn adm-btn-primary adm-btn-sm" type="button" id="admPublishSecurityNoticeBtn">Publish Banner</button>
+              <button class="adm-btn adm-btn-secondary adm-btn-sm" type="button" id="admTemplateSecurityNoticeBtn">Load Data-Safety Alert Template</button>
+              <button class="adm-btn adm-btn-danger-outline adm-btn-sm" type="button" id="admClearSecurityNoticeBtn">Clear Active Notice</button>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section class="adm-panel">
         <header class="adm-panel-head">
@@ -1857,6 +1917,10 @@
   }
 
   function bindEvents() {
+    const defaultHintEl = $('adminDefaultCredHint');
+    if (defaultHintEl && !isLocalRuntimeHost()) {
+      defaultHintEl.hidden = true;
+    }
     $('adminLoginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = $('adminLoginSubmit');
@@ -1918,6 +1982,43 @@
       const actBtn = e.target.closest('[data-adm-act]');
       if (actBtn) {
         await handleAction(actBtn.dataset.admAct, actBtn);
+        return;
+      }
+
+      if (e.target.id === 'admTemplateSecurityNoticeBtn') {
+        if ($('admSecuritySeverity')) $('admSecuritySeverity').value = 'critical';
+        if ($('admSecurityTitle')) $('admSecurityTitle').value = 'Security Advisory: Update Your Password';
+        if ($('admSecurityMessage')) $('admSecurityMessage').value = 'We detected unusual login activity. Please open Settings and change your password now, do not reuse personal passwords, and log out on shared lab PCs.';
+        return;
+      }
+
+      if (e.target.id === 'admPublishSecurityNoticeBtn' || e.target.id === 'admClearSecurityNoticeBtn') {
+        const isClear = e.target.id === 'admClearSecurityNoticeBtn';
+        const severity = $('admSecuritySeverity')?.value || 'info';
+        const title = isClear ? '' : ($('admSecurityTitle')?.value.trim() || '');
+        const message = isClear ? '' : ($('admSecurityMessage')?.value.trim() || '');
+        if (!isClear && !title && !message) {
+          showToast('Enter a banner title or message before publishing.', 'err');
+          return;
+        }
+        try {
+          let nextNotice = { active: !isClear, severity, title, message, updated_at: new Date().toISOString() };
+          if (state.provider === 'local') {
+            const res = await postLocalAdmin('set-security-notice', { adminToken: state.token, active: !isClear, severity, title, message });
+            if (res?.notice) nextNotice = res.notice;
+          } else if (state.provider === 'supabase') {
+            const res = await callSupabaseRpc('admin_set_security_notice', { p_admin_token: state.token, p_active: !isClear, p_severity: severity, p_title: title, p_message: message });
+            if (res?.notice) nextNotice = res.notice;
+          } else {
+            try { localStorage.setItem('bytebound-security-notice-v1', JSON.stringify(nextNotice)); } catch {}
+            pushLocalAudit('SECURITY_NOTICE_UPDATED', 'System Banner', isClear ? 'Cleared security notice' : `Published ${severity}: ${title}`);
+          }
+          state.securityNotice = nextNotice;
+          showToast(isClear ? 'Cleared active security banner.' : 'Published security banner to all players.', 'ok');
+          await refreshTelemetry();
+        } catch (err) {
+          showToast(err.message, 'err');
+        }
         return;
       }
 
