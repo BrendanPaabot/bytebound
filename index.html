@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Bytebound · CITCS Quest</title>
   <script src="js/font.js?v=2"></script>
-  <link rel="stylesheet" href="css/styles.css?v=48" />
+  <link rel="stylesheet" href="css/styles.css?v=49" />
 </head>
 <body>
   <div class="global-security-banner" id="globalSecurityBanner" role="status" aria-live="polite" hidden>
@@ -87,13 +87,13 @@
             </select>
             <small class="login-field-hint">Your Year Level locks after Sign Up to keep quizzes and rankings fair. You can request a year change from an admin later in Settings.</small>
           </div>
+          <p class="login-status" id="loginStatus" aria-live="polite"></p>
+          <p class="login-error" id="loginError" role="alert" aria-live="polite"></p>
+          <button class="login-submit" id="loginSubmitButton" type="submit">Log In</button>
           <label class="login-shared-pc" id="sharedPcWrap">
             <input type="checkbox" id="sharedPcCheckbox" />
             <span>Shared computer: clear local study cache when I log out</span>
           </label>
-          <p class="login-status" id="loginStatus" aria-live="polite"></p>
-          <p class="login-error" id="loginError" role="alert" aria-live="polite"></p>
-          <button class="login-submit" id="loginSubmitButton" type="submit">Log In</button>
           <button type="button" class="login-back-link" id="backToLoginBtn" hidden>← Back to Log In</button>
         </form>
         <div class="login-safety-footer">

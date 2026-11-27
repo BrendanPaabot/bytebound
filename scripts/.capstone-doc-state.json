@@ -1,13 +1,13 @@
 {
-  "lastUpdated": "2026-11-27 15:37:21",
+  "lastUpdated": "2026-11-27 15:57:09",
   "fileHashes": {
     "CHANGES.md": "9d655e9fe375aae04760565e24086b849c26961191f76c7438cf1ff03f948ffe",
     "SUPABASE_SETUP.md": "25a0aec13efce6c04dbb93941741a7321e934dae05ce0617a566ae83addbdc4b",
     "admin.html": "969bb7e013775a164921f64046e02d8693cd2f3269906f5ee03d8972f3ae29e0",
     "css/admin.css": "e90af5d80a8a673fb93e520f76190bffbfd6ac6cb76e3f087c75280e886163b9",
-    "css/styles.css": "3e6bea0b618b2b4c8c77a0182e84db2cfe498c8b1583b2675e4016164679a5d2",
+    "css/styles.css": "37cd46c06cdeb756e136d05306a60b0fe14f35890beca27abee8c7b6c1f3c039",
     "data/questions.json": "82e7eb5f183ffcf4e57d61756fab7dead7fc84bb6a0d3de0b4df4ea991fec9a1",
-    "index.html": "253e34cacf75e2949bc5fea4705112a5e0bb974c5217b27f62d1d135aa21b2aa",
+    "index.html": "1a799cb74b83b008674950194b7d4b4d705fb359397b530c33372f6c1c6577ff",
     "index.js": "3145668a33dbb2bdc6a3f5a6cbc8dcc768dc785daf792242967dd3dbe4ca6d58",
     "js/admin.js": "6794de5220ed929be1a9c76d496b6a912e3e7e08e8bde541cbc68097f5a6c9dd",
     "js/arena.js": "d3a6cbd16e65ab62f672be2efd2101ead7b406ebbc548be1cb5218e5c37b80ed",
@@ -45,6 +45,48 @@
     "supabase/schema.sql": "4e569da949e958e77440b2128d9948af420471a015719ccbfc8864f58a0c423a"
   },
   "revisionHistory": [
+    {
+      "timestamp": "2026-11-27 15:47:27",
+      "trigger": "manual",
+      "areas": "Documentation Sync",
+      "summary": "Moved Shared Computer checkbox below Log In button on authentication card"
+    },
+    {
+      "timestamp": "2026-11-27 15:47:10",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`index.html`)",
+      "summary": "Auto-synced after agent update to `index.html`."
+    },
+    {
+      "timestamp": "2026-11-27 15:45:56",
+      "trigger": "manual",
+      "areas": "Documentation Sync",
+      "summary": "Fixed Shared Computer checkbox alignment and matched login safety font to Bytebound UI typography"
+    },
+    {
+      "timestamp": "2026-11-27 15:45:32",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`css/styles.css`)",
+      "summary": "Auto-synced after agent update to `css/styles.css`."
+    },
+    {
+      "timestamp": "2026-11-27 15:44:20",
+      "trigger": "manual",
+      "areas": "Documentation Sync",
+      "summary": "Fixed Shared Computer checkbox alignment and matched login safety font to Bytebound UI typography"
+    },
+    {
+      "timestamp": "2026-11-27 15:43:54",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`index.html`)",
+      "summary": "Auto-synced after agent update to `index.html`."
+    },
+    {
+      "timestamp": "2026-11-27 15:43:40",
+      "trigger": "agent-edit",
+      "areas": "UI Shell & Styling (`css/styles.css`)",
+      "summary": "Auto-synced after agent update to `css/styles.css`."
+    },
     {
       "timestamp": "2026-11-27 14:24:44",
       "trigger": "manual",
@@ -302,12 +344,6 @@
       "trigger": "milestone",
       "areas": "Adaptive BGM Audio & Room 02 Collisions",
       "summary": "Added adaptive Web Audio BGM (ambient menu/explore, chiptune-rock battle, complextro-breakcore-classical boss themes) and fixed Room 02 platform/wall watertight collisions."
-    },
-    {
-      "timestamp": "2026-11-24 (Prior Milestone)",
-      "trigger": "milestone",
-      "areas": "Academic Year Restrictions & Password Auth",
-      "summary": "Restored bcrypt/PBKDF2 password authentication (`migration-password-auth.sql`) and enforced Academic Year 1–4 progression filtering with Admin-approved year change requests."
     }
   ]
 }

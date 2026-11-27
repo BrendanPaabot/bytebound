@@ -7,13 +7,13 @@
 <!-- AUTO:START:snapshot -->
 | Metric | Live Value |
 | :--- | :--- |
-| **Last Auto-Synced** | `2026-11-27 15:37:21` |
-| **Git Branch / HEAD** | `main` @ `7d816c3` |
-| **Tracked Source Modules** | `42` files (`55,719` lines, `2012.1 KB`) |
+| **Last Auto-Synced** | `2026-11-27 15:57:09` |
+| **Git Branch / HEAD** | `main` @ `3cbcbc3` |
+| **Tracked Source Modules** | `42` files (`55,735` lines, `2012.7 KB`) |
 | **Question Bank Coverage** | `240` questions across `4` disciplines & `20` topics |
 | **Campaign Structure** | `16` authored rooms · `RUN_LENGTH = 32` (2 campaign loops) |
 | **Achievements** | `48` tracked milestones |
-| **Active Asset Cache Versions** | `styles.css?v=48`, `js/audio.js?v=15`, `js/cards.js?v=9`, `js/combat.js?v=74`, `js/practice.js?v=12`, `index.js?v=180`, `js/tutorials.js?v=15`, `admin.css?v=6`, `admin.js?v=8` |
+| **Active Asset Cache Versions** | `styles.css?v=49`, `js/audio.js?v=15`, `js/cards.js?v=9`, `js/combat.js?v=74`, `js/practice.js?v=12`, `index.js?v=180`, `js/tutorials.js?v=15`, `admin.css?v=6`, `admin.js?v=8` |
 <!-- AUTO:END:snapshot -->
 
 ---
@@ -280,7 +280,7 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 | [`SUPABASE_SETUP.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/SUPABASE_SETUP.md) | 24 | 3.2 | Cloud PostgreSQL and Realtime setup instructions |
 | [`admin.html`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/admin.html) | 146 | 6.4 | Standalone Administrator Management Console shell and layout containers |
 | [`css/admin.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/admin.css) | 1,165 | 21.6 | Styling and responsive grid layouts for the standalone Admin Management Console |
-| [`css/styles.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/styles.css) | 14,920 | 400.6 | Complete responsive design system (Dark/Light themes, battle cards, skill tree, portrait/landscape media queries) |
+| [`css/styles.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/styles.css) | 14,936 | 401.1 | Complete responsive design system (Dark/Light themes, battle cards, skill tree, portrait/landscape media queries) |
 | [`data/questions.json`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/data/questions.json) | 3,369 | 125.9 | Authoritative 240-question curriculum bank tagged by category, topic, year (1–4), and difficulty |
 | [`index.html`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.html) | 479 | 31.1 | Main player SPA shell (Auth, Quest Hub, Practice, Battle Canvas, Tracker, Maps, Skill Tree, Settings) |
 | [`index.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.js) | 10,387 | 413.5 | Game loop, 16-room engine, sprite/animation rendering, physics, save profiles, auth flows, achievements, Hub UI |
@@ -346,6 +346,13 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 <!-- AUTO:START:revisions -->
 | Timestamp | Trigger | Changed Areas / Files | Revision Summary |
 | :--- | :--- | :--- | :--- |
+| `2026-11-27 15:47:27` | `manual` | Documentation Sync | Moved Shared Computer checkbox below Log In button on authentication card |
+| `2026-11-27 15:47:10` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-27 15:45:56` | `manual` | Documentation Sync | Fixed Shared Computer checkbox alignment and matched login safety font to Bytebound UI typography |
+| `2026-11-27 15:45:32` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
+| `2026-11-27 15:44:20` | `manual` | Documentation Sync | Fixed Shared Computer checkbox alignment and matched login safety font to Bytebound UI typography |
+| `2026-11-27 15:43:54` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-27 15:43:40` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
 | `2026-11-27 14:24:44` | `manual` | Documentation Sync | Polished security banner button typography and finalized security safety verification |
 | `2026-11-27 14:23:44` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
 | `2026-11-27 14:20:51` | `manual` | Documentation Sync | Implemented user-facing data safety warnings, password strength meter, failed-login & temp-password alerts, shared-PC wipe, admin security notice broadcast, and HTTP security headers |
@@ -379,11 +386,4 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 | `2026-11-27 13:40:38` | `agent-edit` | 1v1 Multiplayer (`js/mp-network.js`) | Auto-synced after agent update to `js/mp-network.js`. |
 | `2026-11-27 13:40:06` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
 | `2026-11-27 13:39:11` | `agent-edit` | Auth, Backend & SQL Schema (`serve-local.ps1`) | Auto-synced after agent update to `serve-local.ps1`. |
-| `2026-11-27 13:38:58` | `agent-edit` | Auth, Backend & SQL Schema (`supabase/migration-rate-limiting.sql`) | Auto-synced after agent update to `supabase/migration-rate-limiting.sql`. |
-| `2026-11-27 13:38:55` | `agent-edit` | Auth, Backend & SQL Schema (`serve-local.ps1`) | Auto-synced after agent update to `serve-local.ps1`. |
-| `2026-11-27 13:29:06` | `manual` | Documentation Sync | Updated login, sign-up, and password input fonts to case-distinct monospace/sans-serif for clear uppercase/lowercase visibility |
-| `2026-11-27 13:28:33` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-27 13:28:28` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
-| `2026-11-27 13:11:54` | `build-questions` | Documentation Sync | Rebuilt question bank (240 questions: Y1:45 Y2:86 Y3:89 Y4:20). |
-| `2026-11-27 13:11:53` | `manual` | Documentation Sync | Initial generation of live auto-updating Capstone Study Documentation |
 <!-- AUTO:END:revisions -->
