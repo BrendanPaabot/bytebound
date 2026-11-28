@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Bytebound · CITCS Quest</title>
   <script src="js/font.js?v=2"></script>
-  <link rel="stylesheet" href="css/styles.css?v=59" />
+  <link rel="stylesheet" href="css/styles.css?v=61" />
 </head>
 <body>
   <div class="global-security-banner" id="globalSecurityBanner" role="status" aria-live="polite" hidden>
@@ -65,13 +65,8 @@
               <button type="button" class="login-forgot-link" id="forgotPasswordBtn">Forgot password?</button>
             </div>
           </div>
-          <div class="login-field" id="forgotNoteWrap" hidden>
-            <label for="forgotNoteInput">Note for Admin (optional)</label>
-            <input id="forgotNoteInput" name="forgotNote" type="text" maxlength="140" placeholder="e.g. Forgot password, please reset" />
-            <small class="login-field-hint">Sends a reset request to the Admin Panel so an administrator can give you a temporary password.</small>
-          </div>
           <div class="login-field" id="confirmPasswordWrap" hidden>
-            <label for="confirmPasswordInput">Confirm Password</label>
+            <label for="confirmPasswordInput" id="confirmPasswordLabel">Confirm Password</label>
             <div class="login-password-wrap">
               <input id="confirmPasswordInput" name="confirmPassword" type="password" minlength="6" maxlength="72" autocomplete="new-password" placeholder="Re-enter your password" />
               <button type="button" class="login-password-toggle" id="confirmPasswordToggleBtn" aria-label="Show confirm password" aria-pressed="false">Show</button>
@@ -87,6 +82,28 @@
             </select>
             <small class="login-field-hint">Your Year Level locks after Sign Up to keep quizzes and rankings fair. You can request a year change from an admin later in Settings.</small>
           </div>
+          <div class="login-field login-recovery-box" id="registerRecoveryWrap" hidden>
+            <div class="login-recovery-head">
+              <strong>Security Recovery Questions (Required · 2 or 3)</strong>
+              <small>Answer at least 2 different questions so you can reset your own password if you ever forget it—even if you forget one answer.</small>
+            </div>
+            <div class="login-recovery-slot">
+              <label for="regSecQ1">Question #1</label>
+              <select id="regSecQ1" class="login-select"></select>
+              <input id="regSecA1" type="text" maxlength="80" autocomplete="off" placeholder="Your answer (2–80 chars, e.g. Baguio)" />
+            </div>
+            <div class="login-recovery-slot">
+              <label for="regSecQ2">Question #2</label>
+              <select id="regSecQ2" class="login-select"></select>
+              <input id="regSecA2" type="text" maxlength="80" autocomplete="off" placeholder="Your answer (2–80 chars, e.g. Bantay)" />
+            </div>
+            <div class="login-recovery-slot" id="regSecQ3Wrap" hidden>
+              <label for="regSecQ3">Question #3 (Extra Backup)</label>
+              <select id="regSecQ3" class="login-select"></select>
+              <input id="regSecA3" type="text" maxlength="80" autocomplete="off" placeholder="Optional 3rd answer for extra backup" />
+            </div>
+            <button type="button" class="login-recovery-toggle-btn" id="addThirdSecQBtn">+ Add 3rd Backup Question (Recommended)</button>
+          </div>
           <p class="login-status" id="loginStatus" aria-live="polite"></p>
           <p class="login-error" id="loginError" role="alert" aria-live="polite"></p>
           <button class="login-submit" id="loginSubmitButton" type="submit">Log In</button>
@@ -94,7 +111,6 @@
             <input type="checkbox" id="sharedPcCheckbox" />
             <span>Shared computer: clear local study cache when I log out</span>
           </label>
-          <button type="button" class="login-back-link" id="backToLoginBtn" hidden>← Back to Log In</button>
         </form>
         <div class="login-safety-footer">
           <p class="login-note" id="loginNote">Never reuse passwords from email, social media, or school portals. Always click Log Out on shared lab PCs.</p>
@@ -117,7 +133,6 @@
         <span class="brand-subtitle">CITCS QUEST / LEARN TO FIGHT</span>
       </div>
       <div class="profile-actions">
-        <button class="topbar-sp-button" id="topbarSkillTreeButton" type="button" hidden title="Open Skill Tree (U)"><span class="play-sp-diamond" aria-hidden="true">◆</span><span id="topbarSkillTreeText">1 SP · [U]</span></button>
         <button class="topbar-tour-button" id="topbarTourButton" type="button" aria-label="Replay page tutorial" title="Replay page tutorial">? Tour</button>
         <button type="button" class="topbar-title-slot" id="playerTitleSlot" hidden title="Manage Prestige Titles [O]"></button>
         <span class="player-badge" id="playerBadge">KNIGHT</span>
@@ -443,8 +458,8 @@
           <p>Passwords are never stored or readable in plain text—accounts use per-user salted bcrypt / PBKDF2-SHA256 hashes, and active session tokens clear automatically when your tab closes.</p>
         </div>
         <div class="privacy-point">
-          <strong>3. Leak Prevention &amp; Breach Alerts</strong>
-          <p>Always choose a unique password you do not reuse anywhere else. If failed logins happen on your account, Bytebound warns you upon sign-in, and Admins can publish an urgent security banner or force a password change.</p>
+          <strong>3. Self-Service Recovery &amp; Breach Alerts</strong>
+          <p>Choose a unique password and 2–3 personal security questions at sign-up. Both passwords and recovery answers are stored only as salted hashes—administrators cannot view or change your password, and Bytebound warns you if failed logins occur.</p>
         </div>
         <div class="privacy-point">
           <strong>4. Shared Computer Safety</strong>
@@ -454,6 +469,95 @@
       <footer class="privacy-modal-foot">
         <button type="button" class="login-submit" id="ackPrivacyModalBtn">Got It — Stay Safe</button>
       </footer>
+    </section>
+  </div>
+
+  <div class="forgot-modal-backdrop" id="forgotPasswordModal" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="forgotModalTitle">
+    <section class="forgot-modal-card">
+      <header class="forgot-modal-head">
+        <div>
+          <span class="eyebrow">Account Recovery</span>
+          <h2 id="forgotModalTitle">Reset your password</h2>
+          <p class="forgot-modal-subtitle" id="forgotModalSubtitle">Enter your username first so we can verify your identity.</p>
+        </div>
+        <button type="button" class="forgot-modal-close" id="closeForgotModalBtn" aria-label="Close password recovery">✕</button>
+      </header>
+
+      <ol class="forgot-stepper" id="forgotStepper" aria-label="Password recovery progress">
+        <li class="forgot-step-item is-active" data-forgot-step="lookup">
+          <span class="forgot-step-num" aria-hidden="true">1</span>
+          <span>Username</span>
+        </li>
+        <li class="forgot-step-item" data-forgot-step="verify">
+          <span class="forgot-step-num" aria-hidden="true">2</span>
+          <span>Verify Identity</span>
+        </li>
+        <li class="forgot-step-item" data-forgot-step="reset">
+          <span class="forgot-step-num" aria-hidden="true">3</span>
+          <span>New Password</span>
+        </li>
+      </ol>
+
+      <form class="forgot-modal-form" id="forgotModalForm" novalidate>
+        <div class="forgot-pane" id="forgotStepLookup">
+          <div class="forgot-field">
+            <label for="forgotUsernameInput">Account Username</label>
+            <input id="forgotUsernameInput" type="text" maxlength="24" autocomplete="username" placeholder="Enter your username" />
+            <p class="forgot-hint">We will load the security questions you saved at sign-up.</p>
+          </div>
+        </div>
+
+        <div class="forgot-pane" id="forgotStepVerify" hidden>
+          <div class="forgot-account-pill">
+            <span>Account: <strong id="forgotUserDisplay"></strong></span>
+            <button type="button" class="forgot-inline-link" id="forgotChangeUserBtn">Change</button>
+          </div>
+          <div class="forgot-field">
+            <label for="forgotSecQSelect">Choose a Security Question</label>
+            <select id="forgotSecQSelect"></select>
+            <p class="forgot-hint">Forgot one? Switch to another saved question above.</p>
+          </div>
+          <div class="forgot-field">
+            <label for="forgotSecAnswerInput">Your Answer</label>
+            <input id="forgotSecAnswerInput" type="text" maxlength="80" autocomplete="off" placeholder="Enter your saved answer (not case-sensitive)" />
+          </div>
+        </div>
+
+        <div class="forgot-pane" id="forgotStepReset" hidden>
+          <div class="forgot-verified-badge">
+            <span>✓ Identity verified for <strong id="forgotVerifiedUser"></strong></span>
+          </div>
+          <div class="forgot-field">
+            <label for="forgotNewPasswordInput">New Password</label>
+            <div class="login-password-wrap">
+              <input id="forgotNewPasswordInput" type="password" minlength="6" maxlength="72" autocomplete="new-password" placeholder="Create a new password (min. 6 characters)" />
+              <button type="button" class="login-password-toggle" id="forgotNewPwToggleBtn" aria-label="Show new password" aria-pressed="false">Show</button>
+            </div>
+            <div class="login-pw-strength" id="forgotPwStrengthWrap" hidden aria-live="polite">
+              <div class="login-pw-bars" aria-hidden="true"><span></span><span></span><span></span></div>
+              <div class="login-pw-copy">
+                <strong id="forgotPwStrengthLabel">Password strength</strong>
+                <small id="forgotPwStrengthTip"></small>
+              </div>
+            </div>
+          </div>
+          <div class="forgot-field">
+            <label for="forgotConfirmPasswordInput">Confirm New Password</label>
+            <div class="login-password-wrap">
+              <input id="forgotConfirmPasswordInput" type="password" minlength="6" maxlength="72" autocomplete="new-password" placeholder="Re-enter your new password" />
+              <button type="button" class="login-password-toggle" id="forgotConfirmPwToggleBtn" aria-label="Show confirm password" aria-pressed="false">Show</button>
+            </div>
+          </div>
+        </div>
+
+        <p class="forgot-msg is-status" id="forgotModalStatus" aria-live="polite" hidden></p>
+        <p class="forgot-msg is-error" id="forgotModalError" role="alert" aria-live="polite" hidden></p>
+
+        <footer class="forgot-modal-actions">
+          <button type="button" class="forgot-btn-secondary" id="forgotBackBtn" hidden>← Back</button>
+          <button type="submit" class="forgot-btn-primary" id="forgotSubmitBtn">Continue →</button>
+        </footer>
+      </form>
     </section>
   </div>
 
@@ -477,12 +581,12 @@
   <script src="js/combat.js?v=84"></script>
   <script src="js/quests.js?v=6"></script>
   <script src="js/practice.js?v=16"></script>
-  <script src="js/eventListeners.js?v=26"></script>
+  <script src="js/eventListeners.js?v=27"></script>
   <script src="supabase-config.js?v=1"></script>
   <script src="js/mp-network.js?v=7"></script>
   <script src="js/mp-matchmaking.js?v=9"></script>
   <script src="js/mp-ui.js?v=8"></script>
-  <script src="index.js?v=188"></script>
+  <script src="index.js?v=193"></script>
   <script src="js/tutorials.js?v=19"></script>
 </body>
 </html>

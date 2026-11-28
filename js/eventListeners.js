@@ -25,7 +25,7 @@ function handleKey(rawKey, down, repeat = false) {
   if (typeof window.ByteboundQuests?.isOpen === 'function' && window.ByteboundQuests.isOpen()) {
     if (down && !repeat && (key === 'o' || key === 'escape')) {
       window.ByteboundQuests.closeOverlay();
-    } else if (down && !repeat && key === 'u' && !inLiveMp) {
+    } else if (down && !repeat && key === 'u' && playViewActive && mode !== 'menu' && !inLiveMp) {
       window.ByteboundQuests.closeOverlay();
       if (typeof openSkillTree === 'function') openSkillTree();
     } else if (down && !repeat && (rawKey === 'ArrowLeft' || rawKey === 'ArrowRight')) {
@@ -59,7 +59,7 @@ function handleKey(rawKey, down, repeat = false) {
     if (typeof openWorldMap === 'function') openWorldMap()
     return
   }
-  if (down && !repeat && key === 'u' && appVisible && !inLiveMp) {
+  if (down && !repeat && key === 'u' && playViewActive && mode !== 'menu' && !inLiveMp) {
     const activeEl = document.activeElement;
     if (!(activeEl && activeEl.closest && activeEl.closest('input, textarea, select'))) {
       openSkillTree()

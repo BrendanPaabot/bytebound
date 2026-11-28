@@ -14533,6 +14533,99 @@ body.reduce-motion .app.is-playing .game-panel .actions button.is-exclusive-card
   color: #1d5d66;
 }
 
+.login-recovery-box {
+  display: grid;
+  gap: 10px;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  background: rgba(13, 21, 23, 0.55);
+}
+
+:root:not([data-theme="dark"]) .login-recovery-box {
+  background: rgba(247, 241, 224, 0.75);
+  border-color: #c2b695;
+}
+
+.login-recovery-head {
+  display: grid;
+  gap: 3px;
+}
+
+.login-recovery-head strong {
+  font-size: 13.5px;
+  color: var(--ink);
+}
+
+.login-recovery-slot {
+  display: grid;
+  gap: 6px;
+}
+
+.login-recovery-slot label {
+  margin-bottom: 0;
+}
+
+.login-recovery-toggle-btn {
+  justify-self: start;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: #88d8d0;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+:root:not([data-theme="dark"]) .login-recovery-toggle-btn {
+  color: #1d5d66;
+}
+
+.forgot-user-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: rgba(25, 38, 40, 0.55);
+  font-size: 13.5px;
+}
+
+:root:not([data-theme="dark"]) .forgot-user-bar {
+  background: #f5eedb;
+  border-color: #c2b695;
+}
+
+.settings-recovery-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.settings-recovery-badge {
+  font-size: 12.5px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  color: #7ae59b;
+}
+
+.settings-recovery-badge.is-warn {
+  color: #f6c96e;
+}
+
+:root:not([data-theme="dark"]) .settings-recovery-badge {
+  color: #196134;
+  border-color: #8eb39a;
+}
+
+:root:not([data-theme="dark"]) .settings-recovery-badge.is-warn {
+  color: #8a5600;
+  border-color: #c79a4b;
+}
+
 .settings-pw-box {
   display: grid;
   gap: 10px;
@@ -14552,17 +14645,21 @@ body.reduce-motion .app.is-playing .game-panel .actions button.is-exclusive-card
   gap: 8px;
 }
 
-.settings-pw-grid input {
+.settings-pw-grid input,
+.settings-pw-grid select,
+.login-recovery-slot select {
   width: 100%;
   min-height: 42px;
   padding: 8px 12px;
   border: 2px solid var(--line);
   background: var(--bg-soft, #121b1d);
   color: var(--ink);
-  font-size: 15px;
+  font-size: 14.5px;
 }
 
-:root:not([data-theme="dark"]) .settings-pw-grid input {
+:root:not([data-theme="dark"]) .settings-pw-grid input,
+:root:not([data-theme="dark"]) .settings-pw-grid select,
+:root:not([data-theme="dark"]) .login-recovery-slot select {
   background: #fffdf6;
   border-color: #b7ad93;
   color: #1f2a22;
@@ -14607,12 +14704,13 @@ body.reduce-motion .app.is-playing .game-panel .actions button.is-exclusive-card
   font-synthesis: weight !important;
 }
 
-#forgotNoteInput,
-#forgotNoteInput::placeholder,
 .login-field-hint,
 .login-status,
 .login-error,
 .settings-pw-msg,
+.login-recovery-head small,
+.forgot-user-bar,
+.settings-recovery-badge,
 .global-security-banner span,
 .account-security-alert span,
 .login-pw-copy small,
@@ -14987,6 +15085,433 @@ body.reduce-motion .app.is-playing .game-panel .actions button.is-exclusive-card
 
 .privacy-modal-foot {
   margin-top: 16px;
+}
+
+/* ===== Centered 3-Step Forgot Password Middle Panel ===== */
+.forgot-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 96;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(8, 12, 14, 0.78);
+  backdrop-filter: blur(4px);
+}
+
+.forgot-modal-backdrop[hidden],
+.forgot-pane[hidden],
+.forgot-msg[hidden],
+.forgot-btn-secondary[hidden] {
+  display: none !important;
+}
+
+.forgot-modal-card {
+  width: min(100%, 480px);
+  max-height: 90dvh;
+  overflow-y: auto;
+  padding: 24px 26px;
+  border: 2px solid var(--gold);
+  border-radius: 6px;
+  background: #1a2325;
+  color: #f2eee2;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+}
+
+:root:not([data-theme="dark"]) .forgot-modal-card {
+  background: #faf6eb;
+  color: #1d2822;
+  box-shadow: 0 20px 50px rgba(18, 28, 22, 0.24);
+}
+
+.forgot-modal-card,
+.forgot-modal-card * {
+  font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif !important;
+  text-transform: none !important;
+  font-variant: normal !important;
+  font-synthesis: weight !important;
+}
+
+.forgot-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.forgot-modal-head .eyebrow {
+  display: inline-block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase !important;
+  color: #a9bd8f;
+}
+
+:root:not([data-theme="dark"]) .forgot-modal-head .eyebrow {
+  color: #2f6c56;
+}
+
+.forgot-modal-head h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700 !important;
+  line-height: 1.28;
+  color: inherit;
+}
+
+.forgot-modal-subtitle {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #c2c8be;
+}
+
+:root:not([data-theme="dark"]) .forgot-modal-subtitle {
+  color: #4f5c52;
+}
+
+.forgot-modal-close {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.forgot-modal-close:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+:root:not([data-theme="dark"]) .forgot-modal-close {
+  border-color: #c5bba0;
+}
+
+.forgot-stepper {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 18px 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.forgot-step-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  color: #9ba59f;
+  font-size: 12.5px;
+  font-weight: 600 !important;
+  line-height: 1.25;
+}
+
+:root:not([data-theme="dark"]) .forgot-step-item {
+  border-color: #d6ceb6;
+  background: #f1ecdc;
+  color: #69736b;
+}
+
+.forgot-step-num {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 12px;
+  font-weight: 700 !important;
+}
+
+.forgot-step-item.is-active {
+  border-color: var(--gold);
+  background: rgba(242, 187, 97, 0.14);
+  color: #ffdf9a;
+}
+
+.forgot-step-item.is-active .forgot-step-num {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: #1f1a10;
+}
+
+:root:not([data-theme="dark"]) .forgot-step-item.is-active {
+  border-color: #b77b18;
+  background: #fff2cf;
+  color: #6a4400;
+}
+
+.forgot-step-item.is-done {
+  border-color: rgba(88, 214, 141, 0.55);
+  background: rgba(88, 214, 141, 0.12);
+  color: #84ebad;
+}
+
+.forgot-step-item.is-done .forgot-step-num {
+  border-color: #58d68d;
+  background: #58d68d;
+  color: #0e2416;
+}
+
+:root:not([data-theme="dark"]) .forgot-step-item.is-done {
+  border-color: #79b890;
+  background: #e4f4e9;
+  color: #196134;
+}
+
+:root:not([data-theme="dark"]) .forgot-step-item.is-done .forgot-step-num {
+  border-color: #1c7c45;
+  background: #1c7c45;
+  color: #ffffff;
+}
+
+.forgot-modal-form {
+  display: grid;
+  gap: 14px;
+}
+
+.forgot-pane {
+  display: grid;
+  gap: 14px;
+}
+
+.forgot-field {
+  display: grid;
+  gap: 6px;
+}
+
+.forgot-field label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600 !important;
+  color: inherit;
+}
+
+.forgot-modal-form input,
+.forgot-modal-form select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1.5px solid #6b766c;
+  border-radius: 4px;
+  background: #121a1b;
+  color: #f4f1e6;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.forgot-modal-form input,
+.forgot-modal-form input::placeholder {
+  font-family: 'Cascadia Mono', 'Consolas', 'SFMono-Regular', 'Menlo', 'Liberation Mono', 'Courier New', monospace !important;
+  font-weight: 500 !important;
+  font-size: 15.5px;
+  letter-spacing: 0.02em;
+}
+
+.forgot-modal-form input::placeholder {
+  color: #939d96;
+}
+
+.forgot-modal-form input:focus,
+.forgot-modal-form select:focus {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+  border-color: var(--gold);
+}
+
+:root:not([data-theme="dark"]) .forgot-modal-form input,
+:root:not([data-theme="dark"]) .forgot-modal-form select {
+  border-color: #b7ad93;
+  background: #fffdf7;
+  color: #1d2822;
+}
+
+:root:not([data-theme="dark"]) .forgot-modal-form input::placeholder {
+  color: #778077;
+}
+
+.forgot-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #b2bcb4;
+}
+
+:root:not([data-theme="dark"]) .forgot-hint {
+  color: #556158;
+}
+
+.forgot-account-pill,
+.forgot-verified-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+
+.forgot-account-pill {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+:root:not([data-theme="dark"]) .forgot-account-pill {
+  border-color: #cfc6ae;
+  background: #f2ecdb;
+}
+
+.forgot-verified-badge {
+  justify-content: flex-start;
+  border: 1px solid rgba(88, 214, 141, 0.45);
+  background: rgba(88, 214, 141, 0.12);
+  color: #8cf0b4;
+  font-weight: 600 !important;
+}
+
+:root:not([data-theme="dark"]) .forgot-verified-badge {
+  border-color: #79b890;
+  background: #e5f5ea;
+  color: #196134;
+}
+
+.forgot-inline-link {
+  padding: 2px 6px;
+  border: 0;
+  background: transparent;
+  color: #88d8d0;
+  font-size: 13px;
+  font-weight: 600 !important;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+:root:not([data-theme="dark"]) .forgot-inline-link {
+  color: #1d5d66;
+}
+
+.forgot-modal-form .login-password-wrap input {
+  padding-right: 74px;
+}
+
+.forgot-modal-form .login-password-wrap .login-password-toggle {
+  font-size: 12.5px;
+  font-weight: 600 !important;
+}
+
+.forgot-msg {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 4px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.forgot-msg.is-status {
+  border: 1px solid rgba(136, 216, 208, 0.4);
+  background: rgba(136, 216, 208, 0.1);
+  color: #a6ece4;
+}
+
+:root:not([data-theme="dark"]) .forgot-msg.is-status {
+  border-color: #84beb7;
+  background: #e8f6f4;
+  color: #15535b;
+}
+
+.forgot-msg.is-error {
+  border: 1px solid rgba(240, 154, 135, 0.55);
+  background: rgba(240, 100, 88, 0.14);
+  color: #ffb0a1;
+}
+
+:root:not([data-theme="dark"]) .forgot-msg.is-error {
+  border-color: #d9827b;
+  background: #fdeceb;
+  color: #9e241d;
+}
+
+.forgot-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.forgot-btn-secondary {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 600 !important;
+  cursor: pointer;
+}
+
+.forgot-btn-secondary:hover {
+  border-color: var(--gold);
+}
+
+:root:not([data-theme="dark"]) .forgot-btn-secondary {
+  border-color: #b7ad93;
+}
+
+.forgot-btn-primary {
+  flex: 1 1 auto;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-bottom: 3px solid var(--gold-dark);
+  border-radius: 4px;
+  background: var(--gold);
+  color: var(--gold-text);
+  font-size: 14.5px;
+  font-weight: 700 !important;
+  cursor: pointer;
+}
+
+.forgot-btn-primary:hover {
+  background: var(--start-hover);
+}
+
+.forgot-btn-primary:disabled,
+.forgot-btn-secondary:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+@media (max-width: 520px) {
+  .forgot-modal-card {
+    padding: 20px 18px;
+  }
+  .forgot-stepper {
+    gap: 6px;
+  }
+  .forgot-step-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 7px 8px;
+    font-size: 11.5px;
+  }
 }
 
 /* ===== In-Game HUD Quests Button & Pixelated Claim Crest ===== */

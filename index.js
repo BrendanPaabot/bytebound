@@ -1051,7 +1051,7 @@ async function supabaseAuthRpc(fnName, body, timeoutMs = 6000) {
   const controller = typeof AbortController === 'function' ? new AbortController() : null
   const timer = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : 0
   try {
-    const noRetry = fnName === 'auth_log_in' || fnName === 'auth_sign_up' || fnName === 'auth_request_password_reset' || fnName === 'auth_request_year_change'
+    const noRetry = fnName === 'auth_log_in' || fnName === 'auth_sign_up' || fnName === 'auth_get_security_questions' || fnName === 'auth_verify_security_answer' || fnName === 'auth_reset_password_with_security_question' || fnName === 'auth_request_year_change'
     const response = await supabaseRequest(`rpc/${fnName}`, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -1111,6 +1111,8 @@ async function callTrustedAuthService(action, payload = {}) {
       return supabaseAuthRpc('auth_sign_up', {
         p_username: payload.username,
         p_password: payload.password,
+        p_academic_year: payload.academicYear || 4,
+        p_security_questions: payload.securityQuestions || [],
       })
     }
     if (action === 'login') {
@@ -1143,10 +1145,31 @@ async function callTrustedAuthService(action, payload = {}) {
         p_session_token: payload.sessionToken,
       })
     }
-    if (action === 'forgot_password') {
-      return supabaseAuthRpc('auth_request_password_reset', {
+    if (action === 'get_security_questions') {
+      return supabaseAuthRpc('auth_get_security_questions', {
         p_username: payload.username,
-        p_note: payload.note || '',
+      })
+    }
+    if (action === 'verify_security_answer') {
+      return supabaseAuthRpc('auth_verify_security_answer', {
+        p_username: payload.username,
+        p_question_id: payload.questionId,
+        p_answer: payload.answer,
+      })
+    }
+    if (action === 'reset_password_by_question') {
+      return supabaseAuthRpc('auth_reset_password_with_security_question', {
+        p_username: payload.username,
+        p_question_id: payload.questionId,
+        p_answer: payload.answer,
+        p_new_password: payload.newPassword,
+      })
+    }
+    if (action === 'update_security_questions') {
+      return supabaseAuthRpc('auth_update_security_questions', {
+        p_session_token: payload.sessionToken,
+        p_current_password: payload.currentPassword,
+        p_security_questions: payload.securityQuestions || [],
       })
     }
     if (action === 'change_password') {
@@ -1172,6 +1195,7 @@ async function callTrustedAuthService(action, payload = {}) {
         username: payload.username,
         password: payload.password,
         academicYear: payload.academicYear || 4,
+        securityQuestions: payload.securityQuestions || [],
       })
     }
     if (action === 'login') {
@@ -1204,10 +1228,31 @@ async function callTrustedAuthService(action, payload = {}) {
         sessionToken: payload.sessionToken,
       })
     }
-    if (action === 'forgot_password') {
-      return callLocalAuthEndpoint('forgot-password', {
+    if (action === 'get_security_questions') {
+      return callLocalAuthEndpoint('security-questions', {
         username: payload.username,
-        note: payload.note || '',
+      })
+    }
+    if (action === 'verify_security_answer') {
+      return callLocalAuthEndpoint('verify-security-answer', {
+        username: payload.username,
+        questionId: payload.questionId,
+        answer: payload.answer,
+      })
+    }
+    if (action === 'reset_password_by_question') {
+      return callLocalAuthEndpoint('reset-password-by-question', {
+        username: payload.username,
+        questionId: payload.questionId,
+        answer: payload.answer,
+        newPassword: payload.newPassword,
+      })
+    }
+    if (action === 'update_security_questions') {
+      return callLocalAuthEndpoint('update-security-questions', {
+        sessionToken: payload.sessionToken,
+        currentPassword: payload.currentPassword,
+        securityQuestions: payload.securityQuestions || [],
       })
     }
     if (action === 'change_password') {
@@ -8039,14 +8084,6 @@ function syncSkillPointButtons() {
     spBadge.classList.toggle('has-sp', spTotal > 0)
     if (visible) spText.textContent = labelText
   }
-
-  const topbarBtn = document.getElementById('topbarSkillTreeButton')
-  const topbarText = document.getElementById('topbarSkillTreeText')
-  if (topbarBtn && topbarText) {
-    topbarBtn.hidden = !visible
-    topbarBtn.classList.toggle('has-sp', spTotal > 0)
-    if (visible) topbarText.textContent = labelText
-  }
   return spTotal
 }
 window.syncSkillPointButtons = syncSkillPointButtons
@@ -8074,7 +8111,7 @@ function showSkillPointEarnedBanner(category, options = {}) {
 }
 
 function openSkillTree() {
-  if (skillTreeOpen || document.getElementById('app').hidden) return
+  if (skillTreeOpen || document.getElementById('app').hidden || !playViewActive || mode === 'menu') return
   if (typeof hideUiHoverBubble === 'function') hideUiHoverBubble()
   if (window.ByteboundQuests?.isOpen?.()) window.ByteboundQuests.closeOverlay()
   if (typeof worldMapOpen !== 'undefined' && worldMapOpen && typeof closeWorldMap === 'function') {
@@ -9182,6 +9219,9 @@ function renderDashboard() {
     window.ByteboundQuests.syncHubWidgetDom()
   } else {
     $('dashboardAside').innerHTML = renderDashboardView(dashboardView, room, totalPigs, defeated, remaining)
+    if (dashboardView === 'settings' && typeof syncSettingsSecurityQuestionSelects === 'function') {
+      syncSettingsSecurityQuestionSelects()
+    }
   }
   if (dashboardView === 'quest' && !playViewActive && !$('app').hidden) {
     window.ByteboundQuests?.startHubAutoSwipe?.()
@@ -9375,6 +9415,29 @@ function renderDashboardView(view, room, totalPigs, defeated, remaining) {
               <div class="settings-pw-foot">
                 <button class="leaderboard-action" id="updatePasswordSettingBtn" type="submit">Update Password</button>
                 <p class="settings-pw-msg" id="settingsPasswordMsg" role="status" aria-live="polite"></p>
+              </div>
+            </form>
+            <form class="settings-pw-box settings-recovery-box" id="settingsSecurityQuestionsForm" novalidate>
+              <div class="settings-recovery-head">
+                <div>
+                  <span class="eyebrow">Self-Service Recovery</span>
+                  <h4>Security Questions (Backup Reset)</h4>
+                </div>
+                <span class="settings-recovery-badge${activeSecurityQuestionCount >= 2 ? '' : ' is-warn'}">${activeSecurityQuestionCount >= 2 ? `${activeSecurityQuestionCount} questions saved` : 'Not configured yet'}</span>
+              </div>
+              <small class="login-field-hint" style="margin-top:0">Answer 2–3 different questions so you can reset a forgotten password yourself (admins cannot reset passwords).</small>
+              <div class="settings-pw-grid">
+                <select id="setSecQ1" aria-label="Recovery Question 1">${SECURITY_QUESTIONS_CATALOG.map((q) => `<option value="${esc(q.id)}"${q.id === 'fav_place' ? ' selected' : ''}>${esc(q.prompt)}</option>`).join('')}</select>
+                <input id="setSecA1" type="text" maxlength="80" autocomplete="off" placeholder="Answer #1 (2–80 chars)" required />
+                <select id="setSecQ2" aria-label="Recovery Question 2">${SECURITY_QUESTIONS_CATALOG.map((q) => `<option value="${esc(q.id)}"${q.id === 'pet_name' ? ' selected' : ''}>${esc(q.prompt)}</option>`).join('')}</select>
+                <input id="setSecA2" type="text" maxlength="80" autocomplete="off" placeholder="Answer #2 (2–80 chars)" required />
+                <select id="setSecQ3" aria-label="Optional Recovery Question 3">${SECURITY_QUESTIONS_CATALOG.map((q) => `<option value="${esc(q.id)}"${q.id === 'fav_food' ? ' selected' : ''}>${esc(q.prompt)}</option>`).join('')}</select>
+                <input id="setSecA3" type="text" maxlength="80" autocomplete="off" placeholder="Optional Answer #3 (for extra backup)" />
+                <input id="setSecCurPwInput" type="password" maxlength="72" autocomplete="current-password" placeholder="Confirm current password to save" required />
+              </div>
+              <div class="settings-pw-foot">
+                <button class="leaderboard-action" id="updateSecurityQuestionsBtn" type="submit">Save Recovery Questions</button>
+                <p class="settings-pw-msg" id="settingsSecQMsg" role="status" aria-live="polite"></p>
               </div>
             </form>
           </div>
@@ -10154,8 +10217,6 @@ document.getElementById('practiceModeButton').addEventListener('click', startPra
 document.getElementById('exitPlayButton').addEventListener('click', () => showDashboard())
 const spHudBadgeEl = document.getElementById('skillPointHudBadge')
 if (spHudBadgeEl) spHudBadgeEl.addEventListener('click', () => openSkillTree())
-const topbarSpBtnEl = document.getElementById('topbarSkillTreeButton')
-if (topbarSpBtnEl) topbarSpBtnEl.addEventListener('click', () => openSkillTree())
 const worldMapHudBtnEl = document.getElementById('worldMapHudButton')
 if (worldMapHudBtnEl) worldMapHudBtnEl.addEventListener('click', () => openWorldMap())
 const questsHudBtnEl = document.getElementById('questsHudButton')
@@ -10332,6 +10393,60 @@ document.getElementById('dashboardAside').addEventListener('submit', async (even
     } finally {
       const freshBtn = document.getElementById('submitYearRequestBtn')
       if (freshBtn) freshBtn.disabled = false
+    }
+    return
+  }
+
+  const secQForm = event.target.closest('#settingsSecurityQuestionsForm')
+  if (secQForm) {
+    event.preventDefault()
+    const msgEl = document.getElementById('settingsSecQMsg')
+    const btn = document.getElementById('updateSecurityQuestionsBtn')
+    const curPwInput = document.getElementById('setSecCurPwInput')
+    const setMsg = (txt, tone) => {
+      if (!msgEl) return
+      msgEl.textContent = txt
+      msgEl.className = 'settings-pw-msg' + (tone ? ` is-${tone}` : '')
+    }
+    const collected = collectSecurityQuestionsFromFields(
+      [
+        { selectEl: document.getElementById('setSecQ1'), answerEl: document.getElementById('setSecA1'), required: true },
+        { selectEl: document.getElementById('setSecQ2'), answerEl: document.getElementById('setSecA2'), required: true },
+        { selectEl: document.getElementById('setSecQ3'), answerEl: document.getElementById('setSecA3'), required: false },
+      ]
+    )
+    if (!collected.ok) {
+      setMsg(collected.error, 'err')
+      collected.focusEl?.focus()
+      return
+    }
+    const curPw = String(curPwInput?.value || '')
+    if (!curPw) {
+      setMsg('Enter your current password to save recovery questions.', 'err')
+      curPwInput?.focus()
+      return
+    }
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving...' }
+    setMsg('', '')
+    try {
+      const res = await callTrustedAuthService('update_security_questions', {
+        preferredProvider: activeAuthProvider,
+        sessionToken: activeSessionToken,
+        currentPassword: curPw,
+        securityQuestions: collected.questions,
+      })
+      activeSecurityQuestionCount = Number(res?.data?.security_question_count ?? res?.security_question_count ?? collected.questions.length) || collected.questions.length
+      renderDashboard()
+      const freshMsg = document.getElementById('settingsSecQMsg')
+      if (freshMsg) {
+        freshMsg.textContent = `Saved ${activeSecurityQuestionCount} recovery questions! You can now use any of them if you ever forget your password.`
+        freshMsg.className = 'settings-pw-msg is-ok'
+      }
+    } catch (err) {
+      setMsg(err?.message || 'Could not save recovery questions.', 'err')
+    } finally {
+      const freshBtn = document.getElementById('updateSecurityQuestionsBtn')
+      if (freshBtn) { freshBtn.disabled = false; freshBtn.textContent = 'Save Recovery Questions' }
     }
     return
   }
@@ -10625,14 +10740,155 @@ const passwordLabel = document.getElementById('passwordLabel')
 const passwordToggleBtn = document.getElementById('passwordToggleBtn')
 const forgotPasswordRow = document.getElementById('forgotPasswordRow')
 const forgotPasswordBtn = document.getElementById('forgotPasswordBtn')
-const forgotNoteWrap = document.getElementById('forgotNoteWrap')
-const forgotNoteInput = document.getElementById('forgotNoteInput')
-const backToLoginBtn = document.getElementById('backToLoginBtn')
+const forgotPasswordModal = document.getElementById('forgotPasswordModal')
+const closeForgotModalBtn = document.getElementById('closeForgotModalBtn')
+const forgotModalTitle = document.getElementById('forgotModalTitle')
+const forgotModalSubtitle = document.getElementById('forgotModalSubtitle')
+const forgotStepper = document.getElementById('forgotStepper')
+const forgotModalForm = document.getElementById('forgotModalForm')
+const forgotStepLookup = document.getElementById('forgotStepLookup')
+const forgotStepVerify = document.getElementById('forgotStepVerify')
+const forgotStepReset = document.getElementById('forgotStepReset')
+const forgotUsernameInput = document.getElementById('forgotUsernameInput')
+const forgotUserDisplay = document.getElementById('forgotUserDisplay')
+const forgotChangeUserBtn = document.getElementById('forgotChangeUserBtn')
+const forgotSecQSelect = document.getElementById('forgotSecQSelect')
+const forgotSecAnswerInput = document.getElementById('forgotSecAnswerInput')
+const forgotVerifiedUser = document.getElementById('forgotVerifiedUser')
+const forgotNewPasswordInput = document.getElementById('forgotNewPasswordInput')
+const forgotNewPwToggleBtn = document.getElementById('forgotNewPwToggleBtn')
+const forgotPwStrengthWrap = document.getElementById('forgotPwStrengthWrap')
+const forgotPwStrengthLabel = document.getElementById('forgotPwStrengthLabel')
+const forgotPwStrengthTip = document.getElementById('forgotPwStrengthTip')
+const forgotConfirmPasswordInput = document.getElementById('forgotConfirmPasswordInput')
+const forgotConfirmPwToggleBtn = document.getElementById('forgotConfirmPwToggleBtn')
+const forgotModalStatus = document.getElementById('forgotModalStatus')
+const forgotModalError = document.getElementById('forgotModalError')
+const forgotBackBtn = document.getElementById('forgotBackBtn')
+const forgotSubmitBtn = document.getElementById('forgotSubmitBtn')
 const confirmPasswordWrap = document.getElementById('confirmPasswordWrap')
+const confirmPasswordLabel = document.getElementById('confirmPasswordLabel')
 const confirmPasswordInput = document.getElementById('confirmPasswordInput')
 const confirmPasswordToggleBtn = document.getElementById('confirmPasswordToggleBtn')
 const registerYearWrap = document.getElementById('registerYearWrap')
 const registerYearSelect = document.getElementById('registerYearSelect')
+const registerRecoveryWrap = document.getElementById('registerRecoveryWrap')
+const regSecQ1 = document.getElementById('regSecQ1')
+const regSecA1 = document.getElementById('regSecA1')
+const regSecQ2 = document.getElementById('regSecQ2')
+const regSecA2 = document.getElementById('regSecA2')
+const regSecQ3Wrap = document.getElementById('regSecQ3Wrap')
+const regSecQ3 = document.getElementById('regSecQ3')
+const regSecA3 = document.getElementById('regSecA3')
+const addThirdSecQBtn = document.getElementById('addThirdSecQBtn')
+const usernameFieldWrap = usernameInput?.closest('.login-field') || null
+
+const SECURITY_QUESTIONS_CATALOG = [
+  { id: 'fav_place', prompt: 'What is your favorite place?' },
+  { id: 'pet_name', prompt: 'What is the name of your dog or cat (or first pet)?' },
+  { id: 'fav_food', prompt: 'What is your favorite food or comfort meal?' },
+  { id: 'childhood_nick', prompt: 'What was your childhood nickname?' },
+  { id: 'dream_job', prompt: 'What was your dream job as a kid?' },
+  { id: 'fav_subject', prompt: "What is your favorite school subject or teacher's surname?" },
+  { id: 'birth_city', prompt: 'What city or town were you born in?' },
+  { id: 'fav_game', prompt: 'What is the first video game you fell in love with?' },
+]
+
+function populateSecurityQuestionSelect(selectEl, defaultId = 'fav_place') {
+  if (!selectEl) return
+  selectEl.innerHTML = SECURITY_QUESTIONS_CATALOG.map(
+    (q) => `<option value="${esc(q.id)}"${q.id === defaultId ? ' selected' : ''}>${esc(q.prompt)}</option>`
+  ).join('')
+}
+
+function syncSecurityQuestionSelectGroup(selectEls) {
+  const activeSelects = (selectEls || []).filter(Boolean)
+  if (!activeSelects.length) return
+
+  // Normalize any colliding values first so each slot holds a distinct question ID
+  const chosenIds = []
+  for (const sel of activeSelects) {
+    let val = String(sel.value || '').trim().toLowerCase()
+    const valid = SECURITY_QUESTIONS_CATALOG.some((q) => q.id === val)
+    if (!valid || chosenIds.includes(val)) {
+      const fallback = SECURITY_QUESTIONS_CATALOG.find((q) => !chosenIds.includes(q.id))
+      val = fallback ? fallback.id : (SECURITY_QUESTIONS_CATALOG[0]?.id || '')
+    }
+    chosenIds.push(val)
+  }
+
+  activeSelects.forEach((sel, idx) => {
+    const ownId = chosenIds[idx]
+    const otherIds = new Set(chosenIds.filter((_, otherIdx) => otherIdx !== idx))
+    sel.innerHTML = SECURITY_QUESTIONS_CATALOG
+      .filter((q) => q.id === ownId || !otherIds.has(q.id))
+      .map((q) => `<option value="${esc(q.id)}"${q.id === ownId ? ' selected' : ''}>${esc(q.prompt)}</option>`)
+      .join('')
+    sel.value = ownId
+  })
+}
+
+let thirdSecQEnabled = false
+
+function syncRegisterSecurityQuestionSelects() {
+  syncSecurityQuestionSelectGroup([regSecQ1, regSecQ2, ...(thirdSecQEnabled ? [regSecQ3] : [])])
+}
+
+function syncSettingsSecurityQuestionSelects() {
+  syncSecurityQuestionSelectGroup([
+    document.getElementById('setSecQ1'),
+    document.getElementById('setSecQ2'),
+    document.getElementById('setSecQ3'),
+  ])
+}
+
+function getSecurityQuestionPrompt(qid) {
+  const found = SECURITY_QUESTIONS_CATALOG.find((q) => q.id === qid)
+  return found ? found.prompt : qid
+}
+
+function collectSecurityQuestionsFromFields(slots) {
+  const seen = new Set()
+  const questions = []
+  for (const slot of slots) {
+    if (!slot || !slot.selectEl || !slot.answerEl) continue
+    const rawAns = String(slot.answerEl.value || '').trim().replace(/\s+/g, ' ')
+    if (!slot.required && !rawAns) continue
+    const qid = String(slot.selectEl.value || '').trim().toLowerCase()
+    if (!qid) {
+      return { ok: false, error: 'Choose a valid security recovery question.', focusEl: slot.selectEl }
+    }
+    if (seen.has(qid)) {
+      return { ok: false, error: 'Please pick a different security question for each recovery slot.', focusEl: slot.selectEl }
+    }
+    if (rawAns.length < 2 || rawAns.length > 80) {
+      return { ok: false, error: 'Each recovery answer must be between 2 and 80 characters.', focusEl: slot.answerEl }
+    }
+    seen.add(qid)
+    questions.push({
+      id: qid,
+      prompt: getSecurityQuestionPrompt(qid),
+      answer: rawAns,
+    })
+  }
+  if (questions.length < 2) {
+    return { ok: false, error: 'Answer at least 2 different security recovery questions.', focusEl: slots[0]?.answerEl }
+  }
+  return { ok: true, questions }
+}
+
+populateSecurityQuestionSelect(regSecQ1, 'fav_place')
+populateSecurityQuestionSelect(regSecQ2, 'pet_name')
+populateSecurityQuestionSelect(regSecQ3, 'fav_food')
+syncRegisterSecurityQuestionSelects()
+;[regSecQ1, regSecQ2, regSecQ3].forEach((sel) => {
+  sel?.addEventListener('change', () => syncRegisterSecurityQuestionSelects())
+})
+document.addEventListener('change', (event) => {
+  if (event.target?.closest?.('#setSecQ1, #setSecQ2, #setSecQ3')) {
+    syncSettingsSecurityQuestionSelects()
+  }
+})
 const loginEyebrow = document.getElementById('loginEyebrow')
 const loginTitle = document.getElementById('loginTitle')
 const loginLead = document.getElementById('loginLead')
@@ -10670,6 +10926,7 @@ let activeAccountMustChangePw = false
 let activeRecentFailedLogins = 0
 let activeLastFailedLoginAt = null
 let activeGlobalSecurityNotice = null
+let activeSecurityQuestionCount = 0
 
 function isSharedPcModeEnabled() {
   try {
@@ -10731,18 +10988,41 @@ function evaluatePasswordStrength(pw, username = '') {
   return { level: 'strong', label: 'Strong unique password', tip: 'Looks good — keep this password unique to Bytebound.' }
 }
 
-function updateRegisterPasswordStrength() {
-  if (!passwordStrengthWrap || !passwordStrengthLabel || !passwordStrengthTip) return
-  if (authMode !== 'register' || !passwordInput?.value) {
-    passwordStrengthWrap.hidden = true
-    passwordStrengthWrap.className = 'login-pw-strength'
+function updatePasswordStrengthUI(inputEl, usernameVal, wrapEl, labelEl, tipEl, allowShow = true) {
+  if (!wrapEl || !labelEl || !tipEl) return
+  const showStrength = Boolean(allowShow && inputEl?.value)
+  if (!showStrength) {
+    wrapEl.hidden = true
+    wrapEl.className = 'login-pw-strength'
     return
   }
-  const res = evaluatePasswordStrength(passwordInput.value, usernameInput?.value || '')
-  passwordStrengthWrap.hidden = false
-  passwordStrengthWrap.className = 'login-pw-strength' + (res.level ? ` is-${res.level}` : '')
-  passwordStrengthLabel.textContent = res.label
-  passwordStrengthTip.textContent = res.tip
+  const res = evaluatePasswordStrength(inputEl.value, usernameVal || '')
+  wrapEl.hidden = false
+  wrapEl.className = 'login-pw-strength' + (res.level ? ` is-${res.level}` : '')
+  labelEl.textContent = res.label
+  tipEl.textContent = res.tip
+}
+
+function updateRegisterPasswordStrength() {
+  updatePasswordStrengthUI(
+    passwordInput,
+    usernameInput?.value || '',
+    passwordStrengthWrap,
+    passwordStrengthLabel,
+    passwordStrengthTip,
+    authMode === 'register'
+  )
+}
+
+function updateForgotPasswordStrength() {
+  updatePasswordStrengthUI(
+    forgotNewPasswordInput,
+    forgotTargetUsername || forgotUsernameInput?.value || '',
+    forgotPwStrengthWrap,
+    forgotPwStrengthLabel,
+    forgotPwStrengthTip,
+    forgotModalStep === 'reset'
+  )
 }
 
 function openPrivacySafetyModal() {
@@ -10841,10 +11121,10 @@ function renderAccountSecurityAlert() {
   const isCritical = activeAccountMustChangePw || activeRecentFailedLogins >= 3
   accountSecurityAlert.className = `account-security-alert${isCritical ? ' is-critical' : ' is-warning'}`
   if (activeAccountMustChangePw) {
-    accountSecurityTitle.textContent = 'Temporary Password Active — Change Your Password'
+    accountSecurityTitle.textContent = 'Password Change Recommended'
     accountSecurityBody.textContent = activeRecentFailedLogins > 0
-      ? `An administrator set a temporary password, and ${activeRecentFailedLogins} failed login attempt(s) were recorded. Set a private password in Settings right away.`
-      : 'Your account is using an admin-issued temporary password. Please set your own private password in Settings now.'
+      ? `${activeRecentFailedLogins} failed login attempt(s) were recorded on your account. Please update your password in Settings.`
+      : 'Please update your account password and security recovery questions in Settings.'
   } else {
     const whenTxt = activeLastFailedLoginAt ? ` (last attempt ${new Date(activeLastFailedLoginAt).toLocaleString()})` : ''
     accountSecurityTitle.textContent = `Security Alert: ${activeRecentFailedLogins} Failed Login Attempt${activeRecentFailedLogins === 1 ? '' : 's'} Detected`
@@ -10901,6 +11181,25 @@ function readLocalProfiles() {
 
 let authMode = 'login'
 let loginSubmitting = false
+let forgotModalStep = 'lookup' // 'lookup' | 'verify' | 'reset'
+let forgotTargetUsername = ''
+let forgotUserQuestions = []
+let forgotVerifiedQuestionId = ''
+let forgotVerifiedAnswer = ''
+let forgotSubmitting = false
+
+if (addThirdSecQBtn && regSecQ3Wrap) {
+  addThirdSecQBtn.addEventListener('click', () => {
+    thirdSecQEnabled = !thirdSecQEnabled
+    regSecQ3Wrap.hidden = !thirdSecQEnabled
+    if (!thirdSecQEnabled && regSecA3) regSecA3.value = ''
+    addThirdSecQBtn.textContent = thirdSecQEnabled
+      ? '− Remove 3rd Backup Question'
+      : '+ Add 3rd Backup Question (Recommended)'
+    syncRegisterSecurityQuestionSelects()
+    if (thirdSecQEnabled) regSecA3?.focus()
+  })
+}
 
 function setLoginStatus(message = '', tone = '') {
   if (!loginStatus) return
@@ -10913,7 +11212,9 @@ function resetPasswordVisibility(inputEl, toggleBtn) {
   if (toggleBtn) {
     toggleBtn.textContent = 'Show'
     toggleBtn.setAttribute('aria-pressed', 'false')
-    toggleBtn.setAttribute('aria-label', inputEl === confirmPasswordInput ? 'Show confirm password' : 'Show password')
+    const isConfirm = inputEl === confirmPasswordInput || inputEl === forgotConfirmPasswordInput
+    const isNew = inputEl === forgotNewPasswordInput
+    toggleBtn.setAttribute('aria-label', isConfirm ? 'Show confirm password' : (isNew ? 'Show new password' : 'Show password'))
   }
 }
 
@@ -10938,58 +11239,56 @@ function bindPasswordToggle(inputEl, toggleBtn, fieldLabel) {
 
 bindPasswordToggle(passwordInput, passwordToggleBtn, 'password')
 bindPasswordToggle(confirmPasswordInput, confirmPasswordToggleBtn, 'confirm password')
+bindPasswordToggle(forgotNewPasswordInput, forgotNewPwToggleBtn, 'new password')
+bindPasswordToggle(forgotConfirmPasswordInput, forgotConfirmPwToggleBtn, 'confirm password')
 
 function setAuthMode(nextMode, options = {}) {
-  authMode = nextMode === 'register' ? 'register' : (nextMode === 'forgot' ? 'forgot' : 'login')
+  authMode = nextMode === 'register' ? 'register' : 'login'
   const isLogin = authMode === 'login'
   const isRegister = authMode === 'register'
-  const isForgot = authMode === 'forgot'
 
   if (authModeLoginTab) {
-    authModeLoginTab.classList.toggle('is-active', isLogin || isForgot)
-    authModeLoginTab.setAttribute('aria-selected', String(isLogin || isForgot))
+    authModeLoginTab.classList.toggle('is-active', isLogin)
+    authModeLoginTab.setAttribute('aria-selected', String(isLogin))
   }
   if (authModeRegisterTab) {
     authModeRegisterTab.classList.toggle('is-active', isRegister)
     authModeRegisterTab.setAttribute('aria-selected', String(isRegister))
   }
   if (loginEyebrow) {
-    loginEyebrow.textContent = isForgot ? 'Account recovery' : (isRegister ? 'New account' : 'Account access')
+    loginEyebrow.textContent = isRegister ? 'New account' : 'Account access'
   }
   if (loginTitle) {
-    loginTitle.innerHTML = isForgot
-      ? 'Reset your<br />password.'
-      : (isRegister ? 'Create your<br />account.' : 'Welcome back,<br />adventurer.')
+    loginTitle.innerHTML = isRegister ? 'Create your<br />account.' : 'Welcome back,<br />adventurer.'
   }
   if (loginLead) {
-    loginLead.textContent = isForgot
-      ? 'Enter your username to send a password reset request to the Admin Panel.'
-      : (isRegister
-        ? 'Choose a unique username and password to start saving your progress.'
-        : 'Log in with your username and password to continue your progress.')
+    loginLead.textContent = isRegister
+      ? 'Choose a unique username, password, and at least 2 backup recovery questions.'
+      : 'Log in with your username and password to continue your progress.'
+  }
+  if (usernameFieldWrap) {
+    usernameFieldWrap.hidden = false
   }
   if (usernameInput) {
+    usernameInput.required = true
     usernameInput.placeholder = isRegister ? 'Choose a unique username' : 'Enter your username'
   }
   if (passwordFieldWrap) {
-    passwordFieldWrap.hidden = isForgot
+    passwordFieldWrap.hidden = false
   }
   if (forgotPasswordRow) {
     forgotPasswordRow.hidden = !isLogin
-  }
-  if (forgotNoteWrap) {
-    forgotNoteWrap.hidden = !isForgot
-  }
-  if (backToLoginBtn) {
-    backToLoginBtn.hidden = !isForgot
   }
   if (passwordLabel) {
     passwordLabel.textContent = 'Password'
   }
   if (passwordInput) {
-    passwordInput.required = !isForgot
+    passwordInput.required = true
     passwordInput.autocomplete = isLogin ? 'current-password' : 'new-password'
     passwordInput.placeholder = isLogin ? 'Enter your password' : 'Create a password (min. 6 characters)'
+  }
+  if (confirmPasswordLabel) {
+    confirmPasswordLabel.textContent = 'Confirm Password'
   }
   if (confirmPasswordWrap) {
     confirmPasswordWrap.hidden = !isRegister
@@ -11000,19 +11299,28 @@ function setAuthMode(nextMode, options = {}) {
   if (registerYearWrap) {
     registerYearWrap.hidden = !isRegister
   }
+  if (registerRecoveryWrap) {
+    registerRecoveryWrap.hidden = !isRegister
+  }
   if (loginNote) {
-    loginNote.textContent = isForgot
-      ? 'An administrator will set a temporary password for your account (you will be asked to change it on sign-in).'
-      : 'Never reuse passwords from email, social media, or school portals. Always click Log Out on shared lab PCs.'
+    loginNote.textContent = 'Never reuse passwords from email, social media, or school portals. Always click Log Out on shared lab PCs.'
   }
   if (passwordStrengthWrap) {
     passwordStrengthWrap.hidden = !isRegister || !passwordInput?.value
   }
   if (loginSubmitButton && !loginSubmitting) {
-    loginSubmitButton.textContent = isForgot ? 'Send Reset Request' : (isRegister ? 'Sign Up' : 'Log In')
+    loginSubmitButton.textContent = isRegister ? 'Sign Up' : 'Log In'
   }
   if (!options.keepPasswords) clearPasswordInputs()
-  if (forgotNoteInput && !isForgot) forgotNoteInput.value = ''
+  if (!isRegister && !options.keepRecoveryInputs) {
+    if (regSecA1) regSecA1.value = ''
+    if (regSecA2) regSecA2.value = ''
+    if (regSecA3) regSecA3.value = ''
+    thirdSecQEnabled = false
+    if (regSecQ3Wrap) regSecQ3Wrap.hidden = true
+    if (addThirdSecQBtn) addThirdSecQBtn.textContent = '+ Add 3rd Backup Question (Recommended)'
+  }
+  syncRegisterSecurityQuestionSelects()
   if (!options.keepError && loginError) loginError.textContent = ''
   if (!options.keepStatus) setLoginStatus('')
   updateRegisterPasswordStrength()
@@ -11033,6 +11341,7 @@ function enterAuthenticatedSession(user, sessionToken, provider, sessionOptions 
   activeAccountMustChangePw = Boolean(sessionOptions?.mustChangePassword ?? user?.must_change_password)
   activeRecentFailedLogins = Number(sessionOptions?.recentFailedLogins ?? user?.failed_login_count ?? 0) || 0
   activeLastFailedLoginAt = sessionOptions?.lastFailedLoginAt || user?.last_failed_login_at || null
+  activeSecurityQuestionCount = Number(user?.security_question_count ?? sessionOptions?.securityQuestionCount ?? 0) || 0
   saveAuthSessionStorage(sessionToken, provider, canonicalName, profileId)
 
   let profiles = []
@@ -11116,15 +11425,345 @@ function enterAuthenticatedSession(user, sessionToken, provider, sessionOptions 
     mirrorAccountToLocalAdmin(user, typeof getActiveAcademicYear === 'function' ? getActiveAcademicYear() : 4, provider)
   }
   window.mpUI?.initIdentity(canonicalName)
+  closeForgotPasswordModal({ restoreFocus: false })
 }
 
-forgotPasswordBtn?.addEventListener('click', () => {
-  setAuthMode('forgot')
-  usernameInput?.focus()
+function setForgotModalFeedback({ status = '', error = '' } = {}) {
+  if (forgotModalStatus) {
+    forgotModalStatus.textContent = status
+    forgotModalStatus.hidden = !status
+  }
+  if (forgotModalError) {
+    forgotModalError.textContent = error
+    forgotModalError.hidden = !error
+  }
+}
+
+function clearForgotNewPasswords() {
+  if (forgotNewPasswordInput) forgotNewPasswordInput.value = ''
+  if (forgotConfirmPasswordInput) forgotConfirmPasswordInput.value = ''
+  resetPasswordVisibility(forgotNewPasswordInput, forgotNewPwToggleBtn)
+  resetPasswordVisibility(forgotConfirmPasswordInput, forgotConfirmPwToggleBtn)
+  updateForgotPasswordStrength()
+}
+
+function clearForgotSensitiveState() {
+  forgotVerifiedQuestionId = ''
+  forgotVerifiedAnswer = ''
+  if (forgotSecAnswerInput) forgotSecAnswerInput.value = ''
+  clearForgotNewPasswords()
+}
+
+function renderForgotModalStep(step, options = {}) {
+  forgotModalStep = step === 'verify' ? 'verify' : (step === 'reset' ? 'reset' : 'lookup')
+  const order = ['lookup', 'verify', 'reset']
+  const activeIdx = order.indexOf(forgotModalStep)
+  if (forgotStepper) {
+    forgotStepper.querySelectorAll('[data-forgot-step]').forEach((item) => {
+      const idx = order.indexOf(item.dataset.forgotStep)
+      item.classList.toggle('is-done', idx !== -1 && idx < activeIdx)
+      item.classList.toggle('is-active', idx === activeIdx)
+    })
+  }
+  if (forgotStepLookup) forgotStepLookup.hidden = forgotModalStep !== 'lookup'
+  if (forgotStepVerify) forgotStepVerify.hidden = forgotModalStep !== 'verify'
+  if (forgotStepReset) forgotStepReset.hidden = forgotModalStep !== 'reset'
+  if (forgotUserDisplay) {
+    forgotUserDisplay.textContent = forgotTargetUsername ? `@${forgotTargetUsername}` : ''
+  }
+  if (forgotVerifiedUser) {
+    forgotVerifiedUser.textContent = forgotTargetUsername ? `@${forgotTargetUsername}` : ''
+  }
+  if (forgotModalTitle) {
+    forgotModalTitle.textContent = forgotModalStep === 'reset'
+      ? 'Create a new password'
+      : (forgotModalStep === 'verify' ? 'Verify your identity' : 'Reset your password')
+  }
+  if (forgotModalSubtitle) {
+    forgotModalSubtitle.textContent = forgotModalStep === 'reset'
+      ? 'Step 3 of 3 — Identity confirmed. Enter and confirm your new password below.'
+      : (forgotModalStep === 'verify'
+        ? 'Step 2 of 3 — Answer any saved security question to verify your account.'
+        : 'Step 1 of 3 — Enter your username first so we can verify your identity.')
+  }
+  if (forgotBackBtn) {
+    forgotBackBtn.hidden = forgotModalStep === 'lookup'
+  }
+  if (forgotSubmitBtn && !forgotSubmitting) {
+    forgotSubmitBtn.textContent = forgotModalStep === 'reset'
+      ? 'Save New Password'
+      : (forgotModalStep === 'verify' ? 'Verify Identity →' : 'Continue →')
+  }
+  if (!options.keepStatus && !options.keepError) {
+    setForgotModalFeedback()
+  } else {
+    if (!options.keepStatus && forgotModalStatus) {
+      forgotModalStatus.textContent = ''
+      forgotModalStatus.hidden = true
+    }
+    if (!options.keepError && forgotModalError) {
+      forgotModalError.textContent = ''
+      forgotModalError.hidden = true
+    }
+  }
+  updateForgotPasswordStrength()
+}
+
+function openForgotPasswordModal() {
+  if (!forgotPasswordModal) return
+  if (privacySafetyModal && !privacySafetyModal.hidden) {
+    closePrivacySafetyModal()
+  }
+  forgotTargetUsername = ''
+  forgotUserQuestions = []
+  clearForgotSensitiveState()
+  const prefill = normalizeUsername(usernameInput?.value || '')
+  if (forgotUsernameInput) forgotUsernameInput.value = prefill
+  forgotPasswordModal.hidden = false
+  forgotPasswordModal.setAttribute('aria-hidden', 'false')
+  renderForgotModalStep('lookup')
+  window.requestAnimationFrame(() => forgotUsernameInput?.focus())
+}
+
+function closeForgotPasswordModal(options = {}) {
+  if (!forgotPasswordModal) return
+  const wasOpen = !forgotPasswordModal.hidden
+  forgotPasswordModal.hidden = true
+  forgotPasswordModal.setAttribute('aria-hidden', 'true')
+  forgotTargetUsername = ''
+  forgotUserQuestions = []
+  if (forgotUsernameInput) forgotUsernameInput.value = ''
+  clearForgotSensitiveState()
+  setForgotModalFeedback()
+  if (wasOpen && options.restoreFocus !== false && loginScreen && !loginScreen.hidden) {
+    forgotPasswordBtn?.focus()
+  }
+}
+
+forgotPasswordBtn?.addEventListener('click', openForgotPasswordModal)
+closeForgotModalBtn?.addEventListener('click', () => {
+  if (!forgotSubmitting) closeForgotPasswordModal()
 })
-backToLoginBtn?.addEventListener('click', () => {
-  setAuthMode('login')
-  usernameInput?.focus()
+forgotPasswordModal?.addEventListener('click', (event) => {
+  if (event.target === forgotPasswordModal && !forgotSubmitting) {
+    closeForgotPasswordModal()
+  }
+})
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && forgotPasswordModal && !forgotPasswordModal.hidden && !forgotSubmitting) {
+    closeForgotPasswordModal()
+  }
+})
+forgotChangeUserBtn?.addEventListener('click', () => {
+  if (forgotSubmitting) return
+  clearForgotSensitiveState()
+  renderForgotModalStep('lookup')
+  forgotUsernameInput?.focus()
+})
+forgotBackBtn?.addEventListener('click', () => {
+  if (forgotSubmitting) return
+  if (forgotModalStep === 'reset') {
+    forgotVerifiedQuestionId = ''
+    forgotVerifiedAnswer = ''
+    clearForgotNewPasswords()
+    renderForgotModalStep('verify')
+    forgotSecAnswerInput?.focus()
+    return
+  }
+  clearForgotSensitiveState()
+  renderForgotModalStep('lookup')
+  forgotUsernameInput?.focus()
+})
+
+const clearForgotFeedbackOnInput = () => {
+  setForgotModalFeedback()
+  updateForgotPasswordStrength()
+}
+forgotUsernameInput?.addEventListener('input', clearForgotFeedbackOnInput)
+forgotSecQSelect?.addEventListener('change', clearForgotFeedbackOnInput)
+forgotSecAnswerInput?.addEventListener('input', clearForgotFeedbackOnInput)
+forgotNewPasswordInput?.addEventListener('input', clearForgotFeedbackOnInput)
+forgotConfirmPasswordInput?.addEventListener('input', clearForgotFeedbackOnInput)
+
+forgotModalForm?.addEventListener('submit', async (event) => {
+  event.preventDefault()
+  if (forgotSubmitting) return
+
+  if (forgotModalStep === 'lookup') {
+    const targetName = normalizeUsername(forgotUsernameInput?.value || '')
+    if (!targetName) {
+      setForgotModalFeedback({ error: 'Enter your username to continue.' })
+      forgotUsernameInput?.focus()
+      return
+    }
+    if (targetName.length > 24) {
+      setForgotModalFeedback({ error: 'Username must be between 1 and 24 characters.' })
+      forgotUsernameInput?.focus()
+      return
+    }
+
+    forgotSubmitting = true
+    if (forgotSubmitBtn) {
+      forgotSubmitBtn.disabled = true
+      forgotSubmitBtn.textContent = 'Checking account...'
+    }
+    if (forgotBackBtn) forgotBackBtn.disabled = true
+    setForgotModalFeedback()
+
+    try {
+      const res = await callTrustedAuthService('get_security_questions', { username: targetName })
+      const questions = Array.isArray(res?.data?.questions)
+        ? res.data.questions
+        : (Array.isArray(res?.questions) ? res.questions : [])
+      if (!questions.length) {
+        throw createAuthError('NO_SECURITY_QUESTIONS', 'This account has no recovery questions saved.')
+      }
+      forgotTargetUsername = res?.data?.username || res?.username || targetName
+      forgotUserQuestions = questions
+      clearForgotSensitiveState()
+      if (forgotSecQSelect) {
+        forgotSecQSelect.innerHTML = questions.map(
+          (q) => `<option value="${esc(q.id)}">${esc(q.prompt)}</option>`
+        ).join('')
+      }
+      renderForgotModalStep('verify', { keepStatus: true })
+      setForgotModalFeedback({ status: 'Account found. Answer one of your saved questions below.' })
+      forgotSecAnswerInput?.focus()
+    } catch (error) {
+      setForgotModalFeedback({ error: error?.message || 'Could not look up that account. Please try again.' })
+    } finally {
+      forgotSubmitting = false
+      if (forgotBackBtn) forgotBackBtn.disabled = false
+      if (forgotSubmitBtn) {
+        forgotSubmitBtn.disabled = false
+        forgotSubmitBtn.textContent = forgotModalStep === 'reset'
+          ? 'Save New Password'
+          : (forgotModalStep === 'verify' ? 'Verify Identity →' : 'Continue →')
+      }
+    }
+    return
+  }
+
+  if (forgotModalStep === 'verify') {
+    const selectedQid = String(forgotSecQSelect?.value || '').trim().toLowerCase()
+    const answerText = String(forgotSecAnswerInput?.value || '').trim().replace(/\s+/g, ' ')
+    if (!selectedQid) {
+      setForgotModalFeedback({ error: 'Choose a security recovery question.' })
+      forgotSecQSelect?.focus()
+      return
+    }
+    if (answerText.length < 2) {
+      setForgotModalFeedback({ error: 'Enter your answer to the selected recovery question.' })
+      forgotSecAnswerInput?.focus()
+      return
+    }
+
+    forgotSubmitting = true
+    if (forgotSubmitBtn) {
+      forgotSubmitBtn.disabled = true
+      forgotSubmitBtn.textContent = 'Verifying...'
+    }
+    if (forgotBackBtn) forgotBackBtn.disabled = true
+    setForgotModalFeedback()
+
+    try {
+      try {
+        await callTrustedAuthService('verify_security_answer', {
+          username: forgotTargetUsername,
+          questionId: selectedQid,
+          answer: answerText,
+        })
+      } catch (verifyErr) {
+        const msg = String(verifyErr?.message || '')
+        const rpcMissing = verifyErr?.code === 'PGRST202' || /could not find the function/i.test(msg)
+        if (!rpcMissing) throw verifyErr
+      }
+      forgotVerifiedQuestionId = selectedQid
+      forgotVerifiedAnswer = answerText
+      clearForgotNewPasswords()
+      renderForgotModalStep('reset')
+      forgotNewPasswordInput?.focus()
+    } catch (error) {
+      setForgotModalFeedback({ error: error?.message || 'Incorrect answer. Try again or pick another question.' })
+      forgotSecAnswerInput?.focus()
+    } finally {
+      forgotSubmitting = false
+      if (forgotBackBtn) forgotBackBtn.disabled = false
+      if (forgotSubmitBtn) {
+        forgotSubmitBtn.disabled = false
+        forgotSubmitBtn.textContent = forgotModalStep === 'reset'
+          ? 'Save New Password'
+          : (forgotModalStep === 'verify' ? 'Verify Identity →' : 'Continue →')
+      }
+    }
+    return
+  }
+
+  // Step 3: save new password after identity verification
+  const newPw = String(forgotNewPasswordInput?.value || '')
+  const confirmPw = String(forgotConfirmPasswordInput?.value || '')
+  if (!newPw || !newPw.trim() || newPw.length < 6 || newPw.length > 72) {
+    setForgotModalFeedback({ error: 'New password must be between 6 and 72 characters.' })
+    forgotNewPasswordInput?.focus()
+    return
+  }
+  if (newPw !== confirmPw) {
+    setForgotModalFeedback({ error: 'New passwords do not match.' })
+    forgotConfirmPasswordInput?.focus()
+    return
+  }
+  if (!forgotTargetUsername || !forgotVerifiedQuestionId || !forgotVerifiedAnswer) {
+    renderForgotModalStep('verify', { keepError: true })
+    setForgotModalFeedback({ error: 'Please verify your security question answer first.' })
+    forgotSecAnswerInput?.focus()
+    return
+  }
+
+  forgotSubmitting = true
+  if (forgotSubmitBtn) {
+    forgotSubmitBtn.disabled = true
+    forgotSubmitBtn.textContent = 'Saving password...'
+  }
+  if (forgotBackBtn) forgotBackBtn.disabled = true
+  setForgotModalFeedback()
+
+  try {
+    const recoveredUser = forgotTargetUsername
+    const res = await callTrustedAuthService('reset_password_by_question', {
+      username: recoveredUser,
+      questionId: forgotVerifiedQuestionId,
+      answer: forgotVerifiedAnswer,
+      newPassword: newPw,
+    })
+    const successMsg = res?.data?.message || res?.message || 'Password reset! You can now log in with your new password.'
+    closeForgotPasswordModal({ restoreFocus: false })
+    setAuthMode('login', { keepStatus: true })
+    if (usernameInput) usernameInput.value = recoveredUser
+    if (loginError) loginError.textContent = ''
+    setLoginStatus(successMsg, 'ok')
+    passwordInput?.focus()
+  } catch (error) {
+    if (error?.code === 'INVALID_SECURITY_ANSWER' || error?.code === 'INVALID_SECURITY_QUESTION') {
+      forgotVerifiedQuestionId = ''
+      forgotVerifiedAnswer = ''
+      clearForgotNewPasswords()
+      renderForgotModalStep('verify', { keepError: true })
+      setForgotModalFeedback({ error: error.message || 'Verification expired or incorrect. Please answer a recovery question.' })
+      forgotSecAnswerInput?.focus()
+    } else {
+      setForgotModalFeedback({ error: error?.message || 'Could not save new password. Please try again.' })
+    }
+  } finally {
+    clearForgotNewPasswords()
+    forgotSubmitting = false
+    if (forgotBackBtn) forgotBackBtn.disabled = false
+    if (forgotSubmitBtn) {
+      forgotSubmitBtn.disabled = false
+      forgotSubmitBtn.textContent = forgotModalStep === 'reset'
+        ? 'Save New Password'
+        : (forgotModalStep === 'verify' ? 'Verify Identity →' : 'Continue →')
+    }
+  }
 })
 
 authModeLoginTab?.addEventListener('click', () => {
@@ -11190,9 +11829,9 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
     return
   }
 
-  if (authMode === 'forgot') {
-    // No password required to send reset request
-  } else if (authMode === 'login') {
+  let registerSecQuestions = []
+
+  if (authMode === 'login') {
     if (!password) {
       loginError.textContent = 'Enter your password to log in.'
       passwordInput?.focus()
@@ -11214,61 +11853,28 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
       confirmPasswordInput?.focus()
       return
     }
+    const collectedSec = collectSecurityQuestionsFromFields([
+      { selectEl: regSecQ1, answerEl: regSecA1, required: true },
+      { selectEl: regSecQ2, answerEl: regSecA2, required: true },
+      ...(thirdSecQEnabled ? [{ selectEl: regSecQ3, answerEl: regSecA3, required: false }] : []),
+    ])
+    if (!collectedSec.ok) {
+      loginError.textContent = collectedSec.error
+      collectedSec.focusEl?.focus()
+      return
+    }
+    registerSecQuestions = collectedSec.questions
   }
 
   loginSubmitting = true
   if (loginSubmitButton) {
     loginSubmitButton.disabled = true
-    loginSubmitButton.textContent = authMode === 'forgot'
-      ? 'Sending request...'
-      : (authMode === 'register' ? 'Creating account...' : 'Logging in...')
+    loginSubmitButton.textContent = authMode === 'register' ? 'Creating account...' : 'Logging in...'
   }
   loginError.textContent = ''
   setLoginStatus('')
 
   try {
-    if (authMode === 'forgot') {
-      const note = String(forgotNoteInput?.value || '').trim()
-      let message = 'Password reset request sent to the administrator.'
-      try {
-        const res = await callTrustedAuthService('forgot_password', { username: name, note })
-        if (res?.data?.message) message = res.data.message
-        if (res?.provider === 'supabase' && /^https?:$/i.test(window.location?.protocol || '')) {
-          fetch('/api/auth/forgot-password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: name, note }),
-          }).catch(() => {})
-        }
-      } catch (reqErr) {
-        if (!reqErr?.unavailable) throw reqErr
-        const lowerKey = name.toLowerCase()
-        const localProfiles = typeof readLocalProfiles === 'function' ? readLocalProfiles() : []
-        const hasLocalAccount = Array.isArray(localProfiles) && localProfiles.some(
-          (p) => p && (String(p.id || '').toLowerCase() === lowerKey || normalizeUsername(p.name).toLowerCase() === lowerKey)
-        )
-        if (!hasLocalAccount) {
-          throw createAuthError('ACCOUNT_NOT_FOUND', `No account found with username "${name}". Please check the spelling or sign up first.`)
-        }
-        try {
-          const raw = JSON.parse(localStorage.getItem('bytebound-pending-resets-v1') || '[]')
-          const list = Array.isArray(raw) ? raw.filter((r) => r && r.username_key !== lowerKey) : []
-          list.unshift({
-            id: `local-${Date.now()}`,
-            username_key: lowerKey,
-            display_name: name,
-            note,
-            status: 'pending',
-            created_at: new Date().toISOString(),
-          })
-          localStorage.setItem('bytebound-pending-resets-v1', JSON.stringify(list.slice(0, 40)))
-        } catch {}
-      }
-      if (forgotNoteInput) forgotNoteInput.value = ''
-      setLoginStatus(message, 'ok')
-      return
-    }
-
     if (authMode === 'register') {
       const selectedRegisterYear = registerYearSelect && typeof normalizeAcademicYear === 'function'
         ? normalizeAcademicYear(registerYearSelect.value, 4)
@@ -11277,8 +11883,12 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
         username: name,
         password,
         academicYear: selectedRegisterYear,
+        securityQuestions: registerSecQuestions,
       })
-      enterAuthenticatedSession(data.user, data.session_token, provider, { initialAcademicYear: selectedRegisterYear })
+      enterAuthenticatedSession(data.user, data.session_token, provider, {
+        initialAcademicYear: selectedRegisterYear,
+        securityQuestionCount: registerSecQuestions.length,
+      })
       return
     }
 
@@ -11304,7 +11914,6 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
       loginError.textContent = 'Unable to complete authentication. Please try again.'
     }
   } finally {
-    // Always wipe password inputs immediately after submission completes
     if (passwordInput) passwordInput.value = ''
     if (confirmPasswordInput) confirmPasswordInput.value = ''
     resetPasswordVisibility(passwordInput, passwordToggleBtn)
@@ -11312,9 +11921,7 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
     loginSubmitting = false
     if (loginSubmitButton) {
       loginSubmitButton.disabled = false
-      loginSubmitButton.textContent = authMode === 'forgot'
-        ? 'Send Reset Request'
-        : (authMode === 'register' ? 'Sign Up' : 'Log In')
+      loginSubmitButton.textContent = authMode === 'register' ? 'Sign Up' : 'Log In'
     }
   }
 })
@@ -11346,6 +11953,7 @@ function switchPlayerProfile() {
   activeAccountMustChangePw = false
   activeRecentFailedLogins = 0
   activeLastFailedLoginAt = null
+  activeSecurityQuestionCount = 0
   if (accountSecurityAlert) accountSecurityAlert.hidden = true
   clearAuthSessionStorage()
   if (wipingProfileKey) {

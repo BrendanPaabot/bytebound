@@ -321,8 +321,52 @@ function Get-PendingYearRequestForUser([string]$usernameKey) {
   return $null
 }
 
+function Normalize-SecurityAnswer([string]$raw) {
+  if ([string]::IsNullOrWhiteSpace($raw)) { return '' }
+  return ([regex]::Replace($raw.Trim(), '\s+', ' ')).ToLowerInvariant()
+}
+
+function ConvertFrom-SecurityQuestionsInput($rawList) {
+  if ($null -eq $rawList -or $rawList -is [string] -or -not ($rawList -is [System.Collections.IEnumerable])) {
+    return @{ ok = $false; code = 'SECURITY_QUESTIONS_REQUIRED'; error = 'Please pick and answer 2 or 3 distinct security recovery questions.' }
+  }
+  $items = @($rawList)
+  if ($items.Count -lt 2 -or $items.Count -gt 3) {
+    return @{ ok = $false; code = 'SECURITY_QUESTIONS_REQUIRED'; error = 'Please pick and answer 2 or 3 distinct security recovery questions.' }
+  }
+  $seenIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+  $hashedList = @()
+  foreach ($item in $items) {
+    if ($null -eq $item -or -not ($item -is [System.Collections.IDictionary])) {
+      return @{ ok = $false; code = 'SECURITY_QUESTIONS_INVALID'; error = 'Invalid security recovery question format.' }
+    }
+    $qid = if ($item.ContainsKey('id')) { ([string]$item['id']).Trim().ToLowerInvariant() } else { '' }
+    $prompt = if ($item.ContainsKey('prompt')) { ([regex]::Replace(([string]$item['prompt']).Trim(), '\s+', ' ')) } else { '' }
+    $normAns = Normalize-SecurityAnswer ([string]$item['answer'])
+    if ([string]::IsNullOrWhiteSpace($qid) -or $qid.Length -gt 40 -or [string]::IsNullOrWhiteSpace($prompt) -or $prompt.Length -gt 160) {
+      return @{ ok = $false; code = 'SECURITY_QUESTIONS_INVALID'; error = 'Please choose valid security recovery questions.' }
+    }
+    if (-not $seenIds.Add($qid)) {
+      return @{ ok = $false; code = 'SECURITY_QUESTIONS_DUPLICATE'; error = 'Each recovery question must be different.' }
+    }
+    if ($normAns.Length -lt 2 -or $normAns.Length -gt 80) {
+      return @{ ok = $false; code = 'SECURITY_ANSWER_INVALID'; error = 'Each recovery answer must be between 2 and 80 characters.' }
+    }
+    $hashedList += @{
+      id = $qid
+      prompt = $prompt
+      answer_hash = (New-PasswordHash $normAns)
+    }
+  }
+  return @{ ok = $true; questions = $hashedList }
+}
+
 function Serialize-AuthUser($u) {
   $uKey = [string]$u.username_key
+  $secQCount = 0
+  if ($u.ContainsKey('security_questions') -and $u.security_questions -is [System.Collections.IEnumerable] -and -not ($u.security_questions -is [string])) {
+    $secQCount = @($u.security_questions).Count
+  }
   return @{
     id = [int64]$u.id
     username_key = $uKey
@@ -339,6 +383,7 @@ function Serialize-AuthUser($u) {
     must_change_password = [bool]($u.ContainsKey('must_change_password') -and $u.must_change_password)
     failed_login_count = if ($u.ContainsKey('failed_login_count') -and $null -ne $u.failed_login_count) { [int]$u.failed_login_count } else { 0 }
     last_failed_login_at = if ($u.ContainsKey('last_failed_login_at')) { $u.last_failed_login_at } else { $null }
+    security_question_count = $secQCount
     pending_year_request = (Get-PendingYearRequestForUser $uKey)
     source = if ($u.ContainsKey('source') -and -not [string]::IsNullOrWhiteSpace([string]$u.source)) { [string]$u.source } else { 'local' }
     created_at = [string]$u.created_at
@@ -642,6 +687,11 @@ try {
             Send-JsonResponse $context.Response 409 @{ ok = $false; code = 'USERNAME_TAKEN'; error = 'That username is already taken. Please choose another name.' }
             continue
           }
+          $secParse = ConvertFrom-SecurityQuestionsInput ($body.securityQuestions)
+          if (-not $secParse.ok) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; code = $secParse.code; error = $secParse.error }
+            continue
+          }
           $pwHash = New-PasswordHash $password
           $uid = [int64]$script:authStore.nextUserId
           $script:authStore.nextUserId = $uid + 1
@@ -655,6 +705,7 @@ try {
             username_key = $usernameKey
             display_name = $displayName
             password_hash = $pwHash
+            security_questions = $secParse.questions
             best_score = 0
             total_kills = 0
             total_correct = 0
@@ -672,7 +723,7 @@ try {
           $script:authStore.users[$usernameKey] = $newUser
           $sess = New-AuthSessionForUser $usernameKey
           Save-AuthStore
-          Add-AdminAuditLog $displayName 'PLAYER_SIGNUP' $displayName "Signed up (Year $yr account)" | Out-Null
+          Add-AdminAuditLog $displayName 'PLAYER_SIGNUP' $displayName "Signed up (Year $yr account, $($secParse.questions.Count) recovery questions)" | Out-Null
           Send-JsonResponse $context.Response 200 @{
             ok = $true
             session_token = $sess.session_token
@@ -813,16 +864,14 @@ try {
           continue
         }
 
-        if ($relativePath -eq 'api/auth/forgot-password') {
-          $rlForgotIp = Test-RateLimit "forgot-ip:${clientIp}" 10 600 $true
-          if (-not $rlForgotIp.allowed) {
-            Send-RateLimitResponse $context.Response $rlForgotIp.retryAfter "Too many password reset requests from this connection. Please wait $($rlForgotIp.retryAfter) seconds and try again."
-            continue
-          }
+        if ($relativePath -eq 'api/auth/security-questions') {
           $displayName = Normalize-AuthUsername ([string]$body.username)
           $usernameKey = $displayName.ToLowerInvariant()
-          $note = if ($null -ne $body.note) { ([string]$body.note).Trim() } else { '' }
-          if ($note.Length -gt 180) { $note = $note.Substring(0, 180) }
+          $rlLookup = Test-RateLimit "secq-lookup:${clientIp}:$(if ($usernameKey) { $usernameKey } else { 'blank' })" 10 600 $true
+          if (-not $rlLookup.allowed) {
+            Send-RateLimitResponse $context.Response $rlLookup.retryAfter "Too many recovery lookups. Please wait $($rlLookup.retryAfter) seconds and try again."
+            continue
+          }
           if ($displayName.Length -lt 1 -or $displayName.Length -gt 24) {
             Send-JsonResponse $context.Response 400 @{ ok = $false; code = 'INVALID_USERNAME'; error = 'Enter your username (1 to 24 characters).' }
             continue
@@ -831,45 +880,180 @@ try {
             Send-JsonResponse $context.Response 404 @{ ok = $false; code = 'ACCOUNT_NOT_FOUND'; error = "No account found with username `"$displayName`". Please check the spelling or sign up first." }
             continue
           }
-          $rlForgotUser = Test-RateLimit "forgot:${usernameKey}" 3 600 $true
-          if (-not $rlForgotUser.allowed) {
-            Send-RateLimitResponse $context.Response $rlForgotUser.retryAfter "Too many password reset requests for `"$displayName`". Please wait $($rlForgotUser.retryAfter) seconds and try again."
-            continue
-          }
-          $resolvedDisplay = [string]$script:authStore.users[$usernameKey].display_name
-          $existingReq = $null
-          foreach ($r in $script:authStore.resetRequests) {
-            if ($r -and $r.username_key -eq $usernameKey -and $r.status -eq 'pending') {
-              $existingReq = $r
-              break
+          $uObj = $script:authStore.users[$usernameKey]
+          $savedQs = @()
+          if ($uObj.ContainsKey('security_questions') -and $uObj.security_questions -is [System.Collections.IEnumerable] -and -not ($uObj.security_questions -is [string])) {
+            foreach ($qItem in $uObj.security_questions) {
+              if ($qItem -and $qItem.id -and $qItem.prompt) {
+                $savedQs += @{ id = [string]$qItem.id; prompt = [string]$qItem.prompt }
+              }
             }
           }
-          if ($null -ne $existingReq) {
-            if (-not [string]::IsNullOrWhiteSpace($note)) { $existingReq.note = $note }
-            $existingReq.created_at = $nowIso
-            $existingReq.account_found = $true
-          } else {
-            $rid = [int64]$script:authStore.nextResetId
-            $script:authStore.nextResetId = $rid + 1
-            [void]$script:authStore.resetRequests.Add(@{
-              id = $rid
-              username_key = $usernameKey
-              display_name = $resolvedDisplay
-              note = $note
-              status = 'pending'
-              account_found = $true
-              created_at = $nowIso
-              resolved_at = $null
-              resolved_by = $null
-            })
+          if ($savedQs.Count -eq 0) {
+            Send-JsonResponse $context.Response 400 @{
+              ok = $false
+              code = 'NO_SECURITY_QUESTIONS'
+              error = 'This account has no recovery questions saved yet. If you still remember your password, log in and add recovery questions in Settings.'
+            }
+            continue
           }
-          Save-AuthStore
-          $reqDetail = if ($note) { "Requested password reset: $note" } else { 'Submitted Forgot Password request' }
-          Add-AdminAuditLog $resolvedDisplay 'FORGOT_PASSWORD_REQUEST' $resolvedDisplay $reqDetail | Out-Null
           Send-JsonResponse $context.Response 200 @{
             ok = $true
-            message = 'Password reset request sent to the administrator. Ask your admin for your temporary password once approved.'
+            username = [string]$uObj.display_name
+            questions = $savedQs
           }
+          continue
+        }
+
+        if ($relativePath -eq 'api/auth/verify-security-answer') {
+          $displayName = Normalize-AuthUsername ([string]$body.username)
+          $usernameKey = $displayName.ToLowerInvariant()
+          $secBucket = "secq-reset:${clientIp}:$(if ($usernameKey) { $usernameKey } else { 'blank' })"
+          $rlSec = Test-RateLimit $secBucket 5 900 $false
+          if (-not $rlSec.allowed) {
+            Send-RateLimitResponse $context.Response $rlSec.retryAfter "Too many incorrect recovery attempts for `"$displayName`". Please wait $($rlSec.retryAfter) seconds and try again."
+            continue
+          }
+          $qid = if ($null -ne $body.questionId) { ([string]$body.questionId).Trim().ToLowerInvariant() } else { '' }
+          $normAns = Normalize-SecurityAnswer ([string]$body.answer)
+          if ([string]::IsNullOrWhiteSpace($qid)) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; code = 'INVALID_SECURITY_QUESTION'; error = 'Choose a security recovery question.' }
+            continue
+          }
+          if ([string]::IsNullOrWhiteSpace($normAns) -or $normAns.Length -lt 2) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; code = 'INVALID_SECURITY_ANSWER'; error = 'Enter your answer to the selected recovery question.' }
+            continue
+          }
+          $uObj = if ($usernameKey -and $script:authStore.users.ContainsKey($usernameKey)) { $script:authStore.users[$usernameKey] } else { $null }
+          if ($null -eq $uObj) {
+            [void](Test-RateLimit $secBucket 5 900 $true)
+            Send-JsonResponse $context.Response 404 @{ ok = $false; code = 'ACCOUNT_NOT_FOUND'; error = 'Account not found.' }
+            continue
+          }
+          if ($uObj.ContainsKey('is_suspended') -and [bool]$uObj.is_suspended) {
+            Send-JsonResponse $context.Response 403 @{ ok = $false; code = 'ACCOUNT_SUSPENDED'; error = 'This account has been locked by an administrator.' }
+            continue
+          }
+          $matchedQ = $null
+          if ($uObj.ContainsKey('security_questions') -and $uObj.security_questions -is [System.Collections.IEnumerable] -and -not ($uObj.security_questions -is [string])) {
+            foreach ($qItem in $uObj.security_questions) {
+              if ($qItem -and ([string]$qItem.id).ToLowerInvariant() -eq $qid) {
+                $matchedQ = $qItem
+                break
+              }
+            }
+          }
+          $ansOk = if ($null -ne $matchedQ -and $matchedQ.answer_hash) { Test-PasswordHash $normAns ([string]$matchedQ.answer_hash) } else { $false }
+          if (-not $ansOk) {
+            [void](Test-RateLimit $secBucket 5 900 $true)
+            Send-JsonResponse $context.Response 401 @{
+              ok = $false
+              code = 'INVALID_SECURITY_ANSWER'
+              error = 'Incorrect answer. Double-check your spelling or choose one of your other recovery questions.'
+            }
+            continue
+          }
+          Send-JsonResponse $context.Response 200 @{
+            ok = $true
+            verified = $true
+            username = [string]$uObj.display_name
+            questionId = $qid
+          }
+          continue
+        }
+
+        if ($relativePath -eq 'api/auth/reset-password-by-question') {
+          $displayName = Normalize-AuthUsername ([string]$body.username)
+          $usernameKey = $displayName.ToLowerInvariant()
+          $secBucket = "secq-reset:${clientIp}:$(if ($usernameKey) { $usernameKey } else { 'blank' })"
+          $rlSec = Test-RateLimit $secBucket 5 900 $false
+          if (-not $rlSec.allowed) {
+            Send-RateLimitResponse $context.Response $rlSec.retryAfter "Too many incorrect recovery attempts for `"$displayName`". Please wait $($rlSec.retryAfter) seconds and try again."
+            continue
+          }
+          $qid = if ($null -ne $body.questionId) { ([string]$body.questionId).Trim().ToLowerInvariant() } else { '' }
+          $normAns = Normalize-SecurityAnswer ([string]$body.answer)
+          $newPw = if ($null -ne $body.newPassword) { [string]$body.newPassword } else { '' }
+          if ($newPw.Length -lt 6 -or $newPw.Length -gt 72 -or [string]::IsNullOrWhiteSpace($newPw)) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; code = 'INVALID_PASSWORD'; error = 'New password must be between 6 and 72 characters.' }
+            continue
+          }
+          if ([string]::IsNullOrWhiteSpace($normAns)) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; code = 'INVALID_SECURITY_ANSWER'; error = 'Enter your answer to the selected recovery question.' }
+            continue
+          }
+          $uObj = if ($usernameKey -and $script:authStore.users.ContainsKey($usernameKey)) { $script:authStore.users[$usernameKey] } else { $null }
+          if ($null -eq $uObj) {
+            [void](Test-RateLimit $secBucket 5 900 $true)
+            Send-JsonResponse $context.Response 404 @{ ok = $false; code = 'ACCOUNT_NOT_FOUND'; error = 'Account not found.' }
+            continue
+          }
+          if ($uObj.ContainsKey('is_suspended') -and [bool]$uObj.is_suspended) {
+            Send-JsonResponse $context.Response 403 @{ ok = $false; code = 'ACCOUNT_SUSPENDED'; error = 'This account has been locked by an administrator.' }
+            continue
+          }
+          $matchedQ = $null
+          if ($uObj.ContainsKey('security_questions') -and $uObj.security_questions -is [System.Collections.IEnumerable] -and -not ($uObj.security_questions -is [string])) {
+            foreach ($qItem in $uObj.security_questions) {
+              if ($qItem -and ([string]$qItem.id).ToLowerInvariant() -eq $qid) {
+                $matchedQ = $qItem
+                break
+              }
+            }
+          }
+          $ansOk = if ($null -ne $matchedQ -and $matchedQ.answer_hash) { Test-PasswordHash $normAns ([string]$matchedQ.answer_hash) } else { $false }
+          if (-not $ansOk) {
+            [void](Test-RateLimit $secBucket 5 900 $true)
+            Send-JsonResponse $context.Response 401 @{
+              ok = $false
+              code = 'INVALID_SECURITY_ANSWER'
+              error = 'Incorrect answer. Double-check your spelling or choose one of your other recovery questions.'
+            }
+            continue
+          }
+          Clear-RateLimit $secBucket
+          $uObj.password_hash = New-PasswordHash $newPw
+          $uObj.must_change_password = $false
+          $uObj.failed_login_count = 0
+          $uObj.last_failed_login_at = $null
+          $uObj.updated_at = $nowIso
+          foreach ($sKey in @($script:authStore.sessions.Keys)) {
+            if ((Get-SessionUserKey $script:authStore.sessions[$sKey]) -eq $usernameKey) {
+              $script:authStore.sessions.Remove($sKey)
+            }
+          }
+          Save-AuthStore
+          Add-AdminAuditLog ([string]$uObj.display_name) 'SELF_PASSWORD_RESET' ([string]$uObj.display_name) "Reset own password via security question ($qid)" | Out-Null
+          Send-JsonResponse $context.Response 200 @{
+            ok = $true
+            message = 'Password reset! You can now log in with your new password.'
+          }
+          continue
+        }
+
+        if ($relativePath -eq 'api/auth/update-security-questions') {
+          $token = ([string]$body.sessionToken).Trim()
+          $userObj = Resolve-AuthSession $token
+          if ($null -eq $userObj) {
+            Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'SESSION_INVALID'; error = 'Your session has expired. Please log in again.' }
+            continue
+          }
+          $curPw = if ($null -ne $body.currentPassword) { [string]$body.currentPassword } else { '' }
+          $storedHash = if ($userObj.ContainsKey('password_hash')) { [string]$userObj.password_hash } else { '' }
+          if (-not (Test-PasswordHash $curPw $storedHash)) {
+            Send-JsonResponse $context.Response 401 @{ ok = $false; code = 'INVALID_CREDENTIALS'; error = 'Current password is incorrect.' }
+            continue
+          }
+          $secParse = ConvertFrom-SecurityQuestionsInput ($body.securityQuestions)
+          if (-not $secParse.ok) {
+            Send-JsonResponse $context.Response 400 @{ ok = $false; code = $secParse.code; error = $secParse.error }
+            continue
+          }
+          $userObj.security_questions = $secParse.questions
+          $userObj.updated_at = $nowIso
+          Save-AuthStore
+          Add-AdminAuditLog ([string]$userObj.display_name) 'SECURITY_QUESTIONS_UPDATED' ([string]$userObj.display_name) "Updated $($secParse.questions.Count) recovery questions" | Out-Null
+          Send-JsonResponse $context.Response 200 @{ ok = $true; security_question_count = $secParse.questions.Count }
           continue
         }
 
@@ -1220,7 +1404,6 @@ try {
               adminSessions = $script:adminSessions.Count
             }
             users = $usersList
-            resetRequests = @($script:authStore.resetRequests)
             yearRequests = @($script:authStore.yearRequests)
             pvpLeaderboard = @($script:mpPvpLeaderboard.Values)
             mpPlayers = $playersList
@@ -1321,55 +1504,8 @@ try {
           continue
         }
 
-        if ($relativePath -eq 'api/admin/reset-password') {
-          $uk = Get-AuthUsernameKey ([string]$body.usernameKey)
-          if (-not $uk -or -not $script:authStore.users.ContainsKey($uk)) {
-            Send-JsonResponse $context.Response 404 @{ ok = $false; error = 'User account not found.' }
-            continue
-          }
-          $newPass = if (-not [string]::IsNullOrWhiteSpace([string]$body.newPassword)) { [string]$body.newPassword } else { 'BB-' + (New-RandomHex 4).ToUpperInvariant() }
-          if ($newPass.Length -lt 6 -or $newPass.Length -gt 72) {
-            Send-JsonResponse $context.Response 400 @{ ok = $false; error = 'New password must be 6-72 characters.' }
-            continue
-          }
-          $uObj = $script:authStore.users[$uk]
-          $uObj.password_hash = New-PasswordHash $newPass
-          $uObj.must_change_password = $true
-          $uObj.updated_at = $nowIso
-          $revoked = 0
-          foreach ($sKey in @($script:authStore.sessions.Keys)) {
-            if ((Get-SessionUserKey $script:authStore.sessions[$sKey]) -eq $uk) {
-              $script:authStore.sessions.Remove($sKey)
-              $revoked++
-            }
-          }
-          foreach ($r in $script:authStore.resetRequests) {
-            if ($r -and $r.username_key -eq $uk -and $r.status -eq 'pending') {
-              $r.status = 'resolved'
-              $r.resolved_at = $nowIso
-              $r.resolved_by = $adminSess.username
-            }
-          }
-          Save-AuthStore
-          Add-AdminAuditLog $adminSess.username 'CHANGE_PASSWORD' $uObj.display_name "Set new password & signed out $revoked active login(s)" | Out-Null
-          Send-JsonResponse $context.Response 200 @{ ok = $true; temporaryPassword = $newPass; revokedSessions = $revoked }
-          continue
-        }
-
-        if ($relativePath -eq 'api/admin/dismiss-reset-request') {
-          $reqId = 0L
-          [void][int64]::TryParse([string]$body.requestId, [ref]$reqId)
-          foreach ($r in $script:authStore.resetRequests) {
-            if ($r -and [int64]$r.id -eq $reqId -and $r.status -eq 'pending') {
-              $r.status = 'dismissed'
-              $r.resolved_at = $nowIso
-              $r.resolved_by = $adminSess.username
-              break
-            }
-          }
-          Save-AuthStore
-          Add-AdminAuditLog $adminSess.username 'DISMISS_RESET_REQ' "Request #$reqId" 'Dismissed forgot-password request' | Out-Null
-          Send-JsonResponse $context.Response 200 @{ ok = $true }
+        if ($relativePath -eq 'api/admin/reset-password' -or $relativePath -eq 'api/admin/dismiss-reset-request') {
+          Send-JsonResponse $context.Response 403 @{ ok = $false; code = 'ADMIN_PASSWORD_RESET_REMOVED'; error = 'Administrators cannot view or change player passwords. Players recover forgotten passwords via their security questions.' }
           continue
         }
 

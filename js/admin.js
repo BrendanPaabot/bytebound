@@ -8,14 +8,12 @@
     ADMIN_LOGIN_FAILED: 'Failed Admin Login',
     ADMIN_LOGOUT: 'Admin Signed Out',
     PLAYER_SIGNUP: 'Player Signed Up',
-    FORGOT_PASSWORD_REQUEST: 'Forgot Password Request',
+    SELF_PASSWORD_RESET: 'Player Reset Password',
+    SECURITY_QUESTIONS_UPDATED: 'Updated Recovery Questions',
     YEAR_CHANGE_REQUEST: 'Year Change Request',
     PLAYER_CHANGE_PASSWORD: 'Player Changed Password',
     CREATE_ACCOUNT: 'Created Account',
     CREATE_USER: 'Created Account',
-    CHANGE_PASSWORD: 'Changed Password',
-    PASSWORD_RESET: 'Changed Password',
-    DISMISS_RESET_REQ: 'Dismissed Reset Request',
     CHANGE_YEAR_LEVEL: 'Changed Year Level',
     APPROVE_YEAR_REQ: 'Approved Year Change',
     DISMISS_YEAR_REQ: 'Dismissed Year Request',
@@ -42,15 +40,15 @@
   const TAB_META = {
     overview: {
       title: 'Dashboard',
-      subtitle: 'Overview of player accounts, password requests, questions, and live matches.',
+      subtitle: 'Overview of player accounts, academic year requests, questions, and live matches.',
     },
     users: {
       title: 'Player Accounts',
-      subtitle: 'Create accounts, check progress, change passwords, update year levels, or lock/delete accounts.',
+      subtitle: 'Create accounts, inspect progress, update year levels, or lock/delete accounts.',
     },
     resets: {
-      title: 'Player Requests',
-      subtitle: 'Approve or dismiss student Year Level changes and Forgot Password requests.',
+      title: 'Year Level Requests',
+      subtitle: 'Approve or dismiss student Year Level changes (password recovery is player self-service).',
     },
     questions: {
       title: 'Questions & Year Levels',
@@ -80,7 +78,6 @@
     latencyMs: null,
     serverInfo: {},
     users: [],
-    resetRequests: [],
     yearRequests: [],
     arcadeLeaderboard: [],
     pvpLeaderboard: [],
@@ -752,7 +749,6 @@
     loadAndValidateQuestionBank(true);
 
     let primaryUsers = [];
-    let primaryResets = [];
     let primaryYearReqs = [];
 
     let serverAudits = [];
@@ -760,7 +756,6 @@
       const data = await postLocalAdmin('overview', { adminToken: state.token });
       state.serverInfo = data.server || { provider: 'local' };
       primaryUsers = Array.isArray(data.users) ? data.users : [];
-      primaryResets = Array.isArray(data.resetRequests) ? data.resetRequests : [];
       primaryYearReqs = Array.isArray(data.yearRequests) ? data.yearRequests : [];
       state.pvpLeaderboard = Array.isArray(data.pvpLeaderboard) ? data.pvpLeaderboard : [];
       state.mpPlayers = Array.isArray(data.mpPlayers) ? data.mpPlayers : [];
@@ -777,7 +772,6 @@
       const data = await callSupabaseRpc('admin_get_overview', { p_admin_token: state.token });
       state.serverInfo = data.server || { provider: 'supabase' };
       primaryUsers = Array.isArray(data.users) ? data.users : [];
-      primaryResets = Array.isArray(data.resetRequests) ? data.resetRequests : [];
       primaryYearReqs = Array.isArray(data.yearRequests) ? data.yearRequests : [];
       serverAudits = Array.isArray(data.auditLogs) ? data.auditLogs : [];
       state.securityNotice = data.securityNotice && typeof data.securityNotice === 'object'
@@ -789,7 +783,6 @@
     } else {
       state.serverInfo = { provider: 'offline', activeSessions: 0, uptimeSeconds: 0 };
       primaryUsers = scanOfflineLocalStorageUsers();
-      primaryResets = readLocalPendingList('bytebound-pending-resets-v1');
       primaryYearReqs = readLocalPendingList('bytebound-pending-year-requests-v1');
       try {
         const storedNotice = JSON.parse(localStorage.getItem('bytebound-security-notice-v1') || 'null');
@@ -801,15 +794,7 @@
       state.pvpLeaderboard = await fetchSupabaseTable('pvp_leaderboard_entries', '?select=*&order=rating.desc&limit=100');
     }
 
-    // Also include any fallback requests saved in this browser if not yet recorded on server
-    const pendingResetKeys = new Set(primaryResets.filter((r) => r && r.status === 'pending').map((r) => String(r.username_key || '').toLowerCase()));
-    for (const lr of readLocalPendingList('bytebound-pending-resets-v1')) {
-      const lk = String(lr?.username_key || '').toLowerCase();
-      if (lr && lr.status === 'pending' && lk && !pendingResetKeys.has(lk)) {
-        primaryResets.push({ ...lr, _localOnly: state.provider !== 'offline' });
-        pendingResetKeys.add(lk);
-      }
-    }
+    // Also include any fallback year requests saved in this browser if not yet recorded on server
     const pendingYearKeys = new Set(primaryYearReqs.filter((r) => r && r.status === 'pending').map((r) => String(r.username_key || '').toLowerCase()));
     for (const ly of readLocalPendingList('bytebound-pending-year-requests-v1')) {
       const lk = String(ly?.username_key || '').toLowerCase();
@@ -842,7 +827,6 @@
     }
 
     state.users = mergeDiscoveredUsers(primaryUsers, state.arcadeLeaderboard, state.pvpLeaderboard);
-    state.resetRequests = primaryResets;
     state.yearRequests = primaryYearReqs;
     state.latencyMs = Math.max(1, Math.round(performance.now() - started));
     updateShellChrome();
@@ -851,9 +835,8 @@
 
   // ===== Shell Chrome =====
   function updateShellChrome() {
-    const pendingResets = state.resetRequests.filter((r) => r && r.status === 'pending').length;
     const pendingYearReqs = state.yearRequests.filter((r) => r && r.status === 'pending').length;
-    const totalPending = pendingResets + pendingYearReqs;
+    const totalPending = pendingYearReqs;
     $('navBadgeUsers').textContent = String(state.users.length);
     const resetBadge = $('navBadgeResets');
     resetBadge.textContent = String(totalPending);
@@ -889,9 +872,8 @@
   // ===== Tab Renderers =====
   function renderOverview() {
     const activeSessions = state.serverInfo.activeSessions ?? state.users.reduce((s, u) => s + (Number(u.active_sessions) || 0), 0);
-    const pendingResets = state.resetRequests.filter((r) => r && r.status === 'pending');
     const pendingYearReqs = state.yearRequests.filter((r) => r && r.status === 'pending');
-    const totalPendingReqs = pendingResets.length + pendingYearReqs.length;
+    const totalPendingReqs = pendingYearReqs.length;
     const errCount = state.questionIssues.filter((i) => i.severity === 'error').length;
     const yearCounts = [1, 2, 3, 4].map((yr) => ({
       yr,
@@ -907,8 +889,8 @@
       alertBanners.push(`
         <div class="adm-alert-banner">
           <div>
-            <strong>${totalPendingReqs} Pending Player Request${totalPendingReqs === 1 ? '' : 's'}</strong>
-            <small>${pendingYearReqs.length} Year Level change request(s) and ${pendingResets.length} Forgot Password request(s) waiting for admin review.</small>
+            <strong>${totalPendingReqs} Pending Year Level Request${totalPendingReqs === 1 ? '' : 's'}</strong>
+            <small>${pendingYearReqs.length} Year Level change request(s) waiting for admin review.</small>
           </div>
           <button class="adm-btn adm-btn-primary adm-btn-sm" type="button" data-adm-tab="resets">Review Requests →</button>
         </div>
@@ -979,9 +961,9 @@
           <span class="adm-kpi-sub">Active player logins</span>
         </article>
         <article class="adm-kpi-card">
-          <span class="adm-kpi-label">Pending Requests</span>
+          <span class="adm-kpi-label">Pending Year Requests</span>
           <strong class="adm-kpi-val">${totalPendingReqs}</strong>
-          <span class="adm-kpi-sub">${pendingYearReqs.length} year · ${pendingResets.length} password</span>
+          <span class="adm-kpi-sub">${pendingYearReqs.length} academic year change(s)</span>
         </article>
         <article class="adm-kpi-card">
           <span class="adm-kpi-label">Quiz Questions</span>
@@ -1155,7 +1137,6 @@
         <td>
           <div class="adm-action-menu">
             <button class="adm-btn adm-btn-secondary adm-btn-sm" type="button" data-adm-act="inspect-user" data-key="${esc(u.username_key)}">Details</button>
-            <button class="adm-btn adm-btn-secondary adm-btn-sm" type="button" data-adm-act="reset-pw" data-key="${esc(u.username_key)}">Change Password</button>
             <button class="adm-btn ${locked ? 'adm-btn-primary' : 'adm-btn-ghost'} adm-btn-sm" type="button" data-adm-act="toggle-suspend" data-key="${esc(u.username_key)}" data-locked="${locked}">${locked ? 'Unlock' : 'Lock'}</button>
             <button class="adm-btn adm-btn-ghost adm-btn-sm" type="button" data-adm-act="user-more" data-key="${esc(u.username_key)}">More…</button>
           </div>
@@ -1238,32 +1219,12 @@
       </tr>`;
     }).join('');
 
-    const sortedResets = sortReqs(state.resetRequests);
-    const rows = sortedResets.map((r) => {
-      const statusCls = r.status === 'pending' ? 'is-warn' : (r.status === 'resolved' ? 'is-ok' : 'is-neutral');
-      const statusTxt = r.status === 'pending' ? 'Pending' : (r.status === 'resolved' ? 'Resolved' : 'Dismissed');
-      return `<tr>
-        <td><strong>${esc(r.display_name || r.username_key)}</strong><br /><small style="color:var(--adm-dim)">@${esc(r.username_key)}</small></td>
-        <td>${esc(r.note || 'No note provided')}</td>
-        <td>${esc(formatDate(r.created_at))}</td>
-        <td><span class="adm-pill ${statusCls}">${statusTxt}</span>${r.resolved_by ? `<br /><small style="color:var(--adm-dim)">by ${esc(r.resolved_by)}</small>` : ''}</td>
-        <td>
-          ${r.status === 'pending'
-            ? `<div class="adm-table-actions">
-                <button class="adm-btn adm-btn-primary adm-btn-sm" type="button" data-adm-act="reset-pw" data-key="${esc(r.username_key)}">Reset Password</button>
-                <button class="adm-btn adm-btn-ghost adm-btn-sm" type="button" data-adm-act="dismiss-reset" data-reqid="${esc(r.id)}" data-key="${esc(r.username_key)}" data-localonly="${r._localOnly ? 'true' : 'false'}">Dismiss</button>
-              </div>`
-            : '<span style="color:var(--adm-dim)">Completed</span>'}
-        </td>
-      </tr>`;
-    }).join('');
-
     return `
       <section class="adm-panel">
         <header class="adm-panel-head">
           <div>
             <h3>Year Level Change Requests (${sortedYears.length})</h3>
-            <small>Students are locked to their Sign-Up Year Level. Only approve changes here when a student is ready or picked the wrong year.</small>
+            <small>Students are locked to their Sign-Up Year Level. Approve changes here when a student is ready or picked the wrong year.</small>
           </div>
         </header>
         <div class="adm-table-wrap">
@@ -1279,18 +1240,10 @@
       <section class="adm-panel">
         <header class="adm-panel-head">
           <div>
-            <h3>Forgot Password Requests (${sortedResets.length})</h3>
-            <small>When a player clicks "Forgot password?" on the login page, their request shows up here so you can give them a new password.</small>
+            <h3>Self-Service Password Recovery Active</h3>
+            <small>Players reset forgotten passwords themselves using their security recovery questions on the Login page. Administrators cannot view or change player passwords.</small>
           </div>
         </header>
-        <div class="adm-table-wrap">
-          ${rows
-            ? `<table class="adm-table">
-                <thead><tr><th>Player</th><th>Message / Note</th><th>Requested</th><th>Status</th><th>Action</th></tr></thead>
-                <tbody>${rows}</tbody>
-              </table>`
-            : '<div class="adm-empty">No password reset requests right now.</div>'}
-        </div>
       </section>
     `;
   }
@@ -1682,22 +1635,6 @@
       return;
     }
 
-    if (act === 'reset-pw') {
-      const uk = target.dataset.key;
-      if (state.provider === 'offline') {
-        showToast('Start serve-local.ps1 or connect Cloud Database to change player passwords.', 'warn');
-        return;
-      }
-      openModal(
-        `Change Password · @${uk}`,
-        `<p style="margin:0;color:var(--adm-muted)">Enter a new password below, or leave it blank to generate a random temporary password. This will also sign the player out of old devices and mark any Forgot Password request as resolved.</p>
-         <label class="adm-field"><span>New Password (optional, 6–72 chars)</span><input id="admNewPwInput" type="text" maxlength="72" placeholder="Leave blank to auto-generate (e.g. BB-9F2A4C10)" /></label>`,
-        `<button class="adm-btn adm-btn-ghost" type="button" data-adm-close-modal>Cancel</button>
-         <button class="adm-btn adm-btn-primary" type="button" id="admConfirmResetPw" data-key="${esc(uk)}">Set New Password</button>`
-      );
-      return;
-    }
-
     if (act === 'approve-year-req') {
       const reqId = Number(target.dataset.reqid);
       const reqUserKey = String(target.dataset.key || '').toLowerCase();
@@ -1747,30 +1684,6 @@
           pushLocalAudit('DISMISS_YEAR_REQ', reqUserKey || `Request #${target.dataset.reqid}`, 'Dismissed year change request');
         }
         showToast('Year change request dismissed.', 'ok');
-        await refreshTelemetry();
-      } catch (err) {
-        showToast(err.message, 'err');
-      }
-      return;
-    }
-
-    if (act === 'dismiss-reset') {
-      const reqId = Number(target.dataset.reqid);
-      const reqUserKey = String(target.dataset.key || '').toLowerCase();
-      const isLocalOnly = target.dataset.localonly === 'true';
-      try {
-        if (!isLocalOnly) {
-          if (state.provider === 'local') {
-            await postLocalAdmin('dismiss-reset-request', { adminToken: state.token, requestId: reqId });
-          } else if (state.provider === 'supabase') {
-            await callSupabaseRpc('admin_dismiss_reset_request', { p_admin_token: state.token, p_request_id: reqId });
-          }
-        }
-        removeLocalPendingItem('bytebound-pending-resets-v1', (r) => String(r.id) === String(target.dataset.reqid) || (reqUserKey && String(r.username_key || '').toLowerCase() === reqUserKey));
-        if (isLocalOnly || state.provider === 'offline') {
-          pushLocalAudit('DISMISS_RESET_REQ', reqUserKey || `Request #${target.dataset.reqid}`, 'Dismissed password reset request');
-        }
-        showToast('Password request dismissed.', 'ok');
         await refreshTelemetry();
       } catch (err) {
         showToast(err.message, 'err');
@@ -2010,7 +1923,7 @@
         exportedAt: new Date().toISOString(),
         source: state.provider,
         users: state.users,
-        resetRequests: state.resetRequests,
+        yearRequests: state.yearRequests,
         questionsCount: state.questionBank.length,
         auditLogs: state.auditLogs,
       };
@@ -2157,13 +2070,6 @@
         return;
       }
 
-      if (e.target.id === 'admCopyTempPw') {
-        const pwText = e.target.dataset.pw || '';
-        try { await navigator.clipboard?.writeText(pwText); } catch {}
-        e.target.textContent = 'Copied!';
-        return;
-      }
-
       if (e.target.id === 'admConfirmCreateUser') {
         const username = $('admCreateUsername')?.value.trim() || '';
         const password = $('admCreatePassword')?.value || '';
@@ -2202,35 +2108,6 @@
           }
           showToast(`Updated @${uk} to ${YEAR_NAMES[yr]}.`, 'ok');
           closeModal();
-          await refreshTelemetry();
-        } catch (err) {
-          showToast(err.message, 'err');
-        }
-        return;
-      }
-
-      if (e.target.id === 'admConfirmResetPw') {
-        const uk = e.target.dataset.key;
-        const customPw = $('admNewPwInput')?.value.trim() || '';
-        try {
-          let res;
-          if (state.provider === 'local') {
-            res = await postLocalAdmin('reset-password', { adminToken: state.token, usernameKey: uk, newPassword: customPw });
-          } else {
-            res = await callSupabaseRpc('admin_reset_user_password', { p_admin_token: state.token, p_username_key: uk, p_new_password: customPw || null });
-          }
-          closeModal();
-          removeLocalPendingItem('bytebound-pending-resets-v1', (r) => String(r.username_key || '').toLowerCase() === String(uk || '').toLowerCase());
-          const newPass = res.temporaryPassword || customPw;
-          openModal(
-            'New Password Ready',
-            `<p style="margin:0;color:var(--adm-muted)">Share this password with <strong>@${esc(uk)}</strong>. Old logins were signed out and any pending Forgot Password request was marked Resolved.</p>
-             <div class="adm-copy-row">
-               <code>${esc(newPass)}</code>
-               <button class="adm-btn adm-btn-secondary adm-btn-sm" type="button" id="admCopyTempPw" data-pw="${esc(newPass)}">Copy</button>
-             </div>`,
-            `<button class="adm-btn adm-btn-primary" type="button" data-adm-close-modal>Done</button>`
-          );
           await refreshTelemetry();
         } catch (err) {
           showToast(err.message, 'err');

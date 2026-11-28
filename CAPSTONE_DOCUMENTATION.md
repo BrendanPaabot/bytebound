@@ -7,13 +7,13 @@
 <!-- AUTO:START:snapshot -->
 | Metric | Live Value |
 | :--- | :--- |
-| **Last Auto-Synced** | `2026-11-28 02:06:08` |
-| **Git Branch / HEAD** | `main` @ `9b54cfc` |
-| **Tracked Source Modules** | `44` files (`68,188` lines, `2514.6 KB`) |
+| **Last Auto-Synced** | `2026-11-28 17:29:53` |
+| **Git Branch / HEAD** | `main` @ `fc99d19` |
+| **Tracked Source Modules** | `45` files (`70,018` lines, `2583.3 KB`) |
 | **Question Bank Coverage** | `420` questions across `7` disciplines & `35` topics |
 | **Campaign Structure** | `16` authored rooms · `RUN_LENGTH = 32` (2 campaign loops) |
 | **Achievements** | `54` tracked milestones |
-| **Active Asset Cache Versions** | `styles.css?v=59`, `js/audio.js?v=15`, `js/cards.js?v=12`, `js/combat.js?v=84`, `js/practice.js?v=16`, `index.js?v=188`, `js/tutorials.js?v=19`, `admin.css?v=6`, `admin.js?v=10` |
+| **Active Asset Cache Versions** | `styles.css?v=61`, `js/audio.js?v=15`, `js/cards.js?v=12`, `js/combat.js?v=84`, `js/practice.js?v=16`, `index.js?v=193`, `js/tutorials.js?v=19`, `admin.css?v=6`, `admin.js?v=11` |
 <!-- AUTO:END:snapshot -->
 
 ---
@@ -22,6 +22,10 @@
 
 ### 2.1 Research Context & Problem Statement
 Undergraduate Information Technology and Computer Science students often struggle to sustain engagement and retain cumulative technical concepts across progressive year levels (**1st Year through 4th Year**). Static online quizzes rarely adapt to individual weaknesses, seldom distinguish **initial baseline competence** from **post-practice mastery**, and offer minimal formative feedback or classroom governance controls.
+
+**Empirical Validation & Actual User Evaluation Summary:**
+- **Chapter 1 Preliminary Needs Assessment (`N = 49` unique PLMun CITCS students; 56 submissions screened):** Confirmed all 10 problem/need indicators at **Agree** (overall composite mean = **`3.72`**), led by **`79.59%`** agreement (`Mean = 4.06`, `SD = 0.69`, 0% disagreement) affirming the clear need for a free, accessible, CITCS-aligned adaptive educational web game for PLMun students (`Q10`), alongside lack of spaced review for missed concepts (`3.82`, `63.27%`), repetitive solo study (`3.78`, `61.22%`), demand for interactive turn-based game mechanics (`3.78`, `61.22%`), difficulty retaining earlier-year lessons (`3.71`, `63.27%`), and syllabus misalignment (`3.67`, `63.27%`).
+- **Actual User Evaluation (`N = 67` unique PLMun CITCS students; 69 submissions screened; ISO/IEC 25010:2023):** Achieved an **Overall Weighted Mean of `4.34` ("Excellent")** across all six evaluated quality characteristics (`0` Not Applicable): **Functional Suitability (`4.30`)**, **Performance Efficiency (`4.30`)**, **Compatibility (`4.31`)**, **Interaction Capability (`4.34`)**, **Reliability (`4.36`)**, and **Security — User Perspective (`4.41`)**, with 17 of 18 indicators rated **Excellent** (`4.27–4.43`) and `C2` (coexistence alongside concurrent apps) rated **Very Good (`4.19`)**.
 
 **BYTEBOUND (*CITCS Quest — Learn to Fight*)** addresses these gaps through an **Adaptive Educational Role-Playing Game (RPG)** built specifically for the CITCS curriculum. Academic mastery directly governs combat outcomes, resource recovery, skill specialization, and competitive ranking, turning formative assessment into immediate, strategic gameplay feedback.
 
@@ -284,32 +288,32 @@ BYTEBOUND pairs its diagnostic tracker and Skill Trees with a **Refreshable Ques
 ## 8. Authentication, Security & Comprehensive Admin Console
 
 ### 8.1 Player & Admin Security Architecture
-- **Password Authentication:** Player accounts use salted **PBKDF2-SHA256** hashes on the local PowerShell server (`serve-local.ps1`) and **PostgreSQL `pgcrypto` bcrypt** salted hashes inside private `public.user_credentials` with opaque session tokens (`public.user_sessions`) in Supabase (`supabase/migration-password-auth.sql`).
-- **Forgot-Password Validation:** Reset requests are strictly validated against existing usernames on both backend tiers—requests targeting non-existent accounts are rejected with an explicit error and never pollute the admin queue.
+- **Password Authentication & Self-Service Multi-Question Recovery (`supabase/migration-security-questions.sql`):** Player accounts use salted **PBKDF2-SHA256** hashes on the local PowerShell server (`serve-local.ps1`) and **PostgreSQL `pgcrypto` bcrypt** salted hashes inside private `public.user_credentials` with opaque session tokens (`public.user_sessions`) in Supabase (`supabase/migration-password-auth.sql`). During registration (or later in **Settings → Security Questions**), players must choose and answer **2–3 distinct security recovery questions** (stored exclusively as normalized, salted hashes in `public.user_security_questions`). On **Forgot Password**, players can switch freely between any saved question to reset their password immediately—revoking prior sessions without administrator intervention.
+- **No Admin Password Authority:** Administrators **cannot** view or change any player's password, and admin-mediated password reset requests have been completely removed (`api/admin/reset-password`, `admin_reset_user_password`, and `auth_request_password_reset` removed).
 - **High-Concurrency Rate Limiting & Traffic Throttling:**
   - **Server & Database Guards:** Both `serve-local.ps1` (HTTP `429` + `Retry-After` sliding window) and `supabase/migration-rate-limiting.sql` (`public.api_rate_limits`) limit failed login/admin attempts (`5 / 15 min`), forgot-password & year-change requests (`3 / 10 min`), signups (`10 / 10 min`), and rapid leaderboard writes (`1 / 5s`).
   - **Client Backoff, Caching & Lazy Sockets:** `supabaseRequest()` retries `429`/`503` responses with exponential backoff + jitter; profile/leaderboard syncs coalesce over `15–20s` milestones with offline recovery queues and `45s` leaderboard TTL caching; and 1v1 Multiplayer Realtime/LAN polling connects lazily (`1500ms` lobby, `450ms` active match, `idle` with `0` traffic when closed).
 - **Data-Safety Warnings, Breach Alerts & Production Hardening:**
   - **User Safety Notices & Password Hygiene (`index.html`, `index.js`):** Sign-Up includes a real-time password strength meter that blocks weak/commonly leaked passwords (`123456`, `password`, username matches), warns users not to reuse personal passwords, provides an accessible **Privacy & Data Safety (RA 10173)** modal explaining collected data, and offers a **Shared computer** checkbox that wipes player-scoped `localStorage` keys on logout.
-  - **Failed-Login & Temporary-Password Alerts (`serve-local.ps1`, `supabase/migration-security-safety.sql`):** Incorrect passwords increment `failed_login_count` + `last_failed_login_at`; Admin password resets set `must_change_password = true`. Upon login, an `#accountSecurityAlert` banner warns the player and auto-clears once the password is changed in Settings.
+  - **Failed-Login Alerts (`serve-local.ps1`, `supabase/migration-security-safety.sql`):** Incorrect passwords increment `failed_login_count` + `last_failed_login_at`, displaying an `#accountSecurityAlert` warning banner upon next login.
   - **System-Wide Security Broadcast & HTTP Headers (`_headers`, `serve-local.ps1`, `admin.js`):** Admins can publish/clear emergency security banners (`#globalSecurityBanner` via `system_security_notices` / `/api/security/notice`); both static hosting (`_headers`) and `serve-local.ps1` send `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Permissions-Policy`, and `Content-Security-Policy`; non-local origins hide the default admin credential hint and disable offline fallback admin authentication; and `multiplayer_rooms` RLS policies restrict mutations to `OPEN` or active match rooms.
 
 ### 8.2 Admin Management Console (`admin.html` & `js/admin.js`)
 Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → Local Server`)** connection fallback:
 - **Dashboard (`overview`):** KPI cards, recent account signups, pending request counts, active 1v1 rooms, and audit feed.
-- **Accounts (`users`):** Search/filter users, create accounts, inspect detailed player progress/skills/stats modals, edit Academic Year directly, issue temporary passwords, revoke sessions, suspend/unsuspend accounts, reset run progress, or delete users.
-- **Requests (`resets`):** Actionable inbox recording both **Forgot-Password Requests** and **Academic Year Change Requests** with one-click approval, custom temporary password assignment, or dismissal.
+- **Accounts (`users`):** Search/filter users, create accounts, inspect detailed player progress/skills/stats modals, edit Academic Year directly, revoke sessions, suspend/unsuspend accounts, reset run progress, or delete users (with zero access to player passwords or password resets).
+- **Requests (`resets`):** Actionable inbox for **Academic Year Change Requests** with one-click approval or dismissal (noting that password recovery is player self-service).
 - **Questions (`questions`):** Full searchable/filterable browser for the compiled question bank with **numbered pagination (`1 … N`)** so overflowed datasets remain accessible page-by-page.
 - **Leaderboards & Multiplayer (`leaderboards`, `multiplayer`):** Inspect/moderate Arcade and 1v1 Elo standings, observe real-time `public.multiplayer_rooms` updates (`waiting` → `full` → `in_match` → auto-deleted on match completion/unload or 60s TTL expiry via `supabase/migration-multiplayer-rooms-realtime.sql`), and forcibly close rooms in both Local Server and Supabase modes (`admin_close_multiplayer_room()`).
 - **Activity Log (`audit`):** Persistent timestamped audit trail recording account signups, password/year requests, and administrative actions across sessions.
 
 <!-- AUTO:START:backend -->
-### Local Server HTTP Endpoints (`serve-local.ps1` — `34` Routes)
-- **Player Auth & Requests (`11`):** `/api/auth/change-password`, `/api/auth/forgot-password`, `/api/auth/health`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/mirror-account`, `/api/auth/profile`, `/api/auth/request-year-change`, `/api/auth/reset`, `/api/auth/session`, `/api/auth/signup`
+### Local Server HTTP Endpoints (`serve-local.ps1` — `37` Routes)
+- **Player Auth & Requests (`14`):** `/api/auth/change-password`, `/api/auth/health`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/mirror-account`, `/api/auth/profile`, `/api/auth/request-year-change`, `/api/auth/reset`, `/api/auth/reset-password-by-question`, `/api/auth/security-questions`, `/api/auth/session`, `/api/auth/signup`, `/api/auth/update-security-questions`, `/api/auth/verify-security-answer`
 - **Admin Console API (`17`):** `/api/admin/approve-year-request`, `/api/admin/close-room`, `/api/admin/create-user`, `/api/admin/delete-pvp-entry`, `/api/admin/delete-user`, `/api/admin/dismiss-reset-request`, `/api/admin/dismiss-year-request`, `/api/admin/log-activity`, `/api/admin/login`, `/api/admin/logout`, `/api/admin/overview`, `/api/admin/reset-password`, `/api/admin/reset-progress`, `/api/admin/revoke-sessions`, `/api/admin/set-security-notice`, `/api/admin/set-user-year`, `/api/admin/toggle-suspend`
 - **Multiplayer & PvP API (`5`):** `/api/mp/event`, `/api/mp/pvp-leaderboard`, `/api/mp/pvp-reset`, `/api/mp/pvp-result`, `/api/mp/state`
 
-### Supabase PostgreSQL Migrations (`13` Tables · `37` RPC Functions across `11` Files)
+### Supabase PostgreSQL Migrations (`14` Tables · `42` RPC Functions across `12` Files)
 | Migration Script | Tables Created / Referenced | RPC Functions Defined |
 | :--- | :--- | :--- |
 | `supabase/migration-1v1-leaderboard.sql` | `pvp_leaderboard_entries` | `submit_leaderboard_run()`, `submit_pvp_match_result()`, `reset_user_profile()` |
@@ -320,6 +324,7 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 | `supabase/migration-password-auth.sql` | `user_credentials`, `user_sessions` | `_serialize_auth_user()`, `_resolve_session_user_id()`, `auth_sign_up()`, `auth_log_in()`, `auth_get_session()`, `auth_logout()`, `auth_save_profile()`, `auth_reset_profile()`, `submit_leaderboard_run()`, `submit_pvp_match_result()` |
 | `supabase/migration-profile-pin.sql` | — | `upsert_user_profile()`, `reset_user_profile()` |
 | `supabase/migration-rate-limiting.sql` | `api_rate_limits` | `_check_rate_limit()`, `_clear_rate_limit()`, `auth_log_in()`, `auth_request_password_reset()`, `auth_request_year_change()`, `admin_log_in()`, `submit_leaderboard_run()` |
+| `supabase/migration-security-questions.sql` | `user_security_questions` | `_normalize_security_answer()`, `_serialize_auth_user()`, `auth_sign_up()`, `auth_get_security_questions()`, `auth_verify_security_answer()`, `auth_reset_password_with_security_question()`, `auth_update_security_questions()`, `admin_get_overview()` |
 | `supabase/migration-security-safety.sql` | `system_security_notices` | `_serialize_auth_user()`, `auth_log_in()`, `admin_reset_user_password()`, `auth_change_password()`, `admin_set_security_notice()`, `admin_get_overview()` |
 | `supabase/migration-unique-username-no-password.sql` | — | `register_user_profile()`, `upsert_user_profile()`, `reset_user_profile()` |
 | `supabase/schema.sql` | `users`, `leaderboard_entries`, `multiplayer_rooms`, `pvp_leaderboard_entries` | `submit_leaderboard_run()`, `submit_pvp_match_result()` |
@@ -332,15 +337,15 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 <!-- AUTO:START:inventory -->
 | File Path | Lines | Size (KB) | Functional Role |
 | :--- | :---: | :---: | :--- |
-| [`CHANGES.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/CHANGES.md) | 83 | 18.9 | Concise changelog and migration overview aligned with live system revisions |
-| [`SUPABASE_SETUP.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/SUPABASE_SETUP.md) | 25 | 3.5 | Cloud PostgreSQL and Realtime setup instructions |
+| [`CHANGES.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/CHANGES.md) | 93 | 22.3 | Concise changelog and migration overview aligned with live system revisions |
+| [`SUPABASE_SETUP.md`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/SUPABASE_SETUP.md) | 26 | 4.1 | Cloud PostgreSQL and Realtime setup instructions |
 | [`admin.html`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/admin.html) | 146 | 6.4 | Standalone Administrator Management Console shell and layout containers |
 | [`css/admin.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/admin.css) | 1,165 | 21.6 | Styling and responsive grid layouts for the standalone Admin Management Console |
-| [`css/styles.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/styles.css) | 17,459 | 475.9 | Complete responsive design system (Dark/Light themes, battle cards, skill tree, portrait/landscape media queries) |
+| [`css/styles.css`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/css/styles.css) | 17,984 | 485.9 | Complete responsive design system (Dark/Light themes, battle cards, skill tree, portrait/landscape media queries) |
 | [`data/questions.json`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/data/questions.json) | 5,889 | 220.1 | Authoritative 240-question curriculum bank tagged by category, topic, year (1–4), and difficulty |
-| [`index.html`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.html) | 489 | 34.1 | Main player SPA shell (Auth, Quest Hub, Practice, Battle Canvas, Tracker, Maps, Skill Tree, Settings) |
-| [`index.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.js) | 11,473 | 468.1 | Game loop, 16-room engine, sprite/animation rendering, physics, save profiles, auth flows, achievements, Hub UI |
-| [`js/admin.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/admin.js) | 2,366 | 104.8 | Admin Console client controller (Supabase RPC + local server fallback, pagination, requests, logs, CRUD) |
+| [`index.html`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.html) | 593 | 39.7 | Main player SPA shell (Auth, Quest Hub, Practice, Battle Canvas, Tracker, Maps, Skill Tree, Settings) |
+| [`index.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/index.js) | 12,081 | 493.2 | Game loop, 16-room engine, sprite/animation rendering, physics, save profiles, auth flows, achievements, Hub UI |
+| [`js/admin.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/admin.js) | 2,243 | 97.9 | Admin Console client controller (Supabase RPC + local server fallback, pagination, requests, logs, CRUD) |
 | [`js/arena.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/arena.js) | 101 | 3.3 | Battle arena biome canvas backdrop rendering themes |
 | [`js/audio.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/audio.js) | 974 | 33.2 | Procedural Web Audio synthesizer: SFX + adaptive BGM (ambient explore, chiptune-rock battle, complextro-classical boss) |
 | [`js/cards.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/cards.js) | 220 | 14.4 | CARD_LIBRARY definitions, mana costs, dynamic damage/buff descriptions, and card role metadata |
@@ -363,7 +368,7 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 | [`js/utils.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/js/utils.js) | 30 | 0.6 | Shared collision polygon, array, and canvas helper utilities |
 | [`scripts/build-questions.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/scripts/build-questions.js) | 109 | 4.3 | Validates data/questions.json schema/coverage, compiles js/data/questions.js, and triggers doc sync |
 | [`serve-local.cmd`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/serve-local.cmd) | 5 | 0.1 | Windows one-click launcher for serve-local.ps1 |
-| [`serve-local.ps1`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/serve-local.ps1) | 2,022 | 92.1 | Zero-dependency PowerShell HTTP server with PBKDF2-SHA256 Auth API, Admin API, and LAN 1v1 Multiplayer API |
+| [`serve-local.ps1`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/serve-local.ps1) | 2,158 | 100.4 | Zero-dependency PowerShell HTTP server with PBKDF2-SHA256 Auth API, Admin API, and LAN 1v1 Multiplayer API |
 | [`supabase-config.js`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase-config.js) | 5 | 0.1 | Supabase project URL and publishable/anon key configuration |
 | [`supabase/migration-1v1-leaderboard.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-1v1-leaderboard.sql) | 235 | 10.4 | Supabase SQL schema / migration script |
 | [`supabase/migration-admin-console.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-admin-console.sql) | 849 | 35.0 | Supabase SQL schema / migration script |
@@ -373,6 +378,7 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 | [`supabase/migration-password-auth.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-password-auth.sql) | 634 | 21.3 | Supabase SQL schema / migration script |
 | [`supabase/migration-profile-pin.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-profile-pin.sql) | 164 | 5.0 | Supabase SQL schema / migration script |
 | [`supabase/migration-rate-limiting.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-rate-limiting.sql) | 490 | 17.2 | Supabase SQL schema / migration script |
+| [`supabase/migration-security-questions.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-security-questions.sql) | 569 | 22.7 | Supabase SQL schema / migration script |
 | [`supabase/migration-security-safety.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-security-safety.sql) | 423 | 16.4 | Supabase SQL schema / migration script |
 | [`supabase/migration-unique-username-no-password.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/migration-unique-username-no-password.sql) | 243 | 7.2 | Supabase SQL schema / migration script |
 | [`supabase/schema.sql`](file:///C:/Users/brend/Downloads/kings-and-pigs-main%20(2)/bytebound/supabase/schema.sql) | 493 | 18.0 | Supabase SQL schema / migration script |
@@ -404,44 +410,44 @@ Designed for readable, instructor-friendly operation with **Auto (`Cloud DB → 
 <!-- AUTO:START:revisions -->
 | Timestamp | Trigger | Changed Areas / Files | Revision Summary |
 | :--- | :--- | :--- | :--- |
+| `2026-11-28 17:05:02` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 17:05:00` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
+| `2026-11-28 17:04:49` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 17:04:47` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 17:04:38` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 17:04:35` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 17:04:21` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 17:04:16` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 17:03:52` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 17:03:49` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 17:03:29` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
+| `2026-11-28 17:03:27` | `agent-edit` | Auth, Backend & SQL Schema (`supabase/migration-security-questions.sql`) | Auto-synced after agent update to `supabase/migration-security-questions.sql`. |
+| `2026-11-28 17:03:25` | `agent-edit` | Auth, Backend & SQL Schema (`serve-local.ps1`) | Auto-synced after agent update to `serve-local.ps1`. |
+| `2026-11-28 16:49:35` | `manual` | Documentation Sync | Fix startup TDZ crash (thirdSecQEnabled) that blocked login screen interactions |
+| `2026-11-28 16:48:08` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 16:48:02` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 16:48:00` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 16:33:53` | `manual` | Documentation Sync | Make security recovery question dropdowns mutually exclusive across Sign-Up and Settings |
+| `2026-11-28 16:33:03` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 16:32:36` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 14:18:41` | `manual` | Documentation Sync | Remove SP/Skill Tree button and [U] access outside active runs |
+| `2026-11-28 14:18:24` | `agent-edit` | Documentation/Config (`js/eventListeners.js`) | Auto-synced after agent update to `js/eventListeners.js`. |
+| `2026-11-28 14:18:11` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 14:18:01` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 13:59:56` | `manual` | Documentation Sync | Replace admin password resets with self-service multi-question security recovery and remove admin password-change authority |
+| `2026-11-28 13:57:44` | `agent-edit` | Documentation/Config (`CHANGES.md`) | Auto-synced after agent update to `CHANGES.md`. |
+| `2026-11-28 13:57:36` | `agent-edit` | Documentation/Config (`SUPABASE_SETUP.md`) | Auto-synced after agent update to `SUPABASE_SETUP.md`. |
+| `2026-11-28 13:55:27` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
+| `2026-11-28 13:54:03` | `agent-edit` | Admin Console (`js/admin.js`) | Auto-synced after agent update to `js/admin.js`. |
+| `2026-11-28 13:53:48` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
+| `2026-11-28 13:53:23` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
+| `2026-11-28 13:53:17` | `agent-edit` | Admin Console (`admin.html`) | Auto-synced after agent update to `admin.html`. |
+| `2026-11-28 13:52:47` | `agent-edit` | Auth, Backend & SQL Schema (`serve-local.ps1`) | Auto-synced after agent update to `serve-local.ps1`. |
+| `2026-11-28 13:52:44` | `agent-edit` | Auth, Backend & SQL Schema (`supabase/migration-security-questions.sql`) | Auto-synced after agent update to `supabase/migration-security-questions.sql`. |
+| `2026-11-28 13:09:52` | `manual` | Documentation Sync | Revised Capstone Chapters 1-5 manuscripts to align with all live BYTEBOUND features (420Q/7 disciplines, Admin Console, password auth, Overclock Tree, Hit-Shields, Quests, 54 achievements) |
+| `2026-11-28 13:06:48` | `agent-edit` | Documentation/Config (`CHANGES.md`) | Auto-synced after agent update to `CHANGES.md`. |
+| `2026-11-28 12:26:59` | `manual` | Documentation Sync | Integrated Chapter 1 preliminary needs assessment (N=49) and ISO/IEC 25010 Actual User evaluation (N=67) into capstone manuscripts |
+| `2026-11-28 12:26:17` | `agent-edit` | Documentation/Config (`CHANGES.md`) | Auto-synced after agent update to `CHANGES.md`. |
 | `2026-11-28 01:39:49` | `manual` | Documentation Sync | Base Blood Hint cost on Max HP and require strictly more HP than cost |
 | `2026-11-28 01:39:35` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
-| `2026-11-28 01:39:17` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-28 01:39:14` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
-| `2026-11-28 01:38:50` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-28 01:38:45` | `agent-edit` | Guided Tutorials (`js/tutorials.js`) | Auto-synced after agent update to `js/tutorials.js`. |
-| `2026-11-28 01:38:38` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
-| `2026-11-28 01:29:30` | `manual` | Documentation Sync | Move Overclock Mastery into dedicated Overclock Skill Tree page unlocked via maxed-route portal button |
-| `2026-11-28 01:29:15` | `agent-edit` | Documentation/Config (`CHANGES.md`) | Auto-synced after agent update to `CHANGES.md`. |
-| `2026-11-28 01:28:14` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
-| `2026-11-28 01:25:29` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
-| `2026-11-28 01:25:06` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-28 01:12:59` | `manual` | Documentation Sync | Align Kernel Aegis battle card description with 1-5 Hit-Shield passive/active |
-| `2026-11-28 01:12:42` | `agent-edit` | Combat & Exclusive Skills (`js/cards.js`) | Auto-synced after agent update to `js/cards.js`. |
-| `2026-11-28 01:06:54` | `manual` | Documentation Sync | Add progressive SP pacing, Overclock Mastery sink, and 1-5 Hit-Shield bar with Kernel Aegis passive |
-| `2026-11-28 01:06:28` | `agent-edit` | Documentation/Config (`CHANGES.md`) | Auto-synced after agent update to `CHANGES.md`. |
-| `2026-11-28 00:59:19` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
-| `2026-11-28 00:59:15` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-28 00:58:53` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
-| `2026-11-28 00:58:50` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
-| `2026-11-28 00:58:47` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-28 00:58:21` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
-| `2026-11-28 00:58:18` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-28 00:57:59` | `agent-edit` | Core Engine & Hub (`index.js`) | Auto-synced after agent update to `index.js`. |
-| `2026-11-28 00:57:56` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-28 00:55:21` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
-| `2026-11-28 00:54:57` | `agent-edit` | Documentation Sync | Auto-synced after agent update to `js/combat.js`. |
-| `2026-11-28 00:52:59` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
-| `2026-11-28 00:52:54` | `agent-edit` | Combat & Exclusive Skills (`js/cards.js`) | Auto-synced after agent update to `js/cards.js`. |
-| `2026-11-28 00:05:38` | `manual` | Documentation Sync | Avoid splitting Blood Hint redaction tag on truncation |
-| `2026-11-28 00:05:29` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
-| `2026-11-28 00:02:59` | `manual` | Documentation Sync | Fix PIXEL_LOCK_SVG declaration order & duplicate missedInBattle key, remove redundant MP label beside Mana, and redesign Quests UI to be minimalistic and uncramped |
-| `2026-11-28 00:02:08` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
-| `2026-11-28 00:01:48` | `agent-edit` | Documentation/Config (`js/quests.js`) | Auto-synced after agent update to `js/quests.js`. |
-| `2026-11-28 00:01:00` | `agent-edit` | UI Shell & Styling (`css/styles.css`) | Auto-synced after agent update to `css/styles.css`. |
-| `2026-11-28 00:00:49` | `agent-edit` | Documentation/Config (`js/quests.js`) | Auto-synced after agent update to `js/quests.js`. |
-| `2026-11-28 00:00:46` | `agent-edit` | Documentation Sync | Auto-synced after agent update to `js/quests.js`. |
-| `2026-11-28 00:00:43` | `agent-edit` | Documentation/Config (`js/quests.js`) | Auto-synced after agent update to `js/quests.js`. |
-| `2026-11-27 23:59:12` | `agent-edit` | UI Shell & Styling (`index.html`) | Auto-synced after agent update to `index.html`. |
-| `2026-11-27 23:59:09` | `agent-edit` | Combat & Exclusive Skills (`js/combat.js`) | Auto-synced after agent update to `js/combat.js`. |
 <!-- AUTO:END:revisions -->
